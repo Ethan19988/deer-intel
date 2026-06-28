@@ -1,13 +1,80 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Deer Intel</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="app"></div>
+  <div id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <h1>🦌 Deer Intel</h1>
+      <p>Hunt Smarter. Learn More.</p>
+
+      <input id="username" placeholder="Username" />
+      <input id="password" type="password" placeholder="Password" />
+
+      <button onclick="login()">Sign In</button>
+      <small>Demo login: Ethan1998 / Luna2020</small>
+    </div>
+  </div>
+
+  <div id="app" class="app hidden">
+    <header>
+      <h2>🦌 Deer Intel</h2>
+      <button onclick="logout()">Logout</button>
+    </header>
+
+    <main>
+      <section class="panel">
+        <h3>Property</h3>
+        <select id="propertySelect">
+          <option>Finley Run</option>
+          <option>Moore Hill</option>
+        </select>
+
+        <button onclick="locateUser()">📍 Use My Location</button>
+
+        <h3>Add Pin</h3>
+        <select id="pinType">
+          <option>Trail Camera</option>
+          <option>Treestand</option>
+          <option>Scrape</option>
+          <option>Rub</option>
+          <option>Buck Sighting</option>
+          <option>Doe Sighting</option>
+          <option>Vegetation</option>
+          <option>Bedding Area</option>
+          <option>Food Source</option>
+          <option>Water Source</option>
+          <option>Access Route</option>
+          <option>Parking</option>
+        </select>
+
+        <input id="pinName" placeholder="Pin name or notes" />
+        <button onclick="enablePinDrop()">Drop Next Pin</button>
+
+        <h3>AI Scout</h3>
+        <textarea id="aiQuestion" placeholder="Ask: What stand should I hunt tonight?"></textarea>
+        <button onclick="askScout()">Ask AI Scout</button>
+        <div id="aiAnswer" class="ai-box">AI Scout is ready.</div>
+      </section>
+
+      <section class="map-wrap">
+        <div id="map"></div>
+      </section>
+
+      <section class="panel">
+        <h3>Saved Pins</h3>
+        <div id="pinList"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
