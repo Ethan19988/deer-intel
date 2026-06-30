@@ -1,0 +1,168 @@
+# Deer Intel - Project Architecture
+
+## Mission
+
+Deer Intel is a long-term hunting intelligence platform designed to help hunters make better decisions through data.
+
+The application combines:
+
+* Property management
+* Trail camera management
+* Stand management
+* Hunt logging
+* Mapping
+* GPS
+* Weather
+* Wind
+* AI analysis
+
+The goal is to build a system that becomes smarter over multiple hunting seasons.
+
+---
+
+# Technology
+
+Framework
+
+* Next.js 16
+* React
+* TypeScript
+
+Future
+
+* Local Storage
+* IndexedDB (optional)
+* Cloud Sync
+* AI recommendations
+
+---
+
+# Folder Structure
+
+app/
+
+* dashboard
+* properties
+* cameras
+* stands
+* hunt-log
+* ai-scout
+* map
+
+components/
+
+* buttons
+* cards
+* forms
+* layout
+* map
+
+lib/
+
+* storage
+* weather
+* utilities
+* analytics
+
+hooks/
+
+* reusable React hooks
+
+types/
+
+* shared TypeScript interfaces
+
+data/
+
+* default data
+* demo data
+
+---
+
+# Core Data Models
+
+## Property
+
+* id
+* name
+* county
+* acres
+* notes
+
+## Camera
+
+* id
+* propertyId
+* name
+* latitude
+* longitude
+* active
+* battery
+* sdCard
+* lastChecked
+
+## Stand
+
+* id
+* propertyId
+* name
+* type
+* latitude
+* longitude
+* height
+* accessNotes
+* windRestrictions
+
+## Hunt
+
+* id
+* propertyId
+* standId
+* date
+* weather
+* temperature
+* windDirection
+* windSpeed
+* moonPhase
+* deerSeen
+* notes
+
+---
+
+# Development Rules
+
+Always:
+
+* Read AGENTS.md before working.
+* Read ROADMAP.md before adding features.
+* Make small, safe changes.
+* Keep components reusable.
+* Use TypeScript.
+* Verify the project builds.
+* Explain every modified file.
+* Never commit unless instructed.
+
+---
+
+# Long-Term AI Vision
+
+The AI Scout should eventually analyze:
+
+* Historical hunts
+* Wind
+* Weather
+* Camera history
+* Deer sightings
+* Buck movement
+* Seasonal timing
+* Moon phase
+* Property characteristics
+
+to recommend:
+
+* Best property
+* Best stand
+* Best entry route
+* Best hunt time
+* Confidence score
+* Reasoning
