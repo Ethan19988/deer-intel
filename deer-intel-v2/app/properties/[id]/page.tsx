@@ -2,8 +2,17 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import type { CSSProperties } from "react";
-import { useDeerIntelStore } from "@/lib/deerIntelStore";
+import { useState, type CSSProperties } from "react";
+import CameraCard from "@/components/cameras/CameraCard";
+import CameraForm, {
+  type CameraFormValues,
+} from "@/components/cameras/CameraForm";
+import {
+  createDeerIntelId,
+  updateDeerIntelStore,
+  useDeerIntelStore,
+} from "@/lib/deerIntelStore";
+import type { Camera } from "@/types/camera";
 
 type WorkspaceIconName =
   | "overview"
@@ -19,6 +28,25 @@ type WorkspaceCard = {
   title: string;
   description: string;
   icon: WorkspaceIconName;
+  status?: "Available" | "Coming Soon";
+};
+
+const EMPTY_CAMERA_FORM_VALUES: CameraFormValues = {
+  name: "",
+  cameraType: "Standard",
+  manufacturer: "",
+  model: "",
+  status: "Active",
+  latitude: "",
+  longitude: "",
+  locationNotes: "",
+  batteryPercent: "",
+  sdCardPercent: "",
+  signalStrength: "",
+  carrier: "",
+  lastChecked: "",
+  lastTransmission: "",
+  notes: "",
 };
 
 const WORKSPACE_CARDS: WorkspaceCard[] = [
@@ -37,8 +65,9 @@ const WORKSPACE_CARDS: WorkspaceCard[] = [
   {
     title: "Cameras",
     description:
-      "Trail camera locations, status, checks, and deer movement history will be organized here.",
+      "Add and monitor property-specific trail cameras, card checks, battery status, and notes.",
     icon: "cameras",
+    status: "Available",
   },
   {
     title: "Stands",
@@ -74,8 +103,66 @@ const WORKSPACE_CARDS: WorkspaceCard[] = [
 
 export default function PropertyWorkspacePage() {
   const params = useParams<{ id: string }>();
-  const { properties } = useDeerIntelStore();
+  const { cameras, properties } = useDeerIntelStore();
   const property = properties.find((item) => item.id === params.id);
+  const propertyCameras = cameras.filter(
+    (camera) => camera.propertyId === params.id,
+  );
+  const [cameraValues, setCameraValues] = useState<CameraFormValues>(
+    EMPTY_CAMERA_FORM_VALUES,
+  );
+  const [editingCameraId, setEditingCameraId] = useState<string | null>(null);
+  const [editCameraValues, setEditCameraValues] = useState<CameraFormValues>(
+    EMPTY_CAMERA_FORM_VALUES,
+  );
+
+  function addCamera() {
+    if (!property) return;
+
+    const newCamera = createCameraFromValues({
+      id: createDeerIntelId("camera"),
+      propertyId: property.id,
+      values: cameraValues,
+    });
+
+    if (!newCamera) return;
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      cameras: [...currentState.cameras, newCamera],
+    }));
+    setCameraValues(EMPTY_CAMERA_FORM_VALUES);
+  }
+
+  function startEditingCamera(camera: Camera) {
+    setEditingCameraId(camera.id);
+    setEditCameraValues(cameraToFormValues(camera));
+  }
+
+  function cancelEditingCamera() {
+    setEditingCameraId(null);
+    setEditCameraValues(EMPTY_CAMERA_FORM_VALUES);
+  }
+
+  function saveEditedCamera() {
+    if (!property || editingCameraId === null) return;
+
+    const updatedCamera = createCameraFromValues({
+      id: editingCameraId,
+      propertyId: property.id,
+      values: editCameraValues,
+    });
+
+    if (!updatedCamera) return;
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      cameras: currentState.cameras.map((camera) =>
+        camera.id === editingCameraId ? updatedCamera : camera,
+      ),
+    }));
+    cancelEditingCamera();
+  }
 
   if (!property) {
     return (
@@ -130,6 +217,59 @@ export default function PropertyWorkspacePage() {
           </div>
         </section>
 
+        <section style={cameraSectionStyle} aria-labelledby="cameras-title">
+          <div style={sectionTitleRowStyle}>
+            <div>
+              <p style={eyebrowStyle}>Property Cameras</p>
+              <h2 id="cameras-title" style={sectionTitleStyle}>
+                Cameras
+              </h2>
+            </div>
+            <span style={availableStatusBadgeStyle}>
+              {propertyCameras.length}{" "}
+              {propertyCameras.length === 1 ? "camera" : "cameras"}
+            </span>
+          </div>
+
+          <div style={cameraFormCardStyle}>
+            <h3 style={subsectionTitleStyle}>Add Camera</h3>
+            <CameraForm
+              values={cameraValues}
+              submitLabel="Add Camera"
+              onChange={setCameraValues}
+              onSubmit={addCamera}
+            />
+          </div>
+
+          {propertyCameras.length === 0 ? (
+            <p style={emptyStateStyle}>
+              No cameras added for this property yet. Add the first camera
+              above to start tracking checks, batteries, SD cards, and notes.
+            </p>
+          ) : (
+            <div style={cameraListStyle}>
+              {propertyCameras.map((camera) => (
+                <div key={camera.id}>
+                  {editingCameraId === camera.id ? (
+                    <div style={editCameraCardStyle}>
+                      <h3 style={subsectionTitleStyle}>Edit Camera</h3>
+                      <CameraForm
+                        values={editCameraValues}
+                        submitLabel="Save Camera"
+                        onChange={setEditCameraValues}
+                        onSubmit={saveEditedCamera}
+                        onCancel={cancelEditingCamera}
+                      />
+                    </div>
+                  ) : (
+                    <CameraCard camera={camera} onEdit={startEditingCamera} />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         <section style={workspaceSectionStyle} aria-labelledby="workspace-title">
           <div style={sectionHeaderStyle}>
             <p style={eyebrowStyle}>Workspace</p>
@@ -145,7 +285,15 @@ export default function PropertyWorkspacePage() {
                   <span style={iconWrapStyle}>
                     <WorkspaceIcon name={card.icon} />
                   </span>
-                  <span style={statusBadgeStyle}>Coming Soon</span>
+                  <span
+                    style={
+                      card.status === "Available"
+                        ? availableStatusBadgeStyle
+                        : statusBadgeStyle
+                    }
+                  >
+                    {card.status ?? "Coming Soon"}
+                  </span>
                 </div>
                 <h3 style={workspaceCardTitleStyle}>{card.title}</h3>
                 <p style={workspaceCardDescriptionStyle}>{card.description}</p>
@@ -156,6 +304,86 @@ export default function PropertyWorkspacePage() {
       </div>
     </main>
   );
+}
+
+function createCameraFromValues({
+  id,
+  propertyId,
+  values,
+}: {
+  id: string;
+  propertyId: string;
+  values: CameraFormValues;
+}): Camera | null {
+  const name = values.name.trim();
+
+  if (!name) return null;
+
+  const cameraType = values.cameraType;
+
+  return {
+    id,
+    propertyId,
+    name,
+    cameraType,
+    manufacturer: values.manufacturer.trim(),
+    model: values.model.trim(),
+    status: values.status,
+    latitude: parseOptionalNumber(values.latitude),
+    longitude: parseOptionalNumber(values.longitude),
+    locationNotes: values.locationNotes.trim(),
+    batteryPercent: values.batteryPercent.trim(),
+    sdCardPercent: values.sdCardPercent.trim(),
+    signalStrength:
+      cameraType === "Cellular"
+        ? optionalTrimmedValue(values.signalStrength)
+        : undefined,
+    carrier:
+      cameraType === "Cellular"
+        ? optionalTrimmedValue(values.carrier)
+        : undefined,
+    lastChecked: values.lastChecked,
+    lastTransmission:
+      cameraType === "Cellular"
+        ? optionalTrimmedValue(values.lastTransmission)
+        : undefined,
+    notes: values.notes.trim(),
+  };
+}
+
+function cameraToFormValues(camera: Camera): CameraFormValues {
+  return {
+    name: camera.name,
+    cameraType: camera.cameraType,
+    manufacturer: camera.manufacturer,
+    model: camera.model,
+    status: camera.status,
+    latitude: camera.latitude === undefined ? "" : String(camera.latitude),
+    longitude: camera.longitude === undefined ? "" : String(camera.longitude),
+    locationNotes: camera.locationNotes,
+    batteryPercent: camera.batteryPercent,
+    sdCardPercent: camera.sdCardPercent,
+    signalStrength: camera.signalStrength ?? "",
+    carrier: camera.carrier ?? "",
+    lastChecked: camera.lastChecked,
+    lastTransmission: camera.lastTransmission ?? "",
+    notes: camera.notes,
+  };
+}
+
+function parseOptionalNumber(value: string): number | undefined {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return undefined;
+
+  const parsedValue = Number(trimmedValue);
+
+  return Number.isFinite(parsedValue) ? parsedValue : undefined;
+}
+
+function optionalTrimmedValue(value: string): string | undefined {
+  const trimmedValue = value.trim();
+
+  return trimmedValue ? trimmedValue : undefined;
 }
 
 function WorkspaceIcon({ name }: { name: WorkspaceIconName }) {
@@ -337,6 +565,56 @@ const notesTextStyle: CSSProperties = {
   lineHeight: 1.6,
 };
 
+const cameraSectionStyle: CSSProperties = {
+  marginTop: "1.75rem",
+  padding: "1.25rem",
+  border: "1px solid #243224",
+  borderRadius: "8px",
+  background: "#0d120d",
+};
+
+const sectionTitleRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "1rem",
+  marginBottom: "1rem",
+};
+
+const cameraFormCardStyle: CSSProperties = {
+  padding: "1rem",
+  border: "1px solid #1e2a1e",
+  borderRadius: "8px",
+  background: "#0a0f0a",
+};
+
+const editCameraCardStyle: CSSProperties = {
+  ...cameraFormCardStyle,
+  border: "1px solid #315135",
+};
+
+const subsectionTitleStyle: CSSProperties = {
+  margin: "0 0 1rem",
+  fontSize: "1.05rem",
+  lineHeight: 1.25,
+};
+
+const cameraListStyle: CSSProperties = {
+  display: "grid",
+  gap: "1rem",
+  marginTop: "1rem",
+};
+
+const emptyStateStyle: CSSProperties = {
+  margin: "1rem 0 0",
+  padding: "1rem",
+  border: "1px dashed #334533",
+  borderRadius: "8px",
+  background: "#0a0f0a",
+  color: "#b8c2b6",
+  lineHeight: 1.5,
+};
+
 const workspaceSectionStyle: CSSProperties = {
   marginTop: "1.75rem",
 };
@@ -405,6 +683,13 @@ const statusBadgeStyle: CSSProperties = {
   color: "#c6d5c5",
   fontSize: "0.78rem",
   fontWeight: 700,
+};
+
+const availableStatusBadgeStyle: CSSProperties = {
+  ...statusBadgeStyle,
+  border: "1px solid #3b6843",
+  background: "#18351d",
+  color: "#c6f0c6",
 };
 
 const workspaceCardTitleStyle: CSSProperties = {

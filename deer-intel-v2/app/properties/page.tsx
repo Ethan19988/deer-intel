@@ -127,6 +127,9 @@ export default function PropertiesPage() {
         selectedPropertyId: selectedPropertyExists
           ? currentState.selectedPropertyId
           : nextProperties[0]?.id ?? "",
+        cameras: currentState.cameras.filter(
+          (camera) => camera.propertyId !== propertyToDelete.id,
+        ),
         pins: currentState.pins.filter(
           (pin) => pin.propertyId !== propertyToDelete.id,
         ),
