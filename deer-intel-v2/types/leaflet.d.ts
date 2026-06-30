@@ -1,0 +1,89 @@
+declare module "leaflet" {
+  export type LatLngExpression =
+    | [number, number]
+    | {
+        lat: number;
+        lng: number;
+      };
+
+  export type LatLngBoundsExpression = unknown;
+
+  export interface FitBoundsOptions {
+    [key: string]: unknown;
+  }
+
+  export interface MapOptions {
+    center?: LatLngExpression;
+    zoom?: number;
+    [key: string]: unknown;
+  }
+
+  export class Map {
+    setView(center: LatLngExpression, zoom?: number): this;
+  }
+
+  export class Layer {}
+  export class LayerGroup extends Layer {}
+  export class FeatureGroup extends LayerGroup {}
+  export class Path extends Layer {}
+  export class Circle extends Path {}
+  export class CircleMarker extends Circle {}
+  export class Marker extends Layer {}
+  export class Popup extends Layer {}
+  export class Tooltip extends Layer {}
+  export class TileLayer extends Layer {}
+  export class GridLayer extends Layer {}
+  export class ImageOverlay extends Layer {}
+  export class SVGOverlay extends Layer {}
+  export class VideoOverlay extends Layer {}
+  export class Rectangle extends Path {}
+  export class Polygon extends Path {}
+  export class Polyline extends Path {}
+  export class GeoJSON extends Layer {}
+  export class Evented {}
+
+  export class Control {}
+
+  export namespace Control {
+    class Layers extends Control {}
+  }
+
+  export interface LayerOptions {
+    [key: string]: unknown;
+  }
+
+  export type InteractiveLayerOptions = LayerOptions;
+  export type PathOptions = InteractiveLayerOptions;
+  export type PolylineOptions = PathOptions;
+  export type CircleOptions = PathOptions;
+  export type CircleMarkerOptions = CircleOptions;
+  export type MarkerOptions = InteractiveLayerOptions;
+  export type PopupOptions = LayerOptions;
+  export type TooltipOptions = LayerOptions;
+  export interface TileLayerOptions extends LayerOptions {
+    attribution?: string;
+  }
+  export type GridLayerOptions = LayerOptions;
+  export type ImageOverlayOptions = LayerOptions;
+  export type VideoOverlayOptions = LayerOptions;
+  export type GeoJSONOptions = LayerOptions;
+  export type WMSOptions = TileLayerOptions;
+  export interface WMSParams {
+    [key: string]: unknown;
+  }
+  export interface ControlOptions {
+    position?: string;
+  }
+
+  export interface LeafletMouseEvent {
+    latlng: {
+      lat: number;
+      lng: number;
+    };
+  }
+
+  export interface LeafletEventHandlerFnMap {
+    click?: (event: LeafletMouseEvent) => void;
+    [eventName: string]: ((event: LeafletMouseEvent) => void) | undefined;
+  }
+}
