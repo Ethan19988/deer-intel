@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { readStorageValue, writeStorageValue } from "@/lib/storage";
+import type { Camera, CameraStatus, CameraType } from "@/types/camera";
 import type { Property } from "@/types/property";
 
 export const PIN_TYPES = [
@@ -45,6 +46,7 @@ export type DeerIntelState = {
   version: 1;
   properties: Property[];
   selectedPropertyId: string;
+  cameras: Camera[];
   pins: MapPin[];
   hunts: HuntLogEntry[];
 };
@@ -73,6 +75,7 @@ const DEFAULT_STATE: DeerIntelState = {
   version: 1,
   properties: DEFAULT_PROPERTIES,
   selectedPropertyId: DEFAULT_PROPERTIES[0]?.id ?? "",
+  cameras: [],
   pins: [],
   hunts: [],
 };
@@ -94,6 +97,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function stringValue(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
+}
+
+function optionalStringValue(value: unknown): string | undefined {
+  const text = stringValue(value).trim();
+
+  return text ? text : undefined;
+}
+
+function optionalNumberValue(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return undefined;
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return undefined;
+
+  const parsedValue = Number(trimmedValue);
+
+  return Number.isFinite(parsedValue) ? parsedValue : undefined;
 }
 
 function normalizeProperty(value: unknown): Property | null {
@@ -152,6 +173,59 @@ function normalizePin(value: unknown): MapPin | null {
   };
 }
 
+function normalizeCamera(value: unknown): Camera | null {
+  if (!isRecord(value)) return null;
+
+  const id =
+    typeof value.id === "string" || typeof value.id === "number"
+      ? String(value.id)
+      : "";
+  const propertyId =
+    typeof value.propertyId === "string" || typeof value.propertyId === "number"
+      ? String(value.propertyId)
+      : "";
+  const name = stringValue(value.name).trim();
+  const cameraType: CameraType =
+    value.cameraType === "Cellular" ? "Cellular" : "Standard";
+  const status: CameraStatus =
+    value.status === "Inactive" ? "Inactive" : "Active";
+
+  if (!id || !propertyId || !name) return null;
+
+  return {
+    id,
+    propertyId,
+    name,
+    cameraType,
+    manufacturer: stringValue(value.manufacturer),
+    model: stringValue(value.model),
+    status,
+    latitude: optionalNumberValue(value.latitude ?? value.lat),
+    longitude: optionalNumberValue(value.longitude ?? value.lng),
+    locationNotes: stringValue(value.locationNotes),
+    batteryPercent: stringValue(
+      value.batteryPercent,
+      stringValue(value.battery),
+    ),
+    sdCardPercent: stringValue(value.sdCardPercent, stringValue(value.sdCard)),
+    signalStrength:
+      cameraType === "Cellular"
+        ? optionalStringValue(value.signalStrength)
+        : undefined,
+    carrier:
+      cameraType === "Cellular" ? optionalStringValue(value.carrier) : undefined,
+    lastChecked: stringValue(
+      value.lastChecked,
+      stringValue(value.lastCheckedDate),
+    ),
+    lastTransmission:
+      cameraType === "Cellular"
+        ? optionalStringValue(value.lastTransmission)
+        : undefined,
+    notes: stringValue(value.notes, "No notes yet."),
+  };
+}
+
 function normalizeHunt(value: unknown): HuntLogEntry | null {
   if (!isRecord(value)) return null;
 
@@ -197,6 +271,11 @@ function normalizeState(value: unknown): DeerIntelState | null {
         .map(normalizePin)
         .filter((pin): pin is MapPin => pin !== null)
     : [];
+  const cameras = Array.isArray(value.cameras)
+    ? value.cameras
+        .map(normalizeCamera)
+        .filter((camera): camera is Camera => camera !== null)
+    : [];
   const hunts = Array.isArray(value.hunts)
     ? value.hunts
         .map(normalizeHunt)
@@ -212,6 +291,7 @@ function normalizeState(value: unknown): DeerIntelState | null {
     version: 1,
     properties,
     selectedPropertyId,
+    cameras,
     pins,
     hunts,
   };
