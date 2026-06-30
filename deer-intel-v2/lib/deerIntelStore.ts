@@ -3,53 +3,15 @@
 import { useSyncExternalStore } from "react";
 import { readStorageValue, writeStorageValue } from "@/lib/storage";
 import type { Camera, CameraStatus, CameraType } from "@/types/camera";
+import type { DeerIntelState } from "@/types/deerIntelStore";
+import type { HuntLogEntry } from "@/types/hunt";
+import { PIN_TYPES, type MapPin, type PinType } from "@/types/mapPin";
 import type { Property } from "@/types/property";
 
-export const PIN_TYPES = [
-  "Trail Camera",
-  "Treestand",
-  "Scrape",
-  "Rub",
-  "Buck Sighting",
-  "Doe Sighting",
-  "Vegetation",
-  "Bedding Area",
-  "Food Source",
-  "Water Source",
-  "Parking",
-  "Access Route",
-] as const;
-
-export type PinType = (typeof PIN_TYPES)[number];
-
-export type MapPin = {
-  id: string;
-  propertyId: string;
-  type: PinType;
-  lat: number;
-  lng: number;
-  createdAt: string;
-  notes: string;
-};
-
-export type HuntLogEntry = {
-  id: string;
-  propertyId: string;
-  date: string;
-  stand: string;
-  wind: string;
-  result: string;
-  notes: string;
-};
-
-export type DeerIntelState = {
-  version: 1;
-  properties: Property[];
-  selectedPropertyId: string;
-  cameras: Camera[];
-  pins: MapPin[];
-  hunts: HuntLogEntry[];
-};
+export { PIN_TYPES } from "@/types/mapPin";
+export type { DeerIntelState } from "@/types/deerIntelStore";
+export type { HuntLogEntry } from "@/types/hunt";
+export type { MapPin, PinType } from "@/types/mapPin";
 
 const STORAGE_KEY = "deer-intel:state";
 const LEGACY_PROPERTIES_STORAGE_KEY = "deer-intel:properties";
