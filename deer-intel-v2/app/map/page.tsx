@@ -16,7 +16,7 @@ export default function MapPage() {
         <PageHeader
           eyebrow="Property Map"
           title="Deer Intel Map"
-          description="Tap the map to save cameras, stands, scrapes, rubs, sightings, bedding, food, water, parking, and access routes."
+          description="Switch layers, use GPS, and mark cameras, stands, bedding, food, water, scrapes, rubs, trails, parking, gates, and sightings."
         />
       </Card>
 

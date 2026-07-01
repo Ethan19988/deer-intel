@@ -6,7 +6,18 @@ declare module "leaflet" {
         lng: number;
       };
 
+  export interface LatLng {
+    lat: number;
+    lng: number;
+  }
+
   export type LatLngBoundsExpression = unknown;
+  export type PointExpression =
+    | [number, number]
+    | {
+        x: number;
+        y: number;
+      };
 
   export interface FitBoundsOptions {
     [key: string]: unknown;
@@ -19,7 +30,11 @@ declare module "leaflet" {
   }
 
   export class Map {
+    getCenter(): LatLng;
+    getZoom(): number;
     setView(center: LatLngExpression, zoom?: number): this;
+    zoomIn(delta?: number): this;
+    zoomOut(delta?: number): this;
   }
 
   export class Layer {}
@@ -29,6 +44,7 @@ declare module "leaflet" {
   export class Circle extends Path {}
   export class CircleMarker extends Circle {}
   export class Marker extends Layer {}
+  export class DivIcon {}
   export class Popup extends Layer {}
   export class Tooltip extends Layer {}
   export class TileLayer extends Layer {}
@@ -74,6 +90,17 @@ declare module "leaflet" {
   export interface ControlOptions {
     position?: string;
   }
+
+  export interface DivIconOptions {
+    className?: string;
+    html?: string;
+    iconAnchor?: PointExpression;
+    iconSize?: PointExpression;
+    popupAnchor?: PointExpression;
+    [key: string]: unknown;
+  }
+
+  export function divIcon(options?: DivIconOptions): DivIcon;
 
   export interface LeafletMouseEvent {
     latlng: {
