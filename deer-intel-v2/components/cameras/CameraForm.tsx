@@ -1,4 +1,5 @@
 import type { CSSProperties, FormEvent } from "react";
+import Button from "@/components/ui/Button";
 import type { CameraStatus, CameraType } from "@/types/camera";
 
 export type CameraFormValues = {
@@ -259,13 +260,13 @@ export default function CameraForm({
       </label>
 
       <div style={buttonRowStyle}>
-        <button type="submit" style={submitButtonStyle}>
+        <Button type="submit">
           {submitLabel}
-        </button>
+        </Button>
         {onCancel ? (
-          <button type="button" onClick={onCancel} style={secondaryButtonStyle}>
+          <Button type="button" variant="secondary" onClick={onCancel}>
             Cancel
-          </button>
+          </Button>
         ) : null}
       </div>
     </form>
@@ -303,11 +304,13 @@ const labelStyle: CSSProperties = {
 
 const inputStyle: CSSProperties = {
   width: "100%",
-  padding: "0.75rem",
+  minHeight: "46px",
+  padding: "0.8rem",
   borderRadius: "8px",
   border: "1px solid #2b3a2b",
   background: "#070a07",
   color: "white",
+  fontSize: "1rem",
   lineHeight: 1.4,
 };
 
@@ -315,24 +318,4 @@ const buttonRowStyle: CSSProperties = {
   display: "flex",
   gap: "0.75rem",
   flexWrap: "wrap",
-};
-
-const submitButtonStyle: CSSProperties = {
-  padding: "0.75rem 1rem",
-  borderRadius: "8px",
-  border: "none",
-  background: "#2f6f3e",
-  color: "white",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const secondaryButtonStyle: CSSProperties = {
-  padding: "0.75rem 1rem",
-  borderRadius: "8px",
-  border: "1px solid #444",
-  background: "#1b1b1b",
-  color: "white",
-  fontWeight: "bold",
-  cursor: "pointer",
 };

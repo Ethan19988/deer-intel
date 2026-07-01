@@ -1,4 +1,6 @@
 import type { CSSProperties } from "react";
+import Badge from "@/components/ui/Badge";
+import Card from "@/components/ui/Card";
 import type { AiConfidence } from "@/lib/propertyDashboard";
 import type { Property } from "@/types/property";
 import ScoreCard from "./ScoreCard";
@@ -15,30 +17,30 @@ export default function PropertyHeader({
   aiConfidence,
 }: PropertyHeaderProps) {
   return (
-    <header id="overview" style={heroStyle}>
-      <div style={heroTextStyle}>
-        <p style={eyebrowStyle}>Property Intelligence Dashboard</p>
-        <h1 style={pageTitleStyle}>{property.name}</h1>
-        <div style={propertyFactsStyle}>
-          <span>{property.county}</span>
-          <span>{property.acres} acres</span>
+    <Card as="section" id="overview" variant="elevated" style={heroStyle}>
+      <div style={headerTextStyle}>
+        <div style={badgeRowStyle}>
+          <Badge variant="success">Property Home</Badge>
+          <Badge>{property.county}</Badge>
+          <Badge>{property.acres} acres</Badge>
         </div>
-        <p style={mutedTextStyle}>{property.notes}</p>
+        <h1 style={titleStyle}>{property.name}</h1>
+        <p style={notesStyle}>{property.notes}</p>
       </div>
 
       <div style={scoreGridStyle}>
         <ScoreCard
-          title="Knowledge Score"
+          title="Property Knowledge"
           value={`${knowledgeScore}%`}
-          description="Measures how much useful property data has been captured."
+          description="How much useful field information has been saved."
         />
         <ScoreCard
-          title="AI Confidence"
+          title="Scout Confidence"
           value={aiConfidence.label}
           description={aiConfidence.description}
         />
       </div>
-    </header>
+    </Card>
   );
 }
 
@@ -47,52 +49,42 @@ const heroStyle: CSSProperties = {
   flexWrap: "wrap",
   alignItems: "stretch",
   justifyContent: "space-between",
-  gap: "1rem",
+  gap: "1.25rem",
   marginTop: "1rem",
   padding: "1.5rem",
-  border: "1px solid #243224",
-  borderRadius: "8px",
   background: "#0d120d",
-  boxShadow: "0 18px 45px rgba(0, 0, 0, 0.24)",
 };
 
-const heroTextStyle: CSSProperties = {
-  flex: "1 1 420px",
+const headerTextStyle: CSSProperties = {
+  flex: "1 1 440px",
+  minWidth: 0,
 };
 
-const eyebrowStyle: CSSProperties = {
-  margin: 0,
-  color: "#85a984",
-  fontSize: "0.78rem",
-  fontWeight: 700,
-  letterSpacing: 0,
-  textTransform: "uppercase",
-};
-
-const pageTitleStyle: CSSProperties = {
-  margin: "0.25rem 0 0",
-  fontSize: "2.35rem",
-  lineHeight: 1.1,
-};
-
-const propertyFactsStyle: CSSProperties = {
+const badgeRowStyle: CSSProperties = {
   display: "flex",
-  gap: "0.75rem",
   flexWrap: "wrap",
-  marginTop: "0.85rem",
-  color: "#c6d5c5",
-  fontWeight: 700,
+  gap: "0.5rem",
 };
 
-const mutedTextStyle: CSSProperties = {
-  maxWidth: "720px",
-  margin: "0.85rem 0 0",
-  color: "#b8c2b6",
-  lineHeight: 1.6,
+const titleStyle: CSSProperties = {
+  margin: "1rem 0 0",
+  color: "#f1f5ef",
+  fontSize: "3rem",
+  lineHeight: 1,
+  fontWeight: 850,
+};
+
+const notesStyle: CSSProperties = {
+  maxWidth: "760px",
+  margin: "1rem 0 0",
+  color: "#c7d0c5",
+  fontSize: "1.08rem",
+  lineHeight: 1.65,
 };
 
 const scoreGridStyle: CSSProperties = {
   display: "grid",
-  gap: "0.75rem",
-  flex: "1 1 280px",
+  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gap: "1rem",
+  flex: "1 1 360px",
 };

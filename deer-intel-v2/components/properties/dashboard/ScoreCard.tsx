@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import Card from "@/components/ui/Card";
 
 type ScoreCardProps = {
   title: string;
@@ -12,18 +13,16 @@ export default function ScoreCard({
   description,
 }: ScoreCardProps) {
   return (
-    <article style={scoreCardStyle}>
+    <Card style={scoreCardStyle}>
       <p style={labelStyle}>{title}</p>
       <p style={valueStyle}>{value}</p>
       <p style={descriptionStyle}>{description}</p>
-    </article>
+    </Card>
   );
 }
 
 const scoreCardStyle: CSSProperties = {
-  padding: "1rem",
-  border: "1px solid #243224",
-  borderRadius: "8px",
+  minHeight: "150px",
   background: "#0a0f0a",
 };
 
@@ -37,7 +36,7 @@ const labelStyle: CSSProperties = {
 const valueStyle: CSSProperties = {
   margin: "0.35rem 0 0",
   color: "#f1f5ef",
-  fontSize: "2rem",
+  fontSize: "2.2rem",
   fontWeight: 800,
   lineHeight: 1.1,
 };
@@ -45,5 +44,6 @@ const valueStyle: CSSProperties = {
 const descriptionStyle: CSSProperties = {
   margin: "0.55rem 0 0",
   color: "#b8c2b6",
+  fontSize: "0.98rem",
   lineHeight: 1.5,
 };

@@ -2,11 +2,16 @@
 
 import { useSyncExternalStore } from "react";
 import { readStorageValue, writeStorageValue } from "@/lib/storage";
+import { normalizeWeatherSnapshot } from "@/lib/weather";
 import type { Camera, CameraStatus, CameraType } from "@/types/camera";
+import type { CameraCheck } from "@/types/cameraCheck";
+import type { DeerProfile } from "@/types/deerProfile";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 import type { HuntLogEntry } from "@/types/hunt";
 import { PIN_TYPES, type MapPin, type PinType } from "@/types/mapPin";
+import type { PhotoRecord } from "@/types/photo";
 import type { Property } from "@/types/property";
+import { STAND_TYPES, type Stand, type StandType } from "@/types/stand";
 
 export { PIN_TYPES } from "@/types/mapPin";
 export type { DeerIntelState } from "@/types/deerIntelStore";
@@ -38,8 +43,12 @@ const DEFAULT_STATE: DeerIntelState = {
   properties: DEFAULT_PROPERTIES,
   selectedPropertyId: DEFAULT_PROPERTIES[0]?.id ?? "",
   cameras: [],
+  cameraChecks: [],
+  stands: [],
   pins: [],
   hunts: [],
+  photoRecords: [],
+  deerProfiles: [],
 };
 
 const listeners = new Set<() => void>();
@@ -77,6 +86,31 @@ function optionalNumberValue(value: unknown): number | undefined {
   const parsedValue = Number(trimmedValue);
 
   return Number.isFinite(parsedValue) ? parsedValue : undefined;
+}
+
+function countValue(value: unknown): number {
+  const parsedValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value.trim())
+        : 0;
+
+  if (!Number.isFinite(parsedValue) || parsedValue < 0) return 0;
+
+  return Math.floor(parsedValue);
+}
+
+function booleanValue(value: unknown, fallback = false): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") return fallback;
+
+  const normalizedValue = value.trim().toLowerCase();
+
+  if (["true", "yes", "y"].includes(normalizedValue)) return true;
+  if (["false", "no", "n"].includes(normalizedValue)) return false;
+
+  return fallback;
 }
 
 function normalizeProperty(value: unknown): Property | null {
@@ -188,6 +222,82 @@ function normalizeCamera(value: unknown): Camera | null {
   };
 }
 
+function normalizeCameraCheck(value: unknown): CameraCheck | null {
+  if (!isRecord(value)) return null;
+
+  const id =
+    typeof value.id === "string" || typeof value.id === "number"
+      ? String(value.id)
+      : "";
+  const propertyId =
+    typeof value.propertyId === "string" || typeof value.propertyId === "number"
+      ? String(value.propertyId)
+      : "";
+  const cameraId =
+    typeof value.cameraId === "string" || typeof value.cameraId === "number"
+      ? String(value.cameraId)
+      : "";
+  const date = stringValue(value.date).trim();
+
+  if (!id || !propertyId || !cameraId || !date) return null;
+
+  return {
+    id,
+    propertyId,
+    cameraId,
+    date,
+    batteryPercent: stringValue(value.batteryPercent),
+    sdCardPercent: stringValue(value.sdCardPercent),
+    signalStrength: optionalStringValue(value.signalStrength),
+    weatherSnapshot: normalizeWeatherSnapshot(value.weatherSnapshot, {
+      temperature: stringValue(value.temperature),
+      windDirection: stringValue(value.windDirection, stringValue(value.wind)),
+      windSpeed: stringValue(value.windSpeed),
+      conditions: stringValue(value.weather, stringValue(value.conditions)),
+      moonPhase: stringValue(value.moonPhase),
+    }),
+    bucks: countValue(value.bucks),
+    does: countValue(value.does),
+    fawns: countValue(value.fawns),
+    turkeys: countValue(value.turkeys),
+    bears: countValue(value.bears),
+    coyotes: countValue(value.coyotes),
+    otherWildlife: stringValue(value.otherWildlife),
+    notes: stringValue(value.notes),
+  };
+}
+
+function normalizeStand(value: unknown): Stand | null {
+  if (!isRecord(value)) return null;
+
+  const id =
+    typeof value.id === "string" || typeof value.id === "number"
+      ? String(value.id)
+      : "";
+  const propertyId =
+    typeof value.propertyId === "string" || typeof value.propertyId === "number"
+      ? String(value.propertyId)
+      : "";
+  const name = stringValue(value.name).trim();
+  const standType = STAND_TYPES.includes(value.standType as StandType)
+    ? (value.standType as StandType)
+    : "Other";
+
+  if (!id || !propertyId || !name) return null;
+
+  return {
+    id,
+    propertyId,
+    name,
+    standType,
+    bestWinds: stringValue(value.bestWinds),
+    avoidWinds: stringValue(value.avoidWinds),
+    accessRouteNotes: stringValue(value.accessRouteNotes),
+    exitRouteNotes: stringValue(value.exitRouteNotes),
+    notes: stringValue(value.notes, "No notes yet."),
+  };
+}
+
 function normalizeHunt(value: unknown): HuntLogEntry | null {
   if (!isRecord(value)) return null;
 
@@ -199,16 +309,136 @@ function normalizeHunt(value: unknown): HuntLogEntry | null {
     typeof value.propertyId === "string" || typeof value.propertyId === "number"
       ? String(value.propertyId)
       : "";
+  const standId =
+    typeof value.standId === "string" || typeof value.standId === "number"
+      ? String(value.standId)
+      : "";
+  const legacyResult = stringValue(value.result);
+  const legacyResultText = legacyResult.toLowerCase();
+  const savedWeatherSnapshot = normalizeWeatherSnapshot(value.weatherSnapshot);
+  const windDirection = stringValue(
+    value.windDirection,
+    stringValue(value.wind, savedWeatherSnapshot.windDirection),
+  );
+  const windSpeed = stringValue(value.windSpeed, savedWeatherSnapshot.windSpeed);
+  const temperature = stringValue(
+    value.temperature,
+    savedWeatherSnapshot.temperature,
+  );
+  const weather = stringValue(value.weather, savedWeatherSnapshot.conditions);
+  const moonPhase = stringValue(
+    value.moonPhase,
+    savedWeatherSnapshot.moonPhase,
+  );
 
   if (!id || !propertyId) return null;
 
   return {
     id,
     propertyId,
+    standId,
+    standName: stringValue(value.standName, stringValue(value.stand)),
     date: stringValue(value.date),
-    stand: stringValue(value.stand),
-    wind: stringValue(value.wind),
-    result: stringValue(value.result),
+    startTime: stringValue(value.startTime),
+    endTime: stringValue(value.endTime),
+    windDirection,
+    windSpeed,
+    temperature,
+    weather,
+    moonPhase,
+    weatherSnapshot: normalizeWeatherSnapshot(value.weatherSnapshot, {
+      temperature,
+      windDirection,
+      windSpeed,
+      conditions: weather,
+      moonPhase,
+    }),
+    bucks: countValue(value.bucks),
+    does: countValue(value.does),
+    fawns: countValue(value.fawns),
+    shotOpportunity: booleanValue(
+      value.shotOpportunity,
+      legacyResultText.includes("shot"),
+    ),
+    harvest: booleanValue(value.harvest, legacyResultText.includes("harvest")),
+    notes: stringValue(value.notes),
+  };
+}
+
+function normalizePhotoRecord(value: unknown): PhotoRecord | null {
+  if (!isRecord(value)) return null;
+
+  const id =
+    typeof value.id === "string" || typeof value.id === "number"
+      ? String(value.id)
+      : "";
+  const propertyId =
+    typeof value.propertyId === "string" || typeof value.propertyId === "number"
+      ? String(value.propertyId)
+      : "";
+  const cameraSiteId =
+    typeof value.cameraSiteId === "string" ||
+    typeof value.cameraSiteId === "number"
+      ? String(value.cameraSiteId)
+      : "";
+  const cameraCheckId =
+    typeof value.cameraCheckId === "string" ||
+    typeof value.cameraCheckId === "number"
+      ? String(value.cameraCheckId)
+      : "";
+  const fileName = stringValue(value.fileName).trim();
+  const photoDate = stringValue(value.photoDate).trim();
+  const species = stringValue(value.species).trim();
+
+  if (
+    !id ||
+    !propertyId ||
+    !cameraSiteId ||
+    !cameraCheckId ||
+    !fileName ||
+    !photoDate ||
+    !species
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    propertyId,
+    cameraSiteId,
+    cameraCheckId,
+    fileName,
+    photoDate,
+    species,
+    deerProfileId: optionalStringValue(value.deerProfileId),
+    buckName: optionalStringValue(value.buckName),
+    notes: stringValue(value.notes),
+    createdAt: stringValue(value.createdAt, photoDate),
+  };
+}
+
+function normalizeDeerProfile(value: unknown): DeerProfile | null {
+  if (!isRecord(value)) return null;
+
+  const id =
+    typeof value.id === "string" || typeof value.id === "number"
+      ? String(value.id)
+      : "";
+  const propertyId =
+    typeof value.propertyId === "string" || typeof value.propertyId === "number"
+      ? String(value.propertyId)
+      : "";
+  const nickname = stringValue(value.nickname).trim();
+
+  if (!id || !propertyId || !nickname) return null;
+
+  return {
+    id,
+    propertyId,
+    nickname,
+    estimatedAge: stringValue(value.estimatedAge),
+    firstSeen: stringValue(value.firstSeen),
+    lastSeen: stringValue(value.lastSeen),
     notes: stringValue(value.notes),
   };
 }
@@ -238,10 +468,30 @@ function normalizeState(value: unknown): DeerIntelState | null {
         .map(normalizeCamera)
         .filter((camera): camera is Camera => camera !== null)
     : [];
+  const cameraChecks = Array.isArray(value.cameraChecks)
+    ? value.cameraChecks
+        .map(normalizeCameraCheck)
+        .filter((check): check is CameraCheck => check !== null)
+    : [];
+  const stands = Array.isArray(value.stands)
+    ? value.stands
+        .map(normalizeStand)
+        .filter((stand): stand is Stand => stand !== null)
+    : [];
   const hunts = Array.isArray(value.hunts)
     ? value.hunts
         .map(normalizeHunt)
         .filter((hunt): hunt is HuntLogEntry => hunt !== null)
+    : [];
+  const photoRecords = Array.isArray(value.photoRecords)
+    ? value.photoRecords
+        .map(normalizePhotoRecord)
+        .filter((photo): photo is PhotoRecord => photo !== null)
+    : [];
+  const deerProfiles = Array.isArray(value.deerProfiles)
+    ? value.deerProfiles
+        .map(normalizeDeerProfile)
+        .filter((profile): profile is DeerProfile => profile !== null)
     : [];
   const selectedPropertyId = properties.some(
     (property) => property.id === value.selectedPropertyId,
@@ -254,8 +504,12 @@ function normalizeState(value: unknown): DeerIntelState | null {
     properties,
     selectedPropertyId,
     cameras,
+    cameraChecks,
+    stands,
     pins,
     hunts,
+    photoRecords,
+    deerProfiles,
   };
 }
 

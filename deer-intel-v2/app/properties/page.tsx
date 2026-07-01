@@ -5,6 +5,12 @@ import PropertyCard from "@/components/properties/PropertyCard";
 import PropertyForm, {
   type PropertyFormValues,
 } from "@/components/properties/PropertyForm";
+import Badge from "@/components/ui/Badge";
+import Card from "@/components/ui/Card";
+import EmptyState from "@/components/ui/EmptyState";
+import PageHeader from "@/components/ui/PageHeader";
+import PageShell from "@/components/ui/PageShell";
+import Section from "@/components/ui/Section";
 import {
   createDeerIntelId,
   updateDeerIntelStore,
@@ -130,11 +136,23 @@ export default function PropertiesPage() {
         cameras: currentState.cameras.filter(
           (camera) => camera.propertyId !== propertyToDelete.id,
         ),
+        cameraChecks: currentState.cameraChecks.filter(
+          (check) => check.propertyId !== propertyToDelete.id,
+        ),
+        stands: currentState.stands.filter(
+          (stand) => stand.propertyId !== propertyToDelete.id,
+        ),
         pins: currentState.pins.filter(
           (pin) => pin.propertyId !== propertyToDelete.id,
         ),
         hunts: currentState.hunts.filter(
           (hunt) => hunt.propertyId !== propertyToDelete.id,
+        ),
+        photoRecords: currentState.photoRecords.filter(
+          (photo) => photo.propertyId !== propertyToDelete.id,
+        ),
+        deerProfiles: currentState.deerProfiles.filter(
+          (profile) => profile.propertyId !== propertyToDelete.id,
         ),
       };
     });
@@ -145,165 +163,75 @@ export default function PropertiesPage() {
   }
 
   return (
-    <main style={pageStyle}>
-      <div style={contentStyle}>
-        <header style={pageHeaderStyle}>
-          <p style={eyebrowStyle}>Property Management</p>
-          <h1 style={pageTitleStyle}>Properties</h1>
-          <p style={pageDescriptionStyle}>
-            Keep each hunting property organized with region, acreage, and field
-            notes that stay saved between browser sessions.
-          </p>
-        </header>
+    <PageShell maxWidth="980px">
+      <PageHeader
+        eyebrow="Property Management"
+        title="Properties"
+        description="Keep each hunting property organized with county, acres, and field notes that stay saved in this browser."
+      />
 
-        <section style={sectionStyle} aria-labelledby="add-property-heading">
-          <div style={sectionHeaderStyle}>
-            <div>
-              <p style={eyebrowStyle}>New Property</p>
-              <h2 id="add-property-heading" style={sectionTitleStyle}>
-                Add Property
-              </h2>
-            </div>
-            <span style={countBadgeStyle}>
+      <Card
+        as="section"
+        variant="elevated"
+        style={addPropertyCardStyle}
+      >
+        <Section
+          eyebrow="New Property"
+          title="Add Property"
+          action={
+            <Badge>
               {propertyCount} {propertyCount === 1 ? "property" : "properties"}
-            </span>
-          </div>
-
+            </Badge>
+          }
+          style={nestedSectionStyle}
+        >
           <PropertyForm
             values={newPropertyValues}
             submitLabel="Add Property"
             onChange={setNewPropertyValues}
             onSubmit={addProperty}
           />
-        </section>
+        </Section>
+      </Card>
 
-        <section
-          style={propertiesSectionStyle}
-          aria-labelledby="your-properties-heading"
-        >
-          <div style={sectionHeaderStyle}>
-            <div>
-              <p style={eyebrowStyle}>Saved Properties</p>
-              <h2 id="your-properties-heading" style={sectionTitleStyle}>
-                Your Properties
-              </h2>
-            </div>
+      <Section
+        id="your-properties-heading"
+        eyebrow="Saved Properties"
+        title="Your Properties"
+      >
+        {properties.length === 0 ? (
+          <EmptyState description="No properties yet. Add your first hunting property above." />
+        ) : (
+          <div style={propertyListStyle}>
+            {properties.map((property) => (
+              <PropertyCard
+                key={property.id}
+                property={property}
+                isEditing={editingPropertyId === property.id}
+                editValues={editValues}
+                onEditValuesChange={setEditValues}
+                onStartEditing={startEditingProperty}
+                onSave={saveEditedProperty}
+                onCancel={cancelEditingProperty}
+                onDelete={deleteProperty}
+              />
+            ))}
           </div>
-
-          {properties.length === 0 ? (
-            <p style={emptyStateStyle}>
-              No properties yet. Add your first hunting property above.
-            </p>
-          ) : (
-            <div style={propertyListStyle}>
-              {properties.map((property) => (
-                <PropertyCard
-                  key={property.id}
-                  property={property}
-                  isEditing={editingPropertyId === property.id}
-                  editValues={editValues}
-                  onEditValuesChange={setEditValues}
-                  onStartEditing={startEditingProperty}
-                  onSave={saveEditedProperty}
-                  onCancel={cancelEditingProperty}
-                  onDelete={deleteProperty}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-    </main>
+        )}
+      </Section>
+    </PageShell>
   );
 }
 
-const pageStyle: CSSProperties = {
-  minHeight: "100vh",
-  padding: "2rem",
-  background: "#050806",
-  color: "white",
-};
-
-const contentStyle: CSSProperties = {
-  width: "100%",
-  maxWidth: "980px",
-  margin: "0 auto",
-};
-
-const pageHeaderStyle: CSSProperties = {
-  marginBottom: "1.5rem",
-};
-
-const pageTitleStyle: CSSProperties = {
-  margin: "0.2rem 0 0",
-  fontSize: "2.25rem",
-  lineHeight: 1.1,
-};
-
-const pageDescriptionStyle: CSSProperties = {
-  maxWidth: "640px",
-  margin: "0.85rem 0 0",
-  color: "#b8c2b6",
-  lineHeight: 1.6,
-};
-
-const sectionStyle: CSSProperties = {
-  padding: "1.25rem",
-  border: "1px solid #243224",
-  borderRadius: "8px",
-  background: "#0d120d",
-  boxShadow: "0 18px 45px rgba(0, 0, 0, 0.24)",
-};
-
-const propertiesSectionStyle: CSSProperties = {
+const addPropertyCardStyle: CSSProperties = {
   marginTop: "1.5rem",
 };
 
-const sectionHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: "1rem",
-  marginBottom: "1rem",
-};
-
-const eyebrowStyle: CSSProperties = {
-  margin: 0,
-  color: "#85a984",
-  fontSize: "0.78rem",
-  fontWeight: 700,
-  letterSpacing: 0,
-  textTransform: "uppercase",
-};
-
-const sectionTitleStyle: CSSProperties = {
-  margin: "0.2rem 0 0",
-  fontSize: "1.25rem",
-  lineHeight: 1.2,
-};
-
-const countBadgeStyle: CSSProperties = {
-  flexShrink: 0,
-  padding: "0.4rem 0.7rem",
-  border: "1px solid #2d402d",
-  borderRadius: "8px",
-  background: "#101a10",
-  color: "#c6d5c5",
-  fontSize: "0.85rem",
-  fontWeight: 700,
+const nestedSectionStyle: CSSProperties = {
+  marginTop: 0,
 };
 
 const propertyListStyle: CSSProperties = {
   display: "grid",
   gap: "1rem",
-};
-
-const emptyStateStyle: CSSProperties = {
-  margin: 0,
-  padding: "1.25rem",
-  border: "1px dashed #334533",
-  borderRadius: "8px",
-  background: "#0d120d",
-  color: "#b8c2b6",
-  lineHeight: 1.5,
 };

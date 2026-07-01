@@ -1,7 +1,7 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import {
   MapContainer,
   Marker,
@@ -17,6 +17,9 @@ import {
   updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
+import Button from "./ui/Button";
+import Card from "./ui/Card";
+import EmptyState from "./ui/EmptyState";
 
 type ClickToAddPinProps = {
   pinType: PinType;
@@ -71,12 +74,13 @@ function LocateButton() {
   }
 
   return (
-    <button
+    <Button
+      type="button"
       onClick={locateUser}
-      className="absolute top-4 right-4 z-[1000] rounded-xl bg-green-700 px-4 py-3 text-white shadow-lg"
+      style={locateButtonStyle}
     >
       Use My Location
-    </button>
+    </Button>
   );
 }
 
@@ -128,12 +132,12 @@ export default function HuntingMap() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl bg-[#172016] border border-green-900 p-4 flex flex-wrap gap-3 items-center">
-        <label className="text-sm text-green-300">
-          Property
+    <div style={mapLayoutStyle}>
+      <Card as="div" style={toolbarStyle}>
+        <label style={fieldStyle}>
+          <span style={labelTextStyle}>Property</span>
           <select
-            className="ml-2 bg-[#263820] border border-green-800 rounded-xl p-2 text-white"
+            style={selectStyle}
             value={selectedPropertyId}
             onChange={(event) => selectProperty(event.target.value)}
           >
@@ -145,10 +149,10 @@ export default function HuntingMap() {
           </select>
         </label>
 
-        <label className="text-sm text-green-300">
-          Pin Type
+        <label style={fieldStyle}>
+          <span style={labelTextStyle}>Pin</span>
           <select
-            className="ml-2 bg-[#263820] border border-green-800 rounded-xl p-2 text-white"
+            style={selectStyle}
             value={pinType}
             onChange={(event) => setPinType(event.target.value as PinType)}
           >
@@ -158,12 +162,12 @@ export default function HuntingMap() {
           </select>
         </label>
 
-        <p className="text-sm text-gray-300">
+        <p style={helpTextStyle}>
           Tap the map to add a pin to {selectedProperty?.name ?? "a property"}.
         </p>
-      </div>
+      </Card>
 
-      <div className="h-[600px] rounded-3xl overflow-hidden border border-green-900">
+      <div style={mapFrameStyle}>
         <MapContainer
           center={[40.9, -77.8]}
           zoom={8}
@@ -198,35 +202,120 @@ export default function HuntingMap() {
         </MapContainer>
       </div>
 
-      <div className="rounded-2xl bg-[#172016] border border-green-900 p-4">
-        <h2 className="text-xl font-semibold">Saved Pins</h2>
-        <p className="text-gray-300 text-sm mt-1">
+      <Card as="section">
+        <h2 style={sectionTitleStyle}>Saved Pins</h2>
+        <p style={helpTextStyle}>
           Pins are saved in this browser for the selected property.
         </p>
 
-        <div className="mt-3 space-y-2">
+        <div style={pinListStyle}>
           {pins.length === 0 && (
-            <p className="text-gray-400">No pins added yet.</p>
+            <EmptyState description="No pins added yet. Tap the map to save the first one." />
           )}
 
           {pins.map((pin) => (
-            <div
-              key={pin.id}
-              className="rounded-xl bg-[#263820] p-3 flex flex-wrap items-center justify-between gap-3"
-            >
+            <div key={pin.id} style={pinRowStyle}>
               <span>
                 {pin.type} - {pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}
               </span>
-              <button
+              <Button
+                type="button"
+                variant="danger"
                 onClick={() => deletePin(pin.id)}
-                className="rounded-lg border border-red-900 bg-[#2b1515] px-3 py-2 text-sm text-red-100"
+                style={deleteButtonStyle}
               >
                 Delete
-              </button>
+              </Button>
             </div>
           ))}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }
+
+const mapLayoutStyle: CSSProperties = {
+  display: "grid",
+  gap: "1rem",
+};
+
+const toolbarStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "1rem",
+  alignItems: "flex-end",
+};
+
+const fieldStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.4rem",
+};
+
+const labelTextStyle: CSSProperties = {
+  color: "#85a984",
+  fontSize: "0.85rem",
+  fontWeight: 700,
+};
+
+const selectStyle: CSSProperties = {
+  minHeight: "46px",
+  minWidth: "190px",
+  padding: "0.7rem",
+  border: "1px solid #2b3a2b",
+  borderRadius: "8px",
+  background: "#070a07",
+  color: "white",
+};
+
+const helpTextStyle: CSSProperties = {
+  margin: 0,
+  color: "#b8c2b6",
+  fontSize: "1rem",
+  lineHeight: 1.5,
+};
+
+const mapFrameStyle: CSSProperties = {
+  height: "600px",
+  overflow: "hidden",
+  border: "1px solid #243224",
+  borderRadius: "8px",
+};
+
+const locateButtonStyle: CSSProperties = {
+  position: "absolute",
+  top: "1rem",
+  right: "1rem",
+  zIndex: 1000,
+  boxShadow: "0 12px 30px rgba(0, 0, 0, 0.3)",
+};
+
+const sectionTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "1.45rem",
+  lineHeight: 1.2,
+};
+
+const pinListStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
+  marginTop: "1rem",
+};
+
+const pinRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "1rem",
+  flexWrap: "wrap",
+  padding: "0.9rem",
+  border: "1px solid #243224",
+  borderRadius: "8px",
+  background: "#0a0f0a",
+  color: "#f1f5ef",
+};
+
+const deleteButtonStyle: CSSProperties = {
+  minHeight: "40px",
+  padding: "0.55rem 0.75rem",
+  fontSize: "0.9rem",
+};

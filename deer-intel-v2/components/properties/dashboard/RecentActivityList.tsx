@@ -1,4 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
+import Badge from "@/components/ui/Badge";
+import Card from "@/components/ui/Card";
 import type { ActivityItem } from "@/lib/propertyDashboard";
 
 type RecentActivityListProps = {
@@ -17,7 +19,7 @@ export default function RecentActivityList({
               <p style={activityTitleStyle}>{activity.title}</p>
               <p style={activityDescriptionStyle}>{activity.description}</p>
             </div>
-            <span style={activityDateStyle}>{activity.dateLabel}</span>
+            <Badge>{activity.dateLabel}</Badge>
           </ActivityRow>
         ))
       ) : (
@@ -26,11 +28,11 @@ export default function RecentActivityList({
             <div>
               <p style={activityTitleStyle}>No activity yet</p>
               <p style={activityDescriptionStyle}>
-                Add camera sites, map pins, stands, or hunts to build this
-                property&apos;s intelligence timeline.
+                Add camera sites, map pins, stands, or hunts to start this
+                property&apos;s field history.
               </p>
             </div>
-            <span style={activityDateStyle}>Waiting</span>
+            <Badge>Waiting</Badge>
           </ActivityRow>
           <ActivityRow>
             <div>
@@ -39,7 +41,7 @@ export default function RecentActivityList({
                 Camera checks and transmissions will appear here.
               </p>
             </div>
-            <span style={activityDateStyle}>Coming Soon</span>
+            <Badge>Coming Soon</Badge>
           </ActivityRow>
         </>
       )}
@@ -48,7 +50,7 @@ export default function RecentActivityList({
 }
 
 function ActivityRow({ children }: { children: ReactNode }) {
-  return <article style={activityRowStyle}>{children}</article>;
+  return <Card style={activityRowStyle}>{children}</Card>;
 }
 
 const activityListStyle: CSSProperties = {
@@ -61,9 +63,6 @@ const activityRowStyle: CSSProperties = {
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: "1rem",
-  padding: "1rem",
-  border: "1px solid #243224",
-  borderRadius: "8px",
   background: "#0d120d",
 };
 
@@ -76,12 +75,6 @@ const activityTitleStyle: CSSProperties = {
 const activityDescriptionStyle: CSSProperties = {
   margin: "0.35rem 0 0",
   color: "#b8c2b6",
+  fontSize: "1rem",
   lineHeight: 1.5,
-};
-
-const activityDateStyle: CSSProperties = {
-  flexShrink: 0,
-  color: "#85a984",
-  fontSize: "0.85rem",
-  fontWeight: 700,
 };
