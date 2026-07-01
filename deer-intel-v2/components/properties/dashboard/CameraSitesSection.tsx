@@ -4,6 +4,9 @@ import CameraForm, {
   type CameraFormValues,
 } from "@/components/cameras/CameraForm";
 import DashboardSection from "@/components/properties/DashboardSection";
+import Badge from "@/components/ui/Badge";
+import Card from "@/components/ui/Card";
+import EmptyState from "@/components/ui/EmptyState";
 import type { Camera } from "@/types/camera";
 
 type CameraSitesSectionProps = {
@@ -34,15 +37,15 @@ export default function CameraSitesSection({
   return (
     <DashboardSection
       id="camera-sites"
-      eyebrow="Property Module"
+      eyebrow="Property Tool"
       title="Camera Sites"
       action={
-        <span style={availableStatusBadgeStyle}>
+        <Badge variant="success" style={availableStatusBadgeStyle}>
           {cameras.length} {cameras.length === 1 ? "camera" : "cameras"}
-        </span>
+        </Badge>
       }
     >
-      <div style={cameraFormCardStyle}>
+      <Card as="div" variant="subtle">
         <h3 style={subsectionTitleStyle}>Add Camera Site</h3>
         <CameraForm
           values={cameraValues}
@@ -50,19 +53,16 @@ export default function CameraSitesSection({
           onChange={onCameraValuesChange}
           onSubmit={onAddCamera}
         />
-      </div>
+      </Card>
 
       {cameras.length === 0 ? (
-        <p style={emptyStateStyle}>
-          No cameras added for this property yet. Add the first camera above to
-          start tracking checks, batteries, SD cards, and notes.
-        </p>
+        <EmptyState description="No cameras added for this property yet. Add the first camera above to start tracking checks, batteries, SD cards, and notes." />
       ) : (
         <div style={cameraListStyle}>
           {cameras.map((camera) => (
             <div key={camera.id}>
               {editingCameraId === camera.id ? (
-                <div style={editCameraCardStyle}>
+                <Card as="div" variant="subtle" style={editCameraCardStyle}>
                   <h3 style={subsectionTitleStyle}>Edit Camera</h3>
                   <CameraForm
                     values={editCameraValues}
@@ -71,7 +71,7 @@ export default function CameraSitesSection({
                     onSubmit={onSaveEditedCamera}
                     onCancel={onCancelEditingCamera}
                   />
-                </div>
+                </Card>
               ) : (
                 <CameraCard camera={camera} onEdit={onStartEditingCamera} />
               )}
@@ -83,15 +83,7 @@ export default function CameraSitesSection({
   );
 }
 
-const cameraFormCardStyle: CSSProperties = {
-  padding: "1rem",
-  border: "1px solid #1e2a1e",
-  borderRadius: "8px",
-  background: "#0a0f0a",
-};
-
 const editCameraCardStyle: CSSProperties = {
-  ...cameraFormCardStyle,
   border: "1px solid #315135",
 };
 
@@ -107,22 +99,6 @@ const cameraListStyle: CSSProperties = {
   marginTop: "1rem",
 };
 
-const emptyStateStyle: CSSProperties = {
-  margin: "1rem 0 0",
-  padding: "1rem",
-  border: "1px dashed #334533",
-  borderRadius: "8px",
-  background: "#0a0f0a",
-  color: "#b8c2b6",
-  lineHeight: 1.5,
-};
-
 const availableStatusBadgeStyle: CSSProperties = {
-  padding: "0.35rem 0.6rem",
-  border: "1px solid #3b6843",
-  borderRadius: "8px",
-  background: "#18351d",
-  color: "#c6f0c6",
   fontSize: "0.78rem",
-  fontWeight: 700,
 };

@@ -106,7 +106,9 @@ export function getRecentActivity({
   const huntActivity = hunts.map((hunt) => ({
     title: "Hunt logged",
     description:
-      [hunt.stand, hunt.result].filter(Boolean).join(" - ") ||
+      [hunt.standName, hunt.harvest ? "Harvest" : "", hunt.windDirection]
+        .filter(Boolean)
+        .join(" - ") ||
       hunt.notes ||
       "Hunt entry saved.",
     dateLabel: formatActivityDate(hunt.date),

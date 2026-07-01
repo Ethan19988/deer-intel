@@ -1,4 +1,8 @@
 import type { CSSProperties } from "react";
+import Link from "next/link";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
 import type { Camera } from "@/types/camera";
 
 type CameraCardProps = {
@@ -11,10 +15,10 @@ export default function CameraCard({ camera, onEdit }: CameraCardProps) {
     camera.latitude !== undefined && camera.longitude !== undefined;
 
   return (
-    <article style={cardStyle}>
+    <Card style={cardStyle}>
       <div style={cardHeaderStyle}>
         <div>
-          <p style={eyebrowStyle}>{camera.cameraType} Camera</p>
+          <p style={eyebrowStyle}>{camera.cameraType} Camera Site</p>
           <h3 style={titleStyle}>{camera.name}</h3>
           <p style={subTextStyle}>
             {[camera.manufacturer, camera.model].filter(Boolean).join(" ") ||
@@ -23,18 +27,23 @@ export default function CameraCard({ camera, onEdit }: CameraCardProps) {
         </div>
 
         <div style={headerActionsStyle}>
-          <span
-            style={
-              camera.status === "Active"
-                ? activeStatusStyle
-                : inactiveStatusStyle
-            }
-          >
+          <Badge variant={camera.status === "Active" ? "success" : "warning"}>
             {camera.status}
-          </span>
-          <button onClick={() => onEdit(camera)} style={secondaryButtonStyle}>
+          </Badge>
+          <Link
+            href={`/properties/${camera.propertyId}/assets/${camera.id}`}
+            style={openSiteLinkStyle}
+          >
+            Open Site
+          </Link>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => onEdit(camera)}
+            style={secondaryButtonStyle}
+          >
             Edit
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -77,7 +86,7 @@ export default function CameraCard({ camera, onEdit }: CameraCardProps) {
         <p style={detailLabelStyle}>Notes</p>
         <p style={detailValueStyle}>{camera.notes || "No notes yet."}</p>
       </div>
-    </article>
+    </Card>
   );
 }
 
@@ -107,9 +116,6 @@ function formatPercent(value: string | undefined) {
 }
 
 const cardStyle: CSSProperties = {
-  padding: "1rem",
-  border: "1px solid #243224",
-  borderRadius: "8px",
   background: "#0a0f0a",
 };
 
@@ -139,7 +145,7 @@ const eyebrowStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: "0.2rem 0 0",
-  fontSize: "1.15rem",
+  fontSize: "1.25rem",
   lineHeight: 1.25,
 };
 
@@ -149,37 +155,25 @@ const subTextStyle: CSSProperties = {
   lineHeight: 1.4,
 };
 
-const statusStyle: CSSProperties = {
-  flexShrink: 0,
-  padding: "0.35rem 0.6rem",
-  borderRadius: "8px",
-  fontSize: "0.78rem",
-  fontWeight: 700,
-};
-
-const activeStatusStyle: CSSProperties = {
-  ...statusStyle,
-  border: "1px solid #3b6843",
-  background: "#18351d",
-  color: "#c6f0c6",
-};
-
-const inactiveStatusStyle: CSSProperties = {
-  ...statusStyle,
-  border: "1px solid #514c31",
-  background: "#272411",
-  color: "#eee1a8",
-};
-
 const secondaryButtonStyle: CSSProperties = {
-  padding: "0.35rem 0.6rem",
+  minHeight: "36px",
+  padding: "0.5rem 0.65rem",
+  fontSize: "0.85rem",
+};
+
+const openSiteLinkStyle: CSSProperties = {
+  display: "inline-flex",
+  minHeight: "36px",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0.5rem 0.65rem",
+  border: "1px solid #3b6843",
   borderRadius: "8px",
-  border: "1px solid #444",
-  background: "#1b1b1b",
+  background: "#18351d",
   color: "white",
-  fontSize: "0.78rem",
-  fontWeight: "bold",
-  cursor: "pointer",
+  fontSize: "0.85rem",
+  fontWeight: 700,
+  textDecoration: "none",
 };
 
 const detailsGridStyle: CSSProperties = {

@@ -1,5 +1,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 import type { Property } from "@/types/property";
 import PropertyForm, { type PropertyFormValues } from "./PropertyForm";
 
@@ -25,7 +27,7 @@ export default function PropertyCard({
   onDelete,
 }: PropertyCardProps) {
   return (
-    <div style={cardStyle}>
+    <Card as="div" style={cardStyle}>
       {isEditing ? (
         <>
           <div style={cardHeaderStyle}>
@@ -60,16 +62,18 @@ export default function PropertyCard({
               </Link>
               <button
                 onClick={() => onStartEditing(property)}
-                style={secondaryButtonStyle}
+                style={{ ...secondaryButtonStyle, ...smallButtonStyle }}
               >
                 Edit
               </button>
-              <button
+              <Button
+                type="button"
+                variant="danger"
                 onClick={() => onDelete(property.id)}
-                style={dangerButtonStyle}
+                style={smallButtonStyle}
               >
                 Delete
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -88,15 +92,11 @@ export default function PropertyCard({
           <p style={notesStyle}>{property.notes}</p>
         </>
       )}
-    </div>
+    </Card>
   );
 }
 
 const cardStyle: CSSProperties = {
-  border: "1px solid #243224",
-  borderRadius: "8px",
-  padding: "1.15rem",
-  background: "#0d120d",
 };
 
 const cardHeaderStyle: CSSProperties = {
@@ -117,7 +117,7 @@ const cardEyebrowStyle: CSSProperties = {
 
 const cardTitleStyle: CSSProperties = {
   margin: "0.2rem 0 0",
-  fontSize: "1.25rem",
+  fontSize: "1.35rem",
   lineHeight: 1.25,
 };
 
@@ -129,11 +129,16 @@ const buttonRowStyle: CSSProperties = {
 };
 
 const secondaryButtonStyle: CSSProperties = {
-  padding: "0.55rem 0.85rem",
+  display: "inline-flex",
+  minHeight: "44px",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0.7rem 0.9rem",
   borderRadius: "8px",
   border: "1px solid #444",
   background: "#1b1b1b",
   color: "white",
+  fontSize: "0.95rem",
   fontWeight: "bold",
   cursor: "pointer",
   textDecoration: "none",
@@ -145,10 +150,9 @@ const openPropertyButtonStyle: CSSProperties = {
   background: "#18351d",
 };
 
-const dangerButtonStyle: CSSProperties = {
-  ...secondaryButtonStyle,
-  border: "1px solid #7f2f2f",
-  color: "#ffb4b4",
+const smallButtonStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0.7rem 0.9rem",
 };
 
 const detailsGridStyle: CSSProperties = {

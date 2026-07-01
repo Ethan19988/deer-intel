@@ -1,21 +1,11 @@
-import Link from "next/link";
+import ComingSoonPage from "@/components/ui/ComingSoonPage";
 
 export default function StandsPage() {
   return (
-    <main className="min-h-screen bg-[#10150f] text-white p-5">
-      <section className="max-w-5xl mx-auto">
-        <Link href="/" className="text-green-300">
-          Back to Dashboard
-        </Link>
-
-        <div className="mt-4 rounded-3xl border border-green-900 bg-[#172016] p-6">
-          <h1 className="text-4xl font-bold">Stands</h1>
-          <p className="mt-3 text-gray-300">
-            Coming soon: treestand locations, best winds, access notes, and hunt
-            history.
-          </p>
-        </div>
-      </section>
-    </main>
+    <ComingSoonPage
+      eyebrow="Stand Sites"
+      title="Stands"
+      description="Stand tools are coming soon. This area will keep stand locations, good winds, access notes, and hunt history simple to read."
+    />
   );
 }
