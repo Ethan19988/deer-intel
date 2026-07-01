@@ -1,16 +1,19 @@
 export const PIN_TYPES = [
   "Trail Camera",
   "Treestand",
-  "Scrape",
-  "Rub",
-  "Buck Sighting",
-  "Doe Sighting",
-  "Vegetation",
   "Bedding Area",
   "Food Source",
   "Water Source",
-  "Parking",
+  "Scrape",
+  "Rub",
+  "Rub Line",
+  "Trail",
   "Access Route",
+  "Parking",
+  "Gate",
+  "Buck Sighting",
+  "Doe Sighting",
+  "Vegetation",
 ] as const;
 
 export type PinType = (typeof PIN_TYPES)[number];
