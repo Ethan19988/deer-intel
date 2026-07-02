@@ -46,7 +46,7 @@ export default function MapPinBox({
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
     >
-      <div style={headerStyle}>
+      <div className="di-map-pin-box-header" style={headerStyle}>
         <div>
           <p style={eyebrowStyle}>Pin Box</p>
           <h3 style={titleStyle}>Place a Pin</h3>
@@ -69,7 +69,7 @@ export default function MapPinBox({
         </div>
       </div>
 
-      <label style={fieldStyle}>
+      <label className="di-map-pin-box-field" style={fieldStyle}>
         <span style={labelStyle}>Select Pin Type</span>
         <select
           aria-label="Select Pin Type"
@@ -88,6 +88,7 @@ export default function MapPinBox({
 
       <button
         type="button"
+        className="di-map-pin-box-button"
         disabled={disabled}
         style={{
           ...placeButtonStyle,
@@ -99,7 +100,9 @@ export default function MapPinBox({
         {isPlacing ? "Cancel" : "Place Pin"}
       </button>
 
-      <p style={messageStyle}>{message}</p>
+      <p className="di-map-pin-box-message" style={messageStyle}>
+        {message}
+      </p>
     </aside>
   );
 }
