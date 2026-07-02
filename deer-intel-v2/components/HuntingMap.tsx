@@ -655,88 +655,144 @@ export default function HuntingMap() {
         </p>
       </Card>
 
-      <div className="di-map-frame" style={mapFrameStyle}>
-        <MapSearchBar
-          canCreateAsset={selectedSearchResult !== null}
-          isSearching={isSearching}
-          message={searchMessage}
-          results={searchResults}
-          selectedAssetType={pinType}
-          selectedResultId={selectedSearchResult?.id ?? null}
-          onCreateAssetHere={createAssetFromSearchResult}
-          onSearch={searchAddressOrPlace}
-          onSelectResult={selectSearchResult}
-        />
-
-        <MapContainer
-          center={mapCenter}
-          zoom={mapZoom}
-          zoomControl={false}
-          scrollWheelZoom
-          style={{ height: "100%", width: "100%" }}
-        >
-          <TileLayer
-            key={`${selectedMapLayer.id}-base`}
-            attribution={selectedMapLayer.attribution}
-            url={selectedMapLayer.url}
+      <div className="di-map-stage" style={mapStageStyle}>
+        <div className="di-map-frame" style={mapFrameStyle}>
+          <MapSearchBar
+            canCreateAsset={selectedSearchResult !== null}
+            isSearching={isSearching}
+            message={searchMessage}
+            results={searchResults}
+            selectedAssetType={pinType}
+            selectedResultId={selectedSearchResult?.id ?? null}
+            onCreateAssetHere={createAssetFromSearchResult}
+            onSearch={searchAddressOrPlace}
+            onSelectResult={selectSearchResult}
           />
 
-          {selectedMapLayer.overlayLayers?.map((overlayLayer, index) => (
+          <MapContainer
+            center={mapCenter}
+            zoom={mapZoom}
+            zoomControl={false}
+            scrollWheelZoom
+            style={{ height: "100%", width: "100%" }}
+          >
             <TileLayer
-              key={`${selectedMapLayer.id}-${overlayLayer.label}`}
-              attribution={overlayLayer.attribution}
-              url={overlayLayer.url}
-              zIndex={650 + index}
+              key={`${selectedMapLayer.id}-base`}
+              attribution={selectedMapLayer.attribution}
+              url={selectedMapLayer.url}
             />
-          ))}
 
-          <ParcelBoundaryLayer
-            enabled={showPropertyLines}
-            propertyId={selectedPropertyId}
-            onStateChange={setParcelLayerState}
-          />
-          <ParcelOwnerLabelLayer
-            enabled={showPropertyLines && showOwnerNames}
-            propertyId={selectedPropertyId}
-            onStateChange={setOwnerLabelState}
-          />
+            {selectedMapLayer.overlayLayers?.map((overlayLayer, index) => (
+              <TileLayer
+                key={`${selectedMapLayer.id}-${overlayLayer.label}`}
+                attribution={overlayLayer.attribution}
+                url={overlayLayer.url}
+                zIndex={650 + index}
+              />
+            ))}
 
-          <MapSearchTargetController target={searchTarget} />
-          <MapStateTracker onMapStateChange={saveMapState} />
-          <MapControlButtons />
-          <MapPinDropTarget
-            enabled={!pinBoxDisabled}
-            onDropPin={createPinAtLocation}
-          />
-
-          <ClickToAddPin
-            enabled={isPlacingPin && !pinBoxDisabled}
-            pinType={pinType}
-            propertyId={selectedPropertyId}
-            onAddPin={createPinAtLocation}
-          />
-          <ClickToLookupParcelOwner
-            enabled={showPropertyLines && showOwnerNames}
-            onLookup={lookupParcelOwner}
-          />
-
-          {visibleAssets.map((asset) => (
-            <PropertyMapAssetMarker
-              key={asset.id}
-              asset={asset}
-              isSelected={asset.id === selectedAssetId}
-              onSelect={() => selectAsset(asset.id)}
+            <ParcelBoundaryLayer
+              enabled={showPropertyLines}
+              propertyId={selectedPropertyId}
+              onStateChange={setParcelLayerState}
             />
-          ))}
+            <ParcelOwnerLabelLayer
+              enabled={showPropertyLines && showOwnerNames}
+              propertyId={selectedPropertyId}
+              onStateChange={setOwnerLabelState}
+            />
 
-          {selectedSearchResult ? (
-            <MapSearchResultMarker
-              assetType={pinType}
-              result={selectedSearchResult}
-              onCreateAssetHere={createAssetFromSearchResult}
+            <MapSearchTargetController target={searchTarget} />
+            <MapStateTracker onMapStateChange={saveMapState} />
+            <MapControlButtons />
+            <MapPinDropTarget
+              enabled={!pinBoxDisabled}
+              onDropPin={createPinAtLocation}
+            />
+
+            <ClickToAddPin
+              enabled={isPlacingPin && !pinBoxDisabled}
+              pinType={pinType}
+              propertyId={selectedPropertyId}
+              onAddPin={createPinAtLocation}
+            />
+            <ClickToLookupParcelOwner
+              enabled={showPropertyLines && showOwnerNames}
+              onLookup={lookupParcelOwner}
+            />
+
+            {visibleAssets.map((asset) => (
+              <PropertyMapAssetMarker
+                key={asset.id}
+                asset={asset}
+                isSelected={asset.id === selectedAssetId}
+                onSelect={() => selectAsset(asset.id)}
+              />
+            ))}
+
+            {selectedSearchResult ? (
+              <MapSearchResultMarker
+                assetType={pinType}
+                result={selectedSearchResult}
+                onCreateAssetHere={createAssetFromSearchResult}
+              />
+            ) : null}
+          </MapContainer>
+
+          <div className="di-map-status" style={mapStatusStyle}>
+            <span style={mapStatusPillStyle}>{selectedMapLayer.label}</span>
+            {selectedMapLayer.isPlaceholder ? (
+              <span style={mapStatusPillStyle}>Topo provider placeholder</span>
+            ) : null}
+            {showPropertyLines ? (
+              <span style={mapStatusPillStyle}>Property Lines</span>
+            ) : null}
+            {showOwnerNames ? (
+              <span style={mapStatusPillStyle}>Owner Names</span>
+            ) : null}
+            <span style={mapStatusPillStyle}>
+              {selectedAsset ? selectedAsset.label : "No asset selected"}
+            </span>
+          </div>
+
+          {mapOverlayMessages.length > 0 ? (
+            <div className="di-map-notice" style={propertyLinesNoticeStyle}>
+              {mapOverlayMessages.join(" ")}
+            </div>
+          ) : null}
+
+          <MapAssetSelectorPanel
+            assets={visibleAssets}
+            selectedAssetId={selectedAssetId}
+            onSelectAsset={selectAssetAndCenter}
+          />
+
+          {selectedAsset && selectedProperty ? (
+            <MapAssetInfoCard
+              key={selectedAsset.id}
+              asset={selectedAsset}
+              detailRoute={getAssetDetailHref(
+                selectedAsset,
+                selectedPropertyId,
+              )}
+              editRoute={getAssetEditHref(selectedAsset, selectedPropertyId)}
+              propertyName={selectedProperty.name}
+              onCenter={centerOnAsset}
+              onClose={() => setSelectedAssetId(null)}
+              onDelete={deleteSelectedAsset}
             />
           ) : null}
-        </MapContainer>
+
+          {parcelOwnerLookupState.status === "found" &&
+          parcelOwnerLookupState.parcel ? (
+            <ParcelOwnerInfoCard
+              parcel={parcelOwnerLookupState.parcel}
+              onClose={() =>
+                setParcelOwnerLookupState(IDLE_PARCEL_OWNER_LOOKUP_STATE)
+              }
+            />
+          ) : null}
+        </div>
 
         <MapPinBox
           disabled={pinBoxDisabled}
@@ -747,60 +803,6 @@ export default function HuntingMap() {
           onPinTypeChange={updatePinType}
           onStartPlacement={startPinPlacement}
         />
-
-        <div className="di-map-status" style={mapStatusStyle}>
-          <span style={mapStatusPillStyle}>{selectedMapLayer.label}</span>
-          {selectedMapLayer.isPlaceholder ? (
-            <span style={mapStatusPillStyle}>Topo provider placeholder</span>
-          ) : null}
-          {showPropertyLines ? (
-            <span style={mapStatusPillStyle}>Property Lines</span>
-          ) : null}
-          {showOwnerNames ? (
-            <span style={mapStatusPillStyle}>Owner Names</span>
-          ) : null}
-          <span style={mapStatusPillStyle}>
-            {selectedAsset ? selectedAsset.label : "No asset selected"}
-          </span>
-        </div>
-
-        {mapOverlayMessages.length > 0 ? (
-          <div className="di-map-notice" style={propertyLinesNoticeStyle}>
-            {mapOverlayMessages.join(" ")}
-          </div>
-        ) : null}
-
-        <MapAssetSelectorPanel
-          assets={visibleAssets}
-          selectedAssetId={selectedAssetId}
-          onSelectAsset={selectAssetAndCenter}
-        />
-
-        {selectedAsset && selectedProperty ? (
-          <MapAssetInfoCard
-            key={selectedAsset.id}
-            asset={selectedAsset}
-            detailRoute={getAssetDetailHref(
-              selectedAsset,
-              selectedPropertyId,
-            )}
-            editRoute={getAssetEditHref(selectedAsset, selectedPropertyId)}
-            propertyName={selectedProperty.name}
-            onCenter={centerOnAsset}
-            onClose={() => setSelectedAssetId(null)}
-            onDelete={deleteSelectedAsset}
-          />
-        ) : null}
-
-        {parcelOwnerLookupState.status === "found" &&
-        parcelOwnerLookupState.parcel ? (
-          <ParcelOwnerInfoCard
-            parcel={parcelOwnerLookupState.parcel}
-            onClose={() =>
-              setParcelOwnerLookupState(IDLE_PARCEL_OWNER_LOOKUP_STATE)
-            }
-          />
-        ) : null}
       </div>
 
       <div style={belowMapGridStyle}>
@@ -876,6 +878,12 @@ export default function HuntingMap() {
 const mapLayoutStyle: CSSProperties = {
   display: "grid",
   gap: "1rem",
+};
+
+const mapStageStyle: CSSProperties = {
+  position: "relative",
+  display: "grid",
+  gap: "0.75rem",
 };
 
 const controlPanelStyle: CSSProperties = {
