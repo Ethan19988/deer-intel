@@ -1,7 +1,14 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import {
   MapContainer,
   TileLayer,
@@ -78,6 +85,19 @@ type SearchTarget = {
   zoom: number;
 };
 
+const MAP_CENTER_EPSILON = 0.00001;
+
+function normalizeMapCenter(center: MapCenter): MapCenter {
+  return [Number(center[0].toFixed(6)), Number(center[1].toFixed(6))];
+}
+
+function mapCentersAreClose(firstCenter: MapCenter, secondCenter: MapCenter) {
+  return (
+    Math.abs(firstCenter[0] - secondCenter[0]) < MAP_CENTER_EPSILON &&
+    Math.abs(firstCenter[1] - secondCenter[1]) < MAP_CENTER_EPSILON
+  );
+}
+
 function ClickToAddPin({
   enabled,
   pinType,
@@ -127,6 +147,11 @@ function MapPinDropTarget({
   onDropPin: (pinType: PinType, lat: number, lng: number) => void;
 }) {
   const map = useMap();
+  const onDropPinRef = useRef(onDropPin);
+
+  useEffect(() => {
+    onDropPinRef.current = onDropPin;
+  }, [onDropPin]);
 
   useEffect(() => {
     const container = map.getContainer();
@@ -163,7 +188,7 @@ function MapPinDropTarget({
       ];
       const latLng = map.containerPointToLatLng(point);
 
-      onDropPin(droppedType, latLng.lat, latLng.lng);
+      onDropPinRef.current(droppedType, latLng.lat, latLng.lng);
     }
 
     container.addEventListener("dragover", handleDragOver);
@@ -173,7 +198,7 @@ function MapPinDropTarget({
       container.removeEventListener("dragover", handleDragOver);
       container.removeEventListener("drop", handleDrop);
     };
-  }, [enabled, map, onDropPin]);
+  }, [enabled, map]);
 
   return null;
 }
@@ -244,19 +269,54 @@ function MapStateTracker({
 }: {
   onMapStateChange: (center: MapCenter, zoom: number) => void;
 }) {
+  const lastCenterRef = useRef<MapCenter | null>(null);
+  const lastZoomRef = useRef<number | null>(null);
+  const frameRef = useRef<number | null>(null);
   const map = useMapEvents({
     moveend() {
-      syncMapState();
+      queueMapStateSync();
     },
     zoomend() {
-      syncMapState();
+      queueMapStateSync();
     },
   });
 
+  useEffect(() => {
+    return () => {
+      if (frameRef.current !== null) {
+        window.cancelAnimationFrame(frameRef.current);
+      }
+    };
+  }, []);
+
+  function queueMapStateSync() {
+    if (frameRef.current !== null) {
+      window.cancelAnimationFrame(frameRef.current);
+    }
+
+    frameRef.current = window.requestAnimationFrame(() => {
+      frameRef.current = null;
+      syncMapState();
+    });
+  }
+
   function syncMapState() {
     const center = map.getCenter();
+    const nextCenter = normalizeMapCenter([center.lat, center.lng]);
+    const nextZoom = map.getZoom();
 
-    onMapStateChange([center.lat, center.lng], map.getZoom());
+    if (
+      lastCenterRef.current &&
+      lastZoomRef.current === nextZoom &&
+      mapCentersAreClose(lastCenterRef.current, nextCenter)
+    ) {
+      return;
+    }
+
+    lastCenterRef.current = nextCenter;
+    lastZoomRef.current = nextZoom;
+
+    onMapStateChange(nextCenter, nextZoom);
   }
 
   return null;
@@ -286,6 +346,7 @@ export default function HuntingMap() {
   const [mapCenter, setMapCenter] =
     useState<MapCenter>(DEFAULT_MAP_CENTER);
   const [mapZoom, setMapZoom] = useState(DEFAULT_MAP_ZOOM);
+  const latestMapZoomRef = useRef(DEFAULT_MAP_ZOOM);
   const [selectedLayer, setSelectedLayer] = useState<MapLayerId>("hybrid");
   const [showPropertyLines, setShowPropertyLines] = useState(false);
   const [showOwnerNames, setShowOwnerNames] = useState(false);
@@ -358,14 +419,16 @@ export default function HuntingMap() {
       : "",
   ].filter((message): message is string => Boolean(message));
 
-  function saveMapState(center: MapCenter, zoom: number) {
+  const saveMapState = useCallback((center: MapCenter, zoom: number) => {
+    latestMapZoomRef.current = zoom;
+
     setMapCenter((currentCenter) =>
-      currentCenter[0] === center[0] && currentCenter[1] === center[1]
+      mapCentersAreClose(currentCenter, center)
         ? currentCenter
         : center,
     );
     setMapZoom((currentZoom) => (currentZoom === zoom ? currentZoom : zoom));
-  }
+  }, []);
 
   function selectProperty(propertyId: string) {
     updateDeerIntelStore((currentState) => ({
@@ -520,7 +583,7 @@ export default function HuntingMap() {
     setSearchTarget({
       center: [asset.lat, asset.lng],
       id: Date.now(),
-      zoom: Math.max(mapZoom, 17),
+      zoom: Math.max(latestMapZoomRef.current, 17),
     });
   }
 
@@ -530,7 +593,7 @@ export default function HuntingMap() {
     setSearchTarget({
       center: [selectedAsset.lat, selectedAsset.lng],
       id: Date.now(),
-      zoom: Math.max(mapZoom, 17),
+      zoom: Math.max(latestMapZoomRef.current, 17),
     });
   }
 
