@@ -296,6 +296,7 @@ export default function HuntingMap() {
   const [parcelOwnerLookupState, setParcelOwnerLookupState] =
     useState<ParcelOwnerLookupState>(IDLE_PARCEL_OWNER_LOOKUP_STATE);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [isMobileAssetSheetOpen, setIsMobileAssetSheetOpen] = useState(false);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
   const [pinBoxMessage, setPinBoxMessage] = useState(
     "Choose a pin type, then tap Place Pin.",
@@ -763,7 +764,10 @@ export default function HuntingMap() {
 
           <MapAssetSelectorPanel
             assets={visibleAssets}
+            isMobileOpen={isMobileAssetSheetOpen}
             selectedAssetId={selectedAssetId}
+            onCloseMobile={() => setIsMobileAssetSheetOpen(false)}
+            onOpenMobile={() => setIsMobileAssetSheetOpen(true)}
             onSelectAsset={selectAssetAndCenter}
           />
 
