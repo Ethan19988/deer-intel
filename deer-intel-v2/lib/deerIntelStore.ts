@@ -8,14 +8,22 @@ import type { CameraCheck } from "@/types/cameraCheck";
 import type { DeerProfile } from "@/types/deerProfile";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 import type { HuntLogEntry } from "@/types/hunt";
+import {
+  MAP_DRAWING_TYPES,
+  type MapDrawing,
+  type MapDrawingGeometry,
+  type MapDrawingPoint,
+  type MapDrawingType,
+} from "@/types/mapDrawing";
 import { PIN_TYPES, type MapPin, type PinType } from "@/types/mapPin";
 import type { PhotoRecord } from "@/types/photo";
 import type { Property } from "@/types/property";
 import { STAND_TYPES, type Stand, type StandType } from "@/types/stand";
 
-export { PIN_TYPES } from "@/types/mapPin";
+export { PIN_TYPES, PROPERTY_ASSET_PIN_TYPES } from "@/types/mapPin";
 export type { DeerIntelState } from "@/types/deerIntelStore";
 export type { HuntLogEntry } from "@/types/hunt";
+export type { MapDrawing } from "@/types/mapDrawing";
 export type { MapPin, PinType } from "@/types/mapPin";
 
 const STORAGE_KEY = "deer-intel:state";
@@ -46,6 +54,7 @@ const DEFAULT_STATE: DeerIntelState = {
   cameraChecks: [],
   stands: [],
   pins: [],
+  mapDrawings: [],
   hunts: [],
   photoRecords: [],
   deerProfiles: [],
@@ -166,6 +175,69 @@ function normalizePin(value: unknown): MapPin | null {
     lng: value.lng,
     createdAt: stringValue(value.createdAt),
     notes: stringValue(value.notes),
+  };
+}
+
+function normalizeMapDrawingPoint(value: unknown): MapDrawingPoint | null {
+  if (!isRecord(value)) return null;
+
+  const lat = optionalNumberValue(value.lat);
+  const lng = optionalNumberValue(value.lng);
+
+  if (lat === undefined || lng === undefined) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+
+  return {
+    lat,
+    lng,
+  };
+}
+
+function normalizeMapDrawing(value: unknown): MapDrawing | null {
+  if (!isRecord(value)) return null;
+
+  const id =
+    typeof value.id === "string" || typeof value.id === "number"
+      ? String(value.id)
+      : "";
+  const propertyId =
+    typeof value.propertyId === "string" || typeof value.propertyId === "number"
+      ? String(value.propertyId)
+      : "";
+  const type = MAP_DRAWING_TYPES.some((drawingType) => drawingType.type === value.type)
+    ? (value.type as MapDrawingType)
+    : null;
+  const expectedGeometry = MAP_DRAWING_TYPES.find(
+    (drawingType) => drawingType.type === type,
+  )?.geometry ?? null;
+  const geometry: MapDrawingGeometry | null =
+    value.geometry === expectedGeometry ? expectedGeometry : null;
+  const name = stringValue(value.name).trim();
+  const points = Array.isArray(value.points)
+    ? value.points
+        .map(normalizeMapDrawingPoint)
+        .filter((point): point is MapDrawingPoint => point !== null)
+    : [];
+
+  if (
+    !id ||
+    !propertyId ||
+    !type ||
+    !geometry ||
+    !name ||
+    points.length < (geometry === "polygon" ? 3 : 2)
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    propertyId,
+    type,
+    geometry,
+    name,
+    points,
+    createdAt: stringValue(value.createdAt),
   };
 }
 
@@ -463,6 +535,11 @@ function normalizeState(value: unknown): DeerIntelState | null {
         .map(normalizePin)
         .filter((pin): pin is MapPin => pin !== null)
     : [];
+  const mapDrawings = Array.isArray(value.mapDrawings)
+    ? value.mapDrawings
+        .map(normalizeMapDrawing)
+        .filter((drawing): drawing is MapDrawing => drawing !== null)
+    : [];
   const cameras = Array.isArray(value.cameras)
     ? value.cameras
         .map(normalizeCamera)
@@ -507,6 +584,7 @@ function normalizeState(value: unknown): DeerIntelState | null {
     cameraChecks,
     stands,
     pins,
+    mapDrawings,
     hunts,
     photoRecords,
     deerProfiles,

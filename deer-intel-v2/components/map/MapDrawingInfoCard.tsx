@@ -1,0 +1,206 @@
+import { useState, type CSSProperties } from "react";
+import type { MapDrawing } from "@/types/mapDrawing";
+
+type MapDrawingInfoCardProps = {
+  drawing: MapDrawing;
+  propertyName: string;
+  onClose: () => void;
+  onDelete: () => void;
+};
+
+export default function MapDrawingInfoCard({
+  drawing,
+  propertyName,
+  onClose,
+  onDelete,
+}: MapDrawingInfoCardProps) {
+  const [message, setMessage] = useState("");
+
+  return (
+    <aside
+      style={cardStyle}
+      onClick={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+    >
+      <div style={headerStyle}>
+        <div style={titleWrapStyle}>
+          <p style={eyebrowStyle}>{drawing.type}</p>
+          <h3 style={titleStyle}>{drawing.name}</h3>
+        </div>
+        <button
+          type="button"
+          aria-label="Close drawing card"
+          style={closeButtonStyle}
+          onClick={onClose}
+        >
+          x
+        </button>
+      </div>
+
+      <div style={detailsStyle}>
+        <InfoLine label="Property" value={propertyName} />
+        <InfoLine
+          label="Shape"
+          value={
+            drawing.geometry === "polygon"
+              ? `${drawing.points.length} point area`
+              : `${drawing.points.length} point line`
+          }
+        />
+      </div>
+
+      <div style={actionsStyle}>
+        <button
+          type="button"
+          style={placeholderActionStyle}
+          onClick={() => setMessage("Shape editing is not available yet")}
+        >
+          Edit
+        </button>
+        <button type="button" style={dangerActionStyle} onClick={onDelete}>
+          Delete
+        </button>
+      </div>
+
+      {message ? <p style={messageStyle}>{message}</p> : null}
+    </aside>
+  );
+}
+
+function InfoLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p style={infoLabelStyle}>{label}</p>
+      <p style={infoValueStyle}>{value}</p>
+    </div>
+  );
+}
+
+const cardStyle: CSSProperties = {
+  position: "absolute",
+  right: "1rem",
+  bottom: "7.4rem",
+  zIndex: 1100,
+  display: "grid",
+  gap: "0.85rem",
+  width: "min(360px, calc(100% - 2rem))",
+  padding: "0.9rem",
+  border: "1px solid rgba(255, 255, 255, 0.72)",
+  borderRadius: "8px",
+  background: "rgba(17, 23, 17, 0.94)",
+  color: "#f1f5ef",
+  boxShadow: "0 18px 42px rgba(0, 0, 0, 0.35)",
+};
+
+const headerStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "0.7rem",
+};
+
+const titleWrapStyle: CSSProperties = {
+  minWidth: 0,
+  flex: "1 1 auto",
+};
+
+const eyebrowStyle: CSSProperties = {
+  margin: 0,
+  color: "#a7b5a5",
+  fontSize: "0.75rem",
+  fontWeight: 800,
+  letterSpacing: 0,
+  textTransform: "uppercase",
+};
+
+const titleStyle: CSSProperties = {
+  margin: "0.15rem 0 0",
+  overflow: "hidden",
+  color: "white",
+  fontSize: "1.18rem",
+  lineHeight: 1.2,
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const closeButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  width: "34px",
+  minHeight: "34px",
+  flex: "0 0 auto",
+  alignItems: "center",
+  justifyContent: "center",
+  border: "1px solid rgba(255, 255, 255, 0.24)",
+  borderRadius: "8px",
+  background: "rgba(255, 255, 255, 0.08)",
+  color: "#f1f5ef",
+  cursor: "pointer",
+  fontSize: "1rem",
+  fontWeight: 900,
+  lineHeight: 1,
+};
+
+const detailsStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.65rem",
+};
+
+const infoLabelStyle: CSSProperties = {
+  margin: 0,
+  color: "#8fa18c",
+  fontSize: "0.78rem",
+  fontWeight: 800,
+};
+
+const infoValueStyle: CSSProperties = {
+  margin: "0.2rem 0 0",
+  color: "#d8e2d6",
+  fontSize: "0.94rem",
+  lineHeight: 1.45,
+};
+
+const actionsStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "0.55rem",
+};
+
+const baseActionStyle: CSSProperties = {
+  display: "inline-flex",
+  minHeight: "44px",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0.65rem 0.75rem",
+  borderRadius: "8px",
+  color: "white",
+  fontSize: "0.9rem",
+  fontWeight: 850,
+  lineHeight: 1,
+};
+
+const placeholderActionStyle: CSSProperties = {
+  ...baseActionStyle,
+  border: "1px solid rgba(255, 255, 255, 0.12)",
+  background: "rgba(255, 255, 255, 0.05)",
+  color: "#c9d3c7",
+  cursor: "pointer",
+};
+
+const dangerActionStyle: CSSProperties = {
+  ...baseActionStyle,
+  border: "1px solid #7f3131",
+  background: "#451818",
+  color: "#ffd5d5",
+  cursor: "pointer",
+};
+
+const messageStyle: CSSProperties = {
+  margin: 0,
+  padding: "0.55rem 0.65rem",
+  border: "1px solid rgba(255, 255, 255, 0.14)",
+  borderRadius: "8px",
+  background: "rgba(255, 255, 255, 0.06)",
+  color: "#d8e2d6",
+  fontSize: "0.85rem",
+  fontWeight: 700,
+  lineHeight: 1.35,
+};

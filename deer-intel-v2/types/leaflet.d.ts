@@ -32,6 +32,7 @@ declare module "leaflet" {
   export class Map {
     getCenter(): LatLng;
     getZoom(): number;
+    flyTo(center: LatLngExpression, zoom?: number, options?: unknown): this;
     setView(center: LatLngExpression, zoom?: number): this;
     zoomIn(delta?: number): this;
     zoomOut(delta?: number): this;

@@ -1,22 +1,40 @@
 export const PIN_TYPES = [
+  "Camera Site",
+  "Stand",
+  "Bedding",
+  "Food",
+  "Water",
+  "Scrape",
+  "Rub",
+  "Trail",
+  "Parking",
+  "Gate",
   "Trail Camera",
   "Treestand",
   "Bedding Area",
   "Food Source",
   "Water Source",
-  "Scrape",
-  "Rub",
   "Rub Line",
-  "Trail",
   "Access Route",
-  "Parking",
-  "Gate",
   "Buck Sighting",
   "Doe Sighting",
   "Vegetation",
 ] as const;
 
 export type PinType = (typeof PIN_TYPES)[number];
+
+export const PROPERTY_ASSET_PIN_TYPES = [
+  "Camera Site",
+  "Stand",
+  "Bedding",
+  "Food",
+  "Water",
+  "Scrape",
+  "Rub",
+  "Trail",
+  "Parking",
+  "Gate",
+] as const satisfies readonly PinType[];
 
 export type MapPin = {
   id: string;
