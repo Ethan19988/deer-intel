@@ -26,7 +26,6 @@ export default function ParcelOwnerLabelLayer({
     let isActive = true;
 
     if (!enabled) {
-      setLoadState(EMPTY_PARCEL_OWNER_LABEL_STATE);
       onStateChange(null);
       return () => {
         isActive = false;
@@ -39,7 +38,6 @@ export default function ParcelOwnerLabelLayer({
       labels: [],
     };
 
-    setLoadState(loadingState);
     onStateChange(loadingState);
 
     loadParcelOwnerLabels({ propertyId })
