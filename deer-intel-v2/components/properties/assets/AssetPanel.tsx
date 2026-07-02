@@ -1,43 +1,36 @@
 import type { CSSProperties, ReactNode } from "react";
 import Card from "@/components/ui/Card";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 
 type AssetPanelProps = {
+  id?: string;
   title: string;
   description?: string;
   children: ReactNode;
+  defaultOpen?: boolean;
 };
 
 export default function AssetPanel({
+  id,
   title,
   description,
   children,
+  defaultOpen = true,
 }: AssetPanelProps) {
   return (
-    <Card as="section" style={panelStyle}>
-      <h2 style={titleStyle}>{title}</h2>
-      {description ? <p style={descriptionStyle}>{description}</p> : null}
-      <div style={contentStyle}>{children}</div>
+    <Card as="section" id={id} style={panelStyle}>
+      <CollapsibleSection
+        title={title}
+        description={description}
+        defaultOpen={defaultOpen}
+        variant="bare"
+      >
+        {children}
+      </CollapsibleSection>
     </Card>
   );
 }
 
 const panelStyle: CSSProperties = {
   minHeight: "220px",
-};
-
-const titleStyle: CSSProperties = {
-  margin: 0,
-  color: "#f1f5ef",
-  fontSize: "1.35rem",
-  lineHeight: 1.2,
-};
-
-const descriptionStyle: CSSProperties = {
-  margin: "0.55rem 0 0",
-  color: "#b8c2b6",
-  lineHeight: 1.5,
-};
-
-const contentStyle: CSSProperties = {
-  marginTop: "1rem",
 };

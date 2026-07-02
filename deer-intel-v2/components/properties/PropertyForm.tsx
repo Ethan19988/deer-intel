@@ -1,5 +1,6 @@
 import type { CSSProperties, FormEvent } from "react";
 import Button from "@/components/ui/Button";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import type { Property } from "@/types/property";
 
 export type PropertyFormValues = Pick<
@@ -36,49 +37,53 @@ export default function PropertyForm({
 
   return (
     <form onSubmit={handleSubmit} style={formStyle}>
-      <div style={formGridStyle}>
+      <CollapsibleSection title="Basic Info" defaultOpen>
+        <div className="di-form-grid" style={formGridStyle}>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Property Name</span>
+            <input
+              placeholder="Finley Run"
+              value={values.name}
+              onChange={(event) => updateField("name", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={fieldStyle}>
+            <span style={labelStyle}>County / Region</span>
+            <input
+              placeholder="Northern PA"
+              value={values.county}
+              onChange={(event) => updateField("county", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Acres</span>
+            <input
+              placeholder="Unknown"
+              value={values.acres}
+              onChange={(event) => updateField("acres", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Notes">
         <label style={fieldStyle}>
-          <span style={labelStyle}>Property Name</span>
-          <input
-            placeholder="Finley Run"
-            value={values.name}
-            onChange={(event) => updateField("name", event.target.value)}
-            style={inputStyle}
+          <span style={labelStyle}>Notes</span>
+          <textarea
+            placeholder="Access, deer movement, cover, food, wind, and observations"
+            value={values.notes}
+            onChange={(event) => updateField("notes", event.target.value)}
+            style={{ ...inputStyle, minHeight: "110px", resize: "vertical" }}
           />
         </label>
+      </CollapsibleSection>
 
-        <label style={fieldStyle}>
-          <span style={labelStyle}>County / Region</span>
-          <input
-            placeholder="Northern PA"
-            value={values.county}
-            onChange={(event) => updateField("county", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Acres</span>
-          <input
-            placeholder="Unknown"
-            value={values.acres}
-            onChange={(event) => updateField("acres", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-      </div>
-
-      <label style={fieldStyle}>
-        <span style={labelStyle}>Notes</span>
-        <textarea
-          placeholder="Access, deer movement, cover, food, wind, and observations"
-          value={values.notes}
-          onChange={(event) => updateField("notes", event.target.value)}
-          style={{ ...inputStyle, minHeight: "110px", resize: "vertical" }}
-        />
-      </label>
-
-      <div style={buttonRowStyle}>
+      <div className="di-form-actions" style={buttonRowStyle}>
         <Button type="submit">
           {submitLabel}
         </Button>

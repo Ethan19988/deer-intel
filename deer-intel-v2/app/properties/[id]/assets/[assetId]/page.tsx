@@ -284,6 +284,7 @@ export default function PropertyAssetWorkspacePage() {
         <AssetPanel
           title="Timeline"
           description="Camera Checks belong to this Camera Site and are shown in date order."
+          defaultOpen={false}
         >
           <CameraCheckList
             checks={cameraChecks}
@@ -293,8 +294,10 @@ export default function PropertyAssetWorkspacePage() {
         </AssetPanel>
 
         <AssetPanel
+          id="photos"
           title="Photos"
           description="Attach photo records to camera checks. Actual uploads can come later."
+          defaultOpen={false}
         >
           <div style={summaryGridStyle}>
             <AssetFact
@@ -329,6 +332,7 @@ export default function PropertyAssetWorkspacePage() {
         <AssetPanel
           title="Notes"
           description="Keep the simple field notes for this asset easy to find."
+          defaultOpen={false}
         >
           <div style={notesGridStyle}>
             <NoteBlock
@@ -342,6 +346,7 @@ export default function PropertyAssetWorkspacePage() {
         <AssetPanel
           title="Relationships"
           description="Connected checks, stands, and camera sites on this property."
+          defaultOpen={false}
         >
           <div style={relationshipGroupListStyle}>
             {relationshipGroups.map((group) => (
@@ -432,6 +437,7 @@ function StandWorkspace({
         <AssetPanel
           title="Wind Plan"
           description="Keep the simple wind rules easy to see in the field."
+          defaultOpen={false}
         >
           <div style={summaryGridStyle}>
             <AssetFact label="Best Winds" value={stand.bestWinds} />
@@ -442,6 +448,7 @@ function StandWorkspace({
         <AssetPanel
           title="Access and Exit"
           description="How to get in and out without hurting the hunt."
+          defaultOpen={false}
         >
           <div style={notesGridStyle}>
             <NoteBlock
@@ -455,13 +462,18 @@ function StandWorkspace({
           </div>
         </AssetPanel>
 
-        <AssetPanel title="Notes" description="Simple stand notes.">
+        <AssetPanel
+          title="Notes"
+          description="Simple stand notes."
+          defaultOpen={false}
+        >
           <NoteBlock label="Notes" value={stand.notes || "No notes yet."} />
         </AssetPanel>
 
         <AssetPanel
           title="Relationships"
           description="Connected hunts, camera sites, and nearby stands."
+          defaultOpen={false}
         >
           <div style={relationshipGroupListStyle}>
             {relationshipGroups.map((group) => (

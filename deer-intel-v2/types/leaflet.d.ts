@@ -30,6 +30,8 @@ declare module "leaflet" {
   }
 
   export class Map {
+    containerPointToLatLng(point: PointExpression): LatLng;
+    getContainer(): HTMLElement;
     getCenter(): LatLng;
     getZoom(): number;
     flyTo(center: LatLngExpression, zoom?: number, options?: unknown): this;

@@ -33,6 +33,7 @@ export default function MapSearchBar({
 
   return (
     <div
+      className="di-map-search"
       style={searchWrapStyle}
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}

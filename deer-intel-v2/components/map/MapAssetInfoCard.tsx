@@ -29,6 +29,7 @@ export default function MapAssetInfoCard({
 
   return (
     <aside
+      className="di-map-card"
       style={cardStyle}
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
@@ -51,6 +52,7 @@ export default function MapAssetInfoCard({
         <button
           type="button"
           aria-label="Close asset card"
+          className="di-map-close-button"
           style={closeButtonStyle}
           onClick={onClose}
         >
@@ -63,7 +65,7 @@ export default function MapAssetInfoCard({
         <InfoLine label="Notes" value={asset.description || "No notes yet."} />
       </div>
 
-      <div style={actionsStyle}>
+      <div className="di-map-card-actions" style={actionsStyle}>
         {detailRoute.href ? (
           <Link href={detailRoute.href} style={primaryActionStyle}>
             View Details

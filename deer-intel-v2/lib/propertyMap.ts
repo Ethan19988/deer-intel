@@ -382,6 +382,7 @@ export function pinToMapAsset(pin: MapPin): MapAsset {
   const layerId = PIN_LAYER_LOOKUP[pin.type];
   const layer =
     layerId === "other" ? OTHER_ASSET_STYLE : ASSET_LAYER_LOOKUP[layerId];
+  const notes = pin.notes.trim();
 
   return {
     id: `pin-${pin.id}`,
@@ -389,14 +390,14 @@ export function pinToMapAsset(pin: MapPin): MapAsset {
     sourceId: pin.id,
     layerId,
     pinId: pin.id,
-    label: pin.type,
-    typeLabel: "Map Pin",
+    label: notes || pin.type,
+    typeLabel: pin.type,
     shortLabel: layer.shortLabel,
     color: layer.color,
     background: layer.background,
     lat: pin.lat,
     lng: pin.lng,
-    description: pin.notes || "Saved map pin.",
+    description: notes || "Saved map pin.",
   };
 }
 

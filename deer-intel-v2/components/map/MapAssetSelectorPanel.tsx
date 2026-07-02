@@ -16,6 +16,7 @@ export default function MapAssetSelectorPanel({
 
   return (
     <div
+      className="di-map-bottom-sheet"
       style={panelStyle}
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
@@ -24,7 +25,7 @@ export default function MapAssetSelectorPanel({
         <p style={eyebrowStyle}>Mapped Assets</p>
         <span style={countStyle}>{assets.length}</span>
       </div>
-      <div style={scrollRowStyle}>
+      <div className="di-map-bottom-sheet-row" style={scrollRowStyle}>
         {assets.map((asset) => {
           const isSelected = asset.id === selectedAssetId;
 
@@ -32,6 +33,7 @@ export default function MapAssetSelectorPanel({
             <button
               key={asset.id}
               type="button"
+              className="di-map-bottom-sheet-button"
               style={{
                 ...assetButtonStyle,
                 ...(isSelected ? selectedAssetButtonStyle : null),

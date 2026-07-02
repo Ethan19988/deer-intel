@@ -1,5 +1,6 @@
 import type { CSSProperties, FormEvent } from "react";
 import Button from "@/components/ui/Button";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import type { DeerProfileFormValues } from "@/lib/deerProfileFormValues";
 
 type DeerProfileFormProps = {
@@ -30,59 +31,67 @@ export default function DeerProfileForm({
 
   return (
     <form onSubmit={handleSubmit} style={formStyle}>
-      <div style={formGridStyle}>
+      <CollapsibleSection title="Basic Info" defaultOpen>
+        <div className="di-form-grid" style={formGridStyle}>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Nickname</span>
+            <input
+              placeholder="Tall 8, Split Brow, Wide Ten"
+              value={values.nickname}
+              onChange={(event) => updateField("nickname", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Estimated Age</span>
+            <input
+              placeholder="3.5, mature, unknown"
+              value={values.estimatedAge}
+              onChange={(event) =>
+                updateField("estimatedAge", event.target.value)
+              }
+              style={inputStyle}
+            />
+          </label>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Sightings">
+        <div className="di-form-grid" style={formGridStyle}>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>First Seen</span>
+            <input
+              type="date"
+              value={values.firstSeen}
+              onChange={(event) => updateField("firstSeen", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Last Seen</span>
+            <input
+              type="date"
+              value={values.lastSeen}
+              onChange={(event) => updateField("lastSeen", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Notes">
         <label style={fieldStyle}>
-          <span style={labelStyle}>Nickname</span>
-          <input
-            placeholder="Tall 8, Split Brow, Wide Ten"
-            value={values.nickname}
-            onChange={(event) => updateField("nickname", event.target.value)}
-            style={inputStyle}
+          <span style={labelStyle}>Notes</span>
+          <textarea
+            placeholder="Antler traits, travel pattern, camera sites, behavior, or history"
+            value={values.notes}
+            onChange={(event) => updateField("notes", event.target.value)}
+            style={{ ...inputStyle, minHeight: "100px", resize: "vertical" }}
           />
         </label>
-
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Estimated Age</span>
-          <input
-            placeholder="3.5, mature, unknown"
-            value={values.estimatedAge}
-            onChange={(event) => updateField("estimatedAge", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-      </div>
-
-      <div style={formGridStyle}>
-        <label style={fieldStyle}>
-          <span style={labelStyle}>First Seen</span>
-          <input
-            type="date"
-            value={values.firstSeen}
-            onChange={(event) => updateField("firstSeen", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Last Seen</span>
-          <input
-            type="date"
-            value={values.lastSeen}
-            onChange={(event) => updateField("lastSeen", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-      </div>
-
-      <label style={fieldStyle}>
-        <span style={labelStyle}>Notes</span>
-        <textarea
-          placeholder="Antler traits, travel pattern, camera sites, behavior, or history"
-          value={values.notes}
-          onChange={(event) => updateField("notes", event.target.value)}
-          style={{ ...inputStyle, minHeight: "100px", resize: "vertical" }}
-        />
-      </label>
+      </CollapsibleSection>
 
       <Button type="submit" disabled={!values.nickname.trim()}>
         Add Deer Profile

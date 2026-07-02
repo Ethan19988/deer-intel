@@ -26,6 +26,7 @@ export default function ActionCard({
   return (
     <Link
       href={href}
+      className="di-action-card"
       style={{
         ...cardStyle,
         ...sizeStyles[size],

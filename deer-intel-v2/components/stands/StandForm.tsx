@@ -1,5 +1,6 @@
 import type { CSSProperties, FormEvent } from "react";
 import Button from "@/components/ui/Button";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import type { StandFormValues } from "@/lib/standFormValues";
 import { STAND_TYPES, type StandType } from "@/types/stand";
 
@@ -31,88 +32,100 @@ export default function StandForm({
 
   return (
     <form onSubmit={handleSubmit} style={formStyle}>
-      <div style={formGridStyle}>
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Stand Name</span>
-          <input
-            placeholder="North Ridge Stand"
-            value={values.name}
-            onChange={(event) => updateField("name", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
+      <CollapsibleSection title="Basic Info" defaultOpen>
+        <div className="di-form-grid" style={formGridStyle}>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Stand Name</span>
+            <input
+              placeholder="North Ridge Stand"
+              value={values.name}
+              onChange={(event) => updateField("name", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
 
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Stand Type</span>
+            <select
+              value={values.standType}
+              onChange={(event) =>
+                updateField("standType", event.target.value as StandType)
+              }
+              style={inputStyle}
+            >
+              {STAND_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Wind">
+        <div className="di-form-grid" style={formGridStyle}>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Best Winds</span>
+            <input
+              placeholder="NW, W, N"
+              value={values.bestWinds}
+              onChange={(event) => updateField("bestWinds", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Avoid Winds</span>
+            <input
+              placeholder="S, SE"
+              value={values.avoidWinds}
+              onChange={(event) => updateField("avoidWinds", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Access">
         <label style={fieldStyle}>
-          <span style={labelStyle}>Stand Type</span>
-          <select
-            value={values.standType}
+          <span style={labelStyle}>Access Route Notes</span>
+          <textarea
+            placeholder="How to get in without bumping deer"
+            value={values.accessRouteNotes}
             onChange={(event) =>
-              updateField("standType", event.target.value as StandType)
+              updateField("accessRouteNotes", event.target.value)
             }
-            style={inputStyle}
-          >
-            {STAND_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div style={formGridStyle}>
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Best Winds</span>
-          <input
-            placeholder="NW, W, N"
-            value={values.bestWinds}
-            onChange={(event) => updateField("bestWinds", event.target.value)}
-            style={inputStyle}
+            style={{ ...inputStyle, minHeight: "90px", resize: "vertical" }}
           />
         </label>
+      </CollapsibleSection>
 
+      <CollapsibleSection title="Exit">
         <label style={fieldStyle}>
-          <span style={labelStyle}>Avoid Winds</span>
-          <input
-            placeholder="S, SE"
-            value={values.avoidWinds}
-            onChange={(event) => updateField("avoidWinds", event.target.value)}
-            style={inputStyle}
+          <span style={labelStyle}>Exit Route Notes</span>
+          <textarea
+            placeholder="Best way to leave after the sit"
+            value={values.exitRouteNotes}
+            onChange={(event) =>
+              updateField("exitRouteNotes", event.target.value)
+            }
+            style={{ ...inputStyle, minHeight: "90px", resize: "vertical" }}
           />
         </label>
-      </div>
+      </CollapsibleSection>
 
-      <label style={fieldStyle}>
-        <span style={labelStyle}>Access Route Notes</span>
-        <textarea
-          placeholder="How to get in without bumping deer"
-          value={values.accessRouteNotes}
-          onChange={(event) =>
-            updateField("accessRouteNotes", event.target.value)
-          }
-          style={{ ...inputStyle, minHeight: "90px", resize: "vertical" }}
-        />
-      </label>
-
-      <label style={fieldStyle}>
-        <span style={labelStyle}>Exit Route Notes</span>
-        <textarea
-          placeholder="Best way to leave after the sit"
-          value={values.exitRouteNotes}
-          onChange={(event) => updateField("exitRouteNotes", event.target.value)}
-          style={{ ...inputStyle, minHeight: "90px", resize: "vertical" }}
-        />
-      </label>
-
-      <label style={fieldStyle}>
-        <span style={labelStyle}>Notes</span>
-        <textarea
-          placeholder="Food, bedding, trails, visibility, safety, or reminders"
-          value={values.notes}
-          onChange={(event) => updateField("notes", event.target.value)}
-          style={{ ...inputStyle, minHeight: "100px", resize: "vertical" }}
-        />
-      </label>
+      <CollapsibleSection title="Notes">
+        <label style={fieldStyle}>
+          <span style={labelStyle}>Notes</span>
+          <textarea
+            placeholder="Food, bedding, trails, visibility, safety, or reminders"
+            value={values.notes}
+            onChange={(event) => updateField("notes", event.target.value)}
+            style={{ ...inputStyle, minHeight: "100px", resize: "vertical" }}
+          />
+        </label>
+      </CollapsibleSection>
 
       <Button type="submit">Add Stand</Button>
     </form>

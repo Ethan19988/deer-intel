@@ -2,7 +2,6 @@ import type { Camera } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { DeerProfile } from "@/types/deerProfile";
 import type { HuntLogEntry } from "@/types/hunt";
-import type { MapDrawing } from "@/types/mapDrawing";
 import type { MapPin } from "@/types/mapPin";
 import type { PhotoRecord } from "@/types/photo";
 import type { Property } from "@/types/property";
@@ -16,7 +15,6 @@ export type DeerIntelState = {
   cameraChecks: CameraCheck[];
   stands: Stand[];
   pins: MapPin[];
-  mapDrawings: MapDrawing[];
   hunts: HuntLogEntry[];
   photoRecords: PhotoRecord[];
   deerProfiles: DeerProfile[];

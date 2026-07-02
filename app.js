@@ -62,4 +62,34 @@ window.deletePin=(id)=>{state.pins=state.pins.filter(p=>p.id!==id);save();render
 function miniLists(){return `<div class="cards"><div class="panel"><h3>Recent Camera Activity</h3><p class="muted">Add camera pins first, then photo logs come next.</p></div><div class="panel"><h3>Recent Hunt Log</h3>${state.hunts.map(h=>`<div class="row"><span>${h.date} · ${h.stand}</span><b>${h.result}</b></div>`).join('')}</div><div class="panel"><h3>AI Recommendation</h3>${aiRecommendation()}</div></div>`;}
 function aiRecommendation(){ return `<div class="rec"><span class="score">91%</span><h3>West Bench Stand</h3><p class="muted">Best stand tonight based on NW wind, evening access, recent buck activity, and scent staying away from bedding.</p><ul><li>Wind keeps scent away from bedding</li><li>Good evening access</li><li>Recent buck movement nearby</li><li>Temperature drop helps movement</li></ul></div>`;}
 function askAI(q){ if(!q) return; $('#aiAnswer').innerHTML = `<div class="rec"><h3>AI Scout Answer</h3><p><b>Question:</b> ${q}</p><p class="muted">Prototype answer: I would start with West Bench Stand tonight. As we connect real weather, camera logs, and hunt history, this answer will become data-driven.</p></div>`; }
+
+const originalRenderApp = renderApp;
+renderLogin = function renderStaticLogin(){
+  $('#loginScreen')?.classList.remove('hidden');
+  $('#app')?.classList.add('hidden');
+};
+renderApp = function renderStaticApp(){
+  $('#loginScreen')?.classList.add('hidden');
+  $('#app')?.classList.remove('hidden');
+  originalRenderApp();
+};
+login = function demoLogin(){
+  const username = $('#username')?.value.trim();
+  const password = $('#password')?.value;
+
+  if(!username || !password) return alert('Enter a username and password.');
+  if(username !== 'Ethan1998' || password !== 'Luna2020') return alert('Use the demo login: Ethan1998 / Luna2020.');
+
+  state.user = { username };
+  state.activePage = 'dashboard';
+  save();
+  render();
+};
+function logout(){
+  state.user = null;
+  save();
+  render();
+}
+window.login = login;
+window.logout = logout;
 render();

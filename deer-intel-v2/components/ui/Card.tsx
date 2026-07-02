@@ -11,6 +11,7 @@ type CardProps = HTMLAttributes<HTMLElement> & {
 export default function Card({
   as: Component = "article",
   variant = "default",
+  className,
   style,
   children,
   ...props
@@ -18,6 +19,7 @@ export default function Card({
   return (
     <Component
       {...props}
+      className={["di-card", className].filter(Boolean).join(" ")}
       style={{
         ...baseStyle,
         ...variantStyles[variant],
