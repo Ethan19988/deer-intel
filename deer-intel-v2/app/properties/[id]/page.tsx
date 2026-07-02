@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useState, type CSSProperties } from "react";
+import { useParams, useSearchParams } from "next/navigation";
+import { useEffect, useState, type CSSProperties } from "react";
 import DashboardCardLink from "@/components/properties/DashboardCardLink";
 import DashboardSection from "@/components/properties/DashboardSection";
 import CameraSitesSection from "@/components/properties/dashboard/CameraSitesSection";
@@ -134,6 +134,8 @@ const CONDITION_CARDS = [
 
 export default function PropertyWorkspacePage() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const editCameraIdParam = searchParams.get("editCameraId");
   const state = useDeerIntelStore();
   const property = state.properties.find((item) => item.id === params.id);
   const propertyCameras = state.cameras.filter(
@@ -164,6 +166,30 @@ export default function PropertyWorkspacePage() {
   const [deerProfileValues, setDeerProfileValues] = useState(
     EMPTY_DEER_PROFILE_FORM_VALUES,
   );
+
+  useEffect(() => {
+    if (!editCameraIdParam || editingCameraId === editCameraIdParam) return;
+
+    const cameraToEdit = state.cameras.find(
+      (camera) =>
+        camera.id === editCameraIdParam && camera.propertyId === params.id,
+    );
+
+    if (!cameraToEdit) return;
+
+    let didCancel = false;
+
+    queueMicrotask(() => {
+      if (didCancel) return;
+
+      setEditingCameraId(cameraToEdit.id);
+      setEditCameraValues(cameraToFormValues(cameraToEdit));
+    });
+
+    return () => {
+      didCancel = true;
+    };
+  }, [editCameraIdParam, editingCameraId, params.id, state.cameras]);
 
   if (!property) {
     return (

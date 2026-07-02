@@ -32,15 +32,25 @@ export default function HuntLogPage() {
       (stand) => stand.id === standId && stand.propertyId === propertyId,
     );
 
-    if (standMatchesProperty) {
-      setHuntValues((currentValues) => ({
-        ...currentValues,
-        propertyId,
-        standId,
-      }));
-    }
+    let didCancel = false;
 
-    setLoadedUrlDefaults(true);
+    queueMicrotask(() => {
+      if (didCancel) return;
+
+      if (standMatchesProperty) {
+        setHuntValues((currentValues) => ({
+          ...currentValues,
+          propertyId,
+          standId,
+        }));
+      }
+
+      setLoadedUrlDefaults(true);
+    });
+
+    return () => {
+      didCancel = true;
+    };
   }, [loadedUrlDefaults, state.stands]);
 
   function saveHunt() {

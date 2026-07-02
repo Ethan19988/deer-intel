@@ -227,7 +227,9 @@ export default function PropertyAssetWorkspacePage() {
         </div>
         <div style={quickActionGridStyle}>
           <ActionCard
-            href={`/properties/${property.id}#camera-sites`}
+            href={`/properties/${property.id}?editCameraId=${encodeURIComponent(
+              camera.id,
+            )}#camera-sites`}
             title="Edit Camera Site"
             description="Go back to the property camera list to update this site."
             badge="Available"

@@ -36,14 +36,21 @@ export type MapLayer = {
 export type AddressSearchResult =
   | {
       status: "found";
-      center: MapCenter;
-      label: string;
-      zoom?: number;
+      results: AddressSearchPlace[];
     }
   | {
-      status: "not-found" | "provider-missing";
+      status: "not-found" | "error";
       message: string;
     };
+
+export type AddressSearchPlace = {
+  id: string;
+  center: MapCenter;
+  label: string;
+  provider: "GPS Coordinates" | "OpenStreetMap";
+  typeLabel: string;
+  zoom: number;
+};
 
 export type AssetLayer = {
   id: AssetLayerId;
@@ -56,6 +63,7 @@ export type AssetLayer = {
 export type MapAsset = {
   id: string;
   source: "camera" | "pin";
+  sourceId: string;
   layerId: AssetLayerId | "other";
   label: string;
   typeLabel: string;
@@ -66,6 +74,11 @@ export type MapAsset = {
   lng: number;
   description: string;
   pinId?: string;
+};
+
+export type MapAssetRoute = {
+  href?: string;
+  unavailableMessage?: string;
 };
 
 export const DEFAULT_MAP_CENTER: MapCenter = [40.9, -77.8];
@@ -215,18 +228,23 @@ export const ASSET_LAYER_LOOKUP = ASSET_LAYERS.reduce<
 }, {} as Record<AssetLayerId, AssetLayer>);
 
 export const PIN_LAYER_LOOKUP: Record<PinType, AssetLayerId | "other"> = {
+  "Camera Site": "cameras",
+  Stand: "stands",
+  Bedding: "bedding",
+  Food: "food",
+  Water: "water",
+  Scrape: "scrapes",
+  Rub: "rubs",
+  Trail: "trails",
+  Parking: "parking",
+  Gate: "gates",
   "Trail Camera": "cameras",
   Treestand: "stands",
   "Bedding Area": "bedding",
   "Food Source": "food",
   "Water Source": "water",
-  Scrape: "scrapes",
-  Rub: "rubs",
   "Rub Line": "rubs",
-  Trail: "trails",
   "Access Route": "trails",
-  Parking: "parking",
-  Gate: "gates",
   "Buck Sighting": "other",
   "Doe Sighting": "other",
   Vegetation: "other",
@@ -238,15 +256,93 @@ const OTHER_ASSET_STYLE = {
   background: "#2f230f",
 };
 
+type NominatimSearchResult = {
+  place_id?: number;
+  osm_type?: string;
+  osm_id?: number;
+  display_name?: string;
+  lat?: string;
+  lon?: string;
+  class?: string;
+  type?: string;
+};
+
+const addressSearchCache = new Map<string, AddressSearchResult>();
+
 export async function geocodeAddressOrPlace(
   query: string,
 ): Promise<AddressSearchResult> {
-  query.trim();
+  const trimmedQuery = query.trim();
 
-  return {
-    status: "provider-missing",
-    message: "Address search is not connected yet.",
-  };
+  if (!trimmedQuery) {
+    return {
+      status: "not-found",
+      message: "Enter an address, place, road, or GPS coordinate.",
+    };
+  }
+
+  const coordinateResult = parseCoordinateSearch(trimmedQuery);
+
+  if (coordinateResult) return coordinateResult;
+
+  const cacheKey = trimmedQuery.toLowerCase();
+  const cachedResult = addressSearchCache.get(cacheKey);
+
+  if (cachedResult) return cachedResult;
+
+  try {
+    const searchUrl = new URL("https://nominatim.openstreetmap.org/search");
+
+    searchUrl.searchParams.set("format", "jsonv2");
+    searchUrl.searchParams.set("q", trimmedQuery);
+    searchUrl.searchParams.set("limit", "5");
+    searchUrl.searchParams.set("addressdetails", "1");
+
+    const response = await fetch(searchUrl.toString(), {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        status: "error",
+        message: "Address search is temporarily unavailable.",
+      };
+    }
+
+    const results: unknown = await response.json();
+
+    if (!Array.isArray(results)) {
+      return {
+        status: "error",
+        message: "Address search returned an unexpected response.",
+      };
+    }
+
+    const places = results
+      .map(normalizeNominatimResult)
+      .filter((place): place is AddressSearchPlace => place !== null);
+    const searchResult: AddressSearchResult =
+      places.length > 0
+        ? {
+            status: "found",
+            results: places,
+          }
+        : {
+            status: "not-found",
+            message: "No address or place found.",
+          };
+
+    addressSearchCache.set(cacheKey, searchResult);
+
+    return searchResult;
+  } catch {
+    return {
+      status: "error",
+      message: "Address search is temporarily unavailable.",
+    };
+  }
 }
 
 export function createVisibleAssetLayerState() {
@@ -269,6 +365,7 @@ export function cameraToMapAsset(camera: Camera): MapAsset | null {
   return {
     id: `camera-${camera.id}`,
     source: "camera",
+    sourceId: camera.id,
     layerId: "cameras",
     label: camera.name,
     typeLabel: `${camera.cameraType} Camera`,
@@ -289,6 +386,7 @@ export function pinToMapAsset(pin: MapPin): MapAsset {
   return {
     id: `pin-${pin.id}`,
     source: "pin",
+    sourceId: pin.id,
     layerId,
     pinId: pin.id,
     label: pin.type,
@@ -304,4 +402,108 @@ export function pinToMapAsset(pin: MapPin): MapAsset {
 
 export function formatCoordinate(value: number) {
   return value.toFixed(5);
+}
+
+export function getAssetDetailHref(
+  asset: MapAsset,
+  propertyId: string,
+): MapAssetRoute {
+  if (asset.source === "camera") {
+    return {
+      href: `/properties/${propertyId}/assets/${asset.sourceId}`,
+    };
+  }
+
+  return {
+    unavailableMessage: "Details page not available yet",
+  };
+}
+
+export function getAssetEditHref(
+  asset: MapAsset,
+  propertyId: string,
+): MapAssetRoute {
+  if (asset.source === "camera") {
+    return {
+      href: `/properties/${propertyId}?editCameraId=${encodeURIComponent(
+        asset.sourceId,
+      )}#camera-sites`,
+    };
+  }
+
+  return {
+    unavailableMessage: "Edit page not available yet",
+  };
+}
+
+function parseCoordinateSearch(query: string): AddressSearchResult | null {
+  const coordinateMatch = query.match(
+    /^\s*(-?\d+(?:\.\d+)?)\s*(?:,\s*|\s+)(-?\d+(?:\.\d+)?)\s*$/,
+  );
+
+  if (!coordinateMatch) return null;
+
+  const latitude = Number(coordinateMatch[1]);
+  const longitude = Number(coordinateMatch[2]);
+
+  if (
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    return {
+      status: "not-found",
+      message: "GPS coordinates should be latitude, longitude.",
+    };
+  }
+
+  return {
+    status: "found",
+    results: [
+      {
+        id: `coordinates-${latitude}-${longitude}`,
+        center: [latitude, longitude],
+        label: `${formatCoordinate(latitude)}, ${formatCoordinate(longitude)}`,
+        provider: "GPS Coordinates",
+        typeLabel: "GPS Coordinates",
+        zoom: 16,
+      },
+    ],
+  };
+}
+
+function normalizeNominatimResult(result: unknown): AddressSearchPlace | null {
+  if (!isNominatimSearchResult(result)) return null;
+  if (!result.display_name || !result.lat || !result.lon) return null;
+
+  const latitude = Number(result.lat);
+  const longitude = Number(result.lon);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+  const typeLabel = [result.class, result.type]
+    .filter((value): value is string => typeof value === "string" && !!value)
+    .map((value) => value.replaceAll("_", " "))
+    .join(" / ");
+
+  return {
+    id:
+      result.osm_type && result.osm_id
+        ? `${result.osm_type}-${result.osm_id}`
+        : `place-${result.place_id ?? `${latitude}-${longitude}`}`,
+    center: [latitude, longitude],
+    label: result.display_name,
+    provider: "OpenStreetMap",
+    typeLabel: typeLabel || "Place",
+    zoom: 16,
+  };
+}
+
+function isNominatimSearchResult(
+  value: unknown,
+): value is NominatimSearchResult {
+  return typeof value === "object" && value !== null;
 }

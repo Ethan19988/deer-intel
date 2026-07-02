@@ -145,6 +145,9 @@ export default function PropertiesPage() {
         pins: currentState.pins.filter(
           (pin) => pin.propertyId !== propertyToDelete.id,
         ),
+        mapDrawings: currentState.mapDrawings.filter(
+          (drawing) => drawing.propertyId !== propertyToDelete.id,
+        ),
         hunts: currentState.hunts.filter(
           (hunt) => hunt.propertyId !== propertyToDelete.id,
         ),
