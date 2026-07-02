@@ -3,64 +3,118 @@ import type { MapAsset } from "@/lib/propertyMap";
 
 type MapAssetSelectorPanelProps = {
   assets: MapAsset[];
+  isMobileOpen: boolean;
   selectedAssetId: string | null;
+  onCloseMobile: () => void;
+  onOpenMobile: () => void;
   onSelectAsset: (asset: MapAsset) => void;
 };
 
 export default function MapAssetSelectorPanel({
   assets,
+  isMobileOpen,
   selectedAssetId,
+  onCloseMobile,
+  onOpenMobile,
   onSelectAsset,
 }: MapAssetSelectorPanelProps) {
   if (assets.length === 0) return null;
 
   return (
-    <div
-      className="di-map-bottom-sheet"
-      style={panelStyle}
-      onClick={(event) => event.stopPropagation()}
-      onDoubleClick={(event) => event.stopPropagation()}
-    >
-      <div style={headerStyle}>
-        <p style={eyebrowStyle}>Mapped Assets</p>
-        <span style={countStyle}>{assets.length}</span>
-      </div>
-      <div className="di-map-bottom-sheet-row" style={scrollRowStyle}>
-        {assets.map((asset) => {
-          const isSelected = asset.id === selectedAssetId;
+    <>
+      <button
+        type="button"
+        className={`di-map-assets-toggle${
+          isMobileOpen ? " di-map-assets-toggle-hidden" : ""
+        }`}
+        style={assetToggleButtonStyle}
+        aria-expanded={isMobileOpen}
+        onClick={onOpenMobile}
+      >
+        📍 Assets ({assets.length})
+      </button>
 
-          return (
+      <div
+        className={`di-map-bottom-sheet${
+          isMobileOpen ? " di-map-bottom-sheet-open" : ""
+        }`}
+        style={panelStyle}
+        onClick={(event) => event.stopPropagation()}
+        onDoubleClick={(event) => event.stopPropagation()}
+      >
+        <div style={headerStyle}>
+          <p style={eyebrowStyle}>Mapped Assets</p>
+          <div style={headerActionsStyle}>
+            <span style={countStyle}>{assets.length}</span>
             <button
-              key={asset.id}
               type="button"
-              className="di-map-bottom-sheet-button"
-              style={{
-                ...assetButtonStyle,
-                ...(isSelected ? selectedAssetButtonStyle : null),
-              }}
-              onClick={() => onSelectAsset(asset)}
+              className="di-map-bottom-sheet-close"
+              style={closeButtonStyle}
+              onClick={onCloseMobile}
             >
-              <span
+              Close
+            </button>
+          </div>
+        </div>
+        <div className="di-map-bottom-sheet-row" style={scrollRowStyle}>
+          {assets.map((asset) => {
+            const isSelected = asset.id === selectedAssetId;
+
+            return (
+              <button
+                key={asset.id}
+                type="button"
+                className="di-map-bottom-sheet-button"
                 style={{
-                  ...assetIconStyle,
-                  background: asset.background,
-                  borderColor: asset.color,
-                  color: asset.color,
+                  ...assetButtonStyle,
+                  ...(isSelected ? selectedAssetButtonStyle : null),
+                }}
+                onClick={() => {
+                  onSelectAsset(asset);
+                  onCloseMobile();
                 }}
               >
-                {asset.shortLabel}
-              </span>
-              <span style={assetTextStyle}>
-                <span style={assetNameStyle}>{asset.label}</span>
-                <span style={assetTypeStyle}>{asset.typeLabel}</span>
-              </span>
-            </button>
-          );
-        })}
+                <span
+                  style={{
+                    ...assetIconStyle,
+                    background: asset.background,
+                    borderColor: asset.color,
+                    color: asset.color,
+                  }}
+                >
+                  {asset.shortLabel}
+                </span>
+                <span style={assetTextStyle}>
+                  <span style={assetNameStyle}>{asset.label}</span>
+                  <span style={assetTypeStyle}>{asset.typeLabel}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
+
+const assetToggleButtonStyle: CSSProperties = {
+  position: "absolute",
+  left: "1rem",
+  bottom: "1rem",
+  zIndex: 1060,
+  minHeight: "44px",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0.65rem 0.85rem",
+  border: "1px solid rgba(255, 255, 255, 0.68)",
+  borderRadius: "999px",
+  background: "rgba(17, 23, 17, 0.94)",
+  color: "#f1f5ef",
+  cursor: "pointer",
+  fontSize: "0.92rem",
+  fontWeight: 900,
+  boxShadow: "0 14px 30px rgba(0, 0, 0, 0.28)",
+};
 
 const panelStyle: CSSProperties = {
   position: "absolute",
@@ -84,6 +138,12 @@ const headerStyle: CSSProperties = {
   gap: "0.75rem",
 };
 
+const headerActionsStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.5rem",
+};
+
 const eyebrowStyle: CSSProperties = {
   margin: 0,
   color: "#dce9da",
@@ -103,6 +163,20 @@ const countStyle: CSSProperties = {
   borderRadius: "999px",
   color: "#f1f5ef",
   fontSize: "0.78rem",
+  fontWeight: 900,
+};
+
+const closeButtonStyle: CSSProperties = {
+  minHeight: "36px",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0.45rem 0.65rem",
+  border: "1px solid rgba(255, 255, 255, 0.2)",
+  borderRadius: "8px",
+  background: "rgba(255, 255, 255, 0.08)",
+  color: "#f1f5ef",
+  cursor: "pointer",
+  fontSize: "0.82rem",
   fontWeight: 900,
 };
 
