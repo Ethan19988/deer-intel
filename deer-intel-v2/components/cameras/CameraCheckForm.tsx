@@ -1,5 +1,6 @@
 import type { CSSProperties, FormEvent } from "react";
 import Button from "@/components/ui/Button";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import type { CameraCheckFormValues } from "@/lib/cameraCheckFormValues";
 
 type CameraCheckFormProps = {
@@ -30,66 +31,67 @@ export default function CameraCheckForm({
 
   return (
     <form onSubmit={handleSubmit} style={formStyle}>
-      <div style={formGridStyle}>
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Check Date</span>
-          <input
-            type="date"
-            value={values.date}
-            onChange={(event) => updateField("date", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
+      <CollapsibleSection title="Check Details" defaultOpen>
+        <div className="di-form-grid" style={formGridStyle}>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Check Date</span>
+            <input
+              type="date"
+              value={values.date}
+              onChange={(event) => updateField("date", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
 
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Battery %</span>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            placeholder="85"
-            value={values.batteryPercent}
-            onChange={(event) =>
-              updateField("batteryPercent", event.target.value)
-            }
-            style={inputStyle}
-          />
-        </label>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Battery %</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              placeholder="85"
+              value={values.batteryPercent}
+              onChange={(event) =>
+                updateField("batteryPercent", event.target.value)
+              }
+              style={inputStyle}
+            />
+          </label>
 
-        <label style={fieldStyle}>
-          <span style={labelStyle}>SD Card %</span>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            placeholder="40"
-            value={values.sdCardPercent}
-            onChange={(event) =>
-              updateField("sdCardPercent", event.target.value)
-            }
-            style={inputStyle}
-          />
-        </label>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>SD Card %</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              placeholder="40"
+              value={values.sdCardPercent}
+              onChange={(event) =>
+                updateField("sdCardPercent", event.target.value)
+              }
+              style={inputStyle}
+            />
+          </label>
 
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Signal %</span>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            placeholder="Cell cameras only"
-            value={values.signalStrength}
-            onChange={(event) =>
-              updateField("signalStrength", event.target.value)
-            }
-            style={inputStyle}
-          />
-        </label>
-      </div>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Signal %</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              placeholder="Cell cameras only"
+              value={values.signalStrength}
+              onChange={(event) =>
+                updateField("signalStrength", event.target.value)
+              }
+              style={inputStyle}
+            />
+          </label>
+        </div>
+      </CollapsibleSection>
 
-      <div style={sectionBlockStyle}>
-        <p style={sectionLabelStyle}>Weather During Check</p>
-        <div style={formGridStyle}>
+      <CollapsibleSection title="Weather During Check">
+        <div className="di-form-grid" style={formGridStyle}>
           <label style={fieldStyle}>
             <span style={labelStyle}>Temperature</span>
             <input
@@ -144,60 +146,66 @@ export default function CameraCheckForm({
             />
           </label>
         </div>
-      </div>
+      </CollapsibleSection>
 
-      <div style={formGridStyle}>
-        <CountField
-          label="Bucks"
-          value={values.bucks}
-          onChange={(value) => updateField("bucks", value)}
-        />
-        <CountField
-          label="Does"
-          value={values.does}
-          onChange={(value) => updateField("does", value)}
-        />
-        <CountField
-          label="Fawns"
-          value={values.fawns}
-          onChange={(value) => updateField("fawns", value)}
-        />
-        <CountField
-          label="Turkeys"
-          value={values.turkeys}
-          onChange={(value) => updateField("turkeys", value)}
-        />
-        <CountField
-          label="Bears"
-          value={values.bears}
-          onChange={(value) => updateField("bears", value)}
-        />
-        <CountField
-          label="Coyotes"
-          value={values.coyotes}
-          onChange={(value) => updateField("coyotes", value)}
-        />
-      </div>
+      <CollapsibleSection title="Wildlife Seen">
+        <div className="di-form-grid" style={formGridStyle}>
+          <CountField
+            label="Bucks"
+            value={values.bucks}
+            onChange={(value) => updateField("bucks", value)}
+          />
+          <CountField
+            label="Does"
+            value={values.does}
+            onChange={(value) => updateField("does", value)}
+          />
+          <CountField
+            label="Fawns"
+            value={values.fawns}
+            onChange={(value) => updateField("fawns", value)}
+          />
+          <CountField
+            label="Turkeys"
+            value={values.turkeys}
+            onChange={(value) => updateField("turkeys", value)}
+          />
+          <CountField
+            label="Bears"
+            value={values.bears}
+            onChange={(value) => updateField("bears", value)}
+          />
+          <CountField
+            label="Coyotes"
+            value={values.coyotes}
+            onChange={(value) => updateField("coyotes", value)}
+          />
+        </div>
 
-      <label style={fieldStyle}>
-        <span style={labelStyle}>Other Wildlife</span>
-        <input
-          placeholder="Bobcat, fox, raccoon, unknown tracks"
-          value={values.otherWildlife}
-          onChange={(event) => updateField("otherWildlife", event.target.value)}
-          style={inputStyle}
-        />
-      </label>
+        <label style={{ ...fieldStyle, marginTop: "1rem" }}>
+          <span style={labelStyle}>Other Wildlife</span>
+          <input
+            placeholder="Bobcat, fox, unknown tracks"
+            value={values.otherWildlife}
+            onChange={(event) =>
+              updateField("otherWildlife", event.target.value)
+            }
+            style={inputStyle}
+          />
+        </label>
+      </CollapsibleSection>
 
-      <label style={fieldStyle}>
-        <span style={labelStyle}>Notes</span>
-        <textarea
-          placeholder="Card pull notes, fresh sign, camera angle, deer movement, or maintenance"
-          value={values.notes}
-          onChange={(event) => updateField("notes", event.target.value)}
-          style={{ ...inputStyle, minHeight: "100px", resize: "vertical" }}
-        />
-      </label>
+      <CollapsibleSection title="Notes">
+        <label style={fieldStyle}>
+          <span style={labelStyle}>Notes</span>
+          <textarea
+            placeholder="Card pull notes, fresh sign, camera angle, deer movement, or maintenance"
+            value={values.notes}
+            onChange={(event) => updateField("notes", event.target.value)}
+            style={{ ...inputStyle, minHeight: "100px", resize: "vertical" }}
+          />
+        </label>
+      </CollapsibleSection>
 
       <Button type="submit">Save Camera Check</Button>
     </form>
@@ -242,19 +250,6 @@ const formGridStyle: CSSProperties = {
 const fieldStyle: CSSProperties = {
   display: "grid",
   gap: "0.45rem",
-};
-
-const sectionBlockStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.75rem",
-  paddingTop: "0.25rem",
-};
-
-const sectionLabelStyle: CSSProperties = {
-  margin: 0,
-  color: "#f1f5ef",
-  fontSize: "1rem",
-  fontWeight: 800,
 };
 
 const labelStyle: CSSProperties = {

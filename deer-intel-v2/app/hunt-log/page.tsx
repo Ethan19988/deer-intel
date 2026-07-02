@@ -28,6 +28,9 @@ export default function HuntLogPage() {
     const params = new URLSearchParams(window.location.search);
     const propertyId = params.get("propertyId") ?? "";
     const standId = params.get("standId") ?? "";
+    const propertyExists = state.properties.some(
+      (property) => property.id === propertyId,
+    );
     const standMatchesProperty = state.stands.some(
       (stand) => stand.id === standId && stand.propertyId === propertyId,
     );
@@ -37,11 +40,11 @@ export default function HuntLogPage() {
     queueMicrotask(() => {
       if (didCancel) return;
 
-      if (standMatchesProperty) {
+      if (propertyExists) {
         setHuntValues((currentValues) => ({
           ...currentValues,
           propertyId,
-          standId,
+          standId: standMatchesProperty ? standId : "",
         }));
       }
 
@@ -51,7 +54,7 @@ export default function HuntLogPage() {
     return () => {
       didCancel = true;
     };
-  }, [loadedUrlDefaults, state.stands]);
+  }, [loadedUrlDefaults, state.properties, state.stands]);
 
   function saveHunt() {
     const newHunt = createHuntFromValues({

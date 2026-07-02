@@ -12,6 +12,7 @@ export default function ParcelOwnerInfoCard({
 }: ParcelOwnerInfoCardProps) {
   return (
     <aside
+      className="di-map-card"
       style={cardStyle}
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
@@ -25,6 +26,7 @@ export default function ParcelOwnerInfoCard({
         <button
           type="button"
           aria-label="Close parcel owner card"
+          className="di-map-close-button"
           style={closeButtonStyle}
           onClick={onClose}
         >

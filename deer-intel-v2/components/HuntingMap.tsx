@@ -4,19 +4,17 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   MapContainer,
-  Polygon,
-  Polyline,
   TileLayer,
   useMap,
   useMapEvents,
 } from "react-leaflet";
 import MapAssetInfoCard from "@/components/map/MapAssetInfoCard";
 import MapAssetSelectorPanel from "@/components/map/MapAssetSelectorPanel";
-import MapDrawingInfoCard from "@/components/map/MapDrawingInfoCard";
-import MapDrawingShape from "@/components/map/MapDrawingShape";
-import MapDrawingToolbar from "@/components/map/MapDrawingToolbar";
 import MapLayerControl from "@/components/map/MapLayerControl";
 import MapModeSelector from "@/components/map/MapModeSelector";
+import MapPinBox, {
+  PIN_BOX_DRAG_DATA_TYPE,
+} from "@/components/map/MapPinBox";
 import ParcelBoundaryLayer from "@/components/map/ParcelBoundaryLayer";
 import ParcelOwnerLabelLayer from "@/components/map/ParcelOwnerLabelLayer";
 import ParcelOwnerInfoCard from "@/components/map/ParcelOwnerInfoCard";
@@ -52,12 +50,6 @@ import {
   type MapLayerId,
 } from "@/lib/propertyMap";
 import type {
-  MapDrawing,
-  MapDrawingGeometry,
-  MapDrawingPoint,
-  MapDrawingType,
-} from "@/types/mapDrawing";
-import type {
   ParcelBoundaryLoadState,
   ParcelOwnerLookupState,
   ParcelOwnerLabelLoadState,
@@ -86,11 +78,6 @@ type SearchTarget = {
   zoom: number;
 };
 
-type ActiveDrawing = {
-  geometry: MapDrawingGeometry;
-  type: MapDrawingType;
-};
-
 function ClickToAddPin({
   enabled,
   pinType,
@@ -102,27 +89,6 @@ function ClickToAddPin({
       if (!enabled || !propertyId) return;
 
       onAddPin(pinType, event.latlng.lat, event.latlng.lng);
-    },
-  });
-
-  return null;
-}
-
-function ClickToDraw({
-  isDrawing,
-  onAddPoint,
-}: {
-  isDrawing: boolean;
-  onAddPoint: (point: MapDrawingPoint) => void;
-}) {
-  useMapEvents({
-    click(event: MapClickEvent) {
-      if (!isDrawing) return;
-
-      onAddPoint({
-        lat: event.latlng.lat,
-        lng: event.latlng.lng,
-      });
     },
   });
 
@@ -143,6 +109,71 @@ function ClickToLookupParcelOwner({
       onLookup(event.latlng.lat, event.latlng.lng);
     },
   });
+
+  return null;
+}
+
+function isSupportedPropertyPinType(value: string): value is PinType {
+  return PROPERTY_ASSET_PIN_TYPES.includes(
+    value as (typeof PROPERTY_ASSET_PIN_TYPES)[number],
+  );
+}
+
+function MapPinDropTarget({
+  enabled,
+  onDropPin,
+}: {
+  enabled: boolean;
+  onDropPin: (pinType: PinType, lat: number, lng: number) => void;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    const container = map.getContainer();
+
+    function getDroppedPinType(event: DragEvent): PinType | null {
+      const droppedType =
+        event.dataTransfer?.getData(PIN_BOX_DRAG_DATA_TYPE) ||
+        event.dataTransfer?.getData("text/plain") ||
+        "";
+
+      return isSupportedPropertyPinType(droppedType) ? droppedType : null;
+    }
+
+    function handleDragOver(event: DragEvent) {
+      if (!enabled || !getDroppedPinType(event)) return;
+
+      event.preventDefault();
+
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    }
+
+    function handleDrop(event: DragEvent) {
+      const droppedType = getDroppedPinType(event);
+
+      if (!enabled || !droppedType) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const bounds = container.getBoundingClientRect();
+      const point: [number, number] = [
+        event.clientX - bounds.left,
+        event.clientY - bounds.top,
+      ];
+      const latLng = map.containerPointToLatLng(point);
+
+      onDropPin(droppedType, latLng.lat, latLng.lng);
+    }
+
+    container.addEventListener("dragover", handleDragOver);
+    container.addEventListener("drop", handleDrop);
+
+    return () => {
+      container.removeEventListener("dragover", handleDragOver);
+      container.removeEventListener("drop", handleDrop);
+    };
+  }, [enabled, map, onDropPin]);
 
   return null;
 }
@@ -172,6 +203,7 @@ function MapControlButtons() {
 
   return (
     <div
+      className="di-map-controls"
       style={mapControlsStyle}
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
@@ -179,6 +211,7 @@ function MapControlButtons() {
       <button
         type="button"
         aria-label="Zoom in"
+        className="di-map-control-button"
         style={mapControlButtonStyle}
         onClick={() => map.zoomIn()}
       >
@@ -187,6 +220,7 @@ function MapControlButtons() {
       <button
         type="button"
         aria-label="Zoom out"
+        className="di-map-control-button"
         style={mapControlButtonStyle}
         onClick={() => map.zoomOut()}
       >
@@ -195,6 +229,7 @@ function MapControlButtons() {
       <button
         type="button"
         aria-label="Locate me"
+        className="di-map-control-button di-map-gps-button"
         style={{ ...mapControlButtonStyle, ...gpsButtonStyle }}
         onClick={locateUser}
       >
@@ -261,13 +296,10 @@ export default function HuntingMap() {
   const [parcelOwnerLookupState, setParcelOwnerLookupState] =
     useState<ParcelOwnerLookupState>(IDLE_PARCEL_OWNER_LOOKUP_STATE);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
-  const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(
-    null,
+  const [isPlacingPin, setIsPlacingPin] = useState(false);
+  const [pinBoxMessage, setPinBoxMessage] = useState(
+    "Choose a pin type, then tap Place Pin.",
   );
-  const [activeDrawing, setActiveDrawing] = useState<ActiveDrawing | null>(
-    null,
-  );
-  const [drawingPoints, setDrawingPoints] = useState<MapDrawingPoint[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchMessage, setSearchMessage] = useState("");
   const [searchResults, setSearchResults] = useState<AddressSearchPlace[]>([]);
@@ -295,13 +327,6 @@ export default function HuntingMap() {
       ),
     [selectedPropertyId, state.cameras],
   );
-  const propertyDrawings = useMemo(
-    () =>
-      state.mapDrawings.filter(
-        (drawing) => drawing.propertyId === selectedPropertyId,
-      ),
-    [selectedPropertyId, state.mapDrawings],
-  );
   const mapAssets = useMemo(() => {
     const cameraAssets = propertyCameras
       .map(cameraToMapAsset)
@@ -313,12 +338,14 @@ export default function HuntingMap() {
     asset.layerId === "other" ? true : visibleAssetLayers[asset.layerId],
   );
   const selectedAsset = mapAssets.find((asset) => asset.id === selectedAssetId);
-  const selectedDrawing = propertyDrawings.find(
-    (drawing) => drawing.id === selectedDrawingId,
-  );
-  const drawingCanFinish =
-    activeDrawing !== null &&
-    drawingPoints.length >= (activeDrawing.geometry === "polygon" ? 3 : 2);
+  const pinBoxDisabled = !selectedPropertyId || showOwnerNames;
+  const currentPinBoxMessage = pinBoxDisabled
+    ? showOwnerNames
+      ? "Turn off Owner Names to add pins."
+      : "Choose a property before placing pins."
+    : isPlacingPin
+      ? `Tap map to place ${pinType}`
+      : pinBoxMessage;
   const mapOverlayMessages = [
     showPropertyLines ? parcelLayerState?.message : "",
     showOwnerNames && parcelOwnerLookupState.status === "idle"
@@ -381,7 +408,6 @@ export default function HuntingMap() {
 
   async function lookupParcelOwner(lat: number, lng: number) {
     setSelectedAssetId(null);
-    setSelectedDrawingId(null);
     setParcelOwnerLookupState({
       status: "loading",
       message: "Looking up parcel owner...",
@@ -447,87 +473,54 @@ export default function HuntingMap() {
     setSelectedSearchResult(null);
   }
 
+  function updatePinType(type: PinType) {
+    setPinType(type);
+    setPinBoxMessage(`${type} selected. Tap Place Pin when ready.`);
+  }
+
+  function startPinPlacement() {
+    if (pinBoxDisabled) return;
+
+    setIsPlacingPin(true);
+    setPinBoxMessage(`Tap map to place ${pinType}`);
+  }
+
+  function cancelPinPlacement() {
+    setIsPlacingPin(false);
+    setPinBoxMessage("Pin placement canceled.");
+  }
+
+  function createPinAtLocation(type: PinType, lat: number, lng: number) {
+    const notes = window.prompt(`Name or notes for this ${type}`, "");
+
+    if (notes === null) {
+      setIsPlacingPin(false);
+      setPinBoxMessage("Pin placement canceled.");
+      return null;
+    }
+
+    const pinId = addPin(type, lat, lng, notes.trim());
+
+    if (!pinId) return null;
+
+    setSelectedAssetId(`pin-${pinId}`);
+    setIsPlacingPin(false);
+    setPinBoxMessage(`${type} saved.`);
+
+    return pinId;
+  }
+
   function selectAsset(assetId: string) {
     setSelectedAssetId(assetId);
-    setSelectedDrawingId(null);
   }
 
   function selectAssetAndCenter(asset: MapAsset) {
     setSelectedAssetId(asset.id);
-    setSelectedDrawingId(null);
     setSearchTarget({
       center: [asset.lat, asset.lng],
       id: Date.now(),
       zoom: Math.max(mapZoom, 17),
     });
-  }
-
-  function startDrawing(type: MapDrawingType, geometry: MapDrawingGeometry) {
-    setActiveDrawing({
-      geometry,
-      type,
-    });
-    setDrawingPoints([]);
-    setSelectedAssetId(null);
-    setSelectedDrawingId(null);
-  }
-
-  function addDrawingPoint(point: MapDrawingPoint) {
-    setDrawingPoints((currentPoints) => [...currentPoints, point]);
-  }
-
-  function cancelDrawing() {
-    setActiveDrawing(null);
-    setDrawingPoints([]);
-  }
-
-  function finishDrawing() {
-    if (!activeDrawing || !drawingCanFinish || !selectedPropertyId) return;
-
-    const drawingName = window.prompt(
-      `Name this ${activeDrawing.type}`,
-      activeDrawing.type,
-    );
-    const trimmedName = drawingName?.trim();
-
-    if (!trimmedName) return;
-
-    const drawingId = createDeerIntelId("drawing");
-    const newDrawing: MapDrawing = {
-      id: drawingId,
-      propertyId: selectedPropertyId,
-      type: activeDrawing.type,
-      geometry: activeDrawing.geometry,
-      name: trimmedName,
-      points: drawingPoints,
-      createdAt: new Date().toISOString(),
-    };
-
-    updateDeerIntelStore((currentState) => ({
-      ...currentState,
-      mapDrawings: [...currentState.mapDrawings, newDrawing],
-    }));
-    setSelectedDrawingId(drawingId);
-    cancelDrawing();
-  }
-
-  function selectDrawing(drawingId: string) {
-    setSelectedDrawingId(drawingId);
-    setSelectedAssetId(null);
-  }
-
-  function deleteSelectedDrawing() {
-    if (!selectedDrawing) return;
-
-    if (!window.confirm(`Delete ${selectedDrawing.name}?`)) return;
-
-    updateDeerIntelStore((currentState) => ({
-      ...currentState,
-      mapDrawings: currentState.mapDrawings.filter(
-        (drawing) => drawing.id !== selectedDrawing.id,
-      ),
-    }));
-    setSelectedDrawingId(null);
   }
 
   function centerOnAsset() {
@@ -567,7 +560,7 @@ export default function HuntingMap() {
     if (selectedAsset.pinId) deletePin(selectedAsset.pinId);
   }
 
-  function addPin(type: PinType, lat: number, lng: number) {
+  function addPin(type: PinType, lat: number, lng: number, notes = "") {
     if (!selectedPropertyId) return null;
 
     const pinId = createDeerIntelId("pin");
@@ -583,7 +576,7 @@ export default function HuntingMap() {
           lat,
           lng,
           createdAt: new Date().toISOString(),
-          notes: "",
+          notes,
         },
       ],
     }));
@@ -602,8 +595,13 @@ export default function HuntingMap() {
   }
 
   return (
-    <div style={mapLayoutStyle}>
-      <Card as="section" variant="elevated" style={controlPanelStyle}>
+    <div className="di-map-layout" style={mapLayoutStyle}>
+      <Card
+        as="section"
+        className="di-map-control-panel"
+        variant="elevated"
+        style={controlPanelStyle}
+      >
         <div style={panelHeaderStyle}>
           <div>
             <p style={eyebrowStyle}>Property Map</p>
@@ -635,34 +633,6 @@ export default function HuntingMap() {
           </label>
         </div>
 
-        <div>
-          <div style={assetPickerHeaderStyle}>
-            <p style={controlLabelStyle}>Add Asset</p>
-            <span style={selectedAssetTypePillStyle}>
-              Next click: {pinType}
-            </span>
-          </div>
-          <div style={assetTypeGridStyle}>
-            {PROPERTY_ASSET_PIN_TYPES.map((type) => {
-              const isSelected = type === pinType;
-
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  style={{
-                    ...assetTypeButtonStyle,
-                    ...(isSelected ? selectedAssetTypeButtonStyle : null),
-                  }}
-                  onClick={() => setPinType(type)}
-                >
-                  {type}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         <MapModeSelector
           selectedLayer={selectedLayer}
           onSelectLayer={setSelectedLayer}
@@ -670,6 +640,7 @@ export default function HuntingMap() {
 
         <MapLayerControl
           ownerNamesDisabled={!showPropertyLines}
+          showAssetLayers={false}
           showOwnerNames={showOwnerNames}
           showPropertyLines={showPropertyLines}
           visibleAssetLayers={visibleAssetLayers}
@@ -679,12 +650,12 @@ export default function HuntingMap() {
         />
 
         <p style={helpTextStyle}>
-          Tap the map to add a {pinType.toLowerCase()} pin to{" "}
-          {selectedProperty?.name ?? "this property"}.
+          Use the Pin Box on the map to add cameras, stands, sign, trails,
+          parking, and gates.
         </p>
       </Card>
 
-      <div style={mapFrameStyle}>
+      <div className="di-map-frame" style={mapFrameStyle}>
         <MapSearchBar
           canCreateAsset={selectedSearchResult !== null}
           isSearching={isSearching}
@@ -733,46 +704,21 @@ export default function HuntingMap() {
           <MapSearchTargetController target={searchTarget} />
           <MapStateTracker onMapStateChange={saveMapState} />
           <MapControlButtons />
+          <MapPinDropTarget
+            enabled={!pinBoxDisabled}
+            onDropPin={createPinAtLocation}
+          />
 
           <ClickToAddPin
-            enabled={activeDrawing === null && !showOwnerNames}
+            enabled={isPlacingPin && !pinBoxDisabled}
             pinType={pinType}
             propertyId={selectedPropertyId}
-            onAddPin={addPin}
+            onAddPin={createPinAtLocation}
           />
           <ClickToLookupParcelOwner
-            enabled={
-              activeDrawing === null && showPropertyLines && showOwnerNames
-            }
+            enabled={showPropertyLines && showOwnerNames}
             onLookup={lookupParcelOwner}
           />
-          <ClickToDraw
-            isDrawing={activeDrawing !== null}
-            onAddPoint={addDrawingPoint}
-          />
-
-          {propertyDrawings.map((drawing) => (
-            <MapDrawingShape
-              key={drawing.id}
-              drawing={drawing}
-              isSelected={drawing.id === selectedDrawingId}
-              onSelect={() => selectDrawing(drawing.id)}
-            />
-          ))}
-
-          {activeDrawing && drawingPoints.length >= 2 ? (
-            activeDrawing.geometry === "polygon" && drawingPoints.length >= 3 ? (
-              <Polygon
-                positions={drawingPoints.map((point) => [point.lat, point.lng])}
-                pathOptions={activeDrawingPreviewStyle}
-              />
-            ) : (
-              <Polyline
-                positions={drawingPoints.map((point) => [point.lat, point.lng])}
-                pathOptions={activeDrawingPreviewStyle}
-              />
-            )
-          ) : null}
 
           {visibleAssets.map((asset) => (
             <PropertyMapAssetMarker
@@ -792,16 +738,17 @@ export default function HuntingMap() {
           ) : null}
         </MapContainer>
 
-        <MapDrawingToolbar
-          activeDrawingType={activeDrawing?.type ?? null}
-          canFinish={drawingCanFinish}
-          pointCount={drawingPoints.length}
-          onCancel={cancelDrawing}
-          onFinish={finishDrawing}
-          onStartDrawing={startDrawing}
+        <MapPinBox
+          disabled={pinBoxDisabled}
+          isPlacing={isPlacingPin}
+          message={currentPinBoxMessage}
+          pinType={pinType}
+          onCancelPlacement={cancelPinPlacement}
+          onPinTypeChange={updatePinType}
+          onStartPlacement={startPinPlacement}
         />
 
-        <div style={mapStatusStyle}>
+        <div className="di-map-status" style={mapStatusStyle}>
           <span style={mapStatusPillStyle}>{selectedMapLayer.label}</span>
           {selectedMapLayer.isPlaceholder ? (
             <span style={mapStatusPillStyle}>Topo provider placeholder</span>
@@ -813,16 +760,12 @@ export default function HuntingMap() {
             <span style={mapStatusPillStyle}>Owner Names</span>
           ) : null}
           <span style={mapStatusPillStyle}>
-            {selectedDrawing
-              ? selectedDrawing.name
-              : selectedAsset
-                ? selectedAsset.label
-                : "No asset selected"}
+            {selectedAsset ? selectedAsset.label : "No asset selected"}
           </span>
         </div>
 
         {mapOverlayMessages.length > 0 ? (
-          <div style={propertyLinesNoticeStyle}>
+          <div className="di-map-notice" style={propertyLinesNoticeStyle}>
             {mapOverlayMessages.join(" ")}
           </div>
         ) : null}
@@ -849,16 +792,6 @@ export default function HuntingMap() {
           />
         ) : null}
 
-        {selectedDrawing && selectedProperty ? (
-          <MapDrawingInfoCard
-            key={selectedDrawing.id}
-            drawing={selectedDrawing}
-            propertyName={selectedProperty.name}
-            onClose={() => setSelectedDrawingId(null)}
-            onDelete={deleteSelectedDrawing}
-          />
-        ) : null}
-
         {parcelOwnerLookupState.status === "found" &&
         parcelOwnerLookupState.parcel ? (
           <ParcelOwnerInfoCard
@@ -879,7 +812,7 @@ export default function HuntingMap() {
 
           <div style={assetListStyle}>
             {mapAssets.length === 0 ? (
-              <EmptyState description="No map locations yet. Tap the map to save the first one." />
+              <EmptyState description="No map locations yet. Use the Pin Box to save the first one." />
             ) : (
               mapAssets.map((asset) => {
                 const isSelected = asset.id === selectedAssetId;
@@ -889,6 +822,7 @@ export default function HuntingMap() {
 
                 return (
                   <div
+                    className="di-map-row"
                     key={asset.id}
                     style={{
                       ...assetRowStyle,
@@ -942,14 +876,6 @@ export default function HuntingMap() {
 const mapLayoutStyle: CSSProperties = {
   display: "grid",
   gap: "1rem",
-};
-
-const activeDrawingPreviewStyle = {
-  color: "#74a86f",
-  fillColor: "#74a86f",
-  fillOpacity: 0.16,
-  opacity: 0.95,
-  weight: 4,
 };
 
 const controlPanelStyle: CSSProperties = {
@@ -1023,62 +949,6 @@ const selectStyle: CSSProperties = {
   border: "1px solid #2b3a2b",
   borderRadius: "8px",
   background: "#070a07",
-  color: "white",
-};
-
-const controlLabelStyle: CSSProperties = {
-  margin: "0 0 0.55rem",
-  color: "#c6d5c5",
-  fontSize: "0.92rem",
-  fontWeight: 800,
-};
-
-const assetPickerHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "0.75rem",
-  flexWrap: "wrap",
-  marginBottom: "0.55rem",
-};
-
-const selectedAssetTypePillStyle: CSSProperties = {
-  display: "inline-flex",
-  minHeight: "34px",
-  alignItems: "center",
-  padding: "0.4rem 0.65rem",
-  border: "1px solid #3b6843",
-  borderRadius: "999px",
-  background: "#102111",
-  color: "#f1f5ef",
-  fontSize: "0.84rem",
-  fontWeight: 800,
-};
-
-const assetTypeGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(112px, 1fr))",
-  gap: "0.6rem",
-};
-
-const assetTypeButtonStyle: CSSProperties = {
-  display: "inline-flex",
-  minHeight: "48px",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: "0.65rem 0.75rem",
-  border: "1px solid #253425",
-  borderRadius: "8px",
-  background: "#070a07",
-  color: "#c8d2c6",
-  fontSize: "0.94rem",
-  fontWeight: 800,
-  cursor: "pointer",
-};
-
-const selectedAssetTypeButtonStyle: CSSProperties = {
-  borderColor: "#4c8d56",
-  background: "#17331b",
   color: "white",
 };
 

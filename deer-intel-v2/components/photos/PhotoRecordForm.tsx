@@ -1,5 +1,6 @@
 import type { CSSProperties, FormEvent } from "react";
 import Button from "@/components/ui/Button";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import { formatCameraCheckDate } from "@/lib/cameraChecks";
 import type { PhotoFormValues } from "@/lib/photoFormValues";
 import type { CameraCheck } from "@/types/cameraCheck";
@@ -51,97 +52,112 @@ export default function PhotoRecordForm({
 
   return (
     <form onSubmit={handleSubmit} style={formStyle}>
-      <div style={formGridStyle}>
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Camera Check</span>
-          <select
-            value={values.cameraCheckId}
-            onChange={(event) => updateField("cameraCheckId", event.target.value)}
-            style={inputStyle}
-          >
-            <option value="">Choose check</option>
-            {cameraChecks.map((check) => (
-              <option key={check.id} value={check.id}>
-                {formatCameraCheckDate(check.date)}
-              </option>
-            ))}
-          </select>
-        </label>
+      <CollapsibleSection title="Photo Details" defaultOpen>
+        <div className="di-form-grid" style={formGridStyle}>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Camera Check</span>
+            <select
+              value={values.cameraCheckId}
+              onChange={(event) =>
+                updateField("cameraCheckId", event.target.value)
+              }
+              style={inputStyle}
+            >
+              <option value="">Choose check</option>
+              {cameraChecks.map((check) => (
+                <option key={check.id} value={check.id}>
+                  {formatCameraCheckDate(check.date)}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label style={fieldStyle}>
-          <span style={labelStyle}>File Name or Photo Label</span>
-          <input
-            placeholder="Card pull 7, IMG_2042, or Big 8 at creek"
-            value={values.fileName}
-            onChange={(event) => updateField("fileName", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-      </div>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>File Name or Photo Label</span>
+            <input
+              placeholder="Card pull 7, IMG_2042, or Big 8 at creek"
+              value={values.fileName}
+              onChange={(event) => updateField("fileName", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+        </div>
 
-      <div style={formGridStyle}>
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Photo Date</span>
-          <input
-            type="date"
-            value={values.photoDate}
-            onChange={(event) => updateField("photoDate", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Species</span>
-          <select
-            value={values.species}
-            onChange={(event) => updateField("species", event.target.value)}
-            style={inputStyle}
-          >
-            <option value="">Choose species</option>
-            {SPECIES_OPTIONS.map((species) => (
-              <option key={species} value={species}>
-                {species}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Buck Name</span>
-          <input
-            placeholder="Optional"
-            value={values.buckName}
-            onChange={(event) => updateField("buckName", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-      </div>
-
-      <label style={fieldStyle}>
-        <span style={labelStyle}>Deer Profile</span>
-        <select
-          value={values.deerProfileId}
-          onChange={(event) => updateField("deerProfileId", event.target.value)}
-          style={inputStyle}
+        <div
+          className="di-form-grid"
+          style={{ ...formGridStyle, marginTop: "1rem" }}
         >
-          <option value="">No profile linked</option>
-          {deerProfiles.map((profile) => (
-            <option key={profile.id} value={profile.id}>
-              {profile.nickname}
-            </option>
-          ))}
-        </select>
-      </label>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Photo Date</span>
+            <input
+              type="date"
+              value={values.photoDate}
+              onChange={(event) => updateField("photoDate", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
 
-      <label style={fieldStyle}>
-        <span style={labelStyle}>Notes</span>
-        <textarea
-          placeholder="Direction of travel, time pattern, behavior, or anything worth remembering"
-          value={values.notes}
-          onChange={(event) => updateField("notes", event.target.value)}
-          style={{ ...inputStyle, minHeight: "100px", resize: "vertical" }}
-        />
-      </label>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Species</span>
+            <select
+              value={values.species}
+              onChange={(event) => updateField("species", event.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Choose species</option>
+              {SPECIES_OPTIONS.map((species) => (
+                <option key={species} value={species}>
+                  {species}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Deer Link">
+        <div className="di-form-grid" style={formGridStyle}>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Buck Name</span>
+            <input
+              placeholder="Optional"
+              value={values.buckName}
+              onChange={(event) => updateField("buckName", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Deer Profile</span>
+            <select
+              value={values.deerProfileId}
+              onChange={(event) =>
+                updateField("deerProfileId", event.target.value)
+              }
+              style={inputStyle}
+            >
+              <option value="">No profile linked</option>
+              {deerProfiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.nickname}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Notes">
+        <label style={fieldStyle}>
+          <span style={labelStyle}>Notes</span>
+          <textarea
+            placeholder="Direction of travel, time pattern, behavior, or anything worth remembering"
+            value={values.notes}
+            onChange={(event) => updateField("notes", event.target.value)}
+            style={{ ...inputStyle, minHeight: "100px", resize: "vertical" }}
+          />
+        </label>
+      </CollapsibleSection>
 
       <Button type="submit" disabled={!canSave}>
         Add Photo Record

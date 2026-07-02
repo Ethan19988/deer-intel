@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
 type PageShellProps = {
@@ -10,11 +11,27 @@ export default function PageShell({
   maxWidth = "1180px",
 }: PageShellProps) {
   return (
-    <main style={pageStyle}>
-      <div style={{ ...contentStyle, maxWidth }}>{children}</div>
+    <main className="di-page-shell" style={pageStyle}>
+      <div className="di-page-content" style={{ ...contentStyle, maxWidth }}>
+        {children}
+      </div>
+      <nav className="di-mobile-nav" aria-label="Primary">
+        {mobileNavLinks.map((link) => (
+          <Link key={link.href} href={link.href}>
+            {link.label}
+          </Link>
+        ))}
+      </nav>
     </main>
   );
 }
+
+const mobileNavLinks = [
+  { href: "/", label: "Today" },
+  { href: "/properties", label: "Land" },
+  { href: "/map", label: "Map" },
+  { href: "/hunt-log", label: "Hunts" },
+];
 
 const pageStyle: CSSProperties = {
   minHeight: "100vh",

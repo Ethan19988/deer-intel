@@ -3,6 +3,7 @@ import { ASSET_LAYERS, type AssetLayerId } from "@/lib/propertyMap";
 
 type MapLayerControlProps = {
   ownerNamesDisabled: boolean;
+  showAssetLayers?: boolean;
   showOwnerNames: boolean;
   showPropertyLines: boolean;
   visibleAssetLayers: Record<AssetLayerId, boolean>;
@@ -13,6 +14,7 @@ type MapLayerControlProps = {
 
 export default function MapLayerControl({
   ownerNamesDisabled,
+  showAssetLayers = true,
   showOwnerNames,
   showPropertyLines,
   visibleAssetLayers,
@@ -70,36 +72,40 @@ export default function MapLayerControl({
         </button>
       </div>
 
-      <p style={controlLabelStyle}>Property Layers</p>
-      <div style={assetToggleGridStyle}>
-        {ASSET_LAYERS.map((layer) => {
-          const isVisible = visibleAssetLayers[layer.id];
+      {showAssetLayers ? (
+        <>
+          <p style={controlLabelStyle}>Property Layers</p>
+          <div style={assetToggleGridStyle}>
+            {ASSET_LAYERS.map((layer) => {
+              const isVisible = visibleAssetLayers[layer.id];
 
-          return (
-            <button
-              key={layer.id}
-              type="button"
-              style={{
-                ...assetToggleStyle,
-                ...(isVisible ? activeAssetToggleStyle : null),
-              }}
-              onClick={() => onToggleLayer(layer.id)}
-            >
-              <span
-                style={{
-                  ...assetToggleDotStyle,
-                  background: layer.background,
-                  borderColor: layer.color,
-                  color: layer.color,
-                }}
-              >
-                {layer.shortLabel}
-              </span>
-              {layer.label}
-            </button>
-          );
-        })}
-      </div>
+              return (
+                <button
+                  key={layer.id}
+                  type="button"
+                  style={{
+                    ...assetToggleStyle,
+                    ...(isVisible ? activeAssetToggleStyle : null),
+                  }}
+                  onClick={() => onToggleLayer(layer.id)}
+                >
+                  <span
+                    style={{
+                      ...assetToggleDotStyle,
+                      background: layer.background,
+                      borderColor: layer.color,
+                      color: layer.color,
+                    }}
+                  >
+                    {layer.shortLabel}
+                  </span>
+                  {layer.label}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

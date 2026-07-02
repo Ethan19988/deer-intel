@@ -30,7 +30,7 @@ export default function PropertyCard({
     <Card as="div" style={cardStyle}>
       {isEditing ? (
         <>
-          <div style={cardHeaderStyle}>
+          <div className="di-property-card-header" style={cardHeaderStyle}>
             <div>
               <p style={cardEyebrowStyle}>Editing</p>
               <h3 style={cardTitleStyle}>{property.name}</h3>
@@ -47,15 +47,16 @@ export default function PropertyCard({
         </>
       ) : (
         <>
-          <div style={cardHeaderStyle}>
+          <div className="di-property-card-header" style={cardHeaderStyle}>
             <div>
               <p style={cardEyebrowStyle}>Property</p>
               <h3 style={cardTitleStyle}>{property.name}</h3>
             </div>
 
-            <div style={buttonRowStyle}>
+            <div className="di-property-actions" style={buttonRowStyle}>
               <Link
                 href={`/properties/${property.id}`}
+                className="di-property-open"
                 style={openPropertyButtonStyle}
               >
                 Open Property

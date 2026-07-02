@@ -1,5 +1,6 @@
 import type { CSSProperties, FormEvent } from "react";
 import Button from "@/components/ui/Button";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import type {
   HuntFormValues,
   YesNoValue,
@@ -56,169 +57,189 @@ export default function HuntLogForm({
 
   return (
     <form onSubmit={handleSubmit} style={formStyle}>
-      <div style={formGridStyle}>
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Property</span>
-          <select
-            value={values.propertyId}
-            onChange={(event) => updateProperty(event.target.value)}
-            style={inputStyle}
-          >
-            <option value="">Choose property</option>
-            {properties.map((property) => (
-              <option key={property.id} value={property.id}>
-                {property.name}
+      <CollapsibleSection title="Hunt Details" defaultOpen>
+        <div className="di-form-grid" style={formGridStyle}>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Property</span>
+            <select
+              value={values.propertyId}
+              onChange={(event) => updateProperty(event.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Choose property</option>
+              {properties.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Stand</span>
+            <select
+              value={values.standId}
+              onChange={(event) => updateField("standId", event.target.value)}
+              style={inputStyle}
+              disabled={!values.propertyId || availableStands.length === 0}
+            >
+              <option value="">
+                {values.propertyId ? "Choose stand" : "Choose property first"}
               </option>
-            ))}
-          </select>
-        </label>
+              {availableStands.map((stand) => (
+                <option key={stand.id} value={stand.id}>
+                  {stand.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Stand</span>
-          <select
-            value={values.standId}
-            onChange={(event) => updateField("standId", event.target.value)}
-            style={inputStyle}
-            disabled={!values.propertyId || availableStands.length === 0}
-          >
-            <option value="">
-              {values.propertyId ? "Choose stand" : "Choose property first"}
-            </option>
-            {availableStands.map((stand) => (
-              <option key={stand.id} value={stand.id}>
-                {stand.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Date</span>
+            <input
+              type="date"
+              value={values.date}
+              onChange={(event) => updateField("date", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+        </div>
 
+        <div
+          className="di-form-grid"
+          style={{ ...formGridStyle, marginTop: "1rem" }}
+        >
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Start Time</span>
+            <input
+              type="time"
+              value={values.startTime}
+              onChange={(event) => updateField("startTime", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={fieldStyle}>
+            <span style={labelStyle}>End Time</span>
+            <input
+              type="time"
+              value={values.endTime}
+              onChange={(event) => updateField("endTime", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Weather and Wind">
+        <div className="di-form-grid" style={formGridStyle}>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Wind Direction</span>
+            <input
+              placeholder="NW, W, S"
+              value={values.windDirection}
+              onChange={(event) =>
+                updateField("windDirection", event.target.value)
+              }
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Wind Speed</span>
+            <input
+              placeholder="8 mph"
+              value={values.windSpeed}
+              onChange={(event) => updateField("windSpeed", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Temperature</span>
+            <input
+              placeholder="42"
+              value={values.temperature}
+              onChange={(event) =>
+                updateField("temperature", event.target.value)
+              }
+              style={inputStyle}
+            />
+          </label>
+        </div>
+
+        <div
+          className="di-form-grid"
+          style={{ ...formGridStyle, marginTop: "1rem" }}
+        >
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Weather</span>
+            <input
+              placeholder="Clear, rain, snow, cloudy"
+              value={values.weather}
+              onChange={(event) => updateField("weather", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Moon Phase</span>
+            <input
+              placeholder="Full, new, waxing"
+              value={values.moonPhase}
+              onChange={(event) => updateField("moonPhase", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Deer Seen">
+        <div className="di-form-grid" style={formGridStyle}>
+          <CountField
+            label="Bucks Seen"
+            value={values.bucks}
+            onChange={(value) => updateField("bucks", value)}
+          />
+          <CountField
+            label="Does Seen"
+            value={values.does}
+            onChange={(value) => updateField("does", value)}
+          />
+          <CountField
+            label="Fawns Seen"
+            value={values.fawns}
+            onChange={(value) => updateField("fawns", value)}
+          />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Results">
+        <div className="di-form-grid" style={formGridStyle}>
+          <YesNoField
+            label="Shot Opportunity"
+            value={values.shotOpportunity}
+            onChange={(value) => updateField("shotOpportunity", value)}
+          />
+          <YesNoField
+            label="Harvest"
+            value={values.harvest}
+            onChange={(value) => updateField("harvest", value)}
+          />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Notes">
         <label style={fieldStyle}>
-          <span style={labelStyle}>Date</span>
-          <input
-            type="date"
-            value={values.date}
-            onChange={(event) => updateField("date", event.target.value)}
-            style={inputStyle}
+          <span style={labelStyle}>Notes</span>
+          <textarea
+            placeholder="Deer movement, access, pressure, mistakes, or what you learned"
+            value={values.notes}
+            onChange={(event) => updateField("notes", event.target.value)}
+            style={{ ...inputStyle, minHeight: "110px", resize: "vertical" }}
           />
         </label>
-      </div>
-
-      <div style={formGridStyle}>
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Start Time</span>
-          <input
-            type="time"
-            value={values.startTime}
-            onChange={(event) => updateField("startTime", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-
-        <label style={fieldStyle}>
-          <span style={labelStyle}>End Time</span>
-          <input
-            type="time"
-            value={values.endTime}
-            onChange={(event) => updateField("endTime", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-      </div>
-
-      <div style={formGridStyle}>
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Wind Direction</span>
-          <input
-            placeholder="NW, W, S"
-            value={values.windDirection}
-            onChange={(event) => updateField("windDirection", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Wind Speed</span>
-          <input
-            placeholder="8 mph"
-            value={values.windSpeed}
-            onChange={(event) => updateField("windSpeed", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Temperature</span>
-          <input
-            placeholder="42"
-            value={values.temperature}
-            onChange={(event) => updateField("temperature", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-      </div>
-
-      <div style={formGridStyle}>
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Weather</span>
-          <input
-            placeholder="Clear, rain, snow, cloudy"
-            value={values.weather}
-            onChange={(event) => updateField("weather", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Moon Phase</span>
-          <input
-            placeholder="Full, new, waxing"
-            value={values.moonPhase}
-            onChange={(event) => updateField("moonPhase", event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-      </div>
-
-      <div style={formGridStyle}>
-        <CountField
-          label="Bucks Seen"
-          value={values.bucks}
-          onChange={(value) => updateField("bucks", value)}
-        />
-        <CountField
-          label="Does Seen"
-          value={values.does}
-          onChange={(value) => updateField("does", value)}
-        />
-        <CountField
-          label="Fawns Seen"
-          value={values.fawns}
-          onChange={(value) => updateField("fawns", value)}
-        />
-      </div>
-
-      <div style={formGridStyle}>
-        <YesNoField
-          label="Shot Opportunity"
-          value={values.shotOpportunity}
-          onChange={(value) => updateField("shotOpportunity", value)}
-        />
-        <YesNoField
-          label="Harvest"
-          value={values.harvest}
-          onChange={(value) => updateField("harvest", value)}
-        />
-      </div>
-
-      <label style={fieldStyle}>
-        <span style={labelStyle}>Notes</span>
-        <textarea
-          placeholder="Deer movement, access, pressure, mistakes, or what you learned"
-          value={values.notes}
-          onChange={(event) => updateField("notes", event.target.value)}
-          style={{ ...inputStyle, minHeight: "110px", resize: "vertical" }}
-        />
-      </label>
+      </CollapsibleSection>
 
       <Button type="submit" disabled={!canSave}>
         Save Hunt

@@ -8,6 +8,7 @@ import DashboardSection from "@/components/properties/DashboardSection";
 import CameraSitesSection from "@/components/properties/dashboard/CameraSitesSection";
 import DeerProfilesSection from "@/components/properties/dashboard/DeerProfilesSection";
 import InfoCard from "@/components/properties/dashboard/InfoCard";
+import PropertyIntelligenceSummary from "@/components/properties/dashboard/PropertyIntelligenceSummary";
 import PropertyHeader from "@/components/properties/dashboard/PropertyHeader";
 import PropertyTimeline from "@/components/properties/dashboard/PropertyTimeline";
 import RecentActivityList from "@/components/properties/dashboard/RecentActivityList";
@@ -39,6 +40,7 @@ import {
   getRecentActivity,
 } from "@/lib/propertyDashboard";
 import { getPropertyTimelineEvents } from "@/lib/propertyTimeline";
+import { getPropertyIntelligenceCards } from "@/lib/propertyIntelligence";
 import { getPropertyWeatherSummary } from "@/lib/weather";
 import {
   createDeerIntelId,
@@ -55,47 +57,29 @@ type DashboardModule = {
   badge: "Available" | "Coming Soon";
 };
 
-const PROPERTY_MODULES: DashboardModule[] = [
+type CommandTab = {
+  href: string;
+  label: string;
+  primary?: boolean;
+};
+
+const COMMAND_TABS: CommandTab[] = [
+  { href: "#overview", label: "Overview" },
+  { href: "#map", label: "Map", primary: true },
+  { href: "#camera-sites", label: "Cameras" },
+  { href: "#stand-sites", label: "Stands" },
+  { href: "#deer-profiles", label: "Deer" },
+  { href: "#property-timeline", label: "Timeline" },
+  { href: "#hunt-planner", label: "Hunt Planner" },
+  { href: "#intelligence", label: "Intelligence" },
+];
+
+const INTELLIGENCE_MODULES: DashboardModule[] = [
   {
-    title: "Overview",
-    description: "Review property notes, current data coverage, and next steps.",
-    icon: "overview",
-    href: "#overview",
-    badge: "Available",
-  },
-  {
-    title: "Map",
-    description: "Open the property map to manage pins, travel routes, and sign.",
-    icon: "map",
-    href: "/map",
-    badge: "Available",
-  },
-  {
-    title: "Cameras",
-    description: "Manage standard and cellular camera sites for this property.",
-    icon: "cameras",
-    href: "#camera-sites",
-    badge: "Available",
-  },
-  {
-    title: "Stands",
-    description: "Track stand type, winds, access, exit, and notes.",
-    icon: "stands",
-    href: "#stand-sites",
-    badge: "Available",
-  },
-  {
-    title: "Hunt Log",
-    description: "Log sits, sightings, conditions, and hunt outcomes.",
+    title: "Hunt Planner",
+    description: "Review the simple property plan before choosing a sit.",
     icon: "huntLog",
-    href: "/hunt-log",
-    badge: "Available",
-  },
-  {
-    title: "Deer History",
-    description: "Build deer profiles and movement history over time.",
-    icon: "deerHistory",
-    href: "#deer-profiles",
+    href: "#hunt-planner",
     badge: "Available",
   },
   {
@@ -109,7 +93,7 @@ const PROPERTY_MODULES: DashboardModule[] = [
     title: "Analytics",
     description: "Compare pressure, sightings, camera activity, and stand success.",
     icon: "analytics",
-    href: "#property-modules",
+    href: "#intelligence",
     badge: "Coming Soon",
   },
 ];
@@ -191,6 +175,19 @@ export default function PropertyWorkspacePage() {
     };
   }, [editCameraIdParam, editingCameraId, params.id, state.cameras]);
 
+  useEffect(() => {
+    if (!property || state.selectedPropertyId === property.id) return;
+
+    updateDeerIntelStore((currentState) =>
+      currentState.selectedPropertyId === property.id
+        ? currentState
+        : {
+            ...currentState,
+            selectedPropertyId: property.id,
+          },
+    );
+  }, [property, state.selectedPropertyId]);
+
   if (!property) {
     return (
       <PageShell maxWidth="680px">
@@ -238,6 +235,23 @@ export default function PropertyWorkspacePage() {
     hunts: propertyHunts,
     cameraChecks: propertyCameraChecks,
   });
+  const intelligenceCards = getPropertyIntelligenceCards({
+    cameras: propertyCameras,
+    cameraChecks: propertyCameraChecks,
+    hunts: propertyHunts,
+    photoRecords: propertyPhotoRecords,
+    pins: propertyPins,
+    stands: propertyStands,
+  });
+  const latestHunt = getLatestByDate(propertyHunts, (hunt) => hunt.date);
+  const latestCameraCheck = getLatestByDate(
+    propertyCameraChecks,
+    (check) => check.date,
+  );
+  const firstCamera = propertyCameras[0];
+  const addPhotoHref = firstCamera
+    ? `/properties/${propertyId}/assets/${firstCamera.id}#photos`
+    : "#camera-sites";
 
   function addCamera() {
     const newCamera = createCameraFromValues({
@@ -329,7 +343,9 @@ export default function PropertyWorkspacePage() {
         aiConfidence={aiConfidence}
       />
 
-      <DashboardSection eyebrow="Next Steps" title="Quick Actions">
+      <CommandTabs tabs={COMMAND_TABS} />
+
+      <DashboardSection eyebrow="Command Center" title="Quick Actions">
         <div style={quickActionGridStyle}>
           <DashboardCardLink
             href="#camera-sites"
@@ -340,36 +356,89 @@ export default function PropertyWorkspacePage() {
             tone="primary"
           />
           <DashboardCardLink
-            href="/map"
-            title="Open Map"
-            description="Mark sign, stands, bedding, food, water, and access."
-            icon={<WorkspaceIcon name="map" />}
-            size="large"
-            tone="primary"
-          />
-          <DashboardCardLink
             href="#stand-sites"
             title="Add Stand"
-            description="Keep stand spots and wind notes together."
+            description="Save a stand site, wind notes, and access notes."
             icon={<WorkspaceIcon name="stands" />}
             size="large"
             tone="primary"
           />
           <DashboardCardLink
-            href="/hunt-log"
-            title="Log Hunt"
-            description="Save what happened on a sit."
+            href="/map"
+            title="Add Asset"
+            description="Open the map to add sign, bedding, food, water, trails, parking, or gates."
+            icon={<WorkspaceIcon name="map" />}
+            size="large"
+            tone="primary"
+          />
+          <DashboardCardLink
+            href={`/hunt-log?propertyId=${propertyId}`}
+            title="Add Hunt Log"
+            description="Log a sit for this property."
             icon={<WorkspaceIcon name="huntLog" />}
+            size="large"
+            tone="primary"
+          />
+          <DashboardCardLink
+            href={addPhotoHref}
+            title="Add Photo Record"
+            description={
+              firstCamera
+                ? "Attach a photo record to a camera check."
+                : "Add a camera site first, then add photo records."
+            }
+            icon={<WorkspaceIcon name="deerHistory" />}
             size="large"
             tone="primary"
           />
         </div>
       </DashboardSection>
 
+      <DashboardSection
+        id="map"
+        eyebrow="Primary Workspace"
+        title="Map"
+      >
+        <div style={mapCommandGridStyle}>
+          <DashboardCardLink
+            href="/map"
+            title="Open Property Map"
+            description="Scout this property, place assets, check camera sites, and review stands."
+            icon={<WorkspaceIcon name="map" />}
+            size="large"
+            tone="primary"
+          />
+          <Card as="div" variant="subtle" style={mapSummaryCardStyle}>
+            <h3 style={summaryCardTitleStyle}>Mapped Summary</h3>
+            <div style={statGridStyle}>
+              <StatCard
+                label="Camera Sites"
+                value={propertyCameras.length}
+                detail={`${activeCameraCount(propertyCameras)} active`}
+              />
+              <StatCard
+                label="Stands"
+                value={standCount}
+                detail="Saved stand sites"
+              />
+              <StatCard
+                label="Assets"
+                value={propertyPins.length}
+                detail="Saved map pins"
+              />
+            </div>
+            <p style={mapSummaryTextStyle}>
+              Opening the map from here keeps the active property set to{" "}
+              {property.name}.
+            </p>
+          </Card>
+        </div>
+      </DashboardSection>
+
       <div style={overviewGridStyle}>
         <DashboardSection
-          eyebrow="Quick Look"
-          title="Property Stats"
+          eyebrow="Overview"
+          title="Property Summary"
           style={panelSectionStyle}
         >
           <div style={statGridStyle}>
@@ -424,40 +493,6 @@ export default function PropertyWorkspacePage() {
         </div>
       </DashboardSection>
 
-      <DashboardSection
-        id="property-timeline"
-        eyebrow="Property History"
-        title="Timeline"
-      >
-        <PropertyTimeline events={timelineEvents} />
-      </DashboardSection>
-
-      <DashboardSection
-        id="property-modules"
-        eyebrow="Property Tools"
-        title="Open a Tool"
-      >
-        <div style={moduleGridStyle}>
-          {PROPERTY_MODULES.map((module) => (
-            <DashboardCardLink
-              key={module.title}
-              href={module.href}
-              title={module.title}
-              description={module.description}
-              badge={module.badge}
-              icon={<WorkspaceIcon name={module.icon} />}
-            />
-          ))}
-        </div>
-      </DashboardSection>
-
-      <DeerProfilesSection
-        profileValues={deerProfileValues}
-        summaries={deerProfileSummaries}
-        onProfileValuesChange={setDeerProfileValues}
-        onAddProfile={addDeerProfile}
-      />
-
       <CameraSitesSection
         cameras={propertyCameras}
         cameraValues={cameraValues}
@@ -477,7 +512,99 @@ export default function PropertyWorkspacePage() {
         onStandValuesChange={setStandValues}
         onAddStand={addStand}
       />
+
+      <DeerProfilesSection
+        profileValues={deerProfileValues}
+        summaries={deerProfileSummaries}
+        onProfileValuesChange={setDeerProfileValues}
+        onAddProfile={addDeerProfile}
+      />
+
+      <DashboardSection
+        id="property-timeline"
+        eyebrow="Property History"
+        title="Timeline"
+      >
+        <PropertyTimeline events={timelineEvents} />
+      </DashboardSection>
+
+      <DashboardSection
+        id="hunt-planner"
+        eyebrow="Hunt Planner"
+        title="Property Hunt Plan"
+      >
+        <div style={cardGridStyle}>
+          <InfoCard
+            title="Weather"
+            value={weatherSummary.value}
+            description={weatherCardDescription(weatherSummary)}
+          />
+          <InfoCard
+            title="Last Hunt"
+            value={formatDateLabel(latestHunt?.date)}
+            description={
+              latestHunt
+                ? `${latestHunt.standName || "Stand"} / ${
+                    latestHunt.windDirection || "Wind not saved"
+                  }`
+                : "No hunts logged for this property yet."
+            }
+          />
+          <InfoCard
+            title="Recent Camera Activity"
+            value={formatDateLabel(latestCameraCheck?.date)}
+            description={
+              latestCameraCheck
+                ? "Latest camera check saved for this property."
+                : "No camera checks saved for this property yet."
+            }
+          />
+        </div>
+      </DashboardSection>
+
+      <DashboardSection
+        id="intelligence"
+        eyebrow="Intelligence"
+        title="Property Intelligence"
+      >
+        <PropertyIntelligenceSummary cards={intelligenceCards} />
+
+        <Card as="div" variant="subtle" style={advancedToolsStyle}>
+          <h3 style={summaryCardTitleStyle}>Advanced Tools</h3>
+          <div style={moduleGridStyle}>
+            {INTELLIGENCE_MODULES.map((module) => (
+              <DashboardCardLink
+                key={module.title}
+                href={module.href}
+                title={module.title}
+                description={module.description}
+                badge={module.badge}
+                icon={<WorkspaceIcon name={module.icon} />}
+              />
+            ))}
+          </div>
+        </Card>
+      </DashboardSection>
     </PageShell>
+  );
+}
+
+function CommandTabs({ tabs }: { tabs: CommandTab[] }) {
+  return (
+    <nav aria-label="Property command center" style={commandTabsStyle}>
+      {tabs.map((tab) => (
+        <a
+          key={tab.href}
+          href={tab.href}
+          style={{
+            ...commandTabStyle,
+            ...(tab.primary ? primaryCommandTabStyle : null),
+          }}
+        >
+          {tab.label}
+        </a>
+      ))}
+    </nav>
   );
 }
 
@@ -498,6 +625,29 @@ function weatherCardDescription({
     recordCount === 1 ? "1 weather record" : `${recordCount} weather records`;
 
   return `${description}. Latest: ${latestDateLabel}. ${recordText} saved. ${sourceLabel}.`;
+}
+
+function getLatestByDate<Item>(
+  items: Item[],
+  getDate: (item: Item) => string | undefined,
+) {
+  return [...items].sort(
+    (left, right) => dateTime(getDate(right)) - dateTime(getDate(left)),
+  )[0];
+}
+
+function dateTime(date: string | undefined) {
+  if (!date) return 0;
+
+  const time = Date.parse(date);
+
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function formatDateLabel(date: string | undefined) {
+  if (!date) return "None yet";
+
+  return date;
 }
 
 const notFoundCardStyle: CSSProperties = {
@@ -548,6 +698,42 @@ const primaryLinkStyle: CSSProperties = {
   textDecoration: "none",
 };
 
+const commandTabsStyle: CSSProperties = {
+  position: "sticky",
+  top: 0,
+  zIndex: 50,
+  display: "flex",
+  gap: "0.55rem",
+  marginTop: "1rem",
+  padding: "0.55rem",
+  overflowX: "auto",
+  border: "1px solid #243224",
+  borderRadius: "8px",
+  background: "rgba(5, 8, 6, 0.94)",
+  backdropFilter: "blur(10px)",
+};
+
+const commandTabStyle: CSSProperties = {
+  display: "inline-flex",
+  minHeight: "48px",
+  flex: "0 0 auto",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0.7rem 0.9rem",
+  border: "1px solid #243224",
+  borderRadius: "8px",
+  background: "#0d120d",
+  color: "#f1f5ef",
+  fontSize: "0.94rem",
+  fontWeight: 850,
+  textDecoration: "none",
+};
+
+const primaryCommandTabStyle: CSSProperties = {
+  borderColor: "#3b6843",
+  background: "#18351d",
+};
+
 const cardGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
@@ -556,8 +742,39 @@ const cardGridStyle: CSSProperties = {
 
 const quickActionGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
   gap: "1rem",
+};
+
+const mapCommandGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: "1rem",
+  alignItems: "stretch",
+};
+
+const mapSummaryCardStyle: CSSProperties = {
+  display: "grid",
+  gap: "1rem",
+};
+
+const summaryCardTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#f1f5ef",
+  fontSize: "1.15rem",
+  lineHeight: 1.25,
+};
+
+const mapSummaryTextStyle: CSSProperties = {
+  margin: 0,
+  color: "#b8c2b6",
+  lineHeight: 1.5,
+};
+
+const advancedToolsStyle: CSSProperties = {
+  display: "grid",
+  gap: "1rem",
+  marginTop: "1rem",
 };
 
 const overviewGridStyle: CSSProperties = {
