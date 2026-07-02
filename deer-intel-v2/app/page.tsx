@@ -33,9 +33,24 @@ const QUICK_ACTIONS = [
     description: "Check pins, stands, cameras, sign, and access.",
   },
   {
+    href: "/cameras",
+    title: "Cameras",
+    description: "Review camera sites, checks, and photo activity.",
+  },
+  {
+    href: "/stands",
+    title: "Stands",
+    description: "Check stand sites, wind notes, and hunt history.",
+  },
+  {
     href: "/ai",
-    title: "AI Scout",
-    description: "Prepare for future recommendations from your saved notes.",
+    title: "Intelligence",
+    description: "See simple recommendations from your saved Deer Intel data.",
+  },
+  {
+    href: "/settings",
+    title: "Settings",
+    description: "Review local storage and saved data counts.",
   },
 ];
 

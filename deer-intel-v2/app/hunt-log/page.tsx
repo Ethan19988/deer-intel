@@ -3,9 +3,13 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import HuntLogForm from "@/components/hunts/HuntLogForm";
 import HuntLogList from "@/components/hunts/HuntLogList";
+import ActionCard from "@/components/ui/ActionCard";
+import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
+import PageHeader from "@/components/ui/PageHeader";
 import PageShell from "@/components/ui/PageShell";
+import Section from "@/components/ui/Section";
 import {
   createDeerIntelId,
   updateDeerIntelStore,
@@ -85,14 +89,19 @@ export default function HuntLogPage() {
 
   return (
     <PageShell>
-      <header style={headerStyle}>
-        <p style={eyebrowStyle}>Hunt Intelligence</p>
-        <h1 style={pageTitleStyle}>Hunt Log</h1>
-        <p style={introStyle}>
-          Save each sit by property and stand so Deer Intel can learn what
-          happened, when it happened, and what conditions mattered.
-        </p>
-      </header>
+      <Card as="section" variant="elevated" style={sectionCardStyle}>
+        <PageHeader
+          eyebrow="Hunt Intelligence"
+          title="Hunt Log"
+          description="Save each sit by property and stand so Deer Intel can learn what happened, when it happened, and what conditions mattered."
+          meta={
+            <>
+              <Badge variant="success">Property Based</Badge>
+              <Badge>{state.hunts.length} saved hunts</Badge>
+            </>
+          }
+        />
+      </Card>
 
       <Card as="section" variant="elevated" style={sectionCardStyle}>
         <div style={sectionHeaderStyle}>
@@ -116,6 +125,30 @@ export default function HuntLogPage() {
         )}
       </Card>
 
+      <Section eyebrow="Next Steps" title="Quick Actions">
+        <div style={actionGridStyle}>
+          <ActionCard
+            href="/properties"
+            title="Open Properties"
+            description="Choose a property command center and review related records."
+            badge="Available"
+            tone="primary"
+          />
+          <ActionCard
+            href="/stands"
+            title="Review Stands"
+            description="Check stand notes before logging or reviewing hunts."
+            badge="Available"
+            tone="primary"
+          />
+          <ActionCard
+            href="/map"
+            title="Open Map"
+            description="Look at stand, camera, and asset locations for context."
+          />
+        </div>
+      </Section>
+
       <section style={historySectionStyle}>
         <div style={sectionHeaderStyle}>
           <p style={eyebrowStyle}>Field History</p>
@@ -131,10 +164,6 @@ export default function HuntLogPage() {
   );
 }
 
-const headerStyle: CSSProperties = {
-  marginBottom: "1.5rem",
-};
-
 const eyebrowStyle: CSSProperties = {
   margin: 0,
   color: "#85a984",
@@ -144,22 +173,9 @@ const eyebrowStyle: CSSProperties = {
   textTransform: "uppercase",
 };
 
-const pageTitleStyle: CSSProperties = {
-  margin: "0.25rem 0 0",
-  fontSize: "3rem",
-  lineHeight: 1.05,
-};
-
-const introStyle: CSSProperties = {
-  maxWidth: "760px",
-  margin: "0.85rem 0 0",
-  color: "#b8c2b6",
-  fontSize: "1.08rem",
-  lineHeight: 1.6,
-};
-
 const sectionCardStyle: CSSProperties = {
   padding: "1.25rem",
+  marginBottom: "1.5rem",
 };
 
 const historySectionStyle: CSSProperties = {
@@ -174,4 +190,10 @@ const sectionTitleStyle: CSSProperties = {
   margin: "0.2rem 0 0",
   fontSize: "1.45rem",
   lineHeight: 1.2,
+};
+
+const actionGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "1rem",
 };
