@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { TileLayer } from "react-leaflet";
 import {
   EMPTY_PARCEL_BOUNDARY_STATE,
   PARCEL_PROVIDER_CONFIG,
   PROPERTY_LINES_NOT_CONNECTED_MESSAGE,
-  loadParcelBoundaries,
 } from "@/lib/parcelProvider";
 import type { ParcelBoundaryLoadState } from "@/types/parcel";
 
@@ -19,57 +18,26 @@ export default function ParcelBoundaryLayer({
   propertyId,
   onStateChange,
 }: ParcelBoundaryLayerProps) {
-  const [loadState, setLoadState] = useState<ParcelBoundaryLoadState>(
-    EMPTY_PARCEL_BOUNDARY_STATE,
-  );
-
   useEffect(() => {
-    let isActive = true;
-
     if (!enabled) {
-      setLoadState(EMPTY_PARCEL_BOUNDARY_STATE);
       onStateChange(null);
-      return () => {
-        isActive = false;
-      };
+      return;
     }
 
-    const loadingState: ParcelBoundaryLoadState = {
-      status: "loading",
-      message: "Loading property lines...",
+    if (!propertyId || !PARCEL_PROVIDER_CONFIG.enabled) {
+      onStateChange(EMPTY_PARCEL_BOUNDARY_STATE);
+      return;
+    }
+
+    onStateChange({
+      status: "ready",
+      message: "",
       boundaries: [],
-    };
-
-    setLoadState(loadingState);
-    onStateChange(loadingState);
-
-    loadParcelBoundaries({ propertyId })
-      .then((state) => {
-        if (!isActive) return;
-
-        setLoadState(state);
-        onStateChange(state);
-      })
-      .catch(() => {
-        if (!isActive) return;
-
-        const errorState: ParcelBoundaryLoadState = {
-          status: "error",
-          message: "Property lines could not be loaded.",
-          boundaries: [],
-        };
-
-        setLoadState(errorState);
-        onStateChange(errorState);
-      });
-
-    return () => {
-      isActive = false;
-    };
+    });
   }, [enabled, onStateChange, propertyId]);
 
   if (!enabled) return null;
-  if (loadState.status === "not-configured") return null;
+  if (!propertyId || !PARCEL_PROVIDER_CONFIG.enabled) return null;
 
   return (
     <TileLayer
@@ -82,7 +50,6 @@ export default function ParcelBoundaryLayer({
             boundaries: [],
           };
 
-          setLoadState(errorState);
           onStateChange(errorState);
         },
       }}
