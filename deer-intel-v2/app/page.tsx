@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import HuntPlannerIntelligencePanel from "@/components/hunts/HuntPlannerIntelligencePanel";
 import ActionCard from "@/components/ui/ActionCard";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
@@ -15,6 +16,7 @@ import {
   plannerHuntDate,
   type PlannerCameraActivity,
 } from "@/lib/huntPlanner";
+import { getHuntPlannerIntelligence } from "@/lib/huntPlannerIntelligence";
 
 const QUICK_ACTIONS = [
   {
@@ -59,6 +61,35 @@ export default function Home() {
   const planner = getHuntPlannerSummary(state);
   const recommendedProperty = planner.recommendedProperty.property;
   const lastHunt = planner.lastHunt.hunt;
+  const activeProperty =
+    state.properties.find(
+      (property) => property.id === state.selectedPropertyId,
+    ) ??
+    recommendedProperty ??
+    state.properties[0];
+  const activePropertyId = activeProperty?.id ?? "";
+  const plannerIntelligence = activeProperty
+    ? getHuntPlannerIntelligence({
+        property: activeProperty,
+        stands: state.stands.filter(
+          (stand) => stand.propertyId === activePropertyId,
+        ),
+        cameras: state.cameras.filter(
+          (camera) => camera.propertyId === activePropertyId,
+        ),
+        cameraChecks: state.cameraChecks.filter(
+          (check) => check.propertyId === activePropertyId,
+        ),
+        deerProfiles: state.deerProfiles.filter(
+          (profile) => profile.propertyId === activePropertyId,
+        ),
+        hunts: state.hunts.filter((hunt) => hunt.propertyId === activePropertyId),
+        photoRecords: state.photoRecords.filter(
+          (photo) => photo.propertyId === activePropertyId,
+        ),
+        pins: state.pins.filter((pin) => pin.propertyId === activePropertyId),
+      })
+    : null;
 
   return (
     <PageShell>
@@ -113,6 +144,24 @@ export default function Home() {
 
       <Section eyebrow="Trail Cameras" title="Recent Camera Activity">
         <RecentCameraActivity activities={planner.recentCameraActivity} />
+      </Section>
+
+      <Section
+        eyebrow="Hunt Planner Intelligence"
+        title={
+          activeProperty
+            ? `${activeProperty.name} Hunt Choices`
+            : "Active Property Hunt Choices"
+        }
+      >
+        {plannerIntelligence ? (
+          <HuntPlannerIntelligencePanel summary={plannerIntelligence} />
+        ) : (
+          <EmptyState
+            title="No active property yet"
+            description="Add a property, then add stands, camera checks, hunts, and photo records to build hunt planner intelligence."
+          />
+        )}
       </Section>
 
       <Section eyebrow="Next Steps" title="Quick Actions">

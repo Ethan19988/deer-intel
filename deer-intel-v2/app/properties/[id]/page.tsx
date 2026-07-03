@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState, type CSSProperties } from "react";
+import HuntPlannerIntelligencePanel from "@/components/hunts/HuntPlannerIntelligencePanel";
 import DashboardCardLink from "@/components/properties/DashboardCardLink";
 import DashboardSection from "@/components/properties/DashboardSection";
 import CameraSitesSection from "@/components/properties/dashboard/CameraSitesSection";
@@ -41,6 +42,7 @@ import {
 } from "@/lib/propertyDashboard";
 import { getPropertyTimelineEvents } from "@/lib/propertyTimeline";
 import { getPropertyIntelligenceCards } from "@/lib/propertyIntelligence";
+import { getHuntPlannerIntelligence } from "@/lib/huntPlannerIntelligence";
 import { getPropertyWeatherSummary } from "@/lib/weather";
 import {
   createDeerIntelId,
@@ -242,6 +244,16 @@ export default function PropertyWorkspacePage() {
     photoRecords: propertyPhotoRecords,
     pins: propertyPins,
     stands: propertyStands,
+  });
+  const huntPlannerIntelligence = getHuntPlannerIntelligence({
+    property,
+    stands: propertyStands,
+    cameras: propertyCameras,
+    cameraChecks: propertyCameraChecks,
+    deerProfiles: propertyDeerProfiles,
+    hunts: propertyHunts,
+    photoRecords: propertyPhotoRecords,
+    pins: propertyPins,
   });
   const latestHunt = getLatestByDate(propertyHunts, (hunt) => hunt.date);
   const latestCameraCheck = getLatestByDate(
@@ -566,6 +578,10 @@ export default function PropertyWorkspacePage() {
             }
           />
         </div>
+
+        <div style={plannerIntelligenceWrapStyle}>
+          <HuntPlannerIntelligencePanel summary={huntPlannerIntelligence} />
+        </div>
       </DashboardSection>
 
       <DashboardSection
@@ -744,6 +760,10 @@ const cardGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
   gap: "1rem",
+};
+
+const plannerIntelligenceWrapStyle: CSSProperties = {
+  marginTop: "1rem",
 };
 
 const quickActionGridStyle: CSSProperties = {
