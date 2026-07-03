@@ -6,11 +6,23 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import type { DeerProfileFormValues } from "@/lib/deerProfileFormValues";
+import { getDeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
 import type { DeerProfileSummary } from "@/lib/deerProfiles";
+import type { Camera } from "@/types/camera";
+import type { CameraCheck } from "@/types/cameraCheck";
+import type { HuntLogEntry } from "@/types/hunt";
+import type { MapPin } from "@/types/mapPin";
+import type { PhotoRecord } from "@/types/photo";
 
 type DeerProfilesSectionProps = {
   profileValues: DeerProfileFormValues;
   summaries: DeerProfileSummary[];
+  propertyName: string;
+  cameras: Camera[];
+  photoRecords: PhotoRecord[];
+  cameraChecks: CameraCheck[];
+  hunts: HuntLogEntry[];
+  pins: MapPin[];
   onProfileValuesChange: (values: DeerProfileFormValues) => void;
   onAddProfile: () => void;
 };
@@ -18,6 +30,12 @@ type DeerProfilesSectionProps = {
 export default function DeerProfilesSection({
   profileValues,
   summaries,
+  propertyName,
+  cameras,
+  photoRecords,
+  cameraChecks,
+  hunts,
+  pins,
   onProfileValuesChange,
   onAddProfile,
 }: DeerProfilesSectionProps) {
@@ -45,9 +63,25 @@ export default function DeerProfilesSection({
         <EmptyState description="No deer profiles yet. Add a buck or deer you want to track across photo records and camera sites." />
       ) : (
         <div style={profileGridStyle}>
-          {summaries.map((summary) => (
-            <DeerProfileCard key={summary.profile.id} summary={summary} />
-          ))}
+          {summaries.map((summary) => {
+            const intelligence = getDeerProfileIntelligence({
+              profile: summary.profile,
+              propertyName,
+              cameras,
+              photoRecords,
+              cameraChecks,
+              hunts,
+              pins,
+            });
+
+            return (
+              <DeerProfileCard
+                key={summary.profile.id}
+                summary={summary}
+                intelligence={intelligence}
+              />
+            );
+          })}
         </div>
       )}
     </DashboardSection>

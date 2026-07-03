@@ -516,6 +516,12 @@ export default function PropertyWorkspacePage() {
       <DeerProfilesSection
         profileValues={deerProfileValues}
         summaries={deerProfileSummaries}
+        propertyName={property.name}
+        cameras={propertyCameras}
+        photoRecords={propertyPhotoRecords}
+        cameraChecks={propertyCameraChecks}
+        hunts={propertyHunts}
+        pins={propertyPins}
         onProfileValuesChange={setDeerProfileValues}
         onAddProfile={addDeerProfile}
       />

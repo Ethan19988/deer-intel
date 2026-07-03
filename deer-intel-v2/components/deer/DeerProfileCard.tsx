@@ -1,13 +1,20 @@
 import type { CSSProperties } from "react";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
+import EmptyState from "@/components/ui/EmptyState";
+import type { DeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
 import type { DeerProfileSummary } from "@/lib/deerProfiles";
 
 type DeerProfileCardProps = {
   summary: DeerProfileSummary;
+  intelligence: DeerProfileIntelligence;
 };
 
-export default function DeerProfileCard({ summary }: DeerProfileCardProps) {
+export default function DeerProfileCard({
+  summary,
+  intelligence,
+}: DeerProfileCardProps) {
   return (
     <Card as="article" variant="subtle" style={cardStyle}>
       <div style={headerStyle}>
@@ -30,7 +37,101 @@ export default function DeerProfileCard({ summary }: DeerProfileCardProps) {
           <ProfileDetail label="Notes" value={summary.profile.notes} />
         </div>
       ) : null}
+
+      <div style={intelligenceWrapStyle}>
+        <CollapsibleSection
+          title="Intelligence"
+          description="Patterns from linked photos and notes"
+          defaultOpen={intelligence.hasSightings}
+          variant="bare"
+        >
+          <DeerProfileIntelligencePanel intelligence={intelligence} />
+        </CollapsibleSection>
+      </div>
     </Card>
+  );
+}
+
+function DeerProfileIntelligencePanel({
+  intelligence,
+}: {
+  intelligence: DeerProfileIntelligence;
+}) {
+  return (
+    <div style={intelligenceStackStyle}>
+      {!intelligence.hasSightings ? (
+        <EmptyState
+          title="No sightings yet"
+          description="Link photo records or add first seen and last seen dates to start this deer's history."
+        />
+      ) : null}
+
+      {!intelligence.hasLinkedPhotoRecords ? (
+        <EmptyState
+          title="No photo records linked yet"
+          description="Add photo records to a camera check, then link them to this deer profile."
+        />
+      ) : null}
+
+      {!intelligence.hasPatternData ? (
+        <EmptyState
+          title="No pattern data yet"
+          description="More linked photos, camera sites, and notes will help Deer Intel find useful patterns."
+        />
+      ) : null}
+
+      <div style={detailsGridStyle}>
+        <ProfileDetail
+          label="Most Recent Sighting"
+          value={`${intelligence.mostRecentSighting.title}. ${intelligence.mostRecentSighting.detail}`}
+        />
+        <ProfileDetail
+          label="Camera Sites"
+          value={
+            intelligence.associatedCameraSites.length > 0
+              ? intelligence.associatedCameraSites.join(", ")
+              : "None linked yet"
+          }
+        />
+        <ProfileDetail
+          label="Properties"
+          value={
+            intelligence.associatedProperties.length > 0
+              ? intelligence.associatedProperties.join(", ")
+              : "Not set"
+          }
+        />
+        <ProfileDetail
+          label="Common Time"
+          value={`${intelligence.commonTimeOfDay.title}. ${intelligence.commonTimeOfDay.detail}`}
+        />
+        <ProfileDetail
+          label="Common Area"
+          value={`${intelligence.commonArea.title}. ${intelligence.commonArea.detail}`}
+        />
+        <ProfileDetail
+          label="Maturity / Status"
+          value={`${intelligence.maturityStatus.title}. ${intelligence.maturityStatus.detail}`}
+        />
+      </div>
+
+      {intelligence.notesMentioningDeer.length > 0 ? (
+        <div style={notesMentionWrapStyle}>
+          <p style={detailLabelStyle}>Notes Mentioning This Deer</p>
+          <div style={notesMentionListStyle}>
+            {intelligence.notesMentioningDeer.map((mention) => (
+              <div
+                key={`${mention.source}-${mention.detail}`}
+                style={noteMentionStyle}
+              >
+                <p style={mentionSourceStyle}>{mention.source}</p>
+                <p style={detailValueStyle}>{mention.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -83,6 +184,44 @@ const notesStyle: CSSProperties = {
   marginTop: "1rem",
   paddingTop: "1rem",
   borderTop: "1px solid #1e2a1e",
+};
+
+const intelligenceWrapStyle: CSSProperties = {
+  marginTop: "1rem",
+  paddingTop: "1rem",
+  borderTop: "1px solid #1e2a1e",
+};
+
+const intelligenceStackStyle: CSSProperties = {
+  display: "grid",
+  gap: "1rem",
+};
+
+const notesMentionWrapStyle: CSSProperties = {
+  paddingTop: "1rem",
+  borderTop: "1px solid #1e2a1e",
+};
+
+const notesMentionListStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.65rem",
+  marginTop: "0.65rem",
+};
+
+const noteMentionStyle: CSSProperties = {
+  padding: "0.75rem",
+  border: "1px solid #243224",
+  borderRadius: "8px",
+  background: "#070a07",
+};
+
+const mentionSourceStyle: CSSProperties = {
+  margin: 0,
+  color: "#85a984",
+  fontSize: "0.76rem",
+  fontWeight: 800,
+  letterSpacing: 0,
+  textTransform: "uppercase",
 };
 
 const detailLabelStyle: CSSProperties = {

@@ -1,14 +1,18 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import StandIntelligencePanel from "@/components/stands/StandIntelligencePanel";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
+import type { StandIntelligenceSummary } from "@/lib/standIntelligence";
 import type { Stand } from "@/types/stand";
 
 type StandCardProps = {
   stand: Stand;
+  intelligence?: StandIntelligenceSummary;
 };
 
-export default function StandCard({ stand }: StandCardProps) {
+export default function StandCard({ stand, intelligence }: StandCardProps) {
   return (
     <Card style={cardStyle}>
       <div style={headerStyle}>
@@ -37,6 +41,21 @@ export default function StandCard({ stand }: StandCardProps) {
         <StandDetail label="Exit Route" value={stand.exitRouteNotes} />
         <StandDetail label="Notes" value={stand.notes} />
       </div>
+
+      {intelligence ? (
+        <div style={intelligenceWrapStyle}>
+          <CollapsibleSection
+            title="Stand Intelligence"
+            description="Wind, pressure, hunts, and related camera activity"
+            variant="bare"
+          >
+            <StandIntelligencePanel
+              propertyId={stand.propertyId}
+              summary={intelligence}
+            />
+          </CollapsibleSection>
+        </div>
+      ) : null}
     </Card>
   );
 }
@@ -112,6 +131,12 @@ const detailsGridStyle: CSSProperties = {
 const notesGridStyle: CSSProperties = {
   display: "grid",
   gap: "1rem",
+  marginTop: "1rem",
+  paddingTop: "1rem",
+  borderTop: "1px solid #1e2a1e",
+};
+
+const intelligenceWrapStyle: CSSProperties = {
   marginTop: "1rem",
   paddingTop: "1rem",
   borderTop: "1px solid #1e2a1e",
