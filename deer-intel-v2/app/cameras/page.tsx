@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
 import CameraCard from "@/components/cameras/CameraCard";
+import CameraIntelligenceSection from "@/components/cameras/CameraIntelligenceSection";
 import ActionCard from "@/components/ui/ActionCard";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
@@ -16,6 +17,7 @@ import {
   updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
+import { getCameraIntelligenceSummary } from "@/lib/cameraIntelligence";
 import type { Camera } from "@/types/camera";
 
 export default function CamerasPage() {
@@ -41,6 +43,11 @@ export default function CamerasPage() {
   const latestCheck = [...propertyChecks].sort(
     (left, right) => dateTime(right.date) - dateTime(left.date),
   )[0];
+  const cameraIntelligence = getCameraIntelligenceSummary({
+    cameras: propertyCameras,
+    cameraChecks: propertyChecks,
+    photoRecords: propertyPhotos,
+  });
 
   function selectProperty(propertyId: string) {
     updateDeerIntelStore((currentState) => ({
@@ -133,6 +140,12 @@ export default function CamerasPage() {
           />
         </div>
       </Section>
+
+      <CameraIntelligenceSection
+        propertyId={selectedPropertyId}
+        propertyName={selectedProperty?.name ?? "This property"}
+        summary={cameraIntelligence}
+      />
 
       <Section eyebrow="Next Steps" title="Quick Actions">
         <div style={actionGridStyle}>

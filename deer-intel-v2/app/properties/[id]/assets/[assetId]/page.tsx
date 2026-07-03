@@ -10,6 +10,7 @@ import PhotoRecordForm from "@/components/photos/PhotoRecordForm";
 import AssetHeader from "@/components/properties/assets/AssetHeader";
 import AssetPanel from "@/components/properties/assets/AssetPanel";
 import RelationshipGroup from "@/components/relationships/RelationshipGroup";
+import StandIntelligencePanel from "@/components/stands/StandIntelligencePanel";
 import ActionCard from "@/components/ui/ActionCard";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
@@ -39,6 +40,10 @@ import {
   standRelationshipDescription,
   type RelationshipGroupData,
 } from "@/lib/relationships";
+import {
+  getStandIntelligenceSummary,
+  type StandIntelligenceSummary,
+} from "@/lib/standIntelligence";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { Stand } from "@/types/stand";
 
@@ -86,6 +91,18 @@ export default function PropertyAssetWorkspacePage() {
   const propertyId = property.id;
 
   if (stand) {
+    const propertyCameras = state.cameras.filter(
+      (cameraItem) => cameraItem.propertyId === propertyId,
+    );
+    const propertyCameraChecks = state.cameraChecks.filter(
+      (check) => check.propertyId === propertyId,
+    );
+    const propertyPins = state.pins.filter(
+      (pin) => pin.propertyId === propertyId,
+    );
+    const propertyHunts = state.hunts.filter(
+      (hunt) => hunt.propertyId === propertyId,
+    );
     const standHunts = state.hunts.filter(
       (hunt) =>
         hunt.propertyId === propertyId &&
@@ -99,7 +116,15 @@ export default function PropertyAssetWorkspacePage() {
       stand,
       cameras: state.cameras,
       stands: state.stands,
-      hunts: standHunts,
+        hunts: standHunts,
+      });
+    const standIntelligence = getStandIntelligenceSummary({
+      stand,
+      propertyId,
+      cameras: propertyCameras,
+      cameraChecks: propertyCameraChecks,
+      hunts: propertyHunts,
+      pins: propertyPins,
     });
 
     return (
@@ -109,6 +134,7 @@ export default function PropertyAssetWorkspacePage() {
         stand={stand}
         hunts={standHunts}
         relationshipGroups={relationshipGroups}
+        intelligence={standIntelligence}
       />
     );
   }
@@ -365,12 +391,14 @@ function StandWorkspace({
   stand,
   hunts,
   relationshipGroups,
+  intelligence,
 }: {
   propertyId: string;
   propertyName: string;
   stand: Stand;
   hunts: HuntLogEntry[];
   relationshipGroups: RelationshipGroupData[];
+  intelligence: StandIntelligenceSummary;
 }) {
   return (
     <PageShell>
@@ -424,6 +452,13 @@ function StandWorkspace({
       </section>
 
       <div style={workspaceGridStyle}>
+        <AssetPanel
+          title="Stand Intelligence"
+          description="Simple guidance from wind notes, hunt pressure, observations, and related camera activity."
+        >
+          <StandIntelligencePanel propertyId={propertyId} summary={intelligence} />
+        </AssetPanel>
+
         <AssetPanel
           title="Hunt History"
           description="Hunts for this stand will appear here."

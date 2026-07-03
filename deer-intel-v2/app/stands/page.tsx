@@ -15,6 +15,7 @@ import {
   updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
+import { getStandIntelligenceSummary } from "@/lib/standIntelligence";
 
 export default function StandsPage() {
   const state = useDeerIntelStore();
@@ -28,6 +29,15 @@ export default function StandsPage() {
   );
   const propertyHunts = state.hunts.filter(
     (hunt) => hunt.propertyId === selectedPropertyId,
+  );
+  const propertyCameras = state.cameras.filter(
+    (camera) => camera.propertyId === selectedPropertyId,
+  );
+  const propertyCameraChecks = state.cameraChecks.filter(
+    (check) => check.propertyId === selectedPropertyId,
+  );
+  const propertyPins = state.pins.filter(
+    (pin) => pin.propertyId === selectedPropertyId,
   );
   const huntedStandIds = new Set(
     propertyHunts.map((hunt) => hunt.standId).filter(Boolean),
@@ -167,9 +177,24 @@ export default function StandsPage() {
           />
         ) : (
           <div style={listStyle}>
-            {propertyStands.map((stand) => (
-              <StandCard key={stand.id} stand={stand} />
-            ))}
+            {propertyStands.map((stand) => {
+              const intelligence = getStandIntelligenceSummary({
+                stand,
+                propertyId: selectedPropertyId,
+                cameras: propertyCameras,
+                cameraChecks: propertyCameraChecks,
+                hunts: propertyHunts,
+                pins: propertyPins,
+              });
+
+              return (
+                <StandCard
+                  key={stand.id}
+                  stand={stand}
+                  intelligence={intelligence}
+                />
+              );
+            })}
           </div>
         )}
       </Section>
