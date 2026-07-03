@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import PropertyIntelligenceSummary from "@/components/properties/dashboard/PropertyIntelligenceSummary";
-import ActionCard from "@/components/ui/ActionCard";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
@@ -15,8 +13,10 @@ import {
   updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
-import { getHuntPlannerSummary } from "@/lib/huntPlanner";
-import { getPropertyIntelligenceCards } from "@/lib/propertyIntelligence";
+import {
+  getDeerIntelligenceHubSummary,
+  type DeerHubItem,
+} from "@/lib/deerIntelligenceHub";
 
 export default function AIPage() {
   const state = useDeerIntelStore();
@@ -25,31 +25,39 @@ export default function AIPage() {
       (property) => property.id === state.selectedPropertyId,
     ) ?? state.properties[0];
   const selectedPropertyId = selectedProperty?.id ?? "";
-  const cameras = state.cameras.filter(
+  const propertyCameras = state.cameras.filter(
     (camera) => camera.propertyId === selectedPropertyId,
   );
-  const cameraChecks = state.cameraChecks.filter(
+  const propertyCameraChecks = state.cameraChecks.filter(
     (check) => check.propertyId === selectedPropertyId,
   );
-  const stands = state.stands.filter(
+  const propertyStands = state.stands.filter(
     (stand) => stand.propertyId === selectedPropertyId,
   );
-  const hunts = state.hunts.filter((hunt) => hunt.propertyId === selectedPropertyId);
-  const photoRecords = state.photoRecords.filter(
+  const propertyHunts = state.hunts.filter(
+    (hunt) => hunt.propertyId === selectedPropertyId,
+  );
+  const propertyPhotoRecords = state.photoRecords.filter(
     (photo) => photo.propertyId === selectedPropertyId,
   );
-  const pins = state.pins.filter((pin) => pin.propertyId === selectedPropertyId);
-  const planner = getHuntPlannerSummary(state);
-  const cards = selectedProperty
-    ? getPropertyIntelligenceCards({
-        cameras,
-        cameraChecks,
-        hunts,
-        photoRecords,
-        pins,
-        stands,
+  const propertyDeerProfiles = state.deerProfiles.filter(
+    (profile) => profile.propertyId === selectedPropertyId,
+  );
+  const propertyPins = state.pins.filter(
+    (pin) => pin.propertyId === selectedPropertyId,
+  );
+  const hub = selectedProperty
+    ? getDeerIntelligenceHubSummary({
+        property: selectedProperty,
+        cameras: propertyCameras,
+        cameraChecks: propertyCameraChecks,
+        stands: propertyStands,
+        hunts: propertyHunts,
+        photoRecords: propertyPhotoRecords,
+        deerProfiles: propertyDeerProfiles,
+        pins: propertyPins,
       })
-    : [];
+    : null;
 
   function selectProperty(propertyId: string) {
     updateDeerIntelStore((currentState) => ({
@@ -62,23 +70,23 @@ export default function AIPage() {
     <PageShell>
       <Card as="section" variant="elevated" style={heroCardStyle}>
         <PageHeader
-          eyebrow="Intelligence"
-          title="AI Scout"
-          description="A simple intelligence overview powered by your saved Deer Intel data. Real AI recommendations can come later; this page stays useful today without accounts or paid APIs."
+          eyebrow="Deer Intelligence"
+          title="Deer Intelligence Hub"
+          description="A simple readout for what matters right now on one property. No charts, no AI calls, just plain hunting information from your saved Deer Intel data."
           meta={
             <>
-              <Badge variant="warning">No AI Calls Yet</Badge>
-              <Badge variant="success">Uses Local Data</Badge>
+              <Badge variant="success">Rule Based</Badge>
+              <Badge>No AI Calls Yet</Badge>
             </>
           }
         />
       </Card>
 
-      <Section eyebrow="Property" title="Intelligence Scope">
+      <Section eyebrow="Property" title="Choose Property">
         {state.properties.length === 0 ? (
           <EmptyState
             title="No properties yet"
-            description="Add a property before building intelligence summaries."
+            description="Add a property before Deer Intel can build an intelligence hub."
             action={
               <Link href="/properties" style={primaryLinkStyle}>
                 Add Property
@@ -88,7 +96,7 @@ export default function AIPage() {
         ) : (
           <Card as="div" variant="subtle">
             <label style={fieldStyle}>
-              <span style={labelStyle}>Choose Property</span>
+              <span style={labelStyle}>Property</span>
               <select
                 style={selectStyle}
                 value={selectedPropertyId}
@@ -105,74 +113,149 @@ export default function AIPage() {
         )}
       </Section>
 
-      <Section eyebrow="Hunt Planner" title="Simple Recommendation">
-        <div style={plannerGridStyle}>
-          <Card as="article" variant="subtle">
-            <p style={eyebrowStyle}>Recommended Property</p>
-            <h2 style={cardTitleStyle}>
-              {planner.recommendedProperty.property?.name ?? "No property yet"}
-            </h2>
-            <p style={mutedTextStyle}>{planner.recommendedProperty.reason}</p>
-            <div style={badgeRowStyle}>
-              <Badge>{planner.recommendedProperty.scoreLabel}</Badge>
+      {hub && selectedProperty ? (
+        <>
+          <Section eyebrow="1" title="What's Happening">
+            <Card as="div" variant="subtle">
+              <ul style={bulletListStyle}>
+                {hub.whatsHappening.map((insight) => (
+                  <li key={insight} style={bulletItemStyle}>
+                    {insight}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </Section>
+
+          <Section eyebrow="2" title="Best Stand">
+            <Card as="article" variant="subtle">
+              <div style={simpleHeaderStyle}>
+                <div>
+                  <p style={eyebrowStyle}>Recommended Stand</p>
+                  <h2 style={cardTitleStyle}>{hub.bestStand.name}</h2>
+                </div>
+                <Badge variant={hub.bestStand.href ? "success" : "warning"}>
+                  One Pick
+                </Badge>
+              </div>
+              <p style={mutedTextStyle}>{hub.bestStand.reason}</p>
+              {hub.bestStand.href ? (
+                <Link href={hub.bestStand.href} style={primaryLinkStyle}>
+                  Open Stand
+                </Link>
+              ) : null}
+            </Card>
+          </Section>
+
+          <Section eyebrow="3" title="Recent Buck Activity">
+            <Card as="article" variant="subtle">
+              <div style={simpleHeaderStyle}>
+                <div>
+                  <p style={eyebrowStyle}>Latest Mature Buck</p>
+                  <h2 style={cardTitleStyle}>{hub.recentBuckActivity.title}</h2>
+                </div>
+                <Badge>{hub.recentBuckActivity.date}</Badge>
+              </div>
+              <div style={detailGridStyle}>
+                <HubDetail label="Camera" value={hub.recentBuckActivity.camera} />
+                <HubDetail
+                  label="Property"
+                  value={hub.recentBuckActivity.property}
+                />
+                <HubDetail label="Date" value={hub.recentBuckActivity.date} />
+                <HubDetail label="Time" value={hub.recentBuckActivity.time} />
+              </div>
+              <p style={mutedTextStyle}>{hub.recentBuckActivity.detail}</p>
+              {hub.recentBuckActivity.href ? (
+                <Link href={hub.recentBuckActivity.href} style={primaryLinkStyle}>
+                  Open Camera
+                </Link>
+              ) : null}
+            </Card>
+          </Section>
+
+          <Section eyebrow="4" title="Needs Attention">
+            {hub.needsAttention.length === 0 ? (
+              <EmptyState description="Nothing urgent stands out right now." />
+            ) : (
+              <div style={attentionGridStyle}>
+                {hub.needsAttention.map((item) => (
+                  <AttentionCard key={`${item.title}-${item.detail}`} item={item} />
+                ))}
+              </div>
+            )}
+          </Section>
+
+          <Section eyebrow="5" title="Property Snapshot">
+            <div style={snapshotGridStyle}>
+              <StatCard
+                label="Cameras"
+                value={hub.snapshot.cameras}
+                detail="Camera sites"
+              />
+              <StatCard
+                label="Stands"
+                value={hub.snapshot.stands}
+                detail="Stand sites"
+              />
+              <StatCard
+                label="Deer Profiles"
+                value={hub.snapshot.deerProfiles}
+                detail="Tracked deer"
+              />
+              <StatCard
+                label="Hunts"
+                value={hub.snapshot.hunts}
+                detail="Hunt log entries"
+              />
+              <StatCard
+                label="Photos"
+                value={hub.snapshot.photos}
+                detail="Photo records"
+              />
             </div>
-          </Card>
-          <Card as="article" variant="subtle">
-            <p style={eyebrowStyle}>Last Hunt</p>
-            <h2 style={cardTitleStyle}>{planner.lastHunt.propertyName}</h2>
-            <p style={mutedTextStyle}>{planner.lastHunt.detail}</p>
-            <div style={badgeRowStyle}>
-              <Badge>{planner.lastHunt.hunt ? "Saved Hunt" : "No Hunts"}</Badge>
-            </div>
-          </Card>
-        </div>
-      </Section>
+          </Section>
 
-      <Section eyebrow="Data Readiness" title="What Deer Intel Knows">
-        <div style={statGridStyle}>
-          <StatCard label="Camera Sites" value={cameras.length} detail="Property cameras" />
-          <StatCard label="Stands" value={stands.length} detail="Stand options" />
-          <StatCard label="Hunts" value={hunts.length} detail="Field history" />
-          <StatCard
-            label="Photo Records"
-            value={photoRecords.length}
-            detail="Camera photo history"
-          />
-        </div>
-      </Section>
-
-      <Section eyebrow="Property Intelligence" title="Current Patterns">
-        {selectedProperty ? (
-          <PropertyIntelligenceSummary cards={cards} />
-        ) : (
-          <EmptyState description="Choose or add a property to see intelligence cards." />
-        )}
-      </Section>
-
-      <Section eyebrow="Next Steps" title="Improve Recommendations">
-        <div style={actionGridStyle}>
-          <ActionCard
-            href={selectedProperty ? `/properties/${selectedProperty.id}` : "/properties"}
-            title="Open Property"
-            description="Add cameras, stands, deer profiles, and notes for this property."
-            badge="Available"
-            tone="primary"
-          />
-          <ActionCard
-            href="/hunt-log"
-            title="Log Hunt"
-            description="Hunt history is the strongest signal for future recommendations."
-            badge="Available"
-            tone="primary"
-          />
-          <ActionCard
-            href="/map"
-            title="Open Map"
-            description="Map assets help connect bedding, food, water, sign, stands, and cameras."
-          />
-        </div>
-      </Section>
+          <div style={footerActionStyle}>
+            <Link href={`/properties/${selectedProperty.id}`} style={primaryLinkStyle}>
+              Open Property Command Center
+            </Link>
+          </div>
+        </>
+      ) : null}
     </PageShell>
+  );
+}
+
+function AttentionCard({ item }: { item: DeerHubItem }) {
+  const content = (
+    <>
+      <h3 style={attentionTitleStyle}>{item.title}</h3>
+      <p style={mutedTextStyle}>{item.detail}</p>
+    </>
+  );
+
+  if (!item.href) {
+    return (
+      <Card as="article" variant="subtle">
+        {content}
+      </Card>
+    );
+  }
+
+  return (
+    <Link href={item.href} style={attentionLinkStyle}>
+      {content}
+    </Link>
+  );
+}
+
+function HubDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p style={detailLabelStyle}>{label}</p>
+      <p style={detailValueStyle}>{value}</p>
+    </div>
   );
 }
 
@@ -201,22 +284,25 @@ const selectStyle: CSSProperties = {
   color: "white",
 };
 
-const plannerGridStyle: CSSProperties = {
+const bulletListStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-  gap: "1rem",
+  gap: "0.75rem",
+  margin: 0,
+  paddingLeft: "1.25rem",
 };
 
-const statGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-  gap: "1rem",
+const bulletItemStyle: CSSProperties = {
+  color: "#f1f5ef",
+  fontSize: "1.04rem",
+  lineHeight: 1.55,
 };
 
-const actionGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+const simpleHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
   gap: "1rem",
+  flexWrap: "wrap",
 };
 
 const eyebrowStyle: CSSProperties = {
@@ -229,22 +315,71 @@ const eyebrowStyle: CSSProperties = {
 };
 
 const cardTitleStyle: CSSProperties = {
-  margin: "0.5rem 0 0",
-  fontSize: "1.4rem",
+  margin: "0.25rem 0 0",
+  color: "#f1f5ef",
+  fontSize: "1.55rem",
   lineHeight: 1.2,
 };
 
 const mutedTextStyle: CSSProperties = {
-  margin: "0.65rem 0 0",
+  margin: "0.7rem 0 0",
   color: "#b8c2b6",
   lineHeight: 1.55,
 };
 
-const badgeRowStyle: CSSProperties = {
-  display: "flex",
-  gap: "0.5rem",
-  flexWrap: "wrap",
+const detailGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+  gap: "1rem",
   marginTop: "1rem",
+  paddingTop: "1rem",
+  borderTop: "1px solid #1e2a1e",
+};
+
+const detailLabelStyle: CSSProperties = {
+  margin: 0,
+  color: "#879486",
+  fontSize: "0.78rem",
+  fontWeight: 800,
+};
+
+const detailValueStyle: CSSProperties = {
+  margin: "0.25rem 0 0",
+  color: "#f1f5ef",
+  lineHeight: 1.45,
+};
+
+const attentionGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "1rem",
+};
+
+const attentionTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#f1f5ef",
+  fontSize: "1.08rem",
+  lineHeight: 1.25,
+};
+
+const attentionLinkStyle: CSSProperties = {
+  display: "block",
+  padding: "1.15rem",
+  border: "1px solid #243224",
+  borderRadius: "8px",
+  background: "#0a0f0a",
+  color: "white",
+  textDecoration: "none",
+};
+
+const snapshotGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: "1rem",
+};
+
+const footerActionStyle: CSSProperties = {
+  marginTop: "1.75rem",
 };
 
 const primaryLinkStyle: CSSProperties = {
@@ -252,6 +387,7 @@ const primaryLinkStyle: CSSProperties = {
   minHeight: "44px",
   alignItems: "center",
   justifyContent: "center",
+  marginTop: "1rem",
   padding: "0.7rem 0.9rem",
   border: "1px solid #3b6843",
   borderRadius: "8px",

@@ -8,11 +8,16 @@ import MapClient from "../../components/MapClient";
 export default function MapPage() {
   return (
     <PageShell>
-      <Link href="/" style={backLinkStyle}>
+      <Link href="/" className="di-map-page-chrome" style={backLinkStyle}>
         Back to Home
       </Link>
 
-      <Card as="section" variant="elevated" style={headerCardStyle}>
+      <Card
+        as="section"
+        className="di-map-page-chrome"
+        variant="elevated"
+        style={headerCardStyle}
+      >
         <PageHeader
           eyebrow="Property Map"
           title="Deer Intel Map"
