@@ -85,11 +85,11 @@ const INTELLIGENCE_MODULES: DashboardModule[] = [
     badge: "Available",
   },
   {
-    title: "AI Scout",
-    description: "Prepare recommendations from weather, wind, cameras, and hunts.",
+    title: "Deer Intelligence Hub",
+    description: "Open the simple property readout for stands, bucks, and needs.",
     icon: "aiScout",
     href: "/ai",
-    badge: "Coming Soon",
+    badge: "Available",
   },
   {
     title: "Analytics",
