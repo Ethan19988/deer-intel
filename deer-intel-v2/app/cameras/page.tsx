@@ -164,6 +164,13 @@ export default function CamerasPage() {
             tone="primary"
           />
           <ActionCard
+            href="/cameras/import"
+            title="Import Photos"
+            description="Bulk create photo records from local camera photo files."
+            badge="Available"
+            tone="primary"
+          />
+          <ActionCard
             href="/settings"
             title="Data Settings"
             description="Review local storage status and saved Deer Intel data counts."
