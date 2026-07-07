@@ -41,6 +41,7 @@ export default function PageShell({
     >
       <div className="di-page-content" style={{ ...contentStyle, maxWidth }}>
         <ModeSelector mode={mode} onSelectMode={selectMode} />
+        <PrimaryNav />
         {mode === "scouting" ? <ScoutingModePanel /> : null}
         {mode === "hunting" ? <HuntingModePanel /> : null}
         <div className="di-main-content">{children}</div>
@@ -176,27 +177,48 @@ function EssentialCard({ title, value }: { title: string; value: string }) {
   );
 }
 
+function PrimaryNav() {
+  return (
+    <nav className="di-section-nav" style={sectionNavStyle} aria-label="Sections">
+      {primaryNavLinks.map((link) => (
+        <Link key={link.href} href={link.href} style={sectionNavLinkStyle}>
+          {link.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+const primaryNavLinks = [
+  { href: "/", label: "Home" },
+  { href: "/properties", label: "Properties" },
+  { href: "/map", label: "Map" },
+  { href: "/cameras", label: "Cameras" },
+  { href: "/stands", label: "Stands" },
+  { href: "/hunt-log", label: "Hunts" },
+];
+
 const mobileNavLinks: Record<
   HuntingMode,
   Array<{ href: string; label: string }>
 > = {
   review: [
-    { href: "/", label: "Today" },
-    { href: "/properties", label: "Land" },
+    { href: "/", label: "Home" },
     { href: "/map", label: "Map" },
+    { href: "/properties", label: "Land" },
     { href: "/hunt-log", label: "Hunts" },
   ],
   scouting: [
     { href: "/map", label: "Map" },
     { href: "/cameras", label: "Cameras" },
     { href: "/stands", label: "Stands" },
-    { href: "/ai", label: "Intel" },
+    { href: "/properties", label: "Land" },
   ],
   hunting: [
-    { href: "/", label: "Plan" },
+    { href: "/", label: "Home" },
     { href: "/map", label: "Map" },
     { href: "/hunt-log", label: "Log" },
-    { href: "/ai", label: "Intel" },
+    { href: "/properties", label: "Land" },
   ],
 };
 
@@ -261,6 +283,30 @@ const activeModeButtonStyle: CSSProperties = {
   borderColor: "#3b6843",
   background: "#18351d",
   color: "#c6f0c6",
+};
+
+const sectionNavStyle: CSSProperties = {
+  display: "flex",
+  gap: "0.45rem",
+  marginBottom: "1rem",
+  overflowX: "auto",
+  paddingBottom: "0.1rem",
+};
+
+const sectionNavLinkStyle: CSSProperties = {
+  display: "inline-flex",
+  minHeight: "42px",
+  flex: "0 0 auto",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0.55rem 0.75rem",
+  border: "1px solid #243224",
+  borderRadius: "8px",
+  background: "#0a0f0a",
+  color: "#dce9da",
+  fontSize: "0.92rem",
+  fontWeight: 850,
+  textDecoration: "none",
 };
 
 const modePanelStyle: CSSProperties = {

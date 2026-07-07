@@ -11,14 +11,17 @@ import {
 } from "react";
 import {
   MapContainer,
+  ScaleControl,
   TileLayer,
   useMap,
   useMapEvents,
 } from "react-leaflet";
 import MapAssetInfoCard from "@/components/map/MapAssetInfoCard";
 import MapAssetSelectorPanel from "@/components/map/MapAssetSelectorPanel";
-import MapLayerControl from "@/components/map/MapLayerControl";
-import MapModeSelector from "@/components/map/MapModeSelector";
+import MapLayerManager, {
+  type MapToolId,
+  type MapToolState,
+} from "@/components/map/MapLayerManager";
 import MapPinBox, {
   PIN_BOX_DRAG_DATA_TYPE,
 } from "@/components/map/MapPinBox";
@@ -203,7 +206,13 @@ function MapPinDropTarget({
   return null;
 }
 
-function MapControlButtons() {
+function MapControlButtons({
+  showCompass,
+  showGps,
+}: {
+  showCompass: boolean;
+  showGps: boolean;
+}) {
   const map = useMap();
 
   function locateUser() {
@@ -251,15 +260,29 @@ function MapControlButtons() {
       >
         -
       </button>
-      <button
-        type="button"
-        aria-label="Locate me"
-        className="di-map-control-button di-map-gps-button"
-        style={{ ...mapControlButtonStyle, ...gpsButtonStyle }}
-        onClick={locateUser}
-      >
-        GPS
-      </button>
+      {showCompass ? (
+        <div
+          aria-label="Compass north indicator"
+          className="di-map-control-button di-map-compass"
+          role="img"
+          style={{ ...mapControlButtonStyle, ...compassButtonStyle }}
+          title="Compass"
+        >
+          <span style={compassNeedleStyle}>^</span>
+          <span style={compassTextStyle}>N</span>
+        </div>
+      ) : null}
+      {showGps ? (
+        <button
+          type="button"
+          aria-label="Locate me"
+          className="di-map-control-button di-map-gps-button"
+          style={{ ...mapControlButtonStyle, ...gpsButtonStyle }}
+          onClick={locateUser}
+        >
+          GPS
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -348,6 +371,11 @@ export default function HuntingMap() {
   const [mapZoom, setMapZoom] = useState(DEFAULT_MAP_ZOOM);
   const latestMapZoomRef = useRef(DEFAULT_MAP_ZOOM);
   const [selectedLayer, setSelectedLayer] = useState<MapLayerId>("hybrid");
+  const [mapTools, setMapTools] = useState<MapToolState>({
+    gps: true,
+    compass: true,
+    scaleBar: true,
+  });
   const [showPropertyLines, setShowPropertyLines] = useState(false);
   const [showOwnerNames, setShowOwnerNames] = useState(false);
   const [parcelLayerState, setParcelLayerState] =
@@ -444,6 +472,13 @@ export default function HuntingMap() {
     }));
   }
 
+  function toggleMapTool(toolId: MapToolId) {
+    setMapTools((currentTools) => ({
+      ...currentTools,
+      [toolId]: !currentTools[toolId],
+    }));
+  }
+
   function togglePropertyLines() {
     const shouldShowPropertyLines = !showPropertyLines;
 
@@ -457,10 +492,12 @@ export default function HuntingMap() {
   }
 
   function toggleOwnerNames() {
-    if (!showPropertyLines) return;
-
     setShowOwnerNames((isVisible) => {
       const shouldShowOwnerNames = !isVisible;
+
+      if (shouldShowOwnerNames) {
+        setShowPropertyLines(true);
+      }
 
       if (!shouldShowOwnerNames) {
         setParcelOwnerLookupState(IDLE_PARCEL_OWNER_LOOKUP_STATE);
@@ -697,22 +734,6 @@ export default function HuntingMap() {
           </label>
         </div>
 
-        <MapModeSelector
-          selectedLayer={selectedLayer}
-          onSelectLayer={setSelectedLayer}
-        />
-
-        <MapLayerControl
-          ownerNamesDisabled={!showPropertyLines}
-          showAssetLayers={false}
-          showOwnerNames={showOwnerNames}
-          showPropertyLines={showPropertyLines}
-          visibleAssetLayers={visibleAssetLayers}
-          onToggleLayer={toggleAssetLayer}
-          onToggleOwnerNames={toggleOwnerNames}
-          onTogglePropertyLines={togglePropertyLines}
-        />
-
         <p style={helpTextStyle}>
           Use the Pin Box on the map to add cameras, stands, sign, trails,
           parking, and gates.
@@ -768,7 +789,13 @@ export default function HuntingMap() {
 
             <MapSearchTargetController target={searchTarget} />
             <MapStateTracker onMapStateChange={saveMapState} />
-            <MapControlButtons />
+            <MapControlButtons
+              showCompass={mapTools.compass}
+              showGps={mapTools.gps}
+            />
+            {mapTools.scaleBar ? (
+              <ScaleControl imperial metric position="bottomleft" />
+            ) : null}
             <MapPinDropTarget
               enabled={!pinBoxDisabled}
               onDropPin={createPinAtLocation}
@@ -802,6 +829,19 @@ export default function HuntingMap() {
               />
             ) : null}
           </MapContainer>
+
+          <MapLayerManager
+            mapTools={mapTools}
+            selectedLayer={selectedLayer}
+            showOwnerNames={showOwnerNames}
+            showPropertyLines={showPropertyLines}
+            visibleAssetLayers={visibleAssetLayers}
+            onSelectLayer={setSelectedLayer}
+            onToggleLayer={toggleAssetLayer}
+            onToggleMapTool={toggleMapTool}
+            onToggleOwnerNames={toggleOwnerNames}
+            onTogglePropertyLines={togglePropertyLines}
+          />
 
           <div className="di-map-status" style={mapStatusStyle}>
             <span style={mapStatusPillStyle}>{selectedMapLayer.label}</span>
@@ -1069,6 +1109,27 @@ const mapControlButtonStyle: CSSProperties = {
 const gpsButtonStyle: CSSProperties = {
   width: "58px",
   fontSize: "0.78rem",
+};
+
+const compassButtonStyle: CSSProperties = {
+  display: "grid",
+  placeItems: "center",
+  gap: 0,
+  cursor: "default",
+  lineHeight: 1,
+};
+
+const compassNeedleStyle: CSSProperties = {
+  marginBottom: "-0.18rem",
+  color: "#2f6d3a",
+  fontSize: "0.82rem",
+  fontWeight: 900,
+};
+
+const compassTextStyle: CSSProperties = {
+  color: "#111711",
+  fontSize: "0.88rem",
+  fontWeight: 900,
 };
 
 const mapStatusStyle: CSSProperties = {
