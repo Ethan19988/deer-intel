@@ -2,57 +2,30 @@
 
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import HuntPlannerIntelligencePanel from "@/components/hunts/HuntPlannerIntelligencePanel";
 import ActionCard from "@/components/ui/ActionCard";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
-import EmptyState from "@/components/ui/EmptyState";
-import PageHeader from "@/components/ui/PageHeader";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
-import {
-  getHuntPlannerSummary,
-  plannerHuntDate,
-  type PlannerCameraActivity,
-} from "@/lib/huntPlanner";
-import { getHuntPlannerIntelligence } from "@/lib/huntPlannerIntelligence";
+import { getHuntPlannerSummary, plannerHuntDate } from "@/lib/huntPlanner";
+import { formatHuntDate } from "@/lib/hunts";
 
-const QUICK_ACTIONS = [
+const HOME_ACTIONS = [
   {
-    href: "/hunt-log",
-    title: "Log Hunt",
-    description: "Save what happened on your latest sit.",
+    href: "/map",
+    title: "Start Scouting",
+    description: "Open the map, check your position, and add field pins.",
   },
   {
-    href: "/properties",
-    title: "Open Properties",
-    description: "Pick a property workspace and review its assets.",
+    href: "/hunt-log",
+    title: "Start Hunt",
+    description: "Review the last sit or log what happens tonight.",
   },
   {
     href: "/map",
     title: "Open Map",
-    description: "Check pins, stands, cameras, sign, and access.",
-  },
-  {
-    href: "/cameras",
-    title: "Cameras",
-    description: "Review camera sites, checks, and photo activity.",
-  },
-  {
-    href: "/stands",
-    title: "Stands",
-    description: "Check stand sites, wind notes, and hunt history.",
-  },
-  {
-    href: "/ai",
-    title: "Intelligence",
-    description: "See simple recommendations from your saved Deer Intel data.",
-  },
-  {
-    href: "/settings",
-    title: "Settings",
-    description: "Review local storage and saved data counts.",
+    description: "Go straight to layers, GPS, pins, and property overlays.",
   },
 ];
 
@@ -68,113 +41,125 @@ export default function Home() {
     recommendedProperty ??
     state.properties[0];
   const activePropertyId = activeProperty?.id ?? "";
-  const plannerIntelligence = activeProperty
-    ? getHuntPlannerIntelligence({
-        property: activeProperty,
-        stands: state.stands.filter(
-          (stand) => stand.propertyId === activePropertyId,
-        ),
-        cameras: state.cameras.filter(
-          (camera) => camera.propertyId === activePropertyId,
-        ),
-        cameraChecks: state.cameraChecks.filter(
-          (check) => check.propertyId === activePropertyId,
-        ),
-        deerProfiles: state.deerProfiles.filter(
-          (profile) => profile.propertyId === activePropertyId,
-        ),
-        hunts: state.hunts.filter((hunt) => hunt.propertyId === activePropertyId),
-        photoRecords: state.photoRecords.filter(
-          (photo) => photo.propertyId === activePropertyId,
-        ),
-        pins: state.pins.filter((pin) => pin.propertyId === activePropertyId),
-      })
-    : null;
+  const propertyCameras = state.cameras.filter(
+    (camera) => camera.propertyId === activePropertyId,
+  );
+  const propertyStands = state.stands.filter(
+    (stand) => stand.propertyId === activePropertyId,
+  );
+  const propertyPins = state.pins.filter(
+    (pin) => pin.propertyId === activePropertyId,
+  );
+  const propertyHunts = state.hunts.filter(
+    (hunt) => hunt.propertyId === activePropertyId,
+  );
+  const propertyCameraChecks = state.cameraChecks.filter(
+    (check) => check.propertyId === activePropertyId,
+  );
+  const propertyDeerProfiles = state.deerProfiles.filter(
+    (profile) => profile.propertyId === activePropertyId,
+  );
+  const keyInsights = getHomeInsights({
+    activePropertyName: activeProperty?.name,
+    cameraCheckCount: propertyCameraChecks.length,
+    cameraCount: propertyCameras.length,
+    deerProfileCount: propertyDeerProfiles.length,
+    huntCount: propertyHunts.length,
+    lastHuntDate: lastHunt ? formatHuntDate(lastHunt.date) : null,
+    pinCount: propertyPins.length,
+    standCount: propertyStands.length,
+  });
 
   return (
-    <PageShell>
-      <Card as="section" variant="elevated" style={heroStyle}>
-        <PageHeader
-          eyebrow="Hunt Planner"
-          title="Today's Hunt Plan"
-          description="A simple command center for checking conditions, recent activity, last hunt notes, and the next action before you head out."
-          meta={
-            <>
-              <Badge variant="warning">Weather Placeholder</Badge>
-              <Badge variant="success">Local Data</Badge>
-            </>
-          }
-        />
-      </Card>
+    <PageShell maxWidth="980px">
+      <Card as="section" variant="elevated" style={briefStyle}>
+        <div style={briefHeaderStyle}>
+          <div>
+            <p style={eyebrowStyle}>Today</p>
+            <h1 style={briefTitleStyle}>Today&apos;s Brief</h1>
+          </div>
+          <Badge variant="warning">Weather Coming Soon</Badge>
+        </div>
 
-      <Section eyebrow="Today" title="Planner Summary">
-        <div style={summaryGridStyle}>
-          <SummaryCard
-            eyebrow="Weather"
-            title="Today's Weather"
-            badge="Coming Soon"
-            description="Weather, wind, pressure, and daylight will show here when live conditions are added."
-          />
-
-          <SummaryCard
-            eyebrow="Recommendation"
-            title={recommendedProperty?.name ?? "No property yet"}
-            badge={planner.recommendedProperty.scoreLabel}
-            description={planner.recommendedProperty.reason}
-            href={
-              recommendedProperty
-                ? `/properties/${recommendedProperty.id}`
-                : "/properties"
+        <div style={briefGridStyle}>
+          <BriefItem
+            label="Focus"
+            value={
+              activeProperty
+                ? `Scout ${activeProperty.name}`
+                : "Set up a property"
             }
+            detail="Keep the plan simple before you head out."
           />
-
-          <SummaryCard
-            eyebrow="Last Hunt"
-            title={plannerHuntDate(lastHunt)}
-            badge={lastHunt ? lastHunt.standName || "Hunt" : "None"}
-            description={
-              lastHunt
-                ? `${planner.lastHunt.propertyName} / ${planner.lastHunt.detail}`
-                : planner.lastHunt.detail
+          <BriefItem
+            label="Last Hunt"
+            value={plannerHuntDate(lastHunt)}
+            detail={lastHunt ? planner.lastHunt.detail : "No hunt logged yet."}
+          />
+          <BriefItem
+            label="Next Step"
+            value={activeProperty ? "Open the map" : "Add property"}
+            detail={
+              activeProperty
+                ? "Check access, pins, and current scouting notes."
+                : "Start with one hunting area, then add assets."
             }
-            href="/hunt-log"
           />
         </div>
+      </Card>
+
+      <Section eyebrow="Property" title="Active Property">
+        <Card as="article" variant="subtle" style={activePropertyStyle}>
+          <div style={activePropertyHeaderStyle}>
+            <div>
+              <h2 style={activePropertyTitleStyle}>
+                {activeProperty?.name ?? "No property selected"}
+              </h2>
+              <p style={mutedTextStyle}>
+                {activeProperty
+                  ? propertySubtitle(activeProperty.county, activeProperty.acres)
+                  : "Create a property to unlock map pins, stands, cameras, and deer profiles."}
+              </p>
+            </div>
+            <Link
+              href={activeProperty ? `/properties/${activeProperty.id}` : "/properties"}
+              style={propertyLinkStyle}
+            >
+              Open Property
+            </Link>
+          </div>
+
+          <div style={propertyStatsStyle}>
+            <MiniStat label="Cameras" value={propertyCameras.length} />
+            <MiniStat label="Stands" value={propertyStands.length} />
+            <MiniStat label="Pins" value={propertyPins.length} />
+          </div>
+        </Card>
       </Section>
 
-      <Section eyebrow="Trail Cameras" title="Recent Camera Activity">
-        <RecentCameraActivity activities={planner.recentCameraActivity} />
-      </Section>
-
-      <Section
-        eyebrow="Hunt Planner Intelligence"
-        title={
-          activeProperty
-            ? `${activeProperty.name} Hunt Choices`
-            : "Active Property Hunt Choices"
-        }
-      >
-        {plannerIntelligence ? (
-          <HuntPlannerIntelligencePanel summary={plannerIntelligence} />
-        ) : (
-          <EmptyState
-            title="No active property yet"
-            description="Add a property, then add stands, camera checks, hunts, and photo records to build hunt planner intelligence."
+      <section style={actionGridStyle} aria-label="Primary actions">
+        {HOME_ACTIONS.map((action) => (
+          <ActionCard
+            key={`${action.href}-${action.title}`}
+            href={action.href}
+            title={action.title}
+            description={action.description}
+            size="large"
+            tone="primary"
           />
-        )}
-      </Section>
+        ))}
+      </section>
 
-      <Section eyebrow="Next Steps" title="Quick Actions">
-        <div style={quickActionGridStyle}>
-          {QUICK_ACTIONS.map((action) => (
-            <ActionCard
-              key={action.href}
-              href={action.href}
-              title={action.title}
-              description={action.description}
-              size="large"
-              tone="primary"
-            />
+      <Section eyebrow="Brief" title="Key Insights">
+        <div style={insightListStyle}>
+          {keyInsights.map((insight) => (
+            <Card key={insight.title} as="article" variant="subtle" style={insightCardStyle}>
+              <div>
+                <p style={insightTitleStyle}>{insight.title}</p>
+                <p style={mutedTextStyle}>{insight.detail}</p>
+              </div>
+              <Badge>{insight.badge}</Badge>
+            </Card>
           ))}
         </div>
       </Section>
@@ -182,106 +167,119 @@ export default function Home() {
   );
 }
 
-function SummaryCard({
-  eyebrow,
-  title,
-  badge,
-  description,
-  href,
+function BriefItem({
+  detail,
+  label,
+  value,
 }: {
-  eyebrow: string;
-  title: string;
-  badge: string;
-  description: string;
-  href?: string;
+  detail: string;
+  label: string;
+  value: string;
 }) {
-  const content = (
-    <>
-      <div style={summaryHeaderStyle}>
-        <p style={eyebrowStyle}>{eyebrow}</p>
-        <Badge variant={badge === "Coming Soon" ? "warning" : "default"}>
-          {badge}
-        </Badge>
-      </div>
-      <h2 style={summaryTitleStyle}>{title}</h2>
-      <p style={summaryDescriptionStyle}>{description}</p>
-    </>
-  );
-
-  if (href) {
-    return (
-      <Link href={href} style={summaryLinkStyle}>
-        {content}
-      </Link>
-    );
-  }
-
   return (
-    <Card as="article" variant="subtle" style={summaryCardStyle}>
-      {content}
-    </Card>
-  );
-}
-
-function RecentCameraActivity({
-  activities,
-}: {
-  activities: PlannerCameraActivity[];
-}) {
-  if (activities.length === 0) {
-    return (
-      <EmptyState description="No recent camera activity yet. Add a camera site or save a camera check to start building this feed." />
-    );
-  }
-
-  return (
-    <div style={activityGridStyle}>
-      {activities.map((activity) => (
-        <Card key={activity.id} as="article" variant="subtle">
-          <div style={activityHeaderStyle}>
-            <div>
-              <p style={eyebrowStyle}>{activity.propertyName}</p>
-              <h3 style={activityTitleStyle}>{activity.cameraName}</h3>
-            </div>
-            <Badge>{activity.dateLabel}</Badge>
-          </div>
-          <p style={activityDescriptionStyle}>{activity.description}</p>
-        </Card>
-      ))}
+    <div style={briefItemStyle}>
+      <p style={eyebrowStyle}>{label}</p>
+      <p style={briefValueStyle}>{value}</p>
+      <p style={mutedTextStyle}>{detail}</p>
     </div>
   );
 }
 
-const heroStyle: CSSProperties = {
-  padding: "1.5rem",
-};
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div style={miniStatStyle}>
+      <span style={miniStatValueStyle}>{value}</span>
+      <span style={miniStatLabelStyle}>{label}</span>
+    </div>
+  );
+}
 
-const summaryGridStyle: CSSProperties = {
+function propertySubtitle(county?: string, acres?: string) {
+  return [county, acres ? `${acres} acres` : ""]
+    .filter(Boolean)
+    .join(" / ") || "Property workspace";
+}
+
+function getHomeInsights({
+  activePropertyName,
+  cameraCheckCount,
+  cameraCount,
+  deerProfileCount,
+  huntCount,
+  lastHuntDate,
+  pinCount,
+  standCount,
+}: {
+  activePropertyName?: string;
+  cameraCheckCount: number;
+  cameraCount: number;
+  deerProfileCount: number;
+  huntCount: number;
+  lastHuntDate: string | null;
+  pinCount: number;
+  standCount: number;
+}) {
+  const insights = [
+    activePropertyName
+      ? {
+          title: "Active property is set",
+          detail: `${activePropertyName} is ready for map work, assets, and hunt notes.`,
+          badge: "Property",
+        }
+      : {
+          title: "Add your first property",
+          detail: "Start with one hunting area so Deer Intel can keep tools organized.",
+          badge: "Start",
+        },
+    {
+      title: `${pinCount} mapped ${pinCount === 1 ? "location" : "locations"}`,
+      detail:
+        pinCount > 0
+          ? "Map pins are saved. Use the Map section for layers and placement."
+          : "Open Map when you are ready to mark sign, trails, access, or gates.",
+      badge: "Map",
+    },
+    {
+      title: `${cameraCount} ${cameraCount === 1 ? "camera" : "cameras"}`,
+      detail:
+        cameraCheckCount > 0
+          ? `${cameraCheckCount} camera checks are saved under Cameras.`
+          : "Camera intelligence will live under Cameras once checks are added.",
+      badge: "Cameras",
+    },
+    {
+      title: `${standCount} ${standCount === 1 ? "stand" : "stands"}`,
+      detail:
+        huntCount > 0
+          ? `${huntCount} hunts are logged for this property.`
+          : "Stand wind, access, and history stay under Stands and Hunts.",
+      badge: "Stands",
+    },
+    {
+      title: lastHuntDate ? `Last hunt: ${lastHuntDate}` : "No hunts logged yet",
+      detail:
+        deerProfileCount > 0
+          ? `${deerProfileCount} deer profiles are saved under the property workspace.`
+          : "Use Hunts and Deer Profiles when field history starts building.",
+      badge: "Hunts",
+    },
+  ];
+
+  return insights.slice(0, 5);
+}
+
+const briefStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
   gap: "1rem",
+  padding: "1.2rem",
 };
 
-const summaryCardStyle: CSSProperties = {
-  minHeight: "190px",
-};
-
-const summaryLinkStyle: CSSProperties = {
-  ...summaryCardStyle,
-  display: "block",
-  padding: "1.15rem",
-  border: "1px solid #243224",
-  borderRadius: "8px",
-  background: "#0a0f0a",
-  color: "white",
-  textDecoration: "none",
-};
-
-const summaryHeaderStyle: CSSProperties = {
+const briefHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: "1rem",
+  flexWrap: "wrap",
 };
 
 const eyebrowStyle: CSSProperties = {
@@ -293,47 +291,126 @@ const eyebrowStyle: CSSProperties = {
   textTransform: "uppercase",
 };
 
-const summaryTitleStyle: CSSProperties = {
-  margin: "1rem 0 0",
-  color: "#f1f5ef",
-  fontSize: "1.45rem",
-  lineHeight: 1.2,
+const briefTitleStyle: CSSProperties = {
+  margin: "0.2rem 0 0",
+  fontSize: "1.65rem",
+  lineHeight: 1.15,
 };
 
-const summaryDescriptionStyle: CSSProperties = {
-  margin: "0.7rem 0 0",
-  color: "#b8c2b6",
-  fontSize: "1rem",
-  lineHeight: 1.55,
-};
-
-const activityGridStyle: CSSProperties = {
+const briefGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gap: "0.8rem",
+};
+
+const briefItemStyle: CSSProperties = {
+  minHeight: "128px",
+  padding: "0.9rem",
+  border: "1px solid #243224",
+  borderRadius: "8px",
+  background: "#070a07",
+};
+
+const briefValueStyle: CSSProperties = {
+  margin: "0.5rem 0 0",
+  color: "#f1f5ef",
+  fontSize: "1.08rem",
+  fontWeight: 850,
+  lineHeight: 1.25,
+};
+
+const mutedTextStyle: CSSProperties = {
+  margin: "0.45rem 0 0",
+  color: "#b8c2b6",
+  lineHeight: 1.45,
+};
+
+const activePropertyStyle: CSSProperties = {
+  display: "grid",
   gap: "1rem",
 };
 
-const activityHeaderStyle: CSSProperties = {
+const activePropertyHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "1rem",
+  flexWrap: "wrap",
+};
+
+const activePropertyTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "1.35rem",
+  lineHeight: 1.2,
+};
+
+const propertyLinkStyle: CSSProperties = {
+  display: "inline-flex",
+  minHeight: "46px",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0.65rem 0.85rem",
+  border: "1px solid #3b6843",
+  borderRadius: "8px",
+  background: "#18351d",
+  color: "white",
+  fontWeight: 850,
+  textDecoration: "none",
+};
+
+const propertyStatsStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "0.65rem",
+};
+
+const miniStatStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.15rem",
+  minHeight: "68px",
+  alignContent: "center",
+  padding: "0.65rem",
+  border: "1px solid #243224",
+  borderRadius: "8px",
+  background: "#0d120d",
+};
+
+const miniStatValueStyle: CSSProperties = {
+  color: "#f1f5ef",
+  fontSize: "1.25rem",
+  fontWeight: 900,
+  lineHeight: 1,
+};
+
+const miniStatLabelStyle: CSSProperties = {
+  color: "#b8c2b6",
+  fontSize: "0.86rem",
+  fontWeight: 800,
+};
+
+const actionGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "1rem",
+  marginTop: "1.75rem",
+};
+
+const insightListStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
+};
+
+const insightCardStyle: CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: "1rem",
 };
 
-const activityTitleStyle: CSSProperties = {
-  margin: "0.2rem 0 0",
-  fontSize: "1.15rem",
-  lineHeight: 1.25,
-};
-
-const activityDescriptionStyle: CSSProperties = {
-  margin: "0.7rem 0 0",
-  color: "#b8c2b6",
-  lineHeight: 1.5,
-};
-
-const quickActionGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "1rem",
+const insightTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#f1f5ef",
+  fontSize: "1rem",
+  fontWeight: 850,
+  lineHeight: 1.3,
 };

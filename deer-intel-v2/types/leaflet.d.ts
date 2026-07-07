@@ -65,6 +65,14 @@ declare module "leaflet" {
 
   export namespace Control {
     class Layers extends Control {}
+    class Scale extends Control {}
+
+    interface ScaleOptions extends ControlOptions {
+      imperial?: boolean;
+      maxWidth?: number;
+      metric?: boolean;
+      updateWhenIdle?: boolean;
+    }
   }
 
   export interface LayerOptions {
