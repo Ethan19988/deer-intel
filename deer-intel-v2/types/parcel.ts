@@ -70,6 +70,11 @@ export type ParcelProviderGeometrySupport = "polygon" | "none";
 export type CountyParcelProvider = {
   acreageFieldNames: string[];
   addressFieldNames: string[];
+  // Optional ordered groups of field names for building the property address.
+  // Each group's fields are joined with spaces (blank values skipped); the
+  // first group that yields a non-empty result wins. Lets a county prefer a
+  // composed situs/property address and fall back to a mailing address.
+  addressFieldGroups?: string[][];
   countyFips: string;
   countyName: string;
   geometrySupport: ParcelProviderGeometrySupport;
