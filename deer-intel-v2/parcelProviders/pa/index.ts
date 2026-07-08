@@ -1,10 +1,22 @@
 import type { CountyParcelProvider } from "@/types/parcel";
 
-const PASDA_PA_PARCELS_SERVICE_URL =
-  "https://maps.pasda.psu.edu/arcgis/rest/services/PA_Parcels/MapServer";
-
 const ADAMS_PARCEL_OWNER_SERVICE_URL =
   "https://mapping.adamscountypa.gov/arcgis/rest/services/AGOL/Parcel_Owners/MapServer";
+
+// Cameron County's own ArcGIS Online parcel FeatureServer (updated Sept 2025),
+// which includes assessment owner names — unlike the PASDA statewide layer.
+const CAMERON_PARCEL_OWNER_SERVICE_URL =
+  "https://services5.arcgis.com/NN66N9nlzcCXJ9he/arcgis/rest/services/Parcels_(September_2025)/FeatureServer";
+
+// PASDA hosts a per-county parcel MapServer for every PA county at
+// .../pasda/<County>County/MapServer. Coverage of owner fields varies by
+// county, so each supported county is configured explicitly below.
+const PASDA_COUNTY_SERVICE_ROOT =
+  "https://mapservices.pasda.psu.edu/server/rest/services/pasda";
+
+function pasdaCountyParcelServiceUrl(countyName: string) {
+  return `${PASDA_COUNTY_SERVICE_ROOT}/${countyName.replace(/\s+/g, "")}County/MapServer`;
+}
 
 const PA_COUNTIES: Array<{ countyFips: string; countyName: string }> = [
   { countyFips: "001", countyName: "Adams" },
@@ -89,31 +101,156 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     source: "County ArcGIS",
     status: "supported",
   },
-  Cameron: {
-    acreageFieldNames: ["Shape_Area"],
-    addressFieldNames: [],
+  Bedford: {
+    acreageFieldNames: ["ACRES"],
+    addressFieldNames: ["SITUS_DESC"],
+    geometrySupport: "polygon",
+    notes: "PASDA Bedford County parcel layer with assessment owner names.",
+    ownerFieldNames: ["OWNER_NAME"],
+    parcelIdFieldNames: ["Name"],
+    parcelLayerId: 0,
+    parcelServiceUrl: pasdaCountyParcelServiceUrl("Bedford"),
+    source: "PASDA",
+    status: "supported",
+  },
+  Berks: {
+    acreageFieldNames: ["ACREAGE"],
+    addressFieldNames: ["FULLSITEAD"],
+    geometrySupport: "polygon",
+    notes: "PASDA Berks County parcel layer with assessment owner names.",
+    ownerFieldNames: ["NAME1"],
+    parcelIdFieldNames: ["PIN"],
+    parcelLayerId: 6,
+    parcelServiceUrl: pasdaCountyParcelServiceUrl("Berks"),
+    source: "PASDA",
+    status: "supported",
+  },
+  Bucks: {
+    acreageFieldNames: ["DEED_AREA"],
+    addressFieldNames: ["ADDRESS"],
+    geometrySupport: "polygon",
+    notes: "PASDA Bucks County parcel layer with assessment owner names.",
+    ownerFieldNames: ["OWNER1", "OWNER2"],
+    parcelIdFieldNames: ["PARCEL_NUM"],
+    parcelLayerId: 17,
+    parcelServiceUrl: pasdaCountyParcelServiceUrl("Bucks"),
+    source: "PASDA",
+    status: "supported",
+  },
+  Butler: {
+    acreageFieldNames: [],
+    addressFieldNames: ["Paddr1"],
     geometrySupport: "polygon",
     notes:
-      "PASDA statewide parcel layer has parcel geometry/PIN but no owner fields.",
-    ownerFieldNames: [],
+      "PASDA Butler County parcel layer with owner names; no acreage field.",
+    ownerFieldNames: ["Own1"],
     parcelIdFieldNames: ["PIN"],
-    parcelLayerId: 1,
-    parcelServiceUrl: PASDA_PA_PARCELS_SERVICE_URL,
+    parcelLayerId: 0,
+    parcelServiceUrl: pasdaCountyParcelServiceUrl("Butler"),
     source: "PASDA",
-    status: "partial",
+    status: "supported",
+  },
+  Cameron: {
+    acreageFieldNames: ["Acres"],
+    addressFieldNames: [],
+    // Prefer the composed situs (property) address; fall back to the owner's
+    // mailing address for parcels with no situs on file (e.g. vacant land).
+    addressFieldGroups: [
+      ["SitusSt", "SitusDir", "SitusDesc1", "SitusSufx"],
+      ["OwnerAddr1", "OwnerCity"],
+    ],
+    geometrySupport: "polygon",
+    notes: "Cameron County ArcGIS Online parcel layer with assessment owner names.",
+    ownerFieldNames: ["OwnerName1", "OwnerName2"],
+    parcelIdFieldNames: ["PIN", "MapNumber"],
+    parcelLayerId: 0,
+    parcelServiceUrl: CAMERON_PARCEL_OWNER_SERVICE_URL,
+    source: "County ArcGIS",
+    status: "supported",
+  },
+  Chester: {
+    acreageFieldNames: ["ACRE_PLAN_", "ACRE_PLAN1"],
+    addressFieldNames: ["LOC_ADDRES"],
+    geometrySupport: "polygon",
+    notes: "PASDA Chester County parcel layer with assessment owner names.",
+    ownerFieldNames: ["OWN1", "OWN2"],
+    parcelIdFieldNames: ["PIN_COMMON", "UPI"],
+    parcelLayerId: 11,
+    parcelServiceUrl: pasdaCountyParcelServiceUrl("Chester"),
+    source: "PASDA",
+    status: "supported",
+  },
+  Forest: {
+    acreageFieldNames: ["ACRES"],
+    addressFieldNames: ["SITUS"],
+    geometrySupport: "polygon",
+    notes: "PASDA Forest County parcel layer with assessment owner names.",
+    ownerFieldNames: ["OWNER1"],
+    parcelIdFieldNames: ["PARCEL"],
+    parcelLayerId: 3,
+    parcelServiceUrl: pasdaCountyParcelServiceUrl("Forest"),
+    source: "PASDA",
+    status: "supported",
   },
   Franklin: {
-    acreageFieldNames: ["Shape_Area"],
-    addressFieldNames: [],
+    acreageFieldNames: ["TOTAL_DEED", "BASE_ACRES"],
+    addressFieldNames: ["FULL_SITUS"],
     geometrySupport: "polygon",
-    notes:
-      "PASDA statewide parcel layer has parcel geometry/PIN but no owner fields.",
-    ownerFieldNames: [],
-    parcelIdFieldNames: ["PIN"],
-    parcelLayerId: 1,
-    parcelServiceUrl: PASDA_PA_PARCELS_SERVICE_URL,
+    notes: "PASDA Franklin County parcel layer with CAMA owner names.",
+    ownerFieldNames: ["FULL_OWNER"],
+    parcelIdFieldNames: ["CONTROL_NU"],
+    parcelLayerId: 0,
+    parcelServiceUrl: pasdaCountyParcelServiceUrl("Franklin"),
     source: "PASDA",
-    status: "partial",
+    status: "supported",
+  },
+  Juniata: {
+    acreageFieldNames: ["Calc_AC", "Assess_Acr"],
+    addressFieldNames: ["Physical_A"],
+    geometrySupport: "polygon",
+    notes: "PASDA Juniata County parcel layer with assessment owner names.",
+    ownerFieldNames: ["Owners_Nam"],
+    parcelIdFieldNames: ["PIN", "UPI_Number"],
+    parcelLayerId: 0,
+    parcelServiceUrl: pasdaCountyParcelServiceUrl("Juniata"),
+    source: "PASDA",
+    status: "supported",
+  },
+  Montgomery: {
+    acreageFieldNames: ["LAND_ACRES"],
+    addressFieldNames: ["LOCATION1"],
+    geometrySupport: "polygon",
+    notes: "PASDA Montgomery County parcel layer with assessment owner names.",
+    ownerFieldNames: ["OWN1", "OWN2"],
+    parcelIdFieldNames: ["PARCEL", "TAXPIN"],
+    parcelLayerId: 14,
+    parcelServiceUrl: pasdaCountyParcelServiceUrl("Montgomery"),
+    source: "PASDA",
+    status: "supported",
+  },
+  Wyoming: {
+    acreageFieldNames: ["Deeded_Acr", "CALC_AC"],
+    addressFieldNames: ["Situs_Addr"],
+    geometrySupport: "polygon",
+    notes: "PASDA Wyoming County parcel layer with assessment owner names.",
+    ownerFieldNames: ["Owner", "Owner_2"],
+    parcelIdFieldNames: ["PARCELNUM", "Pin"],
+    parcelLayerId: 2,
+    parcelServiceUrl: pasdaCountyParcelServiceUrl("Wyoming"),
+    source: "PASDA",
+    status: "supported",
+  },
+  York: {
+    acreageFieldNames: ["ACRES"],
+    addressFieldNames: ["PROPADR"],
+    geometrySupport: "polygon",
+    notes: "PASDA York County parcel layer with assessment owner names.",
+    ownerFieldNames: ["OWNER_FULL", "OWN_NAME1"],
+    parcelIdFieldNames: ["PIDN"],
+    parcelLayerId: 31,
+    parcelServiceUrl: pasdaCountyParcelServiceUrl("York"),
+    source: "PASDA",
+    status: "supported",
   },
 };
 

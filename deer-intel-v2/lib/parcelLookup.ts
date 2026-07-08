@@ -114,6 +114,7 @@ async function queryParcelOwnerProvider(
     ...provider.parcelIdFieldNames,
     ...provider.acreageFieldNames,
     ...provider.addressFieldNames,
+    ...(provider.addressFieldGroups?.flat() ?? []),
   ];
   const response = await queryArcGisPoint({
     lat,
@@ -131,7 +132,7 @@ async function queryParcelOwnerProvider(
 
   return {
     acreage: getAcreageAttribute(attributes, provider.acreageFieldNames),
-    address: getStringAttribute(attributes, provider.addressFieldNames),
+    address: getParcelAddress(provider, attributes),
     countyName: provider.countyName,
     ownerName,
     parcelId: getStringAttribute(attributes, provider.parcelIdFieldNames),
@@ -198,6 +199,49 @@ function getStringAttribute(
     if (typeof value === "number" && Number.isFinite(value)) {
       return String(value);
     }
+  }
+
+  return undefined;
+}
+
+// Prefer a composed property address (e.g. a situs address split across
+// several fields) and fall back to a mailing address, before falling back
+// to any plain single-field address the provider lists.
+function getParcelAddress(
+  provider: CountyParcelProvider,
+  attributes: Record<string, unknown>,
+) {
+  if (provider.addressFieldGroups?.length) {
+    const composed = getComposedAddress(
+      attributes,
+      provider.addressFieldGroups,
+    );
+
+    if (composed) return composed;
+  }
+
+  return getStringAttribute(attributes, provider.addressFieldNames);
+}
+
+function getComposedAddress(
+  attributes: Record<string, unknown>,
+  fieldGroups: string[][],
+) {
+  for (const group of fieldGroups) {
+    const parts: string[] = [];
+
+    for (const fieldName of group) {
+      const value = attributes[fieldName];
+
+      if (typeof value === "string" && value.trim()) parts.push(value.trim());
+      else if (typeof value === "number" && Number.isFinite(value)) {
+        parts.push(String(value));
+      }
+    }
+
+    const composed = parts.join(" ").replace(/\s+/g, " ").trim();
+
+    if (composed) return composed;
   }
 
   return undefined;
