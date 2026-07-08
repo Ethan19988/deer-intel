@@ -19,6 +19,7 @@ export type MapToolState = Record<MapToolId, boolean>;
 
 type MapLayerManagerProps = {
   mapTools: MapToolState;
+  ownerNamesDisabled?: boolean;
   selectedLayer: MapLayerId;
   showOwnerNames: boolean;
   showPropertyLines: boolean;
@@ -68,6 +69,7 @@ const FUTURE_LAYER_LABELS = [
 
 export default function MapLayerManager({
   mapTools,
+  ownerNamesDisabled = false,
   selectedLayer,
   showOwnerNames,
   showPropertyLines,
@@ -192,6 +194,7 @@ export default function MapLayerManager({
             />
             <ToggleRow
               checked={showOwnerNames}
+              disabled={ownerNamesDisabled}
               label="Owner Names"
               onToggle={onToggleOwnerNames}
             />
