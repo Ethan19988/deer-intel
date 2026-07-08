@@ -18,6 +18,7 @@ export default function Button({
   return (
     <button
       {...props}
+      className={["di-button", props.className].filter(Boolean).join(" ")}
       disabled={disabled}
       style={{
         ...baseStyle,
@@ -36,34 +37,36 @@ const baseStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: "0.4rem",
-  minHeight: "44px",
-  padding: "0.8rem 1rem",
+  gap: "0.45rem",
+  minHeight: "46px",
+  padding: "0.72rem 0.95rem",
+  border: "1px solid transparent",
   borderRadius: "8px",
   fontSize: "0.95rem",
-  fontWeight: 700,
+  fontWeight: 850,
   lineHeight: 1,
   cursor: "pointer",
+  textAlign: "center",
 };
 
 const variantStyles: Record<ButtonVariant, CSSProperties> = {
   primary: {
-    border: "1px solid #2f6f3e",
-    background: "#2f6f3e",
+    borderColor: "#3b6843",
+    background: "#18351d",
     color: "white",
   },
   secondary: {
-    border: "1px solid #444",
-    background: "#1b1b1b",
-    color: "white",
+    borderColor: "#2b3a2b",
+    background: "#101710",
+    color: "#f1f5ef",
   },
   danger: {
-    border: "1px solid #6f2f2f",
+    borderColor: "#6f2f2f",
     background: "#3a1717",
     color: "#ffd5d5",
   },
   ghost: {
-    border: "1px solid transparent",
+    borderColor: "transparent",
     background: "transparent",
     color: "#c6d5c5",
   },

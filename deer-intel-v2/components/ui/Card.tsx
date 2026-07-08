@@ -36,6 +36,7 @@ const baseStyle: CSSProperties = {
   border: "1px solid #243224",
   borderRadius: "8px",
   background: "#0d120d",
+  color: "#f1f5ef",
 };
 
 const variantStyles: Record<CardVariant, CSSProperties> = {

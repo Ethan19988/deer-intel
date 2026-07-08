@@ -12,9 +12,11 @@ export default function EmptyState({
   action,
 }: EmptyStateProps) {
   return (
-    <div style={emptyStateStyle}>
+    <div className="di-empty-state" style={emptyStateStyle}>
       {title ? <p style={titleStyle}>{title}</p> : null}
-      <p style={descriptionStyle}>{description}</p>
+      <p style={{ ...descriptionStyle, ...(title ? titledDescriptionStyle : null) }}>
+        {description}
+      </p>
       {action ? <div style={actionStyle}>{action}</div> : null}
     </div>
   );
@@ -25,7 +27,7 @@ const emptyStateStyle: CSSProperties = {
   padding: "1rem",
   border: "1px dashed #334533",
   borderRadius: "8px",
-  background: "#0a0f0a",
+  background: "#071007",
   color: "#b8c2b6",
   fontSize: "1rem",
   lineHeight: 1.5,
@@ -34,11 +36,15 @@ const emptyStateStyle: CSSProperties = {
 const titleStyle: CSSProperties = {
   margin: 0,
   color: "#f1f5ef",
-  fontWeight: 800,
+  fontWeight: 850,
 };
 
 const descriptionStyle: CSSProperties = {
   margin: 0,
+};
+
+const titledDescriptionStyle: CSSProperties = {
+  marginTop: "0.35rem",
 };
 
 const actionStyle: CSSProperties = {
