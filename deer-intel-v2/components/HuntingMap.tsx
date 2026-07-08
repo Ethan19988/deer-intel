@@ -43,6 +43,10 @@ import {
   lookupPaParcelOwnerAtPoint,
 } from "@/lib/parcelLookup";
 import {
+  MOBILE_MAP_MEDIA_QUERY,
+  isMobileMapDevice as getIsMobileMapDevice,
+} from "@/lib/mapDevice";
+import {
   cameraToMapAsset,
   createVisibleAssetLayerState,
   DEFAULT_MAP_CENTER,
@@ -89,6 +93,30 @@ type SearchTarget = {
 };
 
 const MAP_CENTER_EPSILON = 0.00001;
+
+function useIsMobileMapDevice() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia(MOBILE_MAP_MEDIA_QUERY);
+    const updateMobileState = () => setIsMobile(mediaQuery.matches);
+
+    updateMobileState();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", updateMobileState);
+      return () =>
+        mediaQuery.removeEventListener("change", updateMobileState);
+    }
+
+    mediaQuery.addListener(updateMobileState);
+    return () => mediaQuery.removeListener(updateMobileState);
+  }, []);
+
+  return isMobile;
+}
 
 function normalizeMapCenter(center: MapCenter): MapCenter {
   return [Number(center[0].toFixed(6)), Number(center[1].toFixed(6))];
@@ -295,6 +323,7 @@ function MapStateTracker({
   const lastCenterRef = useRef<MapCenter | null>(null);
   const lastZoomRef = useRef<number | null>(null);
   const frameRef = useRef<number | null>(null);
+  const debounceRef = useRef<number | null>(null);
   const map = useMapEvents({
     moveend() {
       queueMapStateSync();
@@ -306,6 +335,10 @@ function MapStateTracker({
 
   useEffect(() => {
     return () => {
+      if (debounceRef.current !== null) {
+        window.clearTimeout(debounceRef.current);
+      }
+
       if (frameRef.current !== null) {
         window.cancelAnimationFrame(frameRef.current);
       }
@@ -313,14 +346,22 @@ function MapStateTracker({
   }, []);
 
   function queueMapStateSync() {
+    if (debounceRef.current !== null) {
+      window.clearTimeout(debounceRef.current);
+    }
+
     if (frameRef.current !== null) {
       window.cancelAnimationFrame(frameRef.current);
     }
 
-    frameRef.current = window.requestAnimationFrame(() => {
-      frameRef.current = null;
-      syncMapState();
-    });
+    debounceRef.current = window.setTimeout(() => {
+      debounceRef.current = null;
+
+      frameRef.current = window.requestAnimationFrame(() => {
+        frameRef.current = null;
+        syncMapState();
+      });
+    }, 180);
   }
 
   function syncMapState() {
@@ -399,6 +440,7 @@ export default function HuntingMap() {
   const [visibleAssetLayers, setVisibleAssetLayers] = useState<
     Record<AssetLayerId, boolean>
   >(createVisibleAssetLayerState);
+  const isMobileMapPerformanceMode = useIsMobileMapDevice();
 
   const selectedProperty =
     state.properties.find(
@@ -428,9 +470,10 @@ export default function HuntingMap() {
     asset.layerId === "other" ? true : visibleAssetLayers[asset.layerId],
   );
   const selectedAsset = mapAssets.find((asset) => asset.id === selectedAssetId);
-  const pinBoxDisabled = !selectedPropertyId || showOwnerNames;
+  const ownerNamesEnabled = showOwnerNames && !isMobileMapPerformanceMode;
+  const pinBoxDisabled = !selectedPropertyId || ownerNamesEnabled;
   const currentPinBoxMessage = pinBoxDisabled
-    ? showOwnerNames
+    ? ownerNamesEnabled
       ? "Turn off Owner Names to add pins."
       : "Choose a property before placing pins."
     : isPlacingPin
@@ -438,7 +481,7 @@ export default function HuntingMap() {
       : pinBoxMessage;
   const mapOverlayMessages = [
     showPropertyLines ? parcelLayerState?.message : "",
-    showOwnerNames && parcelOwnerLookupState.status === "idle"
+    ownerNamesEnabled && parcelOwnerLookupState.status === "idle"
       ? ownerLabelState?.message
       : "",
     parcelOwnerLookupState.status !== "idle" &&
@@ -492,6 +535,13 @@ export default function HuntingMap() {
   }
 
   function toggleOwnerNames() {
+    if (getIsMobileMapDevice()) {
+      setShowOwnerNames(false);
+      setOwnerLabelState(null);
+      setParcelOwnerLookupState(IDLE_PARCEL_OWNER_LOOKUP_STATE);
+      return;
+    }
+
     setShowOwnerNames((isVisible) => {
       const shouldShowOwnerNames = !isVisible;
 
@@ -782,7 +832,7 @@ export default function HuntingMap() {
               onStateChange={setParcelLayerState}
             />
             <ParcelOwnerLabelLayer
-              enabled={showPropertyLines && showOwnerNames}
+              enabled={showPropertyLines && ownerNamesEnabled}
               propertyId={selectedPropertyId}
               onStateChange={setOwnerLabelState}
             />
@@ -808,7 +858,7 @@ export default function HuntingMap() {
               onAddPin={createPinAtLocation}
             />
             <ClickToLookupParcelOwner
-              enabled={showPropertyLines && showOwnerNames}
+              enabled={showPropertyLines && ownerNamesEnabled}
               onLookup={lookupParcelOwner}
             />
 
@@ -832,8 +882,9 @@ export default function HuntingMap() {
 
           <MapLayerManager
             mapTools={mapTools}
+            ownerNamesDisabled={isMobileMapPerformanceMode}
             selectedLayer={selectedLayer}
-            showOwnerNames={showOwnerNames}
+            showOwnerNames={ownerNamesEnabled}
             showPropertyLines={showPropertyLines}
             visibleAssetLayers={visibleAssetLayers}
             onSelectLayer={setSelectedLayer}
@@ -851,7 +902,7 @@ export default function HuntingMap() {
             {showPropertyLines ? (
               <span style={mapStatusPillStyle}>Property Lines</span>
             ) : null}
-            {showOwnerNames ? (
+            {ownerNamesEnabled ? (
               <span style={mapStatusPillStyle}>Owner Names</span>
             ) : null}
             <span style={mapStatusPillStyle}>
