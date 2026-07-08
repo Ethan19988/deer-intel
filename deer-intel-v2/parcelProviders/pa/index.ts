@@ -152,7 +152,13 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
   },
   Cameron: {
     acreageFieldNames: ["Acres"],
-    addressFieldNames: ["SitusDesc1"],
+    addressFieldNames: [],
+    // Prefer the composed situs (property) address; fall back to the owner's
+    // mailing address for parcels with no situs on file (e.g. vacant land).
+    addressFieldGroups: [
+      ["SitusSt", "SitusDir", "SitusDesc1", "SitusSufx"],
+      ["OwnerAddr1", "OwnerCity"],
+    ],
     geometrySupport: "polygon",
     notes: "Cameron County ArcGIS Online parcel layer with assessment owner names.",
     ownerFieldNames: ["OwnerName1", "OwnerName2"],
