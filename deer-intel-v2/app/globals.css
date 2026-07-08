@@ -48,6 +48,15 @@ button {
   touch-action: manipulation;
 }
 
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #85a984;
+  outline-offset: 3px;
+}
+
 button,
 input,
 select {
@@ -107,6 +116,17 @@ textarea {
   font-weight: 800;
   text-shadow: none;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.di-main-content {
+  display: grid;
+  gap: 0;
+}
+
+.di-page-header-action {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
 }
 
 .di-mode-hunting .di-main-content {
@@ -182,11 +202,28 @@ textarea {
   }
 
   .di-action-card {
-    min-height: 132px !important;
+    min-height: 118px !important;
   }
 
   .di-form-grid {
     grid-template-columns: 1fr !important;
+  }
+
+  .di-page-header {
+    display: grid !important;
+    gap: 1rem !important;
+  }
+
+  .di-page-title {
+    font-size: 1.72rem !important;
+    line-height: 1.14 !important;
+  }
+
+  .di-page-header-action,
+  .di-page-header-action > *,
+  .di-section-header > div:last-child,
+  .di-section-header > div:last-child > * {
+    width: 100% !important;
   }
 
   .di-collapsible-section:not(.di-collapsible-bare) {
@@ -224,6 +261,11 @@ textarea {
 
   .di-main-content [aria-label="Primary actions"] {
     grid-template-columns: 1fr !important;
+  }
+
+  .di-button,
+  .di-empty-state a {
+    width: 100% !important;
   }
 
   .di-map-layout {

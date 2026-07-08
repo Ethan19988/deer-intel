@@ -50,7 +50,8 @@ export default function ActionCard({
 }
 
 const cardStyle: CSSProperties = {
-  display: "block",
+  display: "grid",
+  alignContent: "start",
   padding: "1.15rem",
   border: "1px solid #243224",
   borderRadius: "8px",
@@ -61,10 +62,10 @@ const cardStyle: CSSProperties = {
 
 const sizeStyles: Record<NonNullable<ActionCardProps["size"]>, CSSProperties> = {
   default: {
-    minHeight: "160px",
+    minHeight: "148px",
   },
   large: {
-    minHeight: "184px",
+    minHeight: "166px",
     padding: "1.25rem",
   },
 };
@@ -98,7 +99,7 @@ const iconWrapStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: "0.9rem 0 0",
-  fontSize: "1.22rem",
+  fontSize: "1.15rem",
   lineHeight: 1.25,
 };
 
@@ -110,6 +111,6 @@ const firstTitleStyle: CSSProperties = {
 const descriptionStyle: CSSProperties = {
   margin: "0.55rem 0 0",
   color: "#b8c2b6",
-  fontSize: "0.98rem",
-  lineHeight: 1.55,
+  fontSize: "0.95rem",
+  lineHeight: 1.5,
 };

@@ -41,7 +41,12 @@ export default function CollapsibleSection({
             <span style={descriptionStyle}>{description}</span>
           ) : null}
         </span>
-        <span style={indicatorStyle}>{isOpen ? "Close" : "Open"}</span>
+        <span
+          aria-label={isOpen ? "Collapse section" : "Expand section"}
+          style={indicatorStyle}
+        >
+          {isOpen ? "-" : "+"}
+        </span>
       </summary>
       <div className="di-collapsible-content" style={contentStyle}>
         {children}
@@ -69,7 +74,7 @@ const variantStyles: Record<CollapsibleSectionVariant, CSSProperties> = {
 
 const summaryStyle: CSSProperties = {
   display: "flex",
-  minHeight: "48px",
+  minHeight: "50px",
   alignItems: "center",
   justifyContent: "space-between",
   gap: "1rem",
@@ -99,17 +104,18 @@ const descriptionStyle: CSSProperties = {
 
 const indicatorStyle: CSSProperties = {
   display: "inline-flex",
+  width: "36px",
   minHeight: "36px",
   flex: "0 0 auto",
   alignItems: "center",
   justifyContent: "center",
-  padding: "0.4rem 0.65rem",
   border: "1px solid #2b3a2b",
-  borderRadius: "999px",
+  borderRadius: "8px",
   background: "#101710",
   color: "#dce9da",
-  fontSize: "0.78rem",
-  fontWeight: 850,
+  fontSize: "1.1rem",
+  fontWeight: 900,
+  lineHeight: 1,
 };
 
 const contentStyle: CSSProperties = {

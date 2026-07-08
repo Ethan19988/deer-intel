@@ -16,14 +16,14 @@ export default function PageHeader({
   action,
 }: PageHeaderProps) {
   return (
-    <header style={headerStyle}>
-      <div style={textStyle}>
+    <header className="di-page-header" style={headerStyle}>
+      <div className="di-page-header-text" style={textStyle}>
         {eyebrow ? <p style={eyebrowStyle}>{eyebrow}</p> : null}
-        <h1 style={titleStyle}>{title}</h1>
+        <h1 className="di-page-title" style={titleStyle}>{title}</h1>
         {meta ? <div style={metaStyle}>{meta}</div> : null}
         {description ? <p style={descriptionStyle}>{description}</p> : null}
       </div>
-      {action ? <div>{action}</div> : null}
+      {action ? <div className="di-page-header-action">{action}</div> : null}
     </header>
   );
 }
@@ -52,7 +52,7 @@ const eyebrowStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: "0.25rem 0 0",
-  fontSize: "2.4rem",
+  fontSize: "2.1rem",
   lineHeight: 1.1,
 };
 

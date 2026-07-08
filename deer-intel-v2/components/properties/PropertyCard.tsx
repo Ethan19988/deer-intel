@@ -61,12 +61,14 @@ export default function PropertyCard({
               >
                 Open Property
               </Link>
-              <button
+              <Button
+                type="button"
+                variant="secondary"
                 onClick={() => onStartEditing(property)}
-                style={{ ...secondaryButtonStyle, ...smallButtonStyle }}
+                style={smallButtonStyle}
               >
                 Edit
-              </button>
+              </Button>
               <Button
                 type="button"
                 variant="danger"

@@ -18,9 +18,9 @@ export default function Section({
   style,
 }: SectionProps) {
   return (
-    <section id={id} style={{ ...sectionStyle, ...style }}>
-      <div style={headerStyle}>
-        <div>
+    <section id={id} className="di-section" style={{ ...sectionStyle, ...style }}>
+      <div className="di-section-header" style={headerStyle}>
+        <div style={headerTextStyle}>
           {eyebrow ? <p style={eyebrowStyle}>{eyebrow}</p> : null}
           <h2 style={titleStyle}>{title}</h2>
         </div>
@@ -40,7 +40,12 @@ const headerStyle: CSSProperties = {
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: "1rem",
+  flexWrap: "wrap",
   marginBottom: "1rem",
+};
+
+const headerTextStyle: CSSProperties = {
+  minWidth: 0,
 };
 
 const eyebrowStyle: CSSProperties = {
@@ -54,6 +59,6 @@ const eyebrowStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: "0.2rem 0 0",
-  fontSize: "1.45rem",
+  fontSize: "1.35rem",
   lineHeight: 1.2,
 };
