@@ -1316,12 +1316,43 @@ export default function HuntingMap() {
           ) : null}
 
           {isDrawingArea ? (
-            <div className="di-area-pill" style={huntAreaNoticeStyle}>
-              {draftAreaPoints.length < 3
-                ? `Tap the map · ${draftAreaPoints.length}/3`
-                : `${draftAreaPoints.length} points${
-                    draftAreaAcresLabel ? ` · ${draftAreaAcresLabel}` : ""
-                  }`}
+            <div className="di-area-pill" style={drawActionBarStyle}>
+              <span style={drawActionStatusStyle}>
+                {draftAreaPoints.length < 3
+                  ? `Tap the map · ${draftAreaPoints.length}/3`
+                  : `${draftAreaPoints.length} points${
+                      draftAreaAcresLabel ? ` · ${draftAreaAcresLabel}` : ""
+                    }`}
+              </span>
+              <div style={drawActionButtonRowStyle}>
+                <button
+                  type="button"
+                  style={drawSecondaryButtonStyle}
+                  onClick={undoAreaPoint}
+                  disabled={draftAreaPoints.length === 0}
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  style={drawSecondaryButtonStyle}
+                  onClick={cancelAreaDraw}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  style={
+                    draftAreaPoints.length < 3
+                      ? { ...drawPrimaryButtonStyle, ...drawDisabledButtonStyle }
+                      : drawPrimaryButtonStyle
+                  }
+                  onClick={finishAreaDraw}
+                  disabled={draftAreaPoints.length < 3}
+                >
+                  Save Area
+                </button>
+              </div>
             </div>
           ) : null}
 
@@ -1765,26 +1796,68 @@ const coordToggleStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-const huntAreaNoticeStyle: CSSProperties = {
+// Floating control at the bottom of the map while drawing an area: shows the
+// point/acre status and puts Save/Undo/Cancel right where the hunter is
+// tapping, so a finished area can be saved without scrolling to the side panel.
+const drawActionBarStyle: CSSProperties = {
   position: "absolute",
   left: "50%",
   bottom: "0.6rem",
   transform: "translateX(-50%)",
   zIndex: 1000,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: "0.4rem",
   width: "fit-content",
-  maxWidth: "calc(100% - 2rem)",
-  whiteSpace: "nowrap",
-  padding: "0.3rem 0.7rem",
-  border: "1px solid rgba(122, 194, 255, 0.65)",
-  borderRadius: "999px",
-  background: "rgba(9, 24, 40, 0.7)",
+  maxWidth: "calc(100% - 1.5rem)",
+  padding: "0.5rem 0.7rem",
+  border: "1px solid rgba(122, 194, 255, 0.55)",
+  borderRadius: "12px",
+  background: "rgba(9, 24, 40, 0.92)",
+  boxShadow: "0 6px 18px rgba(0, 0, 0, 0.35)",
+};
+
+const drawActionStatusStyle: CSSProperties = {
   color: "#dcefff",
-  fontSize: "0.8rem",
+  fontSize: "0.82rem",
   fontWeight: 700,
   lineHeight: 1.2,
-  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.25)",
-  // Informational only — a small pill that never blocks or intercepts taps.
-  pointerEvents: "none",
+  whiteSpace: "nowrap",
+};
+
+const drawActionButtonRowStyle: CSSProperties = {
+  display: "flex",
+  gap: "0.5rem",
+};
+
+const drawSecondaryButtonStyle: CSSProperties = {
+  minHeight: "40px",
+  padding: "0.4rem 0.8rem",
+  borderRadius: "8px",
+  border: "1px solid #35506e",
+  background: "#12233a",
+  color: "#cfe2f5",
+  fontSize: "0.9rem",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const drawPrimaryButtonStyle: CSSProperties = {
+  minHeight: "40px",
+  padding: "0.4rem 1.1rem",
+  borderRadius: "8px",
+  border: "1px solid #2f8f4a",
+  background: "#1f7a37",
+  color: "#ffffff",
+  fontSize: "0.95rem",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const drawDisabledButtonStyle: CSSProperties = {
+  opacity: 0.45,
+  cursor: "not-allowed",
 };
 
 const belowMapGridStyle: CSSProperties = {
