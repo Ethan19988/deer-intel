@@ -20,6 +20,16 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## AI Scout (optional)
+
+The AI Scout page's "Ask AI Scout" section calls a real LLM and needs its own Anthropic API key:
+
+1. Get a key from [console.anthropic.com](https://console.anthropic.com).
+2. Copy `.env.local.example` to `.env.local` and paste the key into `ANTHROPIC_API_KEY` (for local dev), or add `ANTHROPIC_API_KEY` under your Vercel project's Environment Variables (for the deployed app).
+3. Restart `npm run dev` (or redeploy) after adding the key.
+
+Without a key, that section of the page shows an "isn't turned on yet" message — everything else in the app works normally either way.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
