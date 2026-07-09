@@ -3,14 +3,10 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import StandCard from "@/components/stands/StandCard";
-import ActionCard from "@/components/ui/ActionCard";
-import Badge from "@/components/ui/Badge";
-import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
-import PageHeader from "@/components/ui/PageHeader";
 import PageShell from "@/components/ui/PageShell";
-import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
+import Tabs from "@/components/ui/Tabs";
 import {
   updateDeerIntelStore,
   useDeerIntelStore,
@@ -56,186 +52,194 @@ export default function StandsPage() {
     }));
   }
 
-  return (
-    <PageShell>
-      <Card as="section" variant="elevated" style={heroCardStyle}>
-        <PageHeader
-          eyebrow="Stand Sites"
-          title="Stands"
-          description="Review stand sites by property, check wind notes, and jump into stand workspaces or hunt logging."
-          meta={
-            <>
-              <Badge variant="success">Property Based</Badge>
-              <Badge>{propertyStands.length} shown</Badge>
-            </>
-          }
+  if (state.properties.length === 0) {
+    return (
+      <PageShell>
+        <header style={headerStyle}>
+          <div>
+            <p style={eyebrowStyle}>Stands</p>
+            <h1 style={titleStyle}>Stands</h1>
+          </div>
+        </header>
+        <EmptyState
+          title="No properties yet"
+          description="Add a property before saving stand sites."
           action={
-            selectedProperty ? (
-              <Link
-                href={`/properties/${selectedProperty.id}#stand-sites`}
-                style={primaryLinkStyle}
-              >
-                Add Stand
-              </Link>
-            ) : null
+            <Link href="/properties" style={primaryLinkStyle}>
+              Add Property
+            </Link>
           }
         />
-      </Card>
+      </PageShell>
+    );
+  }
 
-      <Section eyebrow="Property" title="Active Property">
-        {state.properties.length === 0 ? (
-          <EmptyState
-            title="No properties yet"
-            description="Add a property before saving stand sites."
-            action={
-              <Link href="/properties" style={primaryLinkStyle}>
-                Add Property
-              </Link>
-            }
-          />
-        ) : (
-          <Card as="div" variant="subtle">
-            <label style={fieldStyle}>
-              <span style={labelStyle}>Choose Property</span>
-              <select
-                style={selectStyle}
-                value={selectedPropertyId}
-                onChange={(event) => selectProperty(event.target.value)}
-              >
-                {state.properties.map((property) => (
-                  <option key={property.id} value={property.id}>
-                    {property.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </Card>
-        )}
-      </Section>
+  const sitesTab = (
+    <div style={listStyle}>
+      {propertyStands.length === 0 ? (
+        <EmptyState
+          title="No stands for this property"
+          description="Open the property command center to add stand type, wind notes, access, exit, and notes."
+          action={
+            <Link
+              href={`/properties/${selectedPropertyId}#stand-sites`}
+              style={primaryLinkStyle}
+            >
+              Add Stand
+            </Link>
+          }
+        />
+      ) : (
+        propertyStands.map((stand) => {
+          const intelligence = getStandIntelligenceSummary({
+            stand,
+            propertyId: selectedPropertyId,
+            cameras: propertyCameras,
+            cameraChecks: propertyCameraChecks,
+            hunts: propertyHunts,
+            pins: propertyPins,
+          });
 
-      <Section eyebrow="Stand Summary" title="What This Property Shows">
-        <div style={statGridStyle}>
-          <StatCard
-            label="Stand Sites"
-            value={propertyStands.length}
-            detail="Saved stand locations"
-          />
-          <StatCard
-            label="Hunted Stands"
-            value={huntedStandCount}
-            detail={`${propertyHunts.length} hunts logged`}
-          />
-          <StatCard
-            label="Wind Notes"
-            value={standsWithWindNotes}
-            detail="Stands with wind guidance"
-          />
+          return (
+            <StandCard key={stand.id} stand={stand} intelligence={intelligence} />
+          );
+        })
+      )}
+    </div>
+  );
+
+  const activityTab = (
+    <div style={statGridStyle}>
+      <StatCard
+        label="Stand Sites"
+        value={propertyStands.length}
+        detail="Saved stand locations"
+      />
+      <StatCard
+        label="Hunted Stands"
+        value={huntedStandCount}
+        detail={`${propertyHunts.length} hunts logged`}
+      />
+      <StatCard
+        label="Wind Notes"
+        value={standsWithWindNotes}
+        detail="Stands with wind guidance"
+      />
+    </div>
+  );
+
+  return (
+    <PageShell>
+      <header style={headerStyle}>
+        <div style={headerLeadStyle}>
+          <p style={eyebrowStyle}>Stands</p>
+          <h1 style={titleStyle}>{selectedProperty?.name ?? "Stands"}</h1>
+          <label style={pickerStyle}>
+            <span style={pickerLabelStyle}>Property</span>
+            <select
+              style={selectStyle}
+              value={selectedPropertyId}
+              onChange={(event) => selectProperty(event.target.value)}
+            >
+              {state.properties.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.name}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-      </Section>
-
-      <Section eyebrow="Next Steps" title="Quick Actions">
-        <div style={actionGridStyle}>
-          <ActionCard
-            href={selectedProperty ? `/properties/${selectedProperty.id}` : "/properties"}
-            title="Open Property"
-            description="Use the property command center to add stands and review relationships."
-            badge="Available"
-            tone="primary"
-          />
-          <ActionCard
-            href="/hunt-log"
-            title="Log Hunt"
-            description="Save hunt history tied to a property and stand."
-            badge="Available"
-            tone="primary"
-          />
-          <ActionCard
-            href="/map"
-            title="Open Map"
-            description="Review stand pins, camera sites, trails, and other property assets."
-          />
+        <div style={headerActionsStyle}>
+          <Link href="/hunt-log" style={secondaryLinkStyle}>
+            Log Hunt
+          </Link>
+          <Link
+            href={`/properties/${selectedPropertyId}#stand-sites`}
+            style={primaryLinkStyle}
+          >
+            Add Stand
+          </Link>
         </div>
-      </Section>
+      </header>
 
-      <Section eyebrow="Saved Stand Sites" title="Stand List">
-        {propertyStands.length === 0 ? (
-          <EmptyState
-            title="No stands for this property"
-            description="Open the property command center and add stand type, wind notes, access, exit, and notes."
-            action={
-              <Link
-                href={
-                  selectedProperty
-                    ? `/properties/${selectedProperty.id}#stand-sites`
-                    : "/properties"
-                }
-                style={primaryLinkStyle}
-              >
-                Add Stand
-              </Link>
-            }
-          />
-        ) : (
-          <div style={listStyle}>
-            {propertyStands.map((stand) => {
-              const intelligence = getStandIntelligenceSummary({
-                stand,
-                propertyId: selectedPropertyId,
-                cameras: propertyCameras,
-                cameraChecks: propertyCameraChecks,
-                hunts: propertyHunts,
-                pins: propertyPins,
-              });
-
-              return (
-                <StandCard
-                  key={stand.id}
-                  stand={stand}
-                  intelligence={intelligence}
-                />
-              );
-            })}
-          </div>
-        )}
-      </Section>
+      <Tabs
+        items={[
+          {
+            id: "sites",
+            label: "Sites",
+            badge: propertyStands.length,
+            content: sitesTab,
+          },
+          { id: "activity", label: "Activity", content: activityTab },
+        ]}
+      />
     </PageShell>
   );
 }
 
-const heroCardStyle: CSSProperties = {
-  padding: "1.5rem",
+const headerStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "space-between",
+  gap: "1rem",
+  flexWrap: "wrap",
+  marginBottom: "1.5rem",
 };
 
-const fieldStyle: CSSProperties = {
+const headerLeadStyle: CSSProperties = {
   display: "grid",
-  gap: "0.45rem",
+  gap: "0.5rem",
+  minWidth: 0,
 };
 
-const labelStyle: CSSProperties = {
+const eyebrowStyle: CSSProperties = {
+  margin: 0,
   color: "var(--accent-text)",
+  fontSize: "0.78rem",
+  fontWeight: 800,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+};
+
+const titleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "2rem",
+  lineHeight: 1.1,
+};
+
+const pickerStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.5rem",
+  marginTop: "0.15rem",
+};
+
+const pickerLabelStyle: CSSProperties = {
+  color: "var(--text-muted)",
   fontSize: "0.85rem",
   fontWeight: 800,
 };
 
 const selectStyle: CSSProperties = {
-  minHeight: "48px",
-  width: "100%",
-  padding: "0.75rem",
+  minHeight: "42px",
+  minWidth: "180px",
+  padding: "0.5rem 0.65rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
-  background: "var(--surface-2)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--surface)",
   color: "var(--text)",
+};
+
+const headerActionsStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.6rem",
+  flexWrap: "wrap",
 };
 
 const statGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: "1rem",
-};
-
-const actionGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
   gap: "1rem",
 };
 
@@ -251,9 +255,23 @@ const primaryLinkStyle: CSSProperties = {
   justifyContent: "center",
   padding: "0.7rem 0.9rem",
   border: "1px solid var(--accent)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent)",
   color: "white",
+  fontWeight: 800,
+  textDecoration: "none",
+};
+
+const secondaryLinkStyle: CSSProperties = {
+  display: "inline-flex",
+  minHeight: "44px",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0.7rem 0.9rem",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--surface-2)",
+  color: "var(--text)",
   fontWeight: 800,
   textDecoration: "none",
 };
