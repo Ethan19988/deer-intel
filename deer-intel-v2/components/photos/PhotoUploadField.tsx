@@ -172,10 +172,10 @@ const dropZoneStyle: CSSProperties = {
   gap: "0.4rem",
   width: "100%",
   padding: "1.4rem",
-  border: "1px dashed #3b6843",
+  border: "1px dashed var(--accent)",
   borderRadius: "10px",
-  background: "#0a0f0a",
-  color: "#f1f5ef",
+  background: "var(--surface-2)",
+  color: "var(--text)",
   textAlign: "center",
   cursor: "pointer",
 };
@@ -186,13 +186,13 @@ const dropTitleStyle: CSSProperties = {
 };
 
 const dropHintStyle: CSSProperties = {
-  color: "#9fb09e",
+  color: "var(--text-muted)",
   fontSize: "0.85rem",
   lineHeight: 1.4,
 };
 
 const errorStyle: CSSProperties = {
   margin: 0,
-  color: "#ffb4b4",
+  color: "var(--danger-text)",
   fontSize: "0.85rem",
 };
