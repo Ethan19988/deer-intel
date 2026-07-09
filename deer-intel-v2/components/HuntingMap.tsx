@@ -491,6 +491,7 @@ export default function HuntingMap() {
   const [draftAreaPoints, setDraftAreaPoints] = useState<HuntAreaPoint[]>([]);
   const [areaCoordInput, setAreaCoordInput] = useState("");
   const [areaPointMessage, setAreaPointMessage] = useState("");
+  const [showCoordEntry, setShowCoordEntry] = useState(false);
   const [pinBoxMessage, setPinBoxMessage] = useState(
     "Choose a pin type, then tap Place Pin.",
   );
@@ -616,6 +617,7 @@ export default function HuntingMap() {
     setDraftAreaPoints(huntArea ? [...huntArea] : []);
     setAreaCoordInput("");
     setAreaPointMessage("");
+    setShowCoordEntry(false);
   }
 
   function addAreaPoint(lat: number, lng: number) {
@@ -1004,9 +1006,8 @@ export default function HuntingMap() {
           {isDrawingArea ? (
             <>
               <p style={helpTextStyle}>
-                Add corners in order around your ground — tap the map, use your
-                location, or type coordinates. Add as many points as it takes;
-                they connect automatically.
+                Tap the map to drop each corner around your ground. They connect
+                automatically as you go — add as many as it takes.
               </p>
 
               {draftAreaPoints.length > 0 ? (
@@ -1029,26 +1030,10 @@ export default function HuntingMap() {
                   ))}
                 </ol>
               ) : (
-                <p style={areaEmptyHintStyle}>No points yet.</p>
+                <p style={areaEmptyHintStyle}>
+                  Tap the map to drop your first corner.
+                </p>
               )}
-
-              <div style={areaAddRowStyle}>
-                <input
-                  style={areaCoordInputStyle}
-                  placeholder="Lat, Lng (e.g. 41.40000, -78.20000)"
-                  value={areaCoordInput}
-                  onChange={(event) => setAreaCoordInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      addAreaPointFromInput();
-                    }
-                  }}
-                />
-                <Button type="button" onClick={addAreaPointFromInput}>
-                  Add point
-                </Button>
-              </div>
 
               <div style={huntAreaButtonRowStyle}>
                 <Button
@@ -1056,7 +1041,7 @@ export default function HuntingMap() {
                   variant="secondary"
                   onClick={addAreaPointFromLocation}
                 >
-                  Use my location
+                  Add my location
                 </Button>
                 <Button
                   type="button"
@@ -1067,6 +1052,36 @@ export default function HuntingMap() {
                   Undo last
                 </Button>
               </div>
+
+              <button
+                type="button"
+                style={coordToggleStyle}
+                onClick={() => setShowCoordEntry((current) => !current)}
+              >
+                {showCoordEntry
+                  ? "Hide coordinate entry"
+                  : "Add a point by coordinates instead"}
+              </button>
+
+              {showCoordEntry ? (
+                <div style={areaAddRowStyle}>
+                  <input
+                    style={areaCoordInputStyle}
+                    placeholder="Lat, Lng (e.g. 41.40000, -78.20000)"
+                    value={areaCoordInput}
+                    onChange={(event) => setAreaCoordInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addAreaPointFromInput();
+                      }
+                    }}
+                  />
+                  <Button type="button" onClick={addAreaPointFromInput}>
+                    Add point
+                  </Button>
+                </div>
+              ) : null}
 
               {areaPointMessage ? (
                 <p style={areaPointMessageStyle}>{areaPointMessage}</p>
@@ -1620,6 +1635,8 @@ const propertyLinesNoticeStyle: CSSProperties = {
   fontWeight: 800,
   lineHeight: 1.35,
   boxShadow: "0 10px 24px rgba(0, 0, 0, 0.18)",
+  // Informational only — never intercept map taps.
+  pointerEvents: "none",
 };
 
 const huntAreaControlStyle: CSSProperties = {
@@ -1740,6 +1757,18 @@ const areaPointMessageStyle: CSSProperties = {
   fontSize: "0.85rem",
 };
 
+const coordToggleStyle: CSSProperties = {
+  justifySelf: "start",
+  padding: 0,
+  border: "none",
+  background: "none",
+  color: "#85a984",
+  fontSize: "0.85rem",
+  fontWeight: 700,
+  textDecoration: "underline",
+  cursor: "pointer",
+};
+
 const huntAreaNoticeStyle: CSSProperties = {
   position: "absolute",
   left: "1rem",
@@ -1755,6 +1784,8 @@ const huntAreaNoticeStyle: CSSProperties = {
   fontWeight: 700,
   lineHeight: 1.35,
   boxShadow: "0 10px 24px rgba(0, 0, 0, 0.28)",
+  // Informational only — never intercept map taps meant to drop a point.
+  pointerEvents: "none",
 };
 
 const belowMapGridStyle: CSSProperties = {
