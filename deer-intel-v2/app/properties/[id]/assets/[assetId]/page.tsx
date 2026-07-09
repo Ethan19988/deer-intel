@@ -583,7 +583,7 @@ const backLinkStyle: CSSProperties = {
   display: "inline-flex",
   minHeight: "44px",
   alignItems: "center",
-  color: "#c6d5c5",
+  color: "var(--text-muted)",
   fontWeight: 700,
   textDecoration: "none",
 };
@@ -598,7 +598,7 @@ const sectionHeaderStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 700,
   letterSpacing: 0,
@@ -639,7 +639,7 @@ const summaryGridStyle: CSSProperties = {
 const photoFormWrapStyle: CSSProperties = {
   marginTop: "1rem",
   paddingTop: "1rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };
 
 const relationshipGroupListStyle: CSSProperties = {
@@ -649,20 +649,20 @@ const relationshipGroupListStyle: CSSProperties = {
 
 const factLabelStyle: CSSProperties = {
   margin: 0,
-  color: "#879486",
+  color: "var(--text-faint)",
   fontSize: "0.82rem",
   fontWeight: 700,
 };
 
 const factValueStyle: CSSProperties = {
   margin: "0.3rem 0 0",
-  color: "#f1f5ef",
+  color: "var(--text)",
   lineHeight: 1.4,
 };
 
 const noteValueStyle: CSSProperties = {
   margin: "0.3rem 0 0",
-  color: "#c7d0c5",
+  color: "var(--text-muted)",
   lineHeight: 1.6,
 };
 
@@ -680,7 +680,7 @@ const notFoundTitleStyle: CSSProperties = {
 const notFoundTextStyle: CSSProperties = {
   maxWidth: "640px",
   margin: "0.85rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.6,
 };
 
@@ -688,9 +688,9 @@ const primaryLinkStyle: CSSProperties = {
   display: "inline-flex",
   marginTop: "1.25rem",
   padding: "0.7rem 1rem",
-  border: "1px solid #3b6843",
+  border: "1px solid var(--accent)",
   borderRadius: "8px",
-  background: "#18351d",
+  background: "var(--accent)",
   color: "white",
   fontWeight: 700,
   textDecoration: "none",

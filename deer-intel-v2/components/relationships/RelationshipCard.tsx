@@ -34,10 +34,10 @@ export default function RelationshipCard({
 const cardStyle: CSSProperties = {
   display: "block",
   padding: "1rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#0a0f0a",
-  color: "white",
+  background: "var(--surface-2)",
+  color: "var(--text)",
   textDecoration: "none",
 };
 
@@ -50,7 +50,7 @@ const headerStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: 0,
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1rem",
   fontWeight: 800,
   lineHeight: 1.25,
@@ -58,7 +58,7 @@ const titleStyle: CSSProperties = {
 
 const descriptionStyle: CSSProperties = {
   margin: "0.45rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   fontSize: "0.95rem",
   lineHeight: 1.5,
 };

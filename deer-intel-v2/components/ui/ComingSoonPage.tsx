@@ -32,7 +32,7 @@ const backLinkStyle: CSSProperties = {
   display: "inline-flex",
   minHeight: "44px",
   alignItems: "center",
-  color: "#c6d5c5",
+  color: "var(--text-muted)",
   fontWeight: 700,
   textDecoration: "none",
 };

@@ -91,7 +91,7 @@ export default function LiveWeatherFill({
           {message}
         </p>
       ) : (
-        <p style={{ ...messageStyle, color: "#85a984" }}>
+        <p style={{ ...messageStyle, color: "var(--accent-text)" }}>
           Auto-fills temperature, wind, sky, and moon phase from your property
           location.
         </p>

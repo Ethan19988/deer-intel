@@ -1516,7 +1516,7 @@ const panelHeaderStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 700,
   letterSpacing: 0,
@@ -1540,10 +1540,10 @@ const statusPillStyle: CSSProperties = {
   minHeight: "36px",
   alignItems: "center",
   padding: "0.45rem 0.7rem",
-  border: "1px solid #2b3a2b",
+  border: "1px solid var(--border)",
   borderRadius: "999px",
-  background: "#071007",
-  color: "#dce9da",
+  background: "var(--surface-2)",
+  color: "var(--text-muted)",
   fontSize: "0.9rem",
   fontWeight: 700,
 };
@@ -1560,7 +1560,7 @@ const fieldStyle: CSSProperties = {
 };
 
 const labelTextStyle: CSSProperties = {
-  color: "#85a984",
+  color: "var(--text-muted)",
   fontSize: "0.85rem",
   fontWeight: 700,
 };
@@ -1569,15 +1569,15 @@ const selectStyle: CSSProperties = {
   minHeight: "48px",
   width: "100%",
   padding: "0.75rem",
-  border: "1px solid #2b3a2b",
-  borderRadius: "8px",
-  background: "#070a07",
-  color: "white",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--surface)",
+  color: "var(--text)",
 };
 
 const helpTextStyle: CSSProperties = {
   margin: 0,
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   fontSize: "1rem",
   lineHeight: 1.5,
 };
@@ -1687,9 +1687,9 @@ const huntAreaControlStyle: CSSProperties = {
   display: "grid",
   gap: "0.6rem",
   padding: "0.85rem",
-  border: "1px solid #23331f",
+  border: "1px solid var(--border)",
   borderRadius: "10px",
-  background: "#0a120a",
+  background: "var(--surface-2)",
 };
 
 const huntAreaHeaderStyle: CSSProperties = {
@@ -1704,9 +1704,9 @@ const huntAreaBadgeStyle: CSSProperties = {
   alignItems: "center",
   padding: "0.25rem 0.6rem",
   borderRadius: "999px",
-  border: "1px solid #2f4a68",
-  background: "#0f1c2b",
-  color: "#9fd0ff",
+  border: "1px solid var(--accent-tint-border)",
+  background: "var(--accent-tint)",
+  color: "var(--accent-text)",
   fontSize: "0.8rem",
   fontWeight: 700,
 };
@@ -1733,8 +1733,8 @@ const areaPointRowStyle: CSSProperties = {
   gap: "0.6rem",
   padding: "0.35rem 0.5rem",
   borderRadius: "8px",
-  border: "1px solid #1e2a1e",
-  background: "#071007",
+  border: "1px solid var(--border)",
+  background: "var(--surface)",
 };
 
 const areaPointNumberStyle: CSSProperties = {
@@ -1744,15 +1744,15 @@ const areaPointNumberStyle: CSSProperties = {
   minWidth: "22px",
   height: "22px",
   borderRadius: "999px",
-  background: "#1f5fa0",
-  color: "#eaf4ff",
+  background: "var(--accent)",
+  color: "#ffffff",
   fontSize: "0.8rem",
   fontWeight: 800,
 };
 
 const areaPointCoordStyle: CSSProperties = {
   flex: 1,
-  color: "#d4e2d2",
+  color: "var(--text)",
   fontSize: "0.9rem",
   fontVariantNumeric: "tabular-nums",
 };
@@ -1761,9 +1761,9 @@ const areaPointRemoveStyle: CSSProperties = {
   minWidth: "30px",
   height: "30px",
   borderRadius: "8px",
-  border: "1px solid #4a2a2a",
-  background: "#1c0f0f",
-  color: "#f0a3a3",
+  border: "1px solid var(--danger-border)",
+  background: "var(--danger-bg)",
+  color: "var(--danger-text)",
   fontSize: "1.1rem",
   fontWeight: 800,
   lineHeight: 1,
@@ -1772,7 +1772,7 @@ const areaPointRemoveStyle: CSSProperties = {
 
 const areaEmptyHintStyle: CSSProperties = {
   margin: 0,
-  color: "#7f8f7d",
+  color: "var(--text-faint)",
   fontSize: "0.9rem",
 };
 
@@ -1789,15 +1789,15 @@ const areaCoordInputStyle: CSSProperties = {
   minHeight: "44px",
   padding: "0.6rem 0.7rem",
   borderRadius: "8px",
-  border: "1px solid #2b3a2b",
-  background: "#070a07",
-  color: "white",
+  border: "1px solid var(--border)",
+  background: "var(--surface)",
+  color: "var(--text)",
   fontSize: "0.95rem",
 };
 
 const areaPointMessageStyle: CSSProperties = {
   margin: 0,
-  color: "#9fd18a",
+  color: "var(--accent-text)",
   fontSize: "0.85rem",
 };
 
@@ -1806,7 +1806,7 @@ const coordToggleStyle: CSSProperties = {
   padding: 0,
   border: "none",
   background: "none",
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.85rem",
   fontWeight: 700,
   textDecoration: "underline",

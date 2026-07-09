@@ -39,23 +39,23 @@ const baseStyle: CSSProperties = {
 
 const variantStyles: Record<BadgeVariant, CSSProperties> = {
   default: {
-    border: "1px solid #2d402d",
-    background: "#101a10",
-    color: "#c6d5c5",
+    border: "1px solid var(--border)",
+    background: "var(--surface-2)",
+    color: "var(--text-muted)",
   },
   success: {
-    border: "1px solid #3b6843",
-    background: "#18351d",
-    color: "#c6f0c6",
+    border: "1px solid var(--success-border)",
+    background: "var(--success-bg)",
+    color: "var(--success-text)",
   },
   warning: {
-    border: "1px solid #514c31",
-    background: "#272411",
-    color: "#eee1a8",
+    border: "1px solid var(--warning-border)",
+    background: "var(--warning-bg)",
+    color: "var(--warning-text)",
   },
   danger: {
-    border: "1px solid #6f2f2f",
-    background: "#3a1717",
-    color: "#ffd5d5",
+    border: "1px solid var(--danger-border)",
+    background: "var(--danger-bg)",
+    color: "var(--danger-text)",
   },
 };

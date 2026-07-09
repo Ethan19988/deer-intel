@@ -63,18 +63,18 @@ const activityRowStyle: CSSProperties = {
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: "1rem",
-  background: "#0d120d",
+  background: "var(--surface)",
 };
 
 const activityTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontWeight: 800,
 };
 
 const activityDescriptionStyle: CSSProperties = {
   margin: "0.35rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   fontSize: "1rem",
   lineHeight: 1.5,
 };
