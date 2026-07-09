@@ -28,6 +28,7 @@ import MapPinBox, {
 import ParcelBoundaryLayer from "@/components/map/ParcelBoundaryLayer";
 import ParcelOwnerLabelLayer from "@/components/map/ParcelOwnerLabelLayer";
 import ParcelOwnerInfoCard from "@/components/map/ParcelOwnerInfoCard";
+import LandOwnerLayer from "@/components/map/LandOwnerLayer";
 import MapSearchBar from "@/components/map/MapSearchBar";
 import MapSearchResultMarker from "@/components/map/MapSearchResultMarker";
 import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
@@ -419,6 +420,8 @@ export default function HuntingMap() {
   });
   const [showPropertyLines, setShowPropertyLines] = useState(false);
   const [showOwnerNames, setShowOwnerNames] = useState(false);
+  const [showLandOwners, setShowLandOwners] = useState(false);
+  const [landOwnerMessage, setLandOwnerMessage] = useState("");
   const [parcelLayerState, setParcelLayerState] =
     useState<ParcelBoundaryLoadState | null>(null);
   const [ownerLabelState, setOwnerLabelState] =
@@ -488,6 +491,7 @@ export default function HuntingMap() {
     parcelOwnerLookupState.status !== "found"
       ? parcelOwnerLookupState.message
       : "",
+    showLandOwners ? landOwnerMessage : "",
   ].filter((message): message is string => Boolean(message));
 
   const saveMapState = useCallback((center: MapCenter, zoom: number) => {
@@ -554,6 +558,16 @@ export default function HuntingMap() {
       }
 
       return shouldShowOwnerNames;
+    });
+  }
+
+  function toggleLandOwners() {
+    setShowLandOwners((isVisible) => {
+      const shouldShow = !isVisible;
+
+      if (!shouldShow) setLandOwnerMessage("");
+
+      return shouldShow;
     });
   }
 
@@ -836,6 +850,10 @@ export default function HuntingMap() {
               propertyId={selectedPropertyId}
               onStateChange={setOwnerLabelState}
             />
+            <LandOwnerLayer
+              enabled={showLandOwners}
+              onStatusChange={setLandOwnerMessage}
+            />
 
             <MapSearchTargetController target={searchTarget} />
             <MapStateTracker onMapStateChange={saveMapState} />
@@ -884,10 +902,12 @@ export default function HuntingMap() {
             mapTools={mapTools}
             ownerNamesDisabled={isMobileMapPerformanceMode}
             selectedLayer={selectedLayer}
+            showLandOwners={showLandOwners}
             showOwnerNames={ownerNamesEnabled}
             showPropertyLines={showPropertyLines}
             visibleAssetLayers={visibleAssetLayers}
             onSelectLayer={setSelectedLayer}
+            onToggleLandOwners={toggleLandOwners}
             onToggleLayer={toggleAssetLayer}
             onToggleMapTool={toggleMapTool}
             onToggleOwnerNames={toggleOwnerNames}
@@ -904,6 +924,9 @@ export default function HuntingMap() {
             ) : null}
             {ownerNamesEnabled ? (
               <span style={mapStatusPillStyle}>Owner Names</span>
+            ) : null}
+            {showLandOwners ? (
+              <span style={mapStatusPillStyle}>Land Owners</span>
             ) : null}
             <span style={mapStatusPillStyle}>
               {selectedAsset ? selectedAsset.label : "No asset selected"}
