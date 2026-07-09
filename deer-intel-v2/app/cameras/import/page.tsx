@@ -646,7 +646,7 @@ const backLinkStyle: CSSProperties = {
   display: "inline-flex",
   minHeight: "44px",
   alignItems: "center",
-  color: "#c6d5c5",
+  color: "var(--text-muted)",
   fontWeight: 800,
   textDecoration: "none",
 };
@@ -663,7 +663,7 @@ const fieldStyle: CSSProperties = {
 };
 
 const labelStyle: CSSProperties = {
-  color: "#c6d5c5",
+  color: "var(--text-muted)",
   fontSize: "0.9rem",
   fontWeight: 800,
 };
@@ -672,10 +672,10 @@ const inputStyle: CSSProperties = {
   width: "100%",
   minHeight: "46px",
   padding: "0.75rem",
-  border: "1px solid #2b3a2b",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#070a07",
-  color: "white",
+  background: "var(--surface-2)",
+  color: "var(--text)",
 };
 
 const textAreaStyle: CSSProperties = {
@@ -686,7 +686,7 @@ const textAreaStyle: CSSProperties = {
 
 const assignmentTextStyle: CSSProperties = {
   margin: "1rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.55,
 };
 
@@ -694,14 +694,14 @@ const uploadBoxStyle: CSSProperties = {
   display: "grid",
   gap: "0.5rem",
   padding: "1rem",
-  border: "1px dashed #334533",
+  border: "1px dashed var(--border)",
   borderRadius: "8px",
-  background: "#070a07",
+  background: "var(--surface-2)",
   cursor: "pointer",
 };
 
 const uploadTitleStyle: CSSProperties = {
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1.1rem",
   fontWeight: 850,
 };
@@ -719,7 +719,7 @@ const buttonRowStyle: CSSProperties = {
 
 const messageStyle: CSSProperties = {
   margin: "1rem 0 0",
-  color: "#a7d1a6",
+  color: "var(--accent-text)",
   fontWeight: 800,
 };
 
@@ -745,7 +745,7 @@ const checkFieldStyle: CSSProperties = {
 
 const draftTitleStyle: CSSProperties = {
   display: "block",
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1.05rem",
   fontWeight: 850,
   lineHeight: 1.25,
@@ -754,7 +754,7 @@ const draftTitleStyle: CSSProperties = {
 const draftMetaStyle: CSSProperties = {
   display: "block",
   marginTop: "0.2rem",
-  color: "#879486",
+  color: "var(--text-faint)",
   fontSize: "0.9rem",
   lineHeight: 1.4,
 };
@@ -765,7 +765,7 @@ const draftFormGridStyle: CSSProperties = {
   gap: "1rem",
   marginTop: "1rem",
   paddingTop: "1rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };
 
 const providerGridStyle: CSSProperties = {
@@ -789,7 +789,7 @@ const providerTitleStyle: CSSProperties = {
 
 const mutedTextStyle: CSSProperties = {
   margin: "0.45rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.55,
 };
 
@@ -799,9 +799,9 @@ const primaryLinkStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "0.7rem 0.9rem",
-  border: "1px solid #3b6843",
+  border: "1px solid var(--accent)",
   borderRadius: "8px",
-  background: "#18351d",
+  background: "var(--accent)",
   color: "white",
   fontWeight: 800,
   textDecoration: "none",

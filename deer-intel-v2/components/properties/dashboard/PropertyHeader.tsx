@@ -52,7 +52,7 @@ const heroStyle: CSSProperties = {
   gap: "1.25rem",
   marginTop: "1rem",
   padding: "1.5rem",
-  background: "#0d120d",
+  background: "var(--surface)",
 };
 
 const headerTextStyle: CSSProperties = {
@@ -68,7 +68,7 @@ const badgeRowStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: "1rem 0 0",
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "3rem",
   lineHeight: 1,
   fontWeight: 850,
@@ -77,7 +77,7 @@ const titleStyle: CSSProperties = {
 const notesStyle: CSSProperties = {
   maxWidth: "760px",
   margin: "1rem 0 0",
-  color: "#c7d0c5",
+  color: "var(--text-muted)",
   fontSize: "1.08rem",
   lineHeight: 1.65,
 };

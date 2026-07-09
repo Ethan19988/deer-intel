@@ -24,18 +24,23 @@ export default function EmptyState({
 
 const emptyStateStyle: CSSProperties = {
   margin: "1rem 0 0",
-  padding: "1rem",
-  border: "1px dashed #334533",
-  borderRadius: "8px",
-  background: "#071007",
-  color: "#b8c2b6",
+  padding: "1.25rem",
+  border: "1px dashed rgba(60, 48, 24, 0.35)",
+  borderRadius: "var(--radius)",
+  color: "var(--camo-fg-muted)",
+  backgroundColor: "var(--camo-ink)",
+  backgroundImage:
+    "linear-gradient(rgba(233, 226, 206, 0.62), rgba(233, 226, 206, 0.72)), var(--camo)",
+  backgroundSize: "cover",
+  backgroundPosition: "center",
   fontSize: "1rem",
   lineHeight: 1.5,
+  textShadow: "0 1px 0 rgba(255, 255, 255, 0.35)",
 };
 
 const titleStyle: CSSProperties = {
   margin: 0,
-  color: "#f1f5ef",
+  color: "var(--camo-fg)",
   fontWeight: 850,
 };
 

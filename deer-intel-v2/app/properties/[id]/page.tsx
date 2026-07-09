@@ -679,7 +679,7 @@ const notFoundCardStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 700,
   letterSpacing: 0,
@@ -695,7 +695,7 @@ const pageTitleStyle: CSSProperties = {
 const mutedTextStyle: CSSProperties = {
   maxWidth: "720px",
   margin: "0.85rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.6,
 };
 
@@ -703,7 +703,7 @@ const backTextLinkStyle: CSSProperties = {
   display: "inline-flex",
   minHeight: "44px",
   alignItems: "center",
-  color: "#c6d5c5",
+  color: "var(--text-muted)",
   fontWeight: 700,
   textDecoration: "none",
 };
@@ -712,9 +712,9 @@ const primaryLinkStyle: CSSProperties = {
   display: "inline-flex",
   marginTop: "1.25rem",
   padding: "0.7rem 1rem",
-  border: "1px solid #3b6843",
+  border: "1px solid var(--accent)",
   borderRadius: "8px",
-  background: "#18351d",
+  background: "var(--accent)",
   color: "white",
   fontWeight: 700,
   textDecoration: "none",
@@ -729,7 +729,7 @@ const commandTabsStyle: CSSProperties = {
   marginTop: "1rem",
   padding: "0.55rem",
   overflowX: "auto",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
   background: "rgba(5, 8, 6, 0.94)",
   backdropFilter: "blur(10px)",
@@ -742,18 +742,18 @@ const commandTabStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "0.7rem 0.9rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#0d120d",
-  color: "#f1f5ef",
+  background: "var(--surface)",
+  color: "var(--text)",
   fontSize: "0.94rem",
   fontWeight: 850,
   textDecoration: "none",
 };
 
 const primaryCommandTabStyle: CSSProperties = {
-  borderColor: "#3b6843",
-  background: "#18351d",
+  borderColor: "var(--accent)",
+  background: "var(--accent)",
 };
 
 const cardGridStyle: CSSProperties = {
@@ -786,14 +786,14 @@ const mapSummaryCardStyle: CSSProperties = {
 
 const summaryCardTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1.15rem",
   lineHeight: 1.25,
 };
 
 const mapSummaryTextStyle: CSSProperties = {
   margin: 0,
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.5,
 };
 

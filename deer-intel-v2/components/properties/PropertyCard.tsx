@@ -119,7 +119,7 @@ const cardHeaderStyle: CSSProperties = {
 
 const cardEyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.75rem",
   fontWeight: 700,
   letterSpacing: 0,
@@ -145,10 +145,10 @@ const secondaryButtonStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "0.7rem 0.9rem",
-  borderRadius: "8px",
-  border: "1px solid #444",
-  background: "#1b1b1b",
-  color: "white",
+  borderRadius: "var(--radius-sm)",
+  border: "1px solid var(--border-strong)",
+  background: "var(--surface-2)",
+  color: "var(--text)",
   fontSize: "0.95rem",
   fontWeight: "bold",
   cursor: "pointer",
@@ -157,8 +157,8 @@ const secondaryButtonStyle: CSSProperties = {
 
 const openPropertyButtonStyle: CSSProperties = {
   ...secondaryButtonStyle,
-  border: "1px solid #3b6843",
-  background: "#18351d",
+  border: "1px solid var(--accent)",
+  background: "var(--accent)",
 };
 
 const smallButtonStyle: CSSProperties = {
@@ -172,26 +172,26 @@ const detailsGridStyle: CSSProperties = {
   gap: "1rem",
   marginTop: "1rem",
   paddingTop: "1rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };
 
 const detailLabelStyle: CSSProperties = {
   margin: 0,
-  color: "#879486",
+  color: "var(--text-faint)",
   fontSize: "0.78rem",
   fontWeight: 700,
 };
 
 const detailValueStyle: CSSProperties = {
   margin: "0.25rem 0 0",
-  color: "#f1f5ef",
+  color: "var(--text)",
   lineHeight: 1.4,
 };
 
 const notesStyle: CSSProperties = {
   margin: "1rem 0 0",
   paddingTop: "1rem",
-  borderTop: "1px solid #1e2a1e",
-  color: "#c7d0c5",
+  borderTop: "1px solid var(--border)",
+  color: "var(--text-muted)",
   lineHeight: 1.6,
 };
