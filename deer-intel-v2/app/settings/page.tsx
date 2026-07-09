@@ -397,12 +397,12 @@ const hiddenInputStyle: CSSProperties = {
 
 const errorTextStyle: CSSProperties = {
   margin: "0.85rem 0 0",
-  color: "#ffb4b4",
+  color: "var(--danger-text)",
   lineHeight: 1.5,
 };
 
 const successTextStyle: CSSProperties = {
   margin: "0.85rem 0 0",
-  color: "#c6f0c6",
+  color: "var(--success-text)",
   lineHeight: 1.5,
 };

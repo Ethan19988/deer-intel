@@ -140,7 +140,7 @@ const headerRowStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 800,
   textTransform: "uppercase",
@@ -155,13 +155,13 @@ const titleStyle: CSSProperties = {
 
 const mutedStyle: CSSProperties = {
   margin: "0.65rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.55,
 };
 
 const metaStyle: CSSProperties = {
   margin: "0.5rem 0 0",
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.85rem",
   fontWeight: 700,
 };
@@ -169,7 +169,7 @@ const metaStyle: CSSProperties = {
 const codeStyle: CSSProperties = {
   padding: "0.1rem 0.3rem",
   borderRadius: "4px",
-  background: "#0d120d",
+  background: "var(--surface)",
   fontSize: "0.85em",
 };
 

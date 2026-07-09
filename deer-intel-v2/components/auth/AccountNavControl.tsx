@@ -6,10 +6,10 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { syncStatusLabel, syncStatusTone } from "@/lib/syncStatus";
 
 const TONE_COLORS: Record<string, string> = {
-  default: "#85a984",
-  success: "#5fd07a",
-  warning: "#e3c65a",
-  danger: "#ff8f8f",
+  default: "var(--accent-text)",
+  success: "var(--success-text)",
+  warning: "var(--warning-text)",
+  danger: "var(--danger-text)",
 };
 
 // Compact account entry point for the primary nav. Renders nothing when cloud
@@ -49,10 +49,10 @@ const baseLinkStyle: CSSProperties = {
   justifyContent: "center",
   gap: "0.4rem",
   padding: "0.55rem 0.75rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#0a0f0a",
-  color: "#dce9da",
+  background: "var(--surface-2)",
+  color: "var(--text-muted)",
   fontSize: "0.92rem",
   fontWeight: 850,
   textDecoration: "none",
@@ -60,8 +60,8 @@ const baseLinkStyle: CSSProperties = {
 
 const signInStyle: CSSProperties = {
   ...baseLinkStyle,
-  borderColor: "#3b6843",
-  background: "#18351d",
+  borderColor: "var(--accent)",
+  background: "var(--accent)",
   color: "white",
 };
 
