@@ -4,4 +4,6 @@ export type Property = {
   county: string;
   acres: string;
   notes: string;
+  latitude?: number;
+  longitude?: number;
 };

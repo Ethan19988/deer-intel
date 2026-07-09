@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import { formatPropertyCoordinate } from "@/lib/propertyLocation";
 import type { Property } from "@/types/property";
 import PropertyForm, { type PropertyFormValues } from "./PropertyForm";
 
@@ -89,6 +90,13 @@ export default function PropertyCard({
             <div>
               <p style={detailLabelStyle}>Acres</p>
               <p style={detailValueStyle}>{property.acres}</p>
+            </div>
+
+            <div>
+              <p style={detailLabelStyle}>Center (GPS)</p>
+              <p style={detailValueStyle}>
+                {formatPropertyCoordinate(property) || "Not set"}
+              </p>
             </div>
           </div>
 

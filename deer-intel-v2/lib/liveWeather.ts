@@ -2,6 +2,8 @@
 
 import type { Camera } from "@/types/camera";
 import type { MapPin } from "@/types/mapPin";
+import type { Property } from "@/types/property";
+import { hasPropertyCoordinate } from "@/lib/propertyLocation";
 
 // Live weather is fetched from Open-Meteo (https://open-meteo.com), a free
 // no-API-key forecast service. We only ask for the current conditions a hunter
@@ -95,6 +97,23 @@ export function getPropertyWeatherPoint(
     lat: total.lat / coordinates.length,
     lng: total.lng / coordinates.length,
   };
+}
+
+/**
+ * Resolve the best weather point for a property: its own saved center if set,
+ * otherwise the average of its placed cameras and pins. Returns null when there
+ * is nothing to go on, letting the UI fall back to the device's GPS location.
+ */
+export function resolvePropertyWeatherPoint(
+  property: Property | null | undefined,
+  cameras: Camera[],
+  pins: MapPin[],
+): WeatherPoint | null {
+  if (property && hasPropertyCoordinate(property)) {
+    return { lat: property.latitude, lng: property.longitude };
+  }
+
+  return getPropertyWeatherPoint(cameras, pins);
 }
 
 export async function fetchLiveWeather(
