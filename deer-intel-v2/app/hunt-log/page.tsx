@@ -3,13 +3,10 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import HuntLogForm from "@/components/hunts/HuntLogForm";
 import HuntLogList from "@/components/hunts/HuntLogList";
-import ActionCard from "@/components/ui/ActionCard";
-import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
-import PageHeader from "@/components/ui/PageHeader";
 import PageShell from "@/components/ui/PageShell";
-import Section from "@/components/ui/Section";
+import Tabs from "@/components/ui/Tabs";
 import {
   createDeerIntelId,
   updateDeerIntelStore,
@@ -97,114 +94,77 @@ export default function HuntLogPage() {
     );
   }
 
+  const logTab = (
+    <Card as="section" variant="elevated" style={formCardStyle}>
+      {hasStands ? (
+        <HuntLogForm
+          values={huntValues}
+          properties={state.properties}
+          stands={state.stands}
+          weatherLocation={weatherLocation}
+          onChange={setHuntValues}
+          onSubmit={saveHunt}
+        />
+      ) : (
+        <EmptyState
+          title="Add a stand first"
+          description="Hunts need a stand. Open a property, add a stand, then come back here to log the sit."
+        />
+      )}
+    </Card>
+  );
+
+  const historyTab = (
+    <HuntLogList
+      hunts={state.hunts}
+      getPropertyName={getPropertyName}
+      emptyDescription="No hunts logged yet. Save your first sit from the Log a sit tab."
+    />
+  );
+
   return (
     <PageShell>
-      <Card as="section" variant="elevated" style={sectionCardStyle}>
-        <PageHeader
-          eyebrow="Hunt Intelligence"
-          title="Hunt Log"
-          description="Save each sit by property and stand so Deer Intel can learn what happened, when it happened, and what conditions mattered."
-          meta={
-            <>
-              <Badge variant="success">Property Based</Badge>
-              <Badge>{state.hunts.length} saved hunts</Badge>
-            </>
-          }
-        />
-      </Card>
+      <header style={headerStyle}>
+        <p style={eyebrowStyle}>Hunt Log</p>
+        <h1 style={titleStyle}>Hunt Log</h1>
+      </header>
 
-      <Card as="section" variant="elevated" style={sectionCardStyle}>
-        <div style={sectionHeaderStyle}>
-          <p style={eyebrowStyle}>Add Hunt</p>
-          <h2 style={sectionTitleStyle}>Log a Sit</h2>
-        </div>
-
-        {hasStands ? (
-          <HuntLogForm
-            values={huntValues}
-            properties={state.properties}
-            stands={state.stands}
-            weatherLocation={weatherLocation}
-            onChange={setHuntValues}
-            onSubmit={saveHunt}
-          />
-        ) : (
-          <EmptyState
-            title="Add a stand first"
-            description="Hunts need a stand. Open a property, add a stand, then come back here to log the sit."
-          />
-        )}
-      </Card>
-
-      <Section eyebrow="Next Steps" title="Quick Actions">
-        <div style={actionGridStyle}>
-          <ActionCard
-            href="/properties"
-            title="Open Properties"
-            description="Choose a property command center and review related records."
-            badge="Available"
-            tone="primary"
-          />
-          <ActionCard
-            href="/stands"
-            title="Review Stands"
-            description="Check stand notes before logging or reviewing hunts."
-            badge="Available"
-            tone="primary"
-          />
-          <ActionCard
-            href="/map"
-            title="Open Map"
-            description="Look at stand, camera, and asset locations for context."
-          />
-        </div>
-      </Section>
-
-      <section style={historySectionStyle}>
-        <div style={sectionHeaderStyle}>
-          <p style={eyebrowStyle}>Field History</p>
-          <h2 style={sectionTitleStyle}>Saved Hunts</h2>
-        </div>
-        <HuntLogList
-          hunts={state.hunts}
-          getPropertyName={getPropertyName}
-          emptyDescription="No hunts logged yet. Save your first sit above."
-        />
-      </section>
+      <Tabs
+        items={[
+          { id: "log", label: "Log a sit", content: logTab },
+          {
+            id: "history",
+            label: "History",
+            badge: state.hunts.length,
+            content: historyTab,
+          },
+        ]}
+      />
     </PageShell>
   );
 }
+
+const headerStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.35rem",
+  marginBottom: "1.5rem",
+};
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
   color: "var(--accent-text)",
   fontSize: "0.78rem",
-  fontWeight: 700,
-  letterSpacing: 0,
+  fontWeight: 800,
+  letterSpacing: "0.04em",
   textTransform: "uppercase",
 };
 
-const sectionCardStyle: CSSProperties = {
+const titleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "2rem",
+  lineHeight: 1.1,
+};
+
+const formCardStyle: CSSProperties = {
   padding: "1.25rem",
-  marginBottom: "1.5rem",
-};
-
-const historySectionStyle: CSSProperties = {
-  marginTop: "1.75rem",
-};
-
-const sectionHeaderStyle: CSSProperties = {
-  marginBottom: "1rem",
-};
-
-const sectionTitleStyle: CSSProperties = {
-  margin: "0.2rem 0 0",
-  fontSize: "1.45rem",
-  lineHeight: 1.2,
-};
-
-const actionGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "1rem",
 };

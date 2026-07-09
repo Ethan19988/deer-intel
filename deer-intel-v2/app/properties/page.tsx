@@ -5,12 +5,10 @@ import PropertyCard from "@/components/properties/PropertyCard";
 import PropertyForm, {
   type PropertyFormValues,
 } from "@/components/properties/PropertyForm";
-import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
-import PageHeader from "@/components/ui/PageHeader";
 import PageShell from "@/components/ui/PageShell";
-import Section from "@/components/ui/Section";
+import Tabs from "@/components/ui/Tabs";
 import {
   createDeerIntelId,
   updateDeerIntelStore,
@@ -32,7 +30,6 @@ const EMPTY_PROPERTY_FORM_VALUES: PropertyFormValues = {
 
 export default function PropertiesPage() {
   const { properties } = useDeerIntelStore();
-  const propertyCount = properties.length;
 
   const [newPropertyValues, setNewPropertyValues] =
     useState<PropertyFormValues>(EMPTY_PROPERTY_FORM_VALUES);
@@ -176,73 +173,83 @@ export default function PropertiesPage() {
     }
   }
 
+  const propertiesTab =
+    properties.length === 0 ? (
+      <EmptyState description="No properties yet. Add your first hunting property from the Add property tab." />
+    ) : (
+      <div style={propertyListStyle}>
+        {properties.map((property) => (
+          <PropertyCard
+            key={property.id}
+            property={property}
+            isEditing={editingPropertyId === property.id}
+            editValues={editValues}
+            onEditValuesChange={setEditValues}
+            onStartEditing={startEditingProperty}
+            onSave={saveEditedProperty}
+            onCancel={cancelEditingProperty}
+            onDelete={deleteProperty}
+          />
+        ))}
+      </div>
+    );
+
+  const addTab = (
+    <Card as="section" variant="elevated" style={addCardStyle}>
+      <PropertyForm
+        values={newPropertyValues}
+        submitLabel="Add Property"
+        onChange={setNewPropertyValues}
+        onSubmit={addProperty}
+      />
+    </Card>
+  );
+
   return (
     <PageShell maxWidth="980px">
-      <PageHeader
-        eyebrow="Property Management"
-        title="Properties"
-        description="Keep each hunting property organized with county, acres, and field notes that stay saved in this browser."
+      <header style={headerStyle}>
+        <p style={eyebrowStyle}>Properties</p>
+        <h1 style={titleStyle}>Properties</h1>
+      </header>
+
+      <Tabs
+        items={[
+          {
+            id: "properties",
+            label: "Your properties",
+            badge: properties.length,
+            content: propertiesTab,
+          },
+          { id: "add", label: "Add property", content: addTab },
+        ]}
       />
-
-      <Card
-        as="section"
-        variant="elevated"
-        style={addPropertyCardStyle}
-      >
-        <Section
-          eyebrow="New Property"
-          title="Add Property"
-          action={
-            <Badge>
-              {propertyCount} {propertyCount === 1 ? "property" : "properties"}
-            </Badge>
-          }
-          style={nestedSectionStyle}
-        >
-          <PropertyForm
-            values={newPropertyValues}
-            submitLabel="Add Property"
-            onChange={setNewPropertyValues}
-            onSubmit={addProperty}
-          />
-        </Section>
-      </Card>
-
-      <Section
-        id="your-properties-heading"
-        eyebrow="Saved Properties"
-        title="Your Properties"
-      >
-        {properties.length === 0 ? (
-          <EmptyState description="No properties yet. Add your first hunting property above." />
-        ) : (
-          <div style={propertyListStyle}>
-            {properties.map((property) => (
-              <PropertyCard
-                key={property.id}
-                property={property}
-                isEditing={editingPropertyId === property.id}
-                editValues={editValues}
-                onEditValuesChange={setEditValues}
-                onStartEditing={startEditingProperty}
-                onSave={saveEditedProperty}
-                onCancel={cancelEditingProperty}
-                onDelete={deleteProperty}
-              />
-            ))}
-          </div>
-        )}
-      </Section>
     </PageShell>
   );
 }
 
-const addPropertyCardStyle: CSSProperties = {
-  marginTop: "1.5rem",
+const headerStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.35rem",
+  marginBottom: "1.5rem",
 };
 
-const nestedSectionStyle: CSSProperties = {
-  marginTop: 0,
+const eyebrowStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--accent-text)",
+  fontSize: "0.78rem",
+  fontWeight: 800,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+};
+
+const titleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "2rem",
+  lineHeight: 1.1,
+};
+
+const addCardStyle: CSSProperties = {
+  padding: "1.25rem",
 };
 
 const propertyListStyle: CSSProperties = {
