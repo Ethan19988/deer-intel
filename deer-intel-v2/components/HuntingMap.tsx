@@ -105,7 +105,7 @@ const MAP_CENTER_EPSILON = 0.00001;
 
 // Zoom used when auto-centering on a property. Close enough to see a property's
 // footprint without diving all the way to individual-asset zoom.
-const PROPERTY_FOCUS_ZOOM = 15;
+const PROPERTY_FOCUS_ZOOM = 16;
 
 // Highlight styling for a property's hunt area — a bright, translucent overlay
 // so the ground you hunt reads at a glance without hiding the terrain beneath.
@@ -1589,7 +1589,7 @@ const helpTextStyle: CSSProperties = {
 
 const mapFrameStyle: CSSProperties = {
   position: "relative",
-  height: "clamp(420px, 68vh, 720px)",
+  height: "clamp(520px, 80vh, 960px)",
   overflow: "hidden",
   border: "1px solid #243224",
   borderRadius: "8px",
