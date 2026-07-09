@@ -1,5 +1,6 @@
 import type { HuntLogEntry } from "@/types/hunt";
 import type { Stand } from "@/types/stand";
+import type { WeatherSource } from "@/types/weather";
 import { createWeatherSnapshot } from "@/lib/weather";
 
 export type YesNoValue = "No" | "Yes";
@@ -15,6 +16,7 @@ export type HuntFormValues = {
   temperature: string;
   weather: string;
   moonPhase: string;
+  weatherSource: WeatherSource;
   bucks: string;
   does: string;
   fawns: string;
@@ -34,6 +36,7 @@ export const EMPTY_HUNT_FORM_VALUES: HuntFormValues = {
   temperature: "",
   weather: "",
   moonPhase: "",
+  weatherSource: "manual",
   bucks: "",
   does: "",
   fawns: "",
@@ -81,6 +84,7 @@ export function createHuntFromValues({
       windSpeed: values.windSpeed,
       conditions: values.weather,
       moonPhase: values.moonPhase,
+      source: values.weatherSource,
     }),
     bucks: countFromString(values.bucks),
     does: countFromString(values.does),

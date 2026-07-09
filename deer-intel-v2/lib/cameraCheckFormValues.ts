@@ -1,4 +1,5 @@
 import type { CameraCheck } from "@/types/cameraCheck";
+import type { WeatherSource } from "@/types/weather";
 import { createWeatherSnapshot } from "@/lib/weather";
 
 export type CameraCheckFormValues = {
@@ -11,6 +12,7 @@ export type CameraCheckFormValues = {
   windSpeed: string;
   weather: string;
   moonPhase: string;
+  weatherSource: WeatherSource;
   bucks: string;
   does: string;
   fawns: string;
@@ -31,6 +33,7 @@ export const EMPTY_CAMERA_CHECK_FORM_VALUES: CameraCheckFormValues = {
   windSpeed: "",
   weather: "",
   moonPhase: "",
+  weatherSource: "manual",
   bucks: "",
   does: "",
   fawns: "",
@@ -70,6 +73,7 @@ export function createCameraCheckFromValues({
       windSpeed: values.windSpeed,
       conditions: values.weather,
       moonPhase: values.moonPhase,
+      source: values.weatherSource,
     }),
     bucks: countValue(values.bucks),
     does: countValue(values.does),
