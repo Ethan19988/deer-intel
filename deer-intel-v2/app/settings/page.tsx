@@ -336,7 +336,7 @@ const actionGridStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 800,
   letterSpacing: 0,
@@ -351,7 +351,7 @@ const cardTitleStyle: CSSProperties = {
 
 const mutedTextStyle: CSSProperties = {
   margin: "0.65rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.6,
 };
 
@@ -362,9 +362,9 @@ const primaryLinkStyle: CSSProperties = {
   justifyContent: "center",
   marginTop: "1rem",
   padding: "0.7rem 0.9rem",
-  border: "1px solid #3b6843",
+  border: "1px solid var(--accent)",
   borderRadius: "8px",
-  background: "#18351d",
+  background: "var(--accent)",
   color: "white",
   fontWeight: 800,
   textDecoration: "none",

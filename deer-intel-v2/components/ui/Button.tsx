@@ -51,24 +51,24 @@ const baseStyle: CSSProperties = {
 
 const variantStyles: Record<ButtonVariant, CSSProperties> = {
   primary: {
-    borderColor: "#3b6843",
-    background: "#18351d",
+    borderColor: "var(--accent)",
+    background: "var(--accent)",
     color: "white",
   },
   secondary: {
-    borderColor: "#2b3a2b",
-    background: "#101710",
-    color: "#f1f5ef",
+    borderColor: "var(--border)",
+    background: "var(--surface-2)",
+    color: "var(--text)",
   },
   danger: {
-    borderColor: "#6f2f2f",
-    background: "#3a1717",
-    color: "#ffd5d5",
+    borderColor: "var(--danger-border)",
+    background: "var(--danger-bg)",
+    color: "var(--danger-text)",
   },
   ghost: {
     borderColor: "transparent",
     background: "transparent",
-    color: "#c6d5c5",
+    color: "var(--text-muted)",
   },
 };
 

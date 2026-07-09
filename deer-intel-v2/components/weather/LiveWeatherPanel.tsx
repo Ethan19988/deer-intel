@@ -154,7 +154,7 @@ const currentRowStyle: CSSProperties = {
 };
 
 const tempStyle: CSSProperties = {
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "2.4rem",
   fontWeight: 900,
   lineHeight: 1,
@@ -162,7 +162,7 @@ const tempStyle: CSSProperties = {
 
 const conditionsStyle: CSSProperties = {
   marginLeft: "0.6rem",
-  color: "#c6d5c5",
+  color: "var(--text-muted)",
   fontSize: "1rem",
   fontWeight: 700,
 };
@@ -179,21 +179,21 @@ const metricStyle: CSSProperties = {
 };
 
 const metricLabelStyle: CSSProperties = {
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.7rem",
   fontWeight: 700,
   textTransform: "uppercase",
 };
 
 const metricValueStyle: CSSProperties = {
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "0.92rem",
   fontWeight: 800,
 };
 
 const sunStyle: CSSProperties = {
   margin: 0,
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   fontSize: "0.86rem",
 };
 
@@ -207,24 +207,24 @@ const chipStyle: CSSProperties = {
   display: "grid",
   gap: "0.2rem",
   padding: "0.55rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#0d120d",
+  background: "var(--surface)",
 };
 
 const chipDayStyle: CSSProperties = {
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "0.82rem",
   fontWeight: 850,
 };
 
 const chipConditionsStyle: CSSProperties = {
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   fontSize: "0.76rem",
 };
 
 const chipTempStyle: CSSProperties = {
-  color: "#c6d5c5",
+  color: "var(--text-muted)",
   fontSize: "0.8rem",
   fontWeight: 700,
 };
@@ -237,7 +237,7 @@ const sourceStyle: CSSProperties = {
 
 const mutedStyle: CSSProperties = {
   margin: 0,
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.45,
 };
 

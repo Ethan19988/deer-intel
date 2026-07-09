@@ -1082,7 +1082,7 @@ const panelHeaderStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 700,
   letterSpacing: 0,
@@ -1106,10 +1106,10 @@ const statusPillStyle: CSSProperties = {
   minHeight: "36px",
   alignItems: "center",
   padding: "0.45rem 0.7rem",
-  border: "1px solid #2b3a2b",
+  border: "1px solid var(--border)",
   borderRadius: "999px",
-  background: "#071007",
-  color: "#dce9da",
+  background: "var(--surface-2)",
+  color: "var(--text-muted)",
   fontSize: "0.9rem",
   fontWeight: 700,
 };
@@ -1126,7 +1126,7 @@ const fieldStyle: CSSProperties = {
 };
 
 const labelTextStyle: CSSProperties = {
-  color: "#85a984",
+  color: "var(--text-muted)",
   fontSize: "0.85rem",
   fontWeight: 700,
 };
@@ -1135,15 +1135,15 @@ const selectStyle: CSSProperties = {
   minHeight: "48px",
   width: "100%",
   padding: "0.75rem",
-  border: "1px solid #2b3a2b",
-  borderRadius: "8px",
-  background: "#070a07",
-  color: "white",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--surface)",
+  color: "var(--text)",
 };
 
 const helpTextStyle: CSSProperties = {
   margin: 0,
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   fontSize: "1rem",
   lineHeight: 1.5,
 };

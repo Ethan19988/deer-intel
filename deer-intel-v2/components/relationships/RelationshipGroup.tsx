@@ -34,7 +34,7 @@ const groupStyle: CSSProperties = {
 
 const groupTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#c6d5c5",
+  color: "var(--text-muted)",
   fontSize: "0.95rem",
   lineHeight: 1.25,
 };

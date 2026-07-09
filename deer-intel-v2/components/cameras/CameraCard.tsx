@@ -116,7 +116,7 @@ function formatPercent(value: string | undefined) {
 }
 
 const cardStyle: CSSProperties = {
-  background: "#0a0f0a",
+  background: "var(--surface-2)",
 };
 
 const cardHeaderStyle: CSSProperties = {
@@ -136,7 +136,7 @@ const headerActionsStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.75rem",
   fontWeight: 700,
   letterSpacing: 0,
@@ -151,7 +151,7 @@ const titleStyle: CSSProperties = {
 
 const subTextStyle: CSSProperties = {
   margin: "0.35rem 0 0",
-  color: "#879486",
+  color: "var(--text-faint)",
   lineHeight: 1.4,
 };
 
@@ -167,9 +167,9 @@ const openSiteLinkStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "0.5rem 0.65rem",
-  border: "1px solid #3b6843",
+  border: "1px solid var(--accent)",
   borderRadius: "8px",
-  background: "#18351d",
+  background: "var(--accent)",
   color: "white",
   fontSize: "0.85rem",
   fontWeight: 700,
@@ -182,24 +182,24 @@ const detailsGridStyle: CSSProperties = {
   gap: "1rem",
   marginTop: "1rem",
   paddingTop: "1rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };
 
 const notesBlockStyle: CSSProperties = {
   marginTop: "1rem",
   paddingTop: "1rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };
 
 const detailLabelStyle: CSSProperties = {
   margin: 0,
-  color: "#879486",
+  color: "var(--text-faint)",
   fontSize: "0.78rem",
   fontWeight: 700,
 };
 
 const detailValueStyle: CSSProperties = {
   margin: "0.25rem 0 0",
-  color: "#c7d0c5",
+  color: "var(--text-muted)",
   lineHeight: 1.5,
 };

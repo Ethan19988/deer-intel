@@ -56,9 +56,9 @@ export default function CollapsibleSection({
 }
 
 const baseStyle: CSSProperties = {
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#0a0f0a",
+  background: "var(--surface-2)",
 };
 
 const variantStyles: Record<CollapsibleSectionVariant, CSSProperties> = {
@@ -78,7 +78,7 @@ const summaryStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: "1rem",
-  color: "#f1f5ef",
+  color: "var(--text)",
   cursor: "pointer",
   listStyle: "none",
 };
@@ -90,7 +90,7 @@ const summaryTextStyle: CSSProperties = {
 };
 
 const titleStyle: CSSProperties = {
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1rem",
   fontWeight: 850,
   lineHeight: 1.25,
@@ -109,10 +109,10 @@ const indicatorStyle: CSSProperties = {
   flex: "0 0 auto",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid #2b3a2b",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#101710",
-  color: "#dce9da",
+  background: "var(--surface-2)",
+  color: "var(--text-muted)",
   fontSize: "1.1rem",
   fontWeight: 900,
   lineHeight: 1,
@@ -121,5 +121,5 @@ const indicatorStyle: CSSProperties = {
 const contentStyle: CSSProperties = {
   marginTop: "0.85rem",
   paddingTop: "0.85rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };

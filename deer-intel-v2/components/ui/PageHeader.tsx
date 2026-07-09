@@ -43,7 +43,7 @@ const textStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 700,
   letterSpacing: 0,
@@ -61,14 +61,14 @@ const metaStyle: CSSProperties = {
   gap: "0.75rem",
   flexWrap: "wrap",
   marginTop: "0.85rem",
-  color: "#c6d5c5",
+  color: "var(--text-muted)",
   fontWeight: 700,
 };
 
 const descriptionStyle: CSSProperties = {
   maxWidth: "720px",
   margin: "0.85rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   fontSize: "1.02rem",
   lineHeight: 1.6,
 };

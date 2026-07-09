@@ -135,9 +135,9 @@ const recommendationListStyle: CSSProperties = {
 
 const recommendationStyle: CSSProperties = {
   padding: "0.8rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#070a07",
+  background: "var(--surface-2)",
 };
 
 const insightGridStyle: CSSProperties = {
@@ -148,12 +148,12 @@ const insightGridStyle: CSSProperties = {
 
 const listBlockStyle: CSSProperties = {
   paddingTop: "1rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };
 
 const blockTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "0.95rem",
   fontWeight: 850,
 };
@@ -166,42 +166,42 @@ const itemListStyle: CSSProperties = {
 
 const itemStyle: CSSProperties = {
   padding: "0.75rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#070a07",
+  background: "var(--surface-2)",
 };
 
 const itemLinkStyle: CSSProperties = {
   ...itemStyle,
   display: "grid",
   gap: "0.3rem",
-  color: "white",
+  color: "var(--text)",
   textDecoration: "none",
 };
 
 const itemTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontWeight: 800,
 };
 
 const statusStyle: CSSProperties = {
   marginLeft: "0.5rem",
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.82rem",
   fontWeight: 800,
 };
 
 const detailLabelStyle: CSSProperties = {
   margin: 0,
-  color: "#879486",
+  color: "var(--text-faint)",
   fontSize: "0.78rem",
   fontWeight: 700,
 };
 
 const detailTitleStyle: CSSProperties = {
   margin: "0.25rem 0 0",
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1rem",
   fontWeight: 800,
   lineHeight: 1.25,
@@ -209,6 +209,6 @@ const detailTitleStyle: CSSProperties = {
 
 const mutedTextStyle: CSSProperties = {
   margin: "0.25rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.5,
 };

@@ -33,19 +33,21 @@ export default function Card({
 
 const baseStyle: CSSProperties = {
   padding: "1.15rem",
-  border: "1px solid #243224",
-  borderRadius: "8px",
-  background: "#0d120d",
-  color: "#f1f5ef",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius)",
+  background: "var(--surface)",
+  color: "var(--text)",
+  boxShadow: "var(--shadow-sm)",
 };
 
 const variantStyles: Record<CardVariant, CSSProperties> = {
   default: {},
   subtle: {
-    border: "1px solid #1e2a1e",
-    background: "#0a0f0a",
+    border: "1px solid var(--border)",
+    background: "var(--surface-2)",
+    boxShadow: "none",
   },
   elevated: {
-    boxShadow: "0 18px 45px rgba(0, 0, 0, 0.24)",
+    boxShadow: "var(--shadow-md)",
   },
 };

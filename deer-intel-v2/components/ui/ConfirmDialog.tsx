@@ -67,10 +67,10 @@ const dialogStyle: CSSProperties = {
   width: "100%",
   maxWidth: "460px",
   padding: "1.25rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#0d120d",
-  color: "white",
+  background: "var(--surface)",
+  color: "var(--text)",
   boxShadow: "0 18px 45px rgba(0, 0, 0, 0.34)",
 };
 
@@ -82,7 +82,7 @@ const titleStyle: CSSProperties = {
 
 const descriptionStyle: CSSProperties = {
   margin: "0.65rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.5,
 };
 

@@ -114,7 +114,7 @@ const fieldStyle: CSSProperties = {
 };
 
 const labelStyle: CSSProperties = {
-  color: "#c6d5c5",
+  color: "var(--text-muted)",
   fontSize: "0.85rem",
   fontWeight: 700,
 };
@@ -124,9 +124,9 @@ const inputStyle: CSSProperties = {
   minHeight: "46px",
   padding: "0.8rem",
   borderRadius: "8px",
-  border: "1px solid #2b3a2b",
-  background: "#070a07",
-  color: "white",
+  border: "1px solid var(--border)",
+  background: "var(--surface-2)",
+  color: "var(--text)",
   fontSize: "1rem",
   lineHeight: 1.4,
 };
