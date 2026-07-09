@@ -5,14 +5,33 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import type { StandIntelligenceSummary } from "@/lib/standIntelligence";
+import { getStandWindCheck } from "@/lib/standWind";
 import type { Stand } from "@/types/stand";
 
 type StandCardProps = {
   stand: Stand;
   intelligence?: StandIntelligenceSummary;
+  /** Current wind direction (compass point) for a live "wind today" check. */
+  todayWind?: string;
 };
 
-export default function StandCard({ stand, intelligence }: StandCardProps) {
+const WIND_BADGE_VARIANT = {
+  good: "success",
+  avoid: "danger",
+  marginal: "warning",
+} as const;
+
+export default function StandCard({
+  stand,
+  intelligence,
+  todayWind,
+}: StandCardProps) {
+  const windCheck = getStandWindCheck(stand, todayWind);
+  const windVariant =
+    windCheck.status in WIND_BADGE_VARIANT
+      ? WIND_BADGE_VARIANT[windCheck.status as keyof typeof WIND_BADGE_VARIANT]
+      : null;
+
   return (
     <Card style={cardStyle}>
       <div style={headerStyle}>
@@ -21,6 +40,9 @@ export default function StandCard({ stand, intelligence }: StandCardProps) {
           <h3 style={titleStyle}>{stand.name}</h3>
         </div>
         <div style={actionsStyle}>
+          {windVariant ? (
+            <Badge variant={windVariant}>{windCheck.label}</Badge>
+          ) : null}
           <Badge>{stand.standType}</Badge>
           <Link
             href={`/properties/${stand.propertyId}/assets/${stand.id}`}
