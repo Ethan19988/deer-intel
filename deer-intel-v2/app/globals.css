@@ -504,3 +504,44 @@ textarea {
     width: 100% !important;
   }
 }
+
+/* Land Owners overlay labels */
+.di-land-owner-anchor {
+  background: transparent;
+  border: 0;
+}
+
+.leaflet-tooltip.di-land-owner-tip {
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 6px;
+  background: rgba(17, 23, 17, 0.86);
+  color: #f1f5ef;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+
+.leaflet-tooltip.di-land-owner-tip::before {
+  display: none;
+}
+
+.leaflet-tooltip.di-land-owner-tip-public {
+  border-color: rgba(122, 200, 130, 0.7);
+  background: rgba(16, 33, 17, 0.9);
+  color: #cdeccb;
+}
+
+.di-land-owner-name {
+  display: block;
+}
+
+.di-land-owner-acres {
+  display: block;
+  color: #a7b5a5;
+  font-size: 0.64rem;
+  font-weight: 600;
+}
