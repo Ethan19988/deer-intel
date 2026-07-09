@@ -661,6 +661,14 @@ export default function HuntingMap() {
     );
   }
 
+  function moveAreaPoint(index: number, lat: number, lng: number) {
+    setDraftAreaPoints((currentPoints) =>
+      currentPoints.map((point, pointIndex) =>
+        pointIndex === index ? { lat, lng } : point,
+      ),
+    );
+  }
+
   function undoAreaPoint() {
     setDraftAreaPoints((currentPoints) => currentPoints.slice(0, -1));
   }
@@ -1007,7 +1015,8 @@ export default function HuntingMap() {
             <>
               <p style={helpTextStyle}>
                 Tap the map to drop each corner around your ground. They connect
-                automatically as you go — add as many as it takes.
+                automatically as you go — add as many as it takes, and drag any
+                point to fine-tune it.
               </p>
 
               {draftAreaPoints.length > 0 ? (
@@ -1252,6 +1261,14 @@ export default function HuntingMap() {
                     key={`draft-${index}`}
                     position={[point.lat, point.lng]}
                     icon={huntAreaVertexIcon(index + 1)}
+                    draggable
+                    eventHandlers={{
+                      dragend: (event) => {
+                        const latlng = event.target?.getLatLng();
+                        if (!latlng) return;
+                        moveAreaPoint(index, latlng.lat, latlng.lng);
+                      },
+                    }}
                   />
                 ))
               : null}

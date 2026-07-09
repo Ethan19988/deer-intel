@@ -51,7 +51,9 @@ declare module "leaflet" {
   export class Path extends Layer {}
   export class Circle extends Path {}
   export class CircleMarker extends Circle {}
-  export class Marker extends Layer {}
+  export class Marker extends Layer {
+    getLatLng(): LatLng;
+  }
   export class DivIcon {}
   export class Popup extends Layer {}
   export class Tooltip extends Layer {}
@@ -123,6 +125,8 @@ declare module "leaflet" {
       lat: number;
       lng: number;
     };
+    // Present on marker events (e.g. dragend), where the target is the marker.
+    target?: Marker;
   }
 
   export interface LeafletEventHandlerFnMap {

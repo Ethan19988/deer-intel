@@ -28,6 +28,18 @@ export const LAND_OWNERS_MIN_ZOOM = 14;
 export const LAND_OWNERS_MAX_VISIBLE = 250;
 export const LAND_OWNERS_DATASET_URL = "/data/shippen-township-owners.json";
 
+// Smaller parcels only reveal their owner as you zoom in. At a given zoom a
+// parcel must be at least this many acres to get a label, so the view isn't a
+// wall of overlapping names on tightly-packed small parcels — you zoom in on
+// the property to see who owns the little ones. At high zoom, everything shows.
+export function minAcresForZoom(zoom: number): number {
+  if (zoom >= 18) return 0;
+  if (zoom >= 17) return 1;
+  if (zoom >= 16) return 3;
+  if (zoom >= 15) return 10;
+  return 30;
+}
+
 let cachedDataset: LandOwnerDataset | null = null;
 let inflightRequest: Promise<LandOwnerDataset> | null = null;
 
