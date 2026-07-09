@@ -22,7 +22,7 @@ The goal is to build an AI-assisted hunting application that learns each propert
 - Cameras
 - Stands
 - Hunt Log
-- AI Scout (placeholder)
+- AI Scout (rule-based insights + opt-in LLM recommendations via ANTHROPIC_API_KEY)
 
 ---
 

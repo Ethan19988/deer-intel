@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
@@ -10,6 +10,11 @@ import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
 import {
+  EMPTY_AI_SCOUT_CONDITIONS,
+  buildAiScoutRequestContext,
+} from "@/lib/aiScoutContext";
+import { checkAiScoutConfigured, requestAiScoutReport } from "@/lib/aiScoutClient";
+import {
   updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
@@ -17,6 +22,7 @@ import {
   getDeerIntelligenceHubSummary,
   type DeerHubItem,
 } from "@/lib/deerIntelligenceHub";
+import type { AiScoutConditions, AiScoutReport } from "@/types/aiScout";
 
 export default function AIPage() {
   const state = useDeerIntelStore();
@@ -64,6 +70,67 @@ export default function AIPage() {
       ...currentState,
       selectedPropertyId: propertyId,
     }));
+  }
+
+  const [aiScoutConfigured, setAiScoutConfigured] = useState<boolean | null>(null);
+  const [conditions, setConditions] = useState<AiScoutConditions>(EMPTY_AI_SCOUT_CONDITIONS);
+  const [aiScoutStatus, setAiScoutStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [aiScoutError, setAiScoutError] = useState<string>("");
+  const [aiScoutReport, setAiScoutReport] = useState<AiScoutReport | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    checkAiScoutConfigured().then((configured) => {
+      if (!cancelled) setAiScoutConfigured(configured);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Reset the AI Scout output when the selected property changes. Done during
+  // render by tracking the previous id rather than in an effect, per React's
+  // "you might not need an effect" guidance.
+  const [lastScoutPropertyId, setLastScoutPropertyId] = useState(selectedPropertyId);
+
+  if (selectedPropertyId !== lastScoutPropertyId) {
+    setLastScoutPropertyId(selectedPropertyId);
+    setAiScoutReport(null);
+    setAiScoutStatus("idle");
+    setAiScoutError("");
+  }
+
+  function updateCondition(field: keyof AiScoutConditions, value: string) {
+    setConditions((current) => ({ ...current, [field]: value }));
+  }
+
+  async function askAiScout() {
+    if (!selectedProperty) return;
+
+    setAiScoutStatus("loading");
+    setAiScoutError("");
+
+    try {
+      const context = buildAiScoutRequestContext({
+        property: selectedProperty,
+        stands: propertyStands,
+        cameras: propertyCameras,
+        cameraChecks: propertyCameraChecks,
+        hunts: propertyHunts,
+        photoRecords: propertyPhotoRecords,
+        deerProfiles: propertyDeerProfiles,
+        conditions,
+      });
+      const report = await requestAiScoutReport(context);
+
+      setAiScoutReport(report);
+      setAiScoutStatus("idle");
+    } catch (error) {
+      setAiScoutStatus("error");
+      setAiScoutError(error instanceof Error ? error.message : "AI Scout request failed.");
+    }
   }
 
   return (
@@ -216,6 +283,139 @@ export default function AIPage() {
             </div>
           </Section>
 
+          <Section
+            eyebrow="6"
+            title="AI Scout"
+            action={<Badge variant={aiScoutConfigured ? "success" : "warning"}>Beta</Badge>}
+          >
+            {aiScoutConfigured === null ? (
+              <Card as="div" variant="subtle">
+                <p style={mutedTextStyle}>Checking AI Scout availability…</p>
+              </Card>
+            ) : aiScoutConfigured === false ? (
+              <EmptyState
+                title="AI Scout isn't turned on yet"
+                description="This property's saved data hasn't changed — AI Scout just needs an ANTHROPIC_API_KEY set as an environment variable on the server (see the README) before it can make real recommendations. Everything else above keeps working without it."
+              />
+            ) : (
+              <Card as="div" variant="subtle">
+                <p style={mutedTextStyle}>
+                  Tell AI Scout today&apos;s conditions and it will read this property&apos;s
+                  saved stands, hunts, camera checks, and buck photos to recommend where to
+                  hunt — grounded only in what you&apos;ve actually logged.
+                </p>
+
+                <div style={conditionsGridStyle}>
+                  <label style={fieldStyle}>
+                    <span style={labelStyle}>Wind Direction</span>
+                    <input
+                      style={inputStyle}
+                      value={conditions.windDirection}
+                      onChange={(event) => updateCondition("windDirection", event.target.value)}
+                      placeholder="e.g. NW"
+                    />
+                  </label>
+                  <label style={fieldStyle}>
+                    <span style={labelStyle}>Wind Speed</span>
+                    <input
+                      style={inputStyle}
+                      value={conditions.windSpeed}
+                      onChange={(event) => updateCondition("windSpeed", event.target.value)}
+                      placeholder="e.g. 8 mph"
+                    />
+                  </label>
+                  <label style={fieldStyle}>
+                    <span style={labelStyle}>Temperature</span>
+                    <input
+                      style={inputStyle}
+                      value={conditions.temperature}
+                      onChange={(event) => updateCondition("temperature", event.target.value)}
+                      placeholder="e.g. 42°F"
+                    />
+                  </label>
+                  <label style={fieldStyle}>
+                    <span style={labelStyle}>Moon Phase</span>
+                    <input
+                      style={inputStyle}
+                      value={conditions.moonPhase}
+                      onChange={(event) => updateCondition("moonPhase", event.target.value)}
+                      placeholder="e.g. Waning Gibbous"
+                    />
+                  </label>
+                </div>
+
+                <label style={{ ...fieldStyle, marginTop: "0.9rem" }}>
+                  <span style={labelStyle}>Anything else worth knowing today</span>
+                  <textarea
+                    style={textareaStyle}
+                    value={conditions.notes}
+                    onChange={(event) => updateCondition("notes", event.target.value)}
+                    placeholder="e.g. hunting pressure nearby, first cold front, food source changing"
+                    rows={2}
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  style={{
+                    ...primaryButtonStyle,
+                    ...(aiScoutStatus === "loading" ? disabledButtonStyle : null),
+                  }}
+                  onClick={askAiScout}
+                  disabled={aiScoutStatus === "loading"}
+                >
+                  {aiScoutStatus === "loading" ? "Asking AI Scout…" : "Ask AI Scout"}
+                </button>
+
+                {aiScoutStatus === "error" ? (
+                  <p style={aiScoutErrorStyle}>{aiScoutError}</p>
+                ) : null}
+
+                {aiScoutReport ? (
+                  <div style={aiScoutReportStyle}>
+                    <div style={simpleHeaderStyle}>
+                      <div>
+                        <p style={eyebrowStyle}>Recommended Stand</p>
+                        <h2 style={cardTitleStyle}>{aiScoutReport.recommendedStandName}</h2>
+                      </div>
+                      <Badge variant={confidenceBadgeVariant(aiScoutReport.confidence)}>
+                        {aiScoutReport.confidence} confidence
+                      </Badge>
+                    </div>
+                    <p style={mutedTextStyle}>{aiScoutReport.headline}</p>
+                    <p style={mutedTextStyle}>{aiScoutReport.recommendedStandReasoning}</p>
+
+                    {aiScoutReport.keyFactors.length > 0 ? (
+                      <>
+                        <p style={{ ...detailLabelStyle, marginTop: "1rem" }}>Key Factors</p>
+                        <ul style={bulletListStyle}>
+                          {aiScoutReport.keyFactors.map((factor) => (
+                            <li key={factor} style={bulletItemStyle}>
+                              {factor}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : null}
+
+                    {aiScoutReport.risks.length > 0 ? (
+                      <>
+                        <p style={{ ...detailLabelStyle, marginTop: "1rem" }}>Worth Knowing</p>
+                        <ul style={bulletListStyle}>
+                          {aiScoutReport.risks.map((risk) => (
+                            <li key={risk} style={bulletItemStyle}>
+                              {risk}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : null}
+                  </div>
+                ) : null}
+              </Card>
+            )}
+          </Section>
+
           <div style={footerActionStyle}>
             <Link href={`/properties/${selectedProperty.id}`} style={primaryLinkStyle}>
               Open Property Command Center
@@ -225,6 +425,13 @@ export default function AIPage() {
       ) : null}
     </PageShell>
   );
+}
+
+function confidenceBadgeVariant(confidence: AiScoutReport["confidence"]) {
+  if (confidence === "high") return "success" as const;
+  if (confidence === "medium") return "default" as const;
+
+  return "warning" as const;
 }
 
 function AttentionCard({ item }: { item: DeerHubItem }) {
@@ -395,4 +602,68 @@ const primaryLinkStyle: CSSProperties = {
   color: "white",
   fontWeight: 800,
   textDecoration: "none",
+};
+
+const conditionsGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: "0.9rem",
+  marginTop: "1.1rem",
+};
+
+const inputStyle: CSSProperties = {
+  minHeight: "48px",
+  width: "100%",
+  padding: "0.75rem",
+  border: "1px solid #2b3a2b",
+  borderRadius: "8px",
+  background: "#070a07",
+  color: "white",
+};
+
+const textareaStyle: CSSProperties = {
+  width: "100%",
+  padding: "0.75rem",
+  border: "1px solid #2b3a2b",
+  borderRadius: "8px",
+  background: "#070a07",
+  color: "white",
+  fontFamily: "inherit",
+  resize: "vertical",
+};
+
+const primaryButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  minHeight: "44px",
+  alignItems: "center",
+  justifyContent: "center",
+  marginTop: "1.1rem",
+  padding: "0.7rem 1.1rem",
+  border: "1px solid #3b6843",
+  borderRadius: "8px",
+  background: "#18351d",
+  color: "white",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const disabledButtonStyle: CSSProperties = {
+  opacity: 0.65,
+  cursor: "not-allowed",
+};
+
+const aiScoutErrorStyle: CSSProperties = {
+  margin: "0.9rem 0 0",
+  padding: "0.75rem",
+  border: "1px solid #6b2b2b",
+  borderRadius: "8px",
+  background: "#1a0a0a",
+  color: "#f1b8b8",
+  lineHeight: 1.5,
+};
+
+const aiScoutReportStyle: CSSProperties = {
+  marginTop: "1.25rem",
+  paddingTop: "1.1rem",
+  borderTop: "1px solid #1e2a1e",
 };

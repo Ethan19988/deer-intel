@@ -11,6 +11,10 @@ declare module "leaflet" {
     lng: number;
   }
 
+  export interface LatLngBounds {
+    contains(latlng: LatLngExpression): boolean;
+  }
+
   export type LatLngBoundsExpression = unknown;
   export type PointExpression =
     | [number, number]
@@ -33,6 +37,7 @@ declare module "leaflet" {
     containerPointToLatLng(point: PointExpression): LatLng;
     getContainer(): HTMLElement;
     getCenter(): LatLng;
+    getBounds(): LatLngBounds;
     getZoom(): number;
     flyTo(center: LatLngExpression, zoom?: number, options?: unknown): this;
     setView(center: LatLngExpression, zoom?: number): this;
