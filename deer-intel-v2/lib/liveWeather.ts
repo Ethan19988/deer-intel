@@ -36,6 +36,27 @@ export type LiveWeatherResult =
       message: string;
     };
 
+/** A single day in the short forecast a hunter uses to pick which day to sit. */
+export type ForecastDay = {
+  date: string;
+  label: string;
+  high: string;
+  low: string;
+  conditions: string;
+  wind: string;
+};
+
+export type LiveForecast = {
+  current: LiveWeatherFields;
+  sunrise: string;
+  sunset: string;
+  days: ForecastDay[];
+};
+
+export type LiveForecastResult =
+  | { status: "ok"; point: WeatherPoint; forecast: LiveForecast }
+  | { status: "error"; message: string };
+
 type OpenMeteoCurrent = {
   temperature_2m?: number;
   wind_speed_10m?: number;
@@ -43,8 +64,20 @@ type OpenMeteoCurrent = {
   weather_code?: number;
 };
 
+type OpenMeteoDaily = {
+  time?: string[];
+  weather_code?: number[];
+  temperature_2m_max?: number[];
+  temperature_2m_min?: number[];
+  wind_speed_10m_max?: number[];
+  wind_direction_10m_dominant?: number[];
+  sunrise?: string[];
+  sunset?: string[];
+};
+
 type OpenMeteoResponse = {
   current?: OpenMeteoCurrent;
+  daily?: OpenMeteoDaily;
 };
 
 const liveWeatherCache = new Map<string, LiveWeatherResult>();
@@ -181,6 +214,153 @@ export async function fetchLiveWeather(
       message: "Live weather is temporarily unavailable. Try again.",
     };
   }
+}
+
+const liveForecastCache = new Map<string, LiveForecastResult>();
+
+// Richer fetch for the dashboard: current conditions plus today's sunrise /
+// sunset (shooting light) and a short daily forecast (planning which day to
+// sit). Shares the same Open-Meteo endpoint and helpers as fetchLiveWeather;
+// the form auto-fill continues to use the lighter fetchLiveWeather.
+export async function fetchLiveForecast(
+  point: WeatherPoint,
+): Promise<LiveForecastResult> {
+  if (
+    !Number.isFinite(point.lat) ||
+    !Number.isFinite(point.lng) ||
+    point.lat < -90 ||
+    point.lat > 90 ||
+    point.lng < -180 ||
+    point.lng > 180
+  ) {
+    return {
+      status: "error",
+      message: "That location isn't a valid coordinate for weather.",
+    };
+  }
+
+  const cacheKey = `${point.lat.toFixed(3)},${point.lng.toFixed(3)}`;
+  const cached = liveForecastCache.get(cacheKey);
+
+  if (cached) return cached;
+
+  try {
+    const requestUrl = new URL("https://api.open-meteo.com/v1/forecast");
+
+    requestUrl.searchParams.set("latitude", point.lat.toFixed(4));
+    requestUrl.searchParams.set("longitude", point.lng.toFixed(4));
+    requestUrl.searchParams.set(
+      "current",
+      "temperature_2m,wind_speed_10m,wind_direction_10m,weather_code",
+    );
+    requestUrl.searchParams.set(
+      "daily",
+      "weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_direction_10m_dominant,sunrise,sunset",
+    );
+    requestUrl.searchParams.set("temperature_unit", "fahrenheit");
+    requestUrl.searchParams.set("wind_speed_unit", "mph");
+    requestUrl.searchParams.set("timezone", "auto");
+    requestUrl.searchParams.set("forecast_days", "3");
+
+    const response = await fetch(requestUrl.toString(), {
+      headers: { Accept: "application/json" },
+    });
+
+    if (!response.ok) {
+      return {
+        status: "error",
+        message: "Live weather is temporarily unavailable. Try again.",
+      };
+    }
+
+    const payload: unknown = await response.json();
+
+    if (!isOpenMeteoResponse(payload) || !payload.current || !payload.daily) {
+      return {
+        status: "error",
+        message: "Live weather returned an unexpected response.",
+      };
+    }
+
+    const base = buildLiveWeatherResult(point, payload.current);
+
+    if (base.status !== "ok") {
+      return { status: "error", message: "Live weather returned no data." };
+    }
+
+    const daily = payload.daily;
+    const days: ForecastDay[] = (daily.time ?? []).map((date, index) => ({
+      date,
+      label: weekdayLabel(date, index),
+      high: numberToText(daily.temperature_2m_max?.[index]),
+      low: numberToText(daily.temperature_2m_min?.[index]),
+      conditions:
+        typeof daily.weather_code?.[index] === "number"
+          ? describeWeatherCode(daily.weather_code[index])
+          : "",
+      wind: formatWind(
+        daily.wind_direction_10m_dominant?.[index],
+        daily.wind_speed_10m_max?.[index],
+      ),
+    }));
+
+    const result: LiveForecastResult = {
+      status: "ok",
+      point,
+      forecast: {
+        current: base.fields,
+        sunrise: formatClockTime(daily.sunrise?.[0]),
+        sunset: formatClockTime(daily.sunset?.[0]),
+        days,
+      },
+    };
+
+    liveForecastCache.set(cacheKey, result);
+
+    return result;
+  } catch {
+    return {
+      status: "error",
+      message: "Live weather is temporarily unavailable. Try again.",
+    };
+  }
+}
+
+function numberToText(value: number | undefined): string {
+  return typeof value === "number" ? `${Math.round(value)}` : "";
+}
+
+function formatWind(
+  direction: number | undefined,
+  speed: number | undefined,
+): string {
+  const dir = typeof direction === "number" ? degreesToCompass(direction) : "";
+  const spd = typeof speed === "number" ? `${Math.round(speed)} mph` : "";
+
+  return [dir, spd].filter(Boolean).join(" ");
+}
+
+function formatClockTime(iso: string | undefined): string {
+  if (!iso) return "";
+
+  const date = new Date(iso);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function weekdayLabel(iso: string, index: number): string {
+  if (index === 0) return "Today";
+
+  const date = new Date(`${iso}T12:00:00`);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleDateString(undefined, { weekday: "short" });
 }
 
 function buildLiveWeatherResult(
