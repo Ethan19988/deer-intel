@@ -10,7 +10,7 @@ import type { DeerIntelState } from "@/types/deerIntelStore";
 import type { HuntLogEntry } from "@/types/hunt";
 import { PIN_TYPES, type MapPin, type PinType } from "@/types/mapPin";
 import type { PhotoRecord } from "@/types/photo";
-import type { Property } from "@/types/property";
+import type { HuntAreaPoint, Property } from "@/types/property";
 import { STAND_TYPES, type Stand, type StandType } from "@/types/stand";
 
 export { PIN_TYPES, PROPERTY_ASSET_PIN_TYPES } from "@/types/mapPin";
@@ -130,7 +130,30 @@ function normalizeProperty(value: unknown): Property | null {
     county: stringValue(value.county, "Unknown"),
     acres: stringValue(value.acres, "Unknown"),
     notes: stringValue(value.notes, "No notes yet."),
+    latitude: optionalNumberValue(value.latitude),
+    longitude: optionalNumberValue(value.longitude),
+    huntArea: normalizeHuntArea(value.huntArea),
   };
+}
+
+function normalizeHuntArea(value: unknown): HuntAreaPoint[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+
+  const points = value
+    .map((point) => {
+      if (!isRecord(point)) return null;
+
+      const lat = optionalNumberValue(point.lat);
+      const lng = optionalNumberValue(point.lng);
+
+      if (typeof lat !== "number" || typeof lng !== "number") return null;
+
+      return { lat, lng };
+    })
+    .filter((point): point is HuntAreaPoint => point !== null);
+
+  // A polygon needs at least three points; anything less isn't an area.
+  return points.length >= 3 ? points : undefined;
 }
 
 function normalizePin(value: unknown): MapPin | null {

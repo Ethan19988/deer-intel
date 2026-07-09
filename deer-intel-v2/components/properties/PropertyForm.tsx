@@ -110,7 +110,9 @@ export default function PropertyForm({
       <CollapsibleSection title="Property Center (GPS)">
         <p style={helpTextStyle}>
           Set a center point so live weather and the map know where this
-          property is, even before you place cameras or pins.
+          property is, even before you place cameras or pins. To highlight the
+          whole area you hunt, open the Map, pick this property, and tap Draw
+          Area.
         </p>
         <div style={coordinateRowStyle}>
           <label style={{ ...fieldStyle, flex: 1, minWidth: "200px" }}>

@@ -10,7 +10,10 @@ import {
   type CSSProperties,
 } from "react";
 import {
+  CircleMarker,
   MapContainer,
+  Polygon,
+  Polyline,
   ScaleControl,
   TileLayer,
   useMap,
@@ -39,6 +42,7 @@ import {
   updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
+import { formatHuntAreaAcres, huntAreaIsValid } from "@/lib/huntArea";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import {
   IDLE_PARCEL_OWNER_LOOKUP_STATE,
@@ -70,6 +74,7 @@ import type {
   ParcelOwnerLookupState,
   ParcelOwnerLabelLoadState,
 } from "@/types/parcel";
+import type { HuntAreaPoint } from "@/types/property";
 import Button from "./ui/Button";
 import Card from "./ui/Card";
 import EmptyState from "./ui/EmptyState";
@@ -99,6 +104,30 @@ const MAP_CENTER_EPSILON = 0.00001;
 // Zoom used when auto-centering on a property. Close enough to see a property's
 // footprint without diving all the way to individual-asset zoom.
 const PROPERTY_FOCUS_ZOOM = 15;
+
+// Highlight styling for a property's hunt area — a bright, translucent overlay
+// so the ground you hunt reads at a glance without hiding the terrain beneath.
+const HUNT_AREA_PATH_OPTIONS = {
+  color: "#4aa3ff",
+  weight: 2,
+  fillColor: "#4aa3ff",
+  fillOpacity: 0.18,
+};
+
+const HUNT_AREA_DRAFT_PATH_OPTIONS = {
+  color: "#7ec2ff",
+  weight: 2,
+  dashArray: "6 6",
+  fillColor: "#7ec2ff",
+  fillOpacity: 0.12,
+};
+
+const HUNT_AREA_VERTEX_PATH_OPTIONS = {
+  color: "#ffffff",
+  weight: 2,
+  fillColor: "#4aa3ff",
+  fillOpacity: 1,
+};
 
 function useIsMobileMapDevice() {
   const [isMobile, setIsMobile] = useState(false);
@@ -164,6 +193,24 @@ function ClickToLookupParcelOwner({
       if (!enabled) return;
 
       onLookup(event.latlng.lat, event.latlng.lng);
+    },
+  });
+
+  return null;
+}
+
+function ClickToDrawArea({
+  enabled,
+  onAddPoint,
+}: {
+  enabled: boolean;
+  onAddPoint: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click(event: MapClickEvent) {
+      if (!enabled) return;
+
+      onAddPoint(event.latlng.lat, event.latlng.lng);
     },
   });
 
@@ -436,6 +483,8 @@ export default function HuntingMap() {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [isMobileAssetSheetOpen, setIsMobileAssetSheetOpen] = useState(false);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
+  const [isDrawingArea, setIsDrawingArea] = useState(false);
+  const [draftAreaPoints, setDraftAreaPoints] = useState<HuntAreaPoint[]>([]);
   const [pinBoxMessage, setPinBoxMessage] = useState(
     "Choose a pin type, then tap Place Pin.",
   );
@@ -479,7 +528,12 @@ export default function HuntingMap() {
   );
   const selectedAsset = mapAssets.find((asset) => asset.id === selectedAssetId);
   const ownerNamesEnabled = showOwnerNames && !isMobileMapPerformanceMode;
-  const pinBoxDisabled = !selectedPropertyId || ownerNamesEnabled;
+  const pinBoxDisabled =
+    !selectedPropertyId || ownerNamesEnabled || isDrawingArea;
+  const huntArea = selectedProperty?.huntArea;
+  const hasHuntArea = huntAreaIsValid(huntArea);
+  const draftAreaAcresLabel = formatHuntAreaAcres(draftAreaPoints);
+  const savedAreaAcresLabel = formatHuntAreaAcres(huntArea);
   const currentPinBoxMessage = pinBoxDisabled
     ? ownerNamesEnabled
       ? "Turn off Owner Names to add pins."
@@ -540,9 +594,62 @@ export default function HuntingMap() {
   }, [selectedPropertyId]);
 
   function selectProperty(propertyId: string) {
+    if (isDrawingArea) cancelAreaDraw();
+
     updateDeerIntelStore((currentState) => ({
       ...currentState,
       selectedPropertyId: propertyId,
+    }));
+  }
+
+  function startAreaDraw() {
+    if (!selectedPropertyId) return;
+
+    setIsPlacingPin(false);
+    setIsDrawingArea(true);
+    setDraftAreaPoints(huntArea ? [...huntArea] : []);
+  }
+
+  function addAreaPoint(lat: number, lng: number) {
+    setDraftAreaPoints((currentPoints) => [...currentPoints, { lat, lng }]);
+  }
+
+  function undoAreaPoint() {
+    setDraftAreaPoints((currentPoints) => currentPoints.slice(0, -1));
+  }
+
+  function cancelAreaDraw() {
+    setIsDrawingArea(false);
+    setDraftAreaPoints([]);
+  }
+
+  function finishAreaDraw() {
+    if (!selectedPropertyId || !huntAreaIsValid(draftAreaPoints)) return;
+
+    const nextArea = draftAreaPoints;
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      properties: currentState.properties.map((property) =>
+        property.id === selectedPropertyId
+          ? { ...property, huntArea: nextArea }
+          : property,
+      ),
+    }));
+    cancelAreaDraw();
+  }
+
+  function clearHuntArea() {
+    if (!selectedPropertyId) return;
+    if (!window.confirm("Clear the saved hunt area for this property?")) return;
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      properties: currentState.properties.map((property) =>
+        property.id === selectedPropertyId
+          ? { ...property, huntArea: undefined }
+          : property,
+      ),
     }));
   }
 
@@ -832,6 +939,81 @@ export default function HuntingMap() {
           </label>
         </div>
 
+        <div style={huntAreaControlStyle}>
+          <div style={huntAreaHeaderStyle}>
+            <span style={labelTextStyle}>Hunt Area</span>
+            {hasHuntArea && !isDrawingArea && savedAreaAcresLabel ? (
+              <span style={huntAreaBadgeStyle}>{savedAreaAcresLabel}</span>
+            ) : null}
+            {isDrawingArea ? (
+              <span style={huntAreaBadgeStyle}>
+                {draftAreaPoints.length} point
+                {draftAreaPoints.length === 1 ? "" : "s"}
+                {draftAreaAcresLabel ? ` · ${draftAreaAcresLabel}` : ""}
+              </span>
+            ) : null}
+          </div>
+
+          {isDrawingArea ? (
+            <>
+              <p style={helpTextStyle}>
+                Tap the map to drop corners around the ground you hunt, then
+                finish to save the highlighted area.
+              </p>
+              <div style={huntAreaButtonRowStyle}>
+                <Button
+                  type="button"
+                  onClick={finishAreaDraw}
+                  disabled={draftAreaPoints.length < 3}
+                >
+                  Finish
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={undoAreaPoint}
+                  disabled={draftAreaPoints.length === 0}
+                >
+                  Undo
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={cancelAreaDraw}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p style={helpTextStyle}>
+                {hasHuntArea
+                  ? "Your hunt area is highlighted on the map. Redraw it or clear it anytime."
+                  : "Outline the ground you hunt to highlight it on the map, like a property boundary."}
+              </p>
+              <div style={huntAreaButtonRowStyle}>
+                <Button
+                  type="button"
+                  onClick={startAreaDraw}
+                  disabled={!selectedPropertyId}
+                >
+                  {hasHuntArea ? "Redraw Area" : "Draw Area"}
+                </Button>
+                {hasHuntArea ? (
+                  <Button
+                    type="button"
+                    variant="danger"
+                    onClick={clearHuntArea}
+                  >
+                    Clear
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          )}
+        </div>
+
         <p style={helpTextStyle}>
           Use the Pin Box on the map to add cameras, stands, sign, trails,
           parking, and gates.
@@ -910,9 +1092,51 @@ export default function HuntingMap() {
               onAddPin={createPinAtLocation}
             />
             <ClickToLookupParcelOwner
-              enabled={showPropertyLines && ownerNamesEnabled}
+              enabled={showPropertyLines && ownerNamesEnabled && !isDrawingArea}
               onLookup={lookupParcelOwner}
             />
+            <ClickToDrawArea
+              enabled={isDrawingArea}
+              onAddPoint={addAreaPoint}
+            />
+
+            {hasHuntArea && huntArea && !isDrawingArea ? (
+              <Polygon
+                positions={huntArea.map((point) => [point.lat, point.lng])}
+                pathOptions={HUNT_AREA_PATH_OPTIONS}
+              />
+            ) : null}
+
+            {isDrawingArea && draftAreaPoints.length >= 3 ? (
+              <Polygon
+                positions={draftAreaPoints.map((point) => [
+                  point.lat,
+                  point.lng,
+                ])}
+                pathOptions={HUNT_AREA_DRAFT_PATH_OPTIONS}
+              />
+            ) : null}
+
+            {isDrawingArea && draftAreaPoints.length === 2 ? (
+              <Polyline
+                positions={draftAreaPoints.map((point) => [
+                  point.lat,
+                  point.lng,
+                ])}
+                pathOptions={HUNT_AREA_DRAFT_PATH_OPTIONS}
+              />
+            ) : null}
+
+            {isDrawingArea
+              ? draftAreaPoints.map((point, index) => (
+                  <CircleMarker
+                    key={`draft-${index}`}
+                    center={[point.lat, point.lng]}
+                    radius={5}
+                    pathOptions={HUNT_AREA_VERTEX_PATH_OPTIONS}
+                  />
+                ))
+              : null}
 
             {visibleAssets.map((asset) => (
               <PropertyMapAssetMarker
@@ -970,6 +1194,20 @@ export default function HuntingMap() {
           {mapOverlayMessages.length > 0 ? (
             <div className="di-map-notice" style={propertyLinesNoticeStyle}>
               {mapOverlayMessages.join(" ")}
+            </div>
+          ) : null}
+
+          {isDrawingArea ? (
+            <div className="di-map-notice" style={huntAreaNoticeStyle}>
+              {draftAreaPoints.length < 3
+                ? `Tap the map to outline your hunt area — ${
+                    3 - draftAreaPoints.length
+                  } more point${
+                    3 - draftAreaPoints.length === 1 ? "" : "s"
+                  } needed.`
+                : `Hunt area: ${draftAreaPoints.length} points${
+                    draftAreaAcresLabel ? ` · ${draftAreaAcresLabel}` : ""
+                  }. Tap Finish to save.`}
             </div>
           ) : null}
 
@@ -1279,6 +1517,57 @@ const propertyLinesNoticeStyle: CSSProperties = {
   fontWeight: 800,
   lineHeight: 1.35,
   boxShadow: "0 10px 24px rgba(0, 0, 0, 0.18)",
+};
+
+const huntAreaControlStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.6rem",
+  padding: "0.85rem",
+  border: "1px solid #23331f",
+  borderRadius: "10px",
+  background: "#0a120a",
+};
+
+const huntAreaHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.6rem",
+  flexWrap: "wrap",
+};
+
+const huntAreaBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "0.25rem 0.6rem",
+  borderRadius: "999px",
+  border: "1px solid #2f4a68",
+  background: "#0f1c2b",
+  color: "#9fd0ff",
+  fontSize: "0.8rem",
+  fontWeight: 700,
+};
+
+const huntAreaButtonRowStyle: CSSProperties = {
+  display: "flex",
+  gap: "0.6rem",
+  flexWrap: "wrap",
+};
+
+const huntAreaNoticeStyle: CSSProperties = {
+  position: "absolute",
+  left: "1rem",
+  bottom: "1rem",
+  zIndex: 1000,
+  maxWidth: "min(360px, calc(100% - 2rem))",
+  padding: "0.7rem 0.85rem",
+  border: "1px solid rgba(122, 194, 255, 0.9)",
+  borderRadius: "8px",
+  background: "rgba(9, 24, 40, 0.94)",
+  color: "#dcefff",
+  fontSize: "0.92rem",
+  fontWeight: 700,
+  lineHeight: 1.35,
+  boxShadow: "0 10px 24px rgba(0, 0, 0, 0.28)",
 };
 
 const belowMapGridStyle: CSSProperties = {
