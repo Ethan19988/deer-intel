@@ -47,6 +47,7 @@ type AuthContextValue = {
   signInWithPassword: (email: string, password: string) => Promise<ActionResult>;
   signUp: (email: string, password: string) => Promise<ActionResult>;
   signInWithMagicLink: (email: string) => Promise<ActionResult>;
+  signInWithGitHub: () => Promise<ActionResult>;
   signOut: () => Promise<void>;
   syncNow: () => Promise<void>;
 };
@@ -316,6 +317,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const signInWithGitHub = useCallback(async (): Promise<ActionResult> => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return { error: "Cloud sync is not configured." };
+
+    // Redirects the whole page to GitHub and back; the session is picked up on
+    // return via detectSessionInUrl in the Supabase client config.
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        redirectTo:
+          typeof window !== "undefined" ? window.location.origin : undefined,
+      },
+    });
+
+    return error ? { error: error.message } : {};
+  }, []);
+
   const signOut = useCallback(async () => {
     const supabase = getSupabaseClient();
 
@@ -347,6 +365,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithPassword,
       signUp,
       signInWithMagicLink,
+      signInWithGitHub,
       signOut,
       syncNow,
     }),
@@ -360,6 +379,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithPassword,
       signUp,
       signInWithMagicLink,
+      signInWithGitHub,
       signOut,
       syncNow,
     ],

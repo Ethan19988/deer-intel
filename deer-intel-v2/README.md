@@ -62,9 +62,22 @@ Once configured, a **Sign In** control appears in the top navigation and a full
   newer data when the tab regains focus, so multiple devices stay in sync.
 - **Signing out** keeps this device's local data intact; it just stops syncing.
 
-Email confirmation and magic-link sign-in follow whatever you configure under
-Supabase **Authentication → Providers**. Without the env vars, none of this UI
-appears and the app stays fully local-only.
+Sign-in options: **GitHub**, email + password, and magic link. Which ones work
+depends on what you enable under Supabase **Authentication → Providers**.
+
+For **GitHub** sign-in ("Continue with GitHub"):
+
+1. In Supabase, enable the **GitHub** provider (Authentication → Providers →
+   GitHub) — Supabase shows you a **callback URL** there.
+2. Create a GitHub OAuth App (GitHub → Settings → Developer settings → OAuth
+   Apps) and paste that Supabase callback URL as the **Authorization callback
+   URL**. Copy the Client ID/secret back into Supabase.
+3. Under Supabase **Authentication → URL Configuration**, set your **Site URL**
+   and add your app origins (e.g. `http://localhost:3000` and your deployed
+   Vercel URL) to **Redirect URLs**, so the app can be returned to after login.
+
+Without the env vars, none of this UI appears and the app stays fully
+local-only.
 
 ## Learn More
 
