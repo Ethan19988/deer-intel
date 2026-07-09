@@ -26,6 +26,8 @@ export type MapLayer = {
   url: string;
   attribution: string;
   isPlaceholder?: boolean;
+  /** Esri Wayback imagery whose release (year) can be swapped at runtime. */
+  isWayback?: boolean;
   /** Deepest zoom the source has real tiles for; deeper zooms upscale it. */
   maxNativeZoom?: number;
   overlayLayers?: Array<{
@@ -118,6 +120,7 @@ export const MAP_LAYERS: MapLayer[] = [
     id: "satellite",
     label: "Current",
     attribution: CURRENT_ATTRIBUTION,
+    isWayback: true,
     maxNativeZoom: 19,
     url: CURRENT_URL,
   },
@@ -140,6 +143,7 @@ export const MAP_LAYERS: MapLayer[] = [
     id: "hybrid",
     label: "Current + labels",
     attribution: CURRENT_ATTRIBUTION,
+    isWayback: true,
     maxNativeZoom: 19,
     url: CURRENT_URL,
     overlayLayers: SATELLITE_REFERENCE_OVERLAYS,
