@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import AccountNavControl from "@/components/auth/AccountNavControl";
 import {
   HUNTING_MODE_OPTIONS,
   HUNTING_MODE_STORAGE_KEY,
@@ -191,6 +192,7 @@ function PrimaryNav() {
           {link.label}
         </Link>
       ))}
+      <AccountNavControl />
     </nav>
   );
 }
