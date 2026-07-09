@@ -16,6 +16,10 @@ import {
   updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
+import {
+  formatPropertyCoordinate,
+  parsePropertyCoordinate,
+} from "@/lib/propertyLocation";
 import type { Property } from "@/types/property";
 
 const EMPTY_PROPERTY_FORM_VALUES: PropertyFormValues = {
@@ -23,6 +27,7 @@ const EMPTY_PROPERTY_FORM_VALUES: PropertyFormValues = {
   county: "",
   acres: "",
   notes: "",
+  coordinate: "",
 };
 
 export default function PropertiesPage() {
@@ -60,12 +65,16 @@ export default function PropertiesPage() {
 
     if (!trimmedName) return;
 
+    const coordinate = parsePropertyCoordinate(newPropertyValues.coordinate);
     const newProperty: Property = {
       id: createDeerIntelId("property"),
       name: trimmedName,
       county: newPropertyValues.county.trim() || "Unknown",
       acres: newPropertyValues.acres.trim() || "Unknown",
       notes: newPropertyValues.notes.trim() || "No notes yet.",
+      ...(coordinate
+        ? { latitude: coordinate.latitude, longitude: coordinate.longitude }
+        : {}),
     };
 
     saveProperties([...properties, newProperty]);
@@ -79,6 +88,7 @@ export default function PropertiesPage() {
       county: property.county,
       acres: property.acres,
       notes: property.notes,
+      coordinate: formatPropertyCoordinate(property),
     });
   }
 
@@ -94,6 +104,8 @@ export default function PropertiesPage() {
 
     if (!trimmedName) return;
 
+    const coordinate = parsePropertyCoordinate(editValues.coordinate);
+
     saveProperties(
       properties.map((property) =>
         property.id === editingPropertyId
@@ -103,6 +115,8 @@ export default function PropertiesPage() {
               county: editValues.county.trim() || "Unknown",
               acres: editValues.acres.trim() || "Unknown",
               notes: editValues.notes.trim() || "No notes yet.",
+              latitude: coordinate?.latitude,
+              longitude: coordinate?.longitude,
             }
           : property,
       ),

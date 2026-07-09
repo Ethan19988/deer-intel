@@ -1,12 +1,16 @@
-import type { CSSProperties, FormEvent } from "react";
+import { useState, type CSSProperties, type FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
+import { formatPropertyCoordinate } from "@/lib/propertyLocation";
 import type { Property } from "@/types/property";
 
 export type PropertyFormValues = Pick<
   Property,
   "name" | "county" | "acres" | "notes"
->;
+> & {
+  // "lat, lng" text, parsed to numbers on save. Empty means no center set.
+  coordinate: string;
+};
 
 type PropertyFormProps = {
   values: PropertyFormValues;
@@ -23,11 +27,43 @@ export default function PropertyForm({
   onSubmit,
   onCancel,
 }: PropertyFormProps) {
+  const [locationMessage, setLocationMessage] = useState("");
+  const [isLocating, setIsLocating] = useState(false);
+
   function updateField(field: keyof PropertyFormValues, value: string) {
     onChange({
       ...values,
       [field]: value,
     });
+  }
+
+  function useMyLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocationMessage("This device can't share a location.");
+      return;
+    }
+
+    setIsLocating(true);
+    setLocationMessage("");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        onChange({
+          ...values,
+          coordinate: formatPropertyCoordinate({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          }),
+        });
+        setIsLocating(false);
+        setLocationMessage("Set to your current location.");
+      },
+      () => {
+        setIsLocating(false);
+        setLocationMessage("Couldn't get your location. Allow access or type it.");
+      },
+      { enableHighAccuracy: true, timeout: 10_000 },
+    );
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -69,6 +105,37 @@ export default function PropertyForm({
             />
           </label>
         </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Property Center (GPS)">
+        <p style={helpTextStyle}>
+          Set a center point so live weather and the map know where this
+          property is, even before you place cameras or pins.
+        </p>
+        <div style={coordinateRowStyle}>
+          <label style={{ ...fieldStyle, flex: 1, minWidth: "200px" }}>
+            <span style={labelStyle}>Latitude, Longitude</span>
+            <input
+              placeholder="40.90000, -77.80000"
+              value={values.coordinate}
+              onChange={(event) =>
+                updateField("coordinate", event.target.value)
+              }
+              style={inputStyle}
+            />
+          </label>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={useMyLocation}
+            disabled={isLocating}
+          >
+            {isLocating ? "Locating..." : "Use my location"}
+          </Button>
+        </div>
+        {locationMessage ? (
+          <p style={locationMessageStyle}>{locationMessage}</p>
+        ) : null}
       </CollapsibleSection>
 
       <CollapsibleSection title="Notes">
@@ -135,4 +202,24 @@ const buttonRowStyle: CSSProperties = {
   display: "flex",
   gap: "0.75rem",
   flexWrap: "wrap",
+};
+
+const coordinateRowStyle: CSSProperties = {
+  display: "flex",
+  gap: "0.75rem",
+  flexWrap: "wrap",
+  alignItems: "flex-end",
+};
+
+const helpTextStyle: CSSProperties = {
+  margin: "0 0 0.75rem",
+  color: "#85a984",
+  fontSize: "0.85rem",
+  lineHeight: 1.4,
+};
+
+const locationMessageStyle: CSSProperties = {
+  margin: "0.5rem 0 0",
+  color: "#9fd18a",
+  fontSize: "0.85rem",
 };

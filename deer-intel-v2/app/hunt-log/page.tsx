@@ -19,14 +19,17 @@ import {
   createHuntFromValues,
   EMPTY_HUNT_FORM_VALUES,
 } from "@/lib/huntFormValues";
-import { getPropertyWeatherPoint } from "@/lib/liveWeather";
+import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 
 export default function HuntLogPage() {
   const state = useDeerIntelStore();
   const [huntValues, setHuntValues] = useState(EMPTY_HUNT_FORM_VALUES);
   const [loadedUrlDefaults, setLoadedUrlDefaults] = useState(false);
   const hasStands = state.stands.length > 0;
-  const weatherLocation = getPropertyWeatherPoint(
+  const weatherLocation = resolvePropertyWeatherPoint(
+    state.properties.find(
+      (property) => property.id === huntValues.propertyId,
+    ),
     state.cameras.filter(
       (camera) => camera.propertyId === huntValues.propertyId,
     ),
