@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import StandCard from "@/components/stands/StandCard";
 import EmptyState from "@/components/ui/EmptyState";
 import PageShell from "@/components/ui/PageShell";
@@ -12,9 +12,14 @@ import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { getStandIntelligenceSummary } from "@/lib/standIntelligence";
+import {
+  fetchLiveWeather,
+  resolvePropertyWeatherPoint,
+} from "@/lib/liveWeather";
 
 export default function StandsPage() {
   const state = useDeerIntelStore();
+  const [todayWind, setTodayWind] = useState<string>();
   const selectedProperty =
     state.properties.find(
       (property) => property.id === state.selectedPropertyId,
@@ -44,6 +49,39 @@ export default function StandsPage() {
   const standsWithWindNotes = propertyStands.filter(
     (stand) => stand.bestWinds.trim() || stand.avoidWinds.trim(),
   ).length;
+
+  useEffect(() => {
+    if (!selectedProperty) {
+      setTodayWind(undefined);
+      return;
+    }
+
+    const point = resolvePropertyWeatherPoint(
+      selectedProperty,
+      state.cameras.filter((camera) => camera.propertyId === selectedProperty.id),
+      state.pins.filter((pin) => pin.propertyId === selectedProperty.id),
+    );
+
+    if (!point) {
+      setTodayWind(undefined);
+      return;
+    }
+
+    let active = true;
+
+    fetchLiveWeather(point).then((result) => {
+      if (!active) return;
+      setTodayWind(
+        result.status === "ok" ? result.fields.windDirection : undefined,
+      );
+    });
+
+    return () => {
+      active = false;
+    };
+    // Refetch when the property changes; asset edits mid-view are rare.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyId]);
 
   function selectProperty(propertyId: string) {
     updateDeerIntelStore((currentState) => ({
@@ -101,7 +139,12 @@ export default function StandsPage() {
           });
 
           return (
-            <StandCard key={stand.id} stand={stand} intelligence={intelligence} />
+            <StandCard
+              key={stand.id}
+              stand={stand}
+              intelligence={intelligence}
+              todayWind={todayWind}
+            />
           );
         })
       )}
