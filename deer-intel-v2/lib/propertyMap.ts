@@ -101,23 +101,25 @@ const SATELLITE_REFERENCE_OVERLAYS: NonNullable<
   },
 ];
 
-// USDA NAIP delivers the most recent high-resolution aerial imagery of the US
-// (refreshed every 2–3 years per state), so it reads far clearer and newer than
-// the global Esri mosaic for a hunting property. It only has tiles to zoom 18,
-// so deeper zooms upscale it; Esri Clarity is the global fallback.
+// "Current" imagery: Esri Wayback's latest release shows the world as of its
+// most recent capture (each tile redirects to its freshest version), so it
+// reads as close to "today" as free imagery gets. USDA NAIP is the sharpest
+// US aerial but a static yearly mosaic — kept as a high-detail alternative.
+const CURRENT_URL =
+  "https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/32246/{z}/{y}/{x}";
+const CURRENT_ATTRIBUTION =
+  "Imagery &copy; Esri, Maxar, Earthstar Geographics (World Imagery, updated 2026)";
 const NAIP_URL =
   "https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/{z}/{y}/{x}";
-const NAIP_ATTRIBUTION = "Aerial imagery &copy; USDA NAIP (most recent, US)";
-const ESRI_CLARITY_URL =
-  "https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const NAIP_ATTRIBUTION = "Aerial imagery &copy; USDA NAIP (US)";
 
 export const MAP_LAYERS: MapLayer[] = [
   {
     id: "satellite",
-    label: "Aerial (recent)",
-    attribution: NAIP_ATTRIBUTION,
-    maxNativeZoom: 18,
-    url: NAIP_URL,
+    label: "Current",
+    attribution: CURRENT_ATTRIBUTION,
+    maxNativeZoom: 19,
+    url: CURRENT_URL,
   },
   {
     id: "roads",
@@ -136,18 +138,18 @@ export const MAP_LAYERS: MapLayer[] = [
   },
   {
     id: "hybrid",
-    label: "Hybrid (recent)",
-    attribution: NAIP_ATTRIBUTION,
-    maxNativeZoom: 18,
-    url: NAIP_URL,
+    label: "Current + labels",
+    attribution: CURRENT_ATTRIBUTION,
+    maxNativeZoom: 19,
+    url: CURRENT_URL,
     overlayLayers: SATELLITE_REFERENCE_OVERLAYS,
   },
   {
     id: "topographic",
-    label: "Satellite (Global)",
-    attribution:
-      "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
-    url: ESRI_CLARITY_URL,
+    label: "Aerial (sharp, US)",
+    attribution: NAIP_ATTRIBUTION,
+    maxNativeZoom: 18,
+    url: NAIP_URL,
     overlayLayers: SATELLITE_REFERENCE_OVERLAYS,
   },
 ];
