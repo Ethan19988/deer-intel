@@ -9,9 +9,10 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { divIcon } from "leaflet";
 import {
-  CircleMarker,
   MapContainer,
+  Marker,
   Polygon,
   Polyline,
   ScaleControl,
@@ -44,6 +45,7 @@ import {
 } from "@/lib/deerIntelStore";
 import { formatHuntAreaAcres, huntAreaIsValid } from "@/lib/huntArea";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import { parsePropertyCoordinate } from "@/lib/propertyLocation";
 import {
   IDLE_PARCEL_OWNER_LOOKUP_STATE,
   lookupPaParcelOwnerAtPoint,
@@ -122,12 +124,14 @@ const HUNT_AREA_DRAFT_PATH_OPTIONS = {
   fillOpacity: 0.12,
 };
 
-const HUNT_AREA_VERTEX_PATH_OPTIONS = {
-  color: "#ffffff",
-  weight: 2,
-  fillColor: "#4aa3ff",
-  fillOpacity: 1,
-};
+function huntAreaVertexIcon(pointNumber: number) {
+  return divIcon({
+    className: "di-area-vertex-icon",
+    html: `<span class="di-area-vertex">${pointNumber}</span>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+}
 
 function useIsMobileMapDevice() {
   const [isMobile, setIsMobile] = useState(false);
@@ -485,6 +489,8 @@ export default function HuntingMap() {
   const [isPlacingPin, setIsPlacingPin] = useState(false);
   const [isDrawingArea, setIsDrawingArea] = useState(false);
   const [draftAreaPoints, setDraftAreaPoints] = useState<HuntAreaPoint[]>([]);
+  const [areaCoordInput, setAreaCoordInput] = useState("");
+  const [areaPointMessage, setAreaPointMessage] = useState("");
   const [pinBoxMessage, setPinBoxMessage] = useState(
     "Choose a pin type, then tap Place Pin.",
   );
@@ -608,10 +614,49 @@ export default function HuntingMap() {
     setIsPlacingPin(false);
     setIsDrawingArea(true);
     setDraftAreaPoints(huntArea ? [...huntArea] : []);
+    setAreaCoordInput("");
+    setAreaPointMessage("");
   }
 
   function addAreaPoint(lat: number, lng: number) {
     setDraftAreaPoints((currentPoints) => [...currentPoints, { lat, lng }]);
+  }
+
+  function addAreaPointFromInput() {
+    const coordinate = parsePropertyCoordinate(areaCoordInput);
+
+    if (!coordinate) {
+      setAreaPointMessage("Enter a point as latitude, longitude.");
+      return;
+    }
+
+    addAreaPoint(coordinate.latitude, coordinate.longitude);
+    setAreaCoordInput("");
+    setAreaPointMessage("Point added.");
+  }
+
+  function addAreaPointFromLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setAreaPointMessage("This device can't share a location.");
+      return;
+    }
+
+    setAreaPointMessage("Getting your location...");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        addAreaPoint(position.coords.latitude, position.coords.longitude);
+        setAreaPointMessage("Added a point at your location.");
+      },
+      () => setAreaPointMessage("Couldn't get your location. Allow access."),
+      { enableHighAccuracy: true, timeout: 10_000 },
+    );
+  }
+
+  function removeAreaPoint(index: number) {
+    setDraftAreaPoints((currentPoints) =>
+      currentPoints.filter((_, pointIndex) => pointIndex !== index),
+    );
   }
 
   function undoAreaPoint() {
@@ -621,6 +666,8 @@ export default function HuntingMap() {
   function cancelAreaDraw() {
     setIsDrawingArea(false);
     setDraftAreaPoints([]);
+    setAreaCoordInput("");
+    setAreaPointMessage("");
   }
 
   function finishAreaDraw() {
@@ -957,16 +1004,59 @@ export default function HuntingMap() {
           {isDrawingArea ? (
             <>
               <p style={helpTextStyle}>
-                Tap the map to drop corners around the ground you hunt, then
-                finish to save the highlighted area.
+                Add corners in order around your ground — tap the map, use your
+                location, or type coordinates. Add as many points as it takes;
+                they connect automatically.
               </p>
+
+              {draftAreaPoints.length > 0 ? (
+                <ol style={areaPointListStyle}>
+                  {draftAreaPoints.map((point, index) => (
+                    <li key={`point-${index}`} style={areaPointRowStyle}>
+                      <span style={areaPointNumberStyle}>{index + 1}</span>
+                      <span style={areaPointCoordStyle}>
+                        {point.lat.toFixed(5)}, {point.lng.toFixed(5)}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Remove point ${index + 1}`}
+                        style={areaPointRemoveStyle}
+                        onClick={() => removeAreaPoint(index)}
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p style={areaEmptyHintStyle}>No points yet.</p>
+              )}
+
+              <div style={areaAddRowStyle}>
+                <input
+                  style={areaCoordInputStyle}
+                  placeholder="Lat, Lng (e.g. 41.40000, -78.20000)"
+                  value={areaCoordInput}
+                  onChange={(event) => setAreaCoordInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addAreaPointFromInput();
+                    }
+                  }}
+                />
+                <Button type="button" onClick={addAreaPointFromInput}>
+                  Add point
+                </Button>
+              </div>
+
               <div style={huntAreaButtonRowStyle}>
                 <Button
                   type="button"
-                  onClick={finishAreaDraw}
-                  disabled={draftAreaPoints.length < 3}
+                  variant="secondary"
+                  onClick={addAreaPointFromLocation}
                 >
-                  Finish
+                  Use my location
                 </Button>
                 <Button
                   type="button"
@@ -974,7 +1064,21 @@ export default function HuntingMap() {
                   onClick={undoAreaPoint}
                   disabled={draftAreaPoints.length === 0}
                 >
-                  Undo
+                  Undo last
+                </Button>
+              </div>
+
+              {areaPointMessage ? (
+                <p style={areaPointMessageStyle}>{areaPointMessage}</p>
+              ) : null}
+
+              <div style={huntAreaButtonRowStyle}>
+                <Button
+                  type="button"
+                  onClick={finishAreaDraw}
+                  disabled={draftAreaPoints.length < 3}
+                >
+                  Save Area
                 </Button>
                 <Button
                   type="button"
@@ -989,8 +1093,8 @@ export default function HuntingMap() {
             <>
               <p style={helpTextStyle}>
                 {hasHuntArea
-                  ? "Your hunt area is highlighted on the map. Redraw it or clear it anytime."
-                  : "Outline the ground you hunt to highlight it on the map, like a property boundary."}
+                  ? "Your hunt area is highlighted on the map. Edit the points or clear it anytime."
+                  : "Add points around the ground you hunt and they connect into a highlighted area, like a property boundary."}
               </p>
               <div style={huntAreaButtonRowStyle}>
                 <Button
@@ -998,7 +1102,7 @@ export default function HuntingMap() {
                   onClick={startAreaDraw}
                   disabled={!selectedPropertyId}
                 >
-                  {hasHuntArea ? "Redraw Area" : "Draw Area"}
+                  {hasHuntArea ? "Edit Area Points" : "Add Area Points"}
                 </Button>
                 {hasHuntArea ? (
                   <Button
@@ -1129,11 +1233,10 @@ export default function HuntingMap() {
 
             {isDrawingArea
               ? draftAreaPoints.map((point, index) => (
-                  <CircleMarker
+                  <Marker
                     key={`draft-${index}`}
-                    center={[point.lat, point.lng]}
-                    radius={5}
-                    pathOptions={HUNT_AREA_VERTEX_PATH_OPTIONS}
+                    position={[point.lat, point.lng]}
+                    icon={huntAreaVertexIcon(index + 1)}
                   />
                 ))
               : null}
@@ -1551,6 +1654,90 @@ const huntAreaButtonRowStyle: CSSProperties = {
   display: "flex",
   gap: "0.6rem",
   flexWrap: "wrap",
+};
+
+const areaPointListStyle: CSSProperties = {
+  listStyle: "none",
+  margin: 0,
+  padding: 0,
+  display: "grid",
+  gap: "0.35rem",
+  maxHeight: "180px",
+  overflowY: "auto",
+};
+
+const areaPointRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.6rem",
+  padding: "0.35rem 0.5rem",
+  borderRadius: "8px",
+  border: "1px solid #1e2a1e",
+  background: "#071007",
+};
+
+const areaPointNumberStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minWidth: "22px",
+  height: "22px",
+  borderRadius: "999px",
+  background: "#1f5fa0",
+  color: "#eaf4ff",
+  fontSize: "0.8rem",
+  fontWeight: 800,
+};
+
+const areaPointCoordStyle: CSSProperties = {
+  flex: 1,
+  color: "#d4e2d2",
+  fontSize: "0.9rem",
+  fontVariantNumeric: "tabular-nums",
+};
+
+const areaPointRemoveStyle: CSSProperties = {
+  minWidth: "30px",
+  height: "30px",
+  borderRadius: "8px",
+  border: "1px solid #4a2a2a",
+  background: "#1c0f0f",
+  color: "#f0a3a3",
+  fontSize: "1.1rem",
+  fontWeight: 800,
+  lineHeight: 1,
+  cursor: "pointer",
+};
+
+const areaEmptyHintStyle: CSSProperties = {
+  margin: 0,
+  color: "#7f8f7d",
+  fontSize: "0.9rem",
+};
+
+const areaAddRowStyle: CSSProperties = {
+  display: "flex",
+  gap: "0.6rem",
+  flexWrap: "wrap",
+  alignItems: "center",
+};
+
+const areaCoordInputStyle: CSSProperties = {
+  flex: 1,
+  minWidth: "180px",
+  minHeight: "44px",
+  padding: "0.6rem 0.7rem",
+  borderRadius: "8px",
+  border: "1px solid #2b3a2b",
+  background: "#070a07",
+  color: "white",
+  fontSize: "0.95rem",
+};
+
+const areaPointMessageStyle: CSSProperties = {
+  margin: 0,
+  color: "#9fd18a",
+  fontSize: "0.85rem",
 };
 
 const huntAreaNoticeStyle: CSSProperties = {
