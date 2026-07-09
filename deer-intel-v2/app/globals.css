@@ -225,6 +225,17 @@ textarea {
   display: none;
 }
 
+/* On-map imagery-year stepper: faded until hovered/focused. */
+.di-map-year {
+  opacity: 0.55;
+  transition: opacity 160ms ease;
+}
+
+.di-map-year:hover,
+.di-map-year:focus-within {
+  opacity: 1;
+}
+
 .di-collapsible-summary::-webkit-details-marker {
   display: none;
 }
