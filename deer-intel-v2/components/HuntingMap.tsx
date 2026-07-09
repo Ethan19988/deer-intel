@@ -45,6 +45,11 @@ import {
 } from "@/lib/deerIntelStore";
 import { formatHuntAreaAcres, huntAreaIsValid } from "@/lib/huntArea";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import {
+  fetchWaybackReleases,
+  waybackTileUrl,
+  type WaybackRelease,
+} from "@/lib/waybackImagery";
 import { parsePropertyCoordinate } from "@/lib/propertyLocation";
 import {
   IDLE_PARCEL_OWNER_LOOKUP_STATE,
@@ -469,6 +474,23 @@ export default function HuntingMap() {
   const [mapZoom, setMapZoom] = useState(DEFAULT_MAP_ZOOM);
   const latestMapZoomRef = useRef(DEFAULT_MAP_ZOOM);
   const [selectedLayer, setSelectedLayer] = useState<MapLayerId>("hybrid");
+  const [waybackReleases, setWaybackReleases] = useState<WaybackRelease[]>([]);
+  const [selectedRelease, setSelectedRelease] = useState<string>();
+
+  useEffect(() => {
+    let active = true;
+
+    fetchWaybackReleases().then((releases) => {
+      if (!active || releases.length === 0) return;
+      setWaybackReleases(releases);
+      setSelectedRelease((current) => current ?? releases[0]?.release);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const [mapTools, setMapTools] = useState<MapToolState>({
     gps: true,
     compass: true,
@@ -512,6 +534,12 @@ export default function HuntingMap() {
     ) ?? state.properties[0];
   const selectedPropertyId = selectedProperty?.id ?? "";
   const selectedMapLayer = MAP_LAYER_BY_ID[selectedLayer];
+  const baseTileUrl =
+    selectedMapLayer.isWayback && selectedRelease
+      ? waybackTileUrl(selectedRelease)
+      : selectedMapLayer.url;
+  const showYearPicker =
+    Boolean(selectedMapLayer.isWayback) && waybackReleases.length > 0;
   const pins = useMemo(
     () => state.pins.filter((pin) => pin.propertyId === selectedPropertyId),
     [selectedPropertyId, state.pins],
@@ -994,6 +1022,23 @@ export default function HuntingMap() {
               ))}
             </select>
           </label>
+
+          {showYearPicker ? (
+            <label style={fieldStyle}>
+              <span style={labelTextStyle}>Imagery year</span>
+              <select
+                style={selectStyle}
+                value={selectedRelease}
+                onChange={(event) => setSelectedRelease(event.target.value)}
+              >
+                {waybackReleases.map((release, index) => (
+                  <option key={release.release} value={release.release}>
+                    {index === 0 ? `${release.year} (current)` : release.year}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
         </div>
 
         <div style={huntAreaControlStyle}>
@@ -1171,9 +1216,9 @@ export default function HuntingMap() {
             style={{ height: "100%", width: "100%" }}
           >
             <TileLayer
-              key={`${selectedMapLayer.id}-base`}
+              key={`${selectedMapLayer.id}-base-${selectedRelease ?? "static"}`}
               attribution={selectedMapLayer.attribution}
-              url={selectedMapLayer.url}
+              url={baseTileUrl}
               maxZoom={19}
               maxNativeZoom={selectedMapLayer.maxNativeZoom ?? 19}
             />
