@@ -10,4 +10,7 @@ export type PhotoRecord = {
   buckName?: string;
   notes: string;
   createdAt: string;
+  imageId?: string;
+  imageWidth?: number;
+  imageHeight?: number;
 };

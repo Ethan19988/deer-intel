@@ -1,4 +1,7 @@
 import type { CSSProperties, FormEvent } from "react";
+import PhotoUploadField, {
+  type SelectedPhotoImage,
+} from "@/components/photos/PhotoUploadField";
 import Button from "@/components/ui/Button";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import { formatCameraCheckDate } from "@/lib/cameraChecks";
@@ -32,7 +35,10 @@ export default function PhotoRecordForm({
   onSubmit,
 }: PhotoRecordFormProps) {
   const canSave = Boolean(
-    values.cameraCheckId && values.fileName && values.photoDate && values.species,
+    values.cameraCheckId &&
+      (values.fileName || values.imageId) &&
+      values.photoDate &&
+      values.species,
   );
 
   function updateField<Field extends keyof PhotoFormValues>(
@@ -45,6 +51,28 @@ export default function PhotoRecordForm({
     });
   }
 
+  function handleImageSelected(image: SelectedPhotoImage) {
+    onChange({
+      ...values,
+      imageId: image.imageId,
+      imageWidth: image.imageWidth,
+      imageHeight: image.imageHeight,
+      // Auto-fill the label and date from the file, but never clobber anything
+      // the user already typed.
+      fileName: values.fileName.trim() || cleanFileLabel(image.fileName),
+      photoDate: values.photoDate.trim() || toDateInput(image.lastModified),
+    });
+  }
+
+  function handleImageCleared() {
+    onChange({
+      ...values,
+      imageId: "",
+      imageWidth: 0,
+      imageHeight: 0,
+    });
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onSubmit();
@@ -53,6 +81,15 @@ export default function PhotoRecordForm({
   return (
     <form onSubmit={handleSubmit} style={formStyle}>
       <CollapsibleSection title="Photo Details" defaultOpen>
+        <div style={{ ...fieldStyle, marginBottom: "1rem" }}>
+          <span style={labelStyle}>Photo</span>
+          <PhotoUploadField
+            imageId={values.imageId}
+            onImageSelected={handleImageSelected}
+            onImageCleared={handleImageCleared}
+          />
+        </div>
+
         <div className="di-form-grid" style={formGridStyle}>
           <label style={fieldStyle}>
             <span style={labelStyle}>Camera Check</span>
@@ -73,7 +110,7 @@ export default function PhotoRecordForm({
           </label>
 
           <label style={fieldStyle}>
-            <span style={labelStyle}>File Name or Photo Label</span>
+            <span style={labelStyle}>Photo Label</span>
             <input
               placeholder="Card pull 7, IMG_2042, or Big 8 at creek"
               value={values.fileName}
@@ -164,6 +201,26 @@ export default function PhotoRecordForm({
       </Button>
     </form>
   );
+}
+
+function cleanFileLabel(fileName: string) {
+  const withoutExtension = fileName.replace(/\.[^./\\]+$/, "").trim();
+
+  return withoutExtension || fileName.trim();
+}
+
+function toDateInput(timestamp: number) {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return "";
+
+  const date = new Date(timestamp);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 const formStyle: CSSProperties = {
