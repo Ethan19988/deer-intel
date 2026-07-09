@@ -5,6 +5,7 @@ import {
   LAND_OWNERS_MAX_VISIBLE,
   LAND_OWNERS_MIN_ZOOM,
   loadLandOwners,
+  minAcresForZoom,
   type LandOwnerDataset,
   type LandOwnerParcel,
 } from "@/lib/landOwners";
@@ -65,19 +66,33 @@ export default function LandOwnerLayer({
     };
   }, []);
 
-  // Parcels within the current viewport, largest first, capped for performance.
-  const visibleParcels = useMemo<LandOwnerParcel[]>(() => {
-    if (!enabled || !dataset) return [];
-    if (map.getZoom() < LAND_OWNERS_MIN_ZOOM) return [];
+  // Parcels within the current viewport whose size clears the zoom threshold,
+  // largest first, capped for performance. hiddenCount is how many in-view
+  // parcels are held back (too small for this zoom, or over the cap) so the
+  // status line can tell the hunter to keep zooming in for the little ones.
+  const { visibleParcels, hiddenCount } = useMemo<{
+    visibleParcels: LandOwnerParcel[];
+    hiddenCount: number;
+  }>(() => {
+    if (!enabled || !dataset) return { visibleParcels: [], hiddenCount: 0 };
+
+    const zoom = map.getZoom();
+    if (zoom < LAND_OWNERS_MIN_ZOOM) {
+      return { visibleParcels: [], hiddenCount: 0 };
+    }
 
     const bounds = map.getBounds();
     const inView = dataset.parcels.filter((parcel) =>
       bounds.contains([parcel.lat, parcel.lng]),
     );
 
-    inView.sort((a, b) => b.acres - a.acres);
+    const minAcres = minAcresForZoom(zoom);
+    const bigEnough = inView.filter((parcel) => parcel.acres >= minAcres);
+    bigEnough.sort((a, b) => b.acres - a.acres);
 
-    return inView.slice(0, LAND_OWNERS_MAX_VISIBLE);
+    const shown = bigEnough.slice(0, LAND_OWNERS_MAX_VISIBLE);
+
+    return { visibleParcels: shown, hiddenCount: inView.length - shown.length };
     // viewVersion drives recompute on pan/zoom.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, dataset, map, viewVersion]);
@@ -104,15 +119,13 @@ export default function LandOwnerLayer({
       return;
     }
 
-    if (visibleParcels.length >= LAND_OWNERS_MAX_VISIBLE) {
-      onStatusChange(
-        `Showing largest ${LAND_OWNERS_MAX_VISIBLE} land owners - zoom in for more.`,
-      );
+    if (hiddenCount > 0) {
+      onStatusChange("Zoom in on a property to see smaller parcels.");
       return;
     }
 
     onStatusChange("");
-  }, [enabled, loadError, dataset, visibleParcels, map, onStatusChange]);
+  }, [enabled, loadError, dataset, hiddenCount, map, onStatusChange]);
 
   if (!enabled || !dataset) return null;
 
