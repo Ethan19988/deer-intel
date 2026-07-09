@@ -5,14 +5,10 @@ import { useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
 import CameraCard from "@/components/cameras/CameraCard";
 import CameraIntelligenceSection from "@/components/cameras/CameraIntelligenceSection";
-import ActionCard from "@/components/ui/ActionCard";
-import Badge from "@/components/ui/Badge";
-import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
-import PageHeader from "@/components/ui/PageHeader";
 import PageShell from "@/components/ui/PageShell";
-import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
+import Tabs from "@/components/ui/Tabs";
 import {
   updateDeerIntelStore,
   useDeerIntelStore,
@@ -64,150 +60,123 @@ export default function CamerasPage() {
     );
   }
 
-  return (
-    <PageShell>
-      <Card as="section" variant="elevated" style={heroCardStyle}>
-        <PageHeader
-          eyebrow="Camera Sites"
-          title="Cameras"
-          description="Review every camera site for the active property, open camera workspaces, and jump back to the property command center to add more."
-          meta={
-            <>
-              <Badge variant="success">Property Based</Badge>
-              <Badge>{propertyCameras.length} shown</Badge>
-            </>
-          }
+  if (state.properties.length === 0) {
+    return (
+      <PageShell>
+        <header style={headerStyle}>
+          <div>
+            <p style={eyebrowStyle}>Cameras</p>
+            <h1 style={titleStyle}>Cameras</h1>
+          </div>
+        </header>
+        <EmptyState
+          title="No properties yet"
+          description="Add a property before setting camera sites."
           action={
-            selectedProperty ? (
-              <Link
-                href={`/properties/${selectedProperty.id}#camera-sites`}
-                style={primaryLinkStyle}
-              >
-                Add Camera Site
-              </Link>
-            ) : null
+            <Link href="/properties" style={primaryLinkStyle}>
+              Add Property
+            </Link>
           }
         />
-      </Card>
+      </PageShell>
+    );
+  }
 
-      <Section eyebrow="Property" title="Active Property">
-        {state.properties.length === 0 ? (
-          <EmptyState
-            title="No properties yet"
-            description="Add a property before setting camera sites."
-            action={
-              <Link href="/properties" style={primaryLinkStyle}>
-                Add Property
-              </Link>
-            }
-          />
-        ) : (
-          <Card as="div" variant="subtle">
-            <label style={fieldStyle}>
-              <span style={labelStyle}>Choose Property</span>
-              <select
-                style={selectStyle}
-                value={selectedPropertyId}
-                onChange={(event) => selectProperty(event.target.value)}
-              >
-                {state.properties.map((property) => (
-                  <option key={property.id} value={property.id}>
-                    {property.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </Card>
-        )}
-      </Section>
+  const sitesTab = (
+    <div style={listStyle}>
+      {propertyCameras.length === 0 ? (
+        <EmptyState
+          title="No camera sites for this property"
+          description="Open the property command center to add a camera site with name, type, status, GPS, battery, card, and notes."
+          action={
+            <Link
+              href={`/properties/${selectedPropertyId}#camera-sites`}
+              style={primaryLinkStyle}
+            >
+              Add Camera Site
+            </Link>
+          }
+        />
+      ) : (
+        propertyCameras.map((camera) => (
+          <CameraCard key={camera.id} camera={camera} onEdit={editCamera} />
+        ))
+      )}
+    </div>
+  );
 
-      <Section eyebrow="Camera Summary" title="What This Property Shows">
-        <div style={statGridStyle}>
-          <StatCard
-            label="Camera Sites"
-            value={propertyCameras.length}
-            detail={`${activeCameraCount} active`}
-          />
-          <StatCard
-            label="Camera Checks"
-            value={propertyChecks.length}
-            detail={`Latest: ${latestCheck?.date || "none yet"}`}
-          />
-          <StatCard
-            label="Photo Records"
-            value={propertyPhotos.length}
-            detail="Saved photo history"
-          />
-        </div>
-      </Section>
-
+  const activityTab = (
+    <div style={activityStyle}>
+      <div style={statGridStyle}>
+        <StatCard
+          label="Camera Sites"
+          value={propertyCameras.length}
+          detail={`${activeCameraCount} active`}
+        />
+        <StatCard
+          label="Camera Checks"
+          value={propertyChecks.length}
+          detail={`Latest: ${latestCheck?.date || "none yet"}`}
+        />
+        <StatCard
+          label="Photo Records"
+          value={propertyPhotos.length}
+          detail="Saved photo history"
+        />
+      </div>
       <CameraIntelligenceSection
         propertyId={selectedPropertyId}
         propertyName={selectedProperty?.name ?? "This property"}
         summary={cameraIntelligence}
       />
+    </div>
+  );
 
-      <Section eyebrow="Next Steps" title="Quick Actions">
-        <div style={actionGridStyle}>
-          <ActionCard
-            href={selectedProperty ? `/properties/${selectedProperty.id}` : "/properties"}
-            title="Open Property"
-            description="Use the property command center to add cameras, stands, deer, and hunts."
-            badge="Available"
-            tone="primary"
-          />
-          <ActionCard
-            href="/map"
-            title="Open Map"
-            description="Check camera pins, GPS position, and nearby property assets."
-            badge="Available"
-            tone="primary"
-          />
-          <ActionCard
-            href="/cameras/import"
-            title="Import Photos"
-            description="Bulk create photo records from local camera photo files."
-            badge="Available"
-            tone="primary"
-          />
-          <ActionCard
-            href="/settings"
-            title="Data Settings"
-            description="Review local storage status and saved Deer Intel data counts."
-          />
+  return (
+    <PageShell>
+      <header style={headerStyle}>
+        <div style={headerLeadStyle}>
+          <p style={eyebrowStyle}>Cameras</p>
+          <h1 style={titleStyle}>{selectedProperty?.name ?? "Cameras"}</h1>
+          <label style={pickerStyle}>
+            <span style={pickerLabelStyle}>Property</span>
+            <select
+              style={selectStyle}
+              value={selectedPropertyId}
+              onChange={(event) => selectProperty(event.target.value)}
+            >
+              {state.properties.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.name}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-      </Section>
+        <div style={headerActionsStyle}>
+          <Link href="/cameras/import" style={secondaryLinkStyle}>
+            Import Photos
+          </Link>
+          <Link
+            href={`/properties/${selectedPropertyId}#camera-sites`}
+            style={primaryLinkStyle}
+          >
+            Add Camera Site
+          </Link>
+        </div>
+      </header>
 
-      <Section eyebrow="Saved Camera Sites" title="Camera List">
-        {propertyCameras.length === 0 ? (
-          <EmptyState
-            title="No camera sites for this property"
-            description="Open the property command center and add the first camera site with name, type, status, GPS, battery, card, and notes."
-            action={
-              <Link
-                href={
-                  selectedProperty
-                    ? `/properties/${selectedProperty.id}#camera-sites`
-                    : "/properties"
-                }
-                style={primaryLinkStyle}
-              >
-                Add Camera Site
-              </Link>
-            }
-          />
-        ) : (
-          <div style={listStyle}>
-            {propertyCameras.map((camera) => (
-              <CameraCard
-                key={camera.id}
-                camera={camera}
-                onEdit={editCamera}
-              />
-            ))}
-          </div>
-        )}
-      </Section>
+      <Tabs
+        items={[
+          {
+            id: "sites",
+            label: "Sites",
+            badge: propertyCameras.length,
+            content: sitesTab,
+          },
+          { id: "activity", label: "Activity", content: activityTab },
+        ]}
+      />
     </PageShell>
   );
 }
@@ -220,29 +189,64 @@ function dateTime(date: string | undefined) {
   return Number.isNaN(time) ? 0 : time;
 }
 
-const heroCardStyle: CSSProperties = {
-  padding: "1.5rem",
+const headerStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "space-between",
+  gap: "1rem",
+  flexWrap: "wrap",
+  marginBottom: "1.5rem",
 };
 
-const fieldStyle: CSSProperties = {
+const headerLeadStyle: CSSProperties = {
   display: "grid",
-  gap: "0.45rem",
+  gap: "0.5rem",
+  minWidth: 0,
 };
 
-const labelStyle: CSSProperties = {
+const eyebrowStyle: CSSProperties = {
+  margin: 0,
   color: "var(--accent-text)",
+  fontSize: "0.78rem",
+  fontWeight: 800,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+};
+
+const titleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "2rem",
+  lineHeight: 1.1,
+};
+
+const pickerStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.5rem",
+  marginTop: "0.15rem",
+};
+
+const pickerLabelStyle: CSSProperties = {
+  color: "var(--text-muted)",
   fontSize: "0.85rem",
   fontWeight: 800,
 };
 
 const selectStyle: CSSProperties = {
-  minHeight: "48px",
-  width: "100%",
-  padding: "0.75rem",
+  minHeight: "42px",
+  minWidth: "180px",
+  padding: "0.5rem 0.65rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
-  background: "var(--surface-2)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--surface)",
   color: "var(--text)",
+};
+
+const headerActionsStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.6rem",
+  flexWrap: "wrap",
 };
 
 const statGridStyle: CSSProperties = {
@@ -251,10 +255,9 @@ const statGridStyle: CSSProperties = {
   gap: "1rem",
 };
 
-const actionGridStyle: CSSProperties = {
+const activityStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "1rem",
+  gap: "1.5rem",
 };
 
 const listStyle: CSSProperties = {
@@ -269,9 +272,23 @@ const primaryLinkStyle: CSSProperties = {
   justifyContent: "center",
   padding: "0.7rem 0.9rem",
   border: "1px solid var(--accent)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent)",
   color: "white",
+  fontWeight: 800,
+  textDecoration: "none",
+};
+
+const secondaryLinkStyle: CSSProperties = {
+  display: "inline-flex",
+  minHeight: "44px",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0.7rem 0.9rem",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--surface-2)",
+  color: "var(--text)",
   fontWeight: 800,
   textDecoration: "none",
 };
