@@ -193,7 +193,7 @@ const listGridStyle: CSSProperties = {
 
 const sectionTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1.08rem",
   lineHeight: 1.25,
 };
@@ -209,14 +209,14 @@ const itemStyle: CSSProperties = {
   gap: "0.35rem",
   minHeight: "58px",
   padding: "0.8rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#070a07",
+  background: "var(--surface-2)",
 };
 
 const itemLinkStyle: CSSProperties = {
   ...itemStyle,
-  color: "white",
+  color: "var(--text)",
   textDecoration: "none",
 };
 
@@ -228,12 +228,12 @@ const itemHeaderStyle: CSSProperties = {
 };
 
 const itemTitleStyle: CSSProperties = {
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontWeight: 850,
 };
 
 const itemDetailStyle: CSSProperties = {
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.45,
 };
 
@@ -246,7 +246,7 @@ const cardHeaderStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 800,
   letterSpacing: 0,
@@ -255,14 +255,14 @@ const eyebrowStyle: CSSProperties = {
 
 const cardTitleStyle: CSSProperties = {
   margin: "0.8rem 0 0",
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1.35rem",
   lineHeight: 1.2,
 };
 
 const mutedTextStyle: CSSProperties = {
   margin: "0.65rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.5,
 };
 
@@ -277,10 +277,10 @@ const reasonPillStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   padding: "0.35rem 0.55rem",
-  border: "1px solid #2d402d",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#101a10",
-  color: "#c6d5c5",
+  background: "var(--surface-2)",
+  color: "var(--text-muted)",
   fontSize: "0.8rem",
   fontWeight: 800,
 };
@@ -290,7 +290,7 @@ const openLinkStyle: CSSProperties = {
   minHeight: "44px",
   alignItems: "center",
   marginTop: "1rem",
-  color: "#a7d1a6",
+  color: "var(--accent-text)",
   fontWeight: 850,
   textDecoration: "none",
 };

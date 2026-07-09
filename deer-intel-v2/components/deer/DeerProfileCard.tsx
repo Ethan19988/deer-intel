@@ -145,7 +145,7 @@ function ProfileDetail({ label, value }: { label: string; value: string }) {
 }
 
 const cardStyle: CSSProperties = {
-  background: "#0a0f0a",
+  background: "var(--surface-2)",
 };
 
 const headerStyle: CSSProperties = {
@@ -158,7 +158,7 @@ const headerStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.75rem",
   fontWeight: 700,
   letterSpacing: 0,
@@ -177,19 +177,19 @@ const detailsGridStyle: CSSProperties = {
   gap: "1rem",
   marginTop: "1rem",
   paddingTop: "1rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };
 
 const notesStyle: CSSProperties = {
   marginTop: "1rem",
   paddingTop: "1rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };
 
 const intelligenceWrapStyle: CSSProperties = {
   marginTop: "1rem",
   paddingTop: "1rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };
 
 const intelligenceStackStyle: CSSProperties = {
@@ -199,7 +199,7 @@ const intelligenceStackStyle: CSSProperties = {
 
 const notesMentionWrapStyle: CSSProperties = {
   paddingTop: "1rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };
 
 const notesMentionListStyle: CSSProperties = {
@@ -210,14 +210,14 @@ const notesMentionListStyle: CSSProperties = {
 
 const noteMentionStyle: CSSProperties = {
   padding: "0.75rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#070a07",
+  background: "var(--surface-2)",
 };
 
 const mentionSourceStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.76rem",
   fontWeight: 800,
   letterSpacing: 0,
@@ -226,13 +226,13 @@ const mentionSourceStyle: CSSProperties = {
 
 const detailLabelStyle: CSSProperties = {
   margin: 0,
-  color: "#879486",
+  color: "var(--text-faint)",
   fontSize: "0.78rem",
   fontWeight: 700,
 };
 
 const detailValueStyle: CSSProperties = {
   margin: "0.25rem 0 0",
-  color: "#c7d0c5",
+  color: "var(--text-muted)",
   lineHeight: 1.5,
 };

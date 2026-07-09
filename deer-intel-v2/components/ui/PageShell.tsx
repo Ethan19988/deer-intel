@@ -66,10 +66,16 @@ function ModeSelector({
   onSelectMode: (mode: HuntingMode) => void;
 }) {
   return (
-    <section style={modeBarStyle} aria-label="Deer Intel mode">
+    <section
+      className="di-camo-band"
+      style={modeBarStyle}
+      aria-label="Deer Intel mode"
+    >
       <div>
-        <p style={modeEyebrowStyle}>Operating Mode</p>
-        <p style={modeTextStyle}>
+        <p style={{ ...modeEyebrowStyle, color: "var(--accent-2-text)" }}>
+          Operating Mode
+        </p>
+        <p style={{ ...modeTextStyle, color: "var(--camo-fg-muted)" }}>
           {HUNTING_MODE_OPTIONS.find((option) => option.id === mode)?.description}
         </p>
       </div>
@@ -196,6 +202,7 @@ const primaryNavLinks = [
   { href: "/cameras", label: "Cameras" },
   { href: "/stands", label: "Stands" },
   { href: "/hunt-log", label: "Hunts" },
+  { href: "/ai", label: "AI Scout" },
 ];
 
 const mobileNavLinks: Record<
@@ -207,26 +214,29 @@ const mobileNavLinks: Record<
     { href: "/map", label: "Map" },
     { href: "/properties", label: "Land" },
     { href: "/hunt-log", label: "Hunts" },
+    { href: "/ai", label: "AI" },
   ],
   scouting: [
     { href: "/map", label: "Map" },
     { href: "/cameras", label: "Cameras" },
     { href: "/stands", label: "Stands" },
     { href: "/properties", label: "Land" },
+    { href: "/ai", label: "AI" },
   ],
   hunting: [
     { href: "/", label: "Home" },
     { href: "/map", label: "Map" },
     { href: "/hunt-log", label: "Log" },
     { href: "/properties", label: "Land" },
+    { href: "/ai", label: "AI" },
   ],
 };
 
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
   padding: "clamp(1rem, 4vw, 2rem)",
-  background: "#050806",
-  color: "white",
+  background: "var(--bg)",
+  color: "var(--text)",
 };
 
 const contentStyle: CSSProperties = {
@@ -240,15 +250,16 @@ const modeBarStyle: CSSProperties = {
   justifyContent: "space-between",
   gap: "1rem",
   marginBottom: "1rem",
-  padding: "0.75rem",
-  border: "1px solid #243224",
-  borderRadius: "8px",
-  background: "#0a0f0a",
+  padding: "0.9rem 1rem",
+  border: "1px solid rgba(0, 0, 0, 0.25)",
+  borderRadius: "var(--radius)",
+  overflow: "hidden",
+  boxShadow: "var(--shadow-sm)",
 };
 
 const modeEyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.75rem",
   fontWeight: 850,
   letterSpacing: 0,
@@ -257,7 +268,7 @@ const modeEyebrowStyle: CSSProperties = {
 
 const modeTextStyle: CSSProperties = {
   margin: "0.25rem 0 0",
-  color: "#c6d5c5",
+  color: "var(--text-muted)",
   lineHeight: 1.35,
 };
 
@@ -271,18 +282,19 @@ const modeButtonGroupStyle: CSSProperties = {
 const modeButtonStyle: CSSProperties = {
   minHeight: "44px",
   padding: "0.65rem 0.8rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#0d120d",
-  color: "#f1f5ef",
+  background: "var(--surface)",
+  color: "var(--text)",
   fontWeight: 850,
   cursor: "pointer",
 };
 
 const activeModeButtonStyle: CSSProperties = {
-  borderColor: "#3b6843",
-  background: "#18351d",
-  color: "#c6f0c6",
+  borderColor: "var(--accent-2-strong)",
+  background: "var(--accent-2)",
+  color: "#ffffff",
+  boxShadow: "0 2px 8px rgba(224, 100, 42, 0.45)",
 };
 
 const sectionNavStyle: CSSProperties = {
@@ -300,10 +312,10 @@ const sectionNavLinkStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "0.55rem 0.75rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#0a0f0a",
-  color: "#dce9da",
+  background: "var(--surface-2)",
+  color: "var(--text-muted)",
   fontSize: "0.92rem",
   fontWeight: 850,
   textDecoration: "none",
@@ -314,9 +326,9 @@ const modePanelStyle: CSSProperties = {
   gap: "1rem",
   marginBottom: "1rem",
   padding: "1rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#0d120d",
+  background: "var(--surface)",
 };
 
 const panelTitleStyle: CSSProperties = {
@@ -327,7 +339,7 @@ const panelTitleStyle: CSSProperties = {
 
 const panelTextStyle: CSSProperties = {
   margin: "0.45rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.5,
 };
 
@@ -349,9 +361,9 @@ const modeActionStyle: CSSProperties = {
   alignContent: "center",
   gap: "0.2rem",
   padding: "0.9rem",
-  border: "1px solid #3b6843",
+  border: "1px solid var(--accent)",
   borderRadius: "8px",
-  background: "#18351d",
+  background: "var(--accent)",
   color: "white",
   textDecoration: "none",
 };
@@ -362,7 +374,7 @@ const modeActionTitleStyle: CSSProperties = {
 };
 
 const modeActionDetailStyle: CSSProperties = {
-  color: "#c6d5c5",
+  color: "rgba(255, 255, 255, 0.85)",
   fontSize: "0.9rem",
 };
 
@@ -375,19 +387,19 @@ const essentialsGridStyle: CSSProperties = {
 const essentialCardStyle: CSSProperties = {
   minHeight: "82px",
   padding: "0.9rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#070a07",
+  background: "var(--surface-2)",
 };
 
 const essentialTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontWeight: 850,
 };
 
 const essentialValueStyle: CSSProperties = {
   margin: "0.4rem 0 0",
-  color: "#d3b66b",
+  color: "var(--text-muted)",
   fontWeight: 800,
 };

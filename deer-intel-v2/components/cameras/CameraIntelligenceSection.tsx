@@ -221,7 +221,7 @@ const cardHeaderStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 800,
   letterSpacing: 0,
@@ -236,7 +236,7 @@ const cardTitleStyle: CSSProperties = {
 
 const mutedTextStyle: CSSProperties = {
   margin: "0.65rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.55,
 };
 
@@ -257,15 +257,15 @@ const attentionItemStyle: CSSProperties = {
   gap: "0.25rem",
   minHeight: "52px",
   padding: "0.85rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#0d120d",
-  color: "white",
+  background: "var(--surface)",
+  color: "var(--text)",
   textDecoration: "none",
 };
 
 const attentionNameStyle: CSSProperties = {
-  color: "#f1f5ef",
+  color: "var(--text)",
 };
 
 const attentionReasonStyle: CSSProperties = {
@@ -276,7 +276,7 @@ const attentionReasonStyle: CSSProperties = {
 };
 
 const attentionDetailStyle: CSSProperties = {
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   fontSize: "0.96rem",
 };
 
@@ -286,9 +286,9 @@ const primaryLinkStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "0.7rem 0.9rem",
-  border: "1px solid #3b6843",
+  border: "1px solid var(--accent)",
   borderRadius: "8px",
-  background: "#18351d",
+  background: "var(--accent)",
   color: "white",
   fontWeight: 800,
   textDecoration: "none",
@@ -299,7 +299,7 @@ const inlineLinkStyle: CSSProperties = {
   minHeight: "44px",
   alignItems: "center",
   marginTop: "1rem",
-  color: "#a7d1a6",
+  color: "var(--accent-text)",
   fontWeight: 800,
   textDecoration: "none",
 };

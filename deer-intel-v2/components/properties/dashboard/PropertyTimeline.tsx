@@ -107,10 +107,10 @@ const iconWrapStyle: CSSProperties = {
   height: "44px",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid #315135",
+  border: "1px solid var(--accent-tint-border)",
   borderRadius: "8px",
-  background: "#132414",
-  color: "#a7d1a6",
+  background: "var(--accent-tint)",
+  color: "var(--accent-text)",
 };
 
 const iconStyle: CSSProperties = {
@@ -140,14 +140,14 @@ const headerStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: 0,
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1.05rem",
   lineHeight: 1.25,
 };
 
 const descriptionStyle: CSSProperties = {
   margin: "0.4rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   fontSize: "0.98rem",
   lineHeight: 1.5,
 };

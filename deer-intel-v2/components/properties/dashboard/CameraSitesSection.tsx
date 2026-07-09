@@ -84,7 +84,7 @@ export default function CameraSitesSection({
 }
 
 const editCameraCardStyle: CSSProperties = {
-  border: "1px solid #315135",
+  border: "1px solid var(--accent-tint-border)",
 };
 
 const subsectionTitleStyle: CSSProperties = {
