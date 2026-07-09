@@ -26,7 +26,8 @@ const FALLBACK: WaybackRelease[] = [
   { year: "2022", release: "45134", date: "2022-12-14" },
 ];
 
-export const revalidate = DAY_SECONDS;
+// Next requires this segment config to be a literal, not a reference.
+export const revalidate = 86400;
 
 export async function GET() {
   try {
