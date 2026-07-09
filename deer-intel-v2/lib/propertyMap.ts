@@ -26,6 +26,8 @@ export type MapLayer = {
   url: string;
   attribution: string;
   isPlaceholder?: boolean;
+  /** Deepest zoom the source has real tiles for; deeper zooms upscale it. */
+  maxNativeZoom?: number;
   overlayLayers?: Array<{
     attribution: string;
     label: string;
@@ -99,19 +101,29 @@ const SATELLITE_REFERENCE_OVERLAYS: NonNullable<
   },
 ];
 
+// USDA NAIP delivers the most recent high-resolution aerial imagery of the US
+// (refreshed every 2–3 years per state), so it reads far clearer and newer than
+// the global Esri mosaic for a hunting property. It only has tiles to zoom 18,
+// so deeper zooms upscale it; Esri Clarity is the global fallback.
+const NAIP_URL =
+  "https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/{z}/{y}/{x}";
+const NAIP_ATTRIBUTION = "Aerial imagery &copy; USDA NAIP (most recent, US)";
+const ESRI_CLARITY_URL =
+  "https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+
 export const MAP_LAYERS: MapLayer[] = [
   {
     id: "satellite",
-    label: "Satellite",
-    attribution:
-      "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
-    overlayLayers: SATELLITE_REFERENCE_OVERLAYS,
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    label: "Aerial (recent)",
+    attribution: NAIP_ATTRIBUTION,
+    maxNativeZoom: 18,
+    url: NAIP_URL,
   },
   {
     id: "roads",
     label: "Roads",
     attribution: "&copy; OpenStreetMap contributors",
+    maxNativeZoom: 19,
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   },
   {
@@ -119,23 +131,24 @@ export const MAP_LAYERS: MapLayer[] = [
     label: "Terrain",
     attribution:
       "Map data &copy; OpenStreetMap contributors, SRTM | Map style &copy; OpenTopoMap",
+    maxNativeZoom: 17,
     url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
   },
   {
     id: "hybrid",
-    label: "Hybrid",
-    attribution:
-      "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    label: "Hybrid (recent)",
+    attribution: NAIP_ATTRIBUTION,
+    maxNativeZoom: 18,
+    url: NAIP_URL,
     overlayLayers: SATELLITE_REFERENCE_OVERLAYS,
   },
   {
     id: "topographic",
-    label: "Topographic",
+    label: "Satellite (Global)",
     attribution:
-      "Map data &copy; OpenStreetMap contributors, SRTM | Map style &copy; OpenTopoMap",
-    isPlaceholder: true,
-    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+      "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+    url: ESRI_CLARITY_URL,
+    overlayLayers: SATELLITE_REFERENCE_OVERLAYS,
   },
 ];
 

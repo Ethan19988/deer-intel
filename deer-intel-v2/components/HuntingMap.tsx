@@ -1165,6 +1165,7 @@ export default function HuntingMap() {
           <MapContainer
             center={mapCenter}
             zoom={mapZoom}
+            maxZoom={19}
             zoomControl={false}
             scrollWheelZoom
             style={{ height: "100%", width: "100%" }}
@@ -1173,6 +1174,8 @@ export default function HuntingMap() {
               key={`${selectedMapLayer.id}-base`}
               attribution={selectedMapLayer.attribution}
               url={selectedMapLayer.url}
+              maxZoom={19}
+              maxNativeZoom={selectedMapLayer.maxNativeZoom ?? 19}
             />
 
             {selectedMapLayer.overlayLayers?.map((overlayLayer, index) => (
@@ -1180,6 +1183,8 @@ export default function HuntingMap() {
                 key={`${selectedMapLayer.id}-${overlayLayer.label}`}
                 attribution={overlayLayer.attribution}
                 url={overlayLayer.url}
+                maxZoom={19}
+                maxNativeZoom={19}
                 zIndex={650 + index}
               />
             ))}
