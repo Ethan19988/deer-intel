@@ -98,8 +98,8 @@ const baseFrameStyle: CSSProperties = {
   overflow: "hidden",
   width: "100%",
   borderRadius: "8px",
-  border: "1px solid #243224",
-  background: "#050705",
+  border: "1px solid var(--border)",
+  background: "var(--surface-3)",
 };
 
 const imageStyle: CSSProperties = {
@@ -111,7 +111,7 @@ const imageStyle: CSSProperties = {
 
 const messageStyle: CSSProperties = {
   padding: "1.5rem",
-  color: "#7f8d7e",
+  color: "var(--text-faint)",
   fontSize: "0.85rem",
   textAlign: "center",
 };
