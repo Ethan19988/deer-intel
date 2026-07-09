@@ -20,6 +20,7 @@ import WorkspaceIcon, {
 } from "@/components/properties/dashboard/WorkspaceIcon";
 import Card from "@/components/ui/Card";
 import PageShell from "@/components/ui/PageShell";
+import Tabs from "@/components/ui/Tabs";
 import {
   createCameraFromValues,
   cameraToFormValues,
@@ -58,23 +59,6 @@ type DashboardModule = {
   href: string;
   badge: "Available" | "Coming Soon";
 };
-
-type CommandTab = {
-  href: string;
-  label: string;
-  primary?: boolean;
-};
-
-const COMMAND_TABS: CommandTab[] = [
-  { href: "#overview", label: "Overview" },
-  { href: "#map", label: "Map", primary: true },
-  { href: "#camera-sites", label: "Cameras" },
-  { href: "#stand-sites", label: "Stands" },
-  { href: "#deer-profiles", label: "Deer" },
-  { href: "#property-timeline", label: "Timeline" },
-  { href: "#hunt-planner", label: "Hunt Planner" },
-  { href: "#intelligence", label: "Intelligence" },
-];
 
 const INTELLIGENCE_MODULES: DashboardModule[] = [
   {
@@ -176,6 +160,33 @@ export default function PropertyWorkspacePage() {
       didCancel = true;
     };
   }, [editCameraIdParam, editingCameraId, params.id, state.cameras]);
+
+  const [activeTab, setActiveTab] = useState("overview");
+
+  useEffect(() => {
+    if (editCameraIdParam) {
+      setActiveTab("cameras");
+      return;
+    }
+
+    const hash =
+      typeof window !== "undefined"
+        ? window.location.hash.replace("#", "")
+        : "";
+    const hashTab: Record<string, string> = {
+      "camera-sites": "cameras",
+      "stand-sites": "stands",
+      "deer-profiles": "deer",
+      "property-timeline": "plan",
+      "hunt-planner": "plan",
+      intelligence: "plan",
+      map: "overview",
+      "recent-activity": "overview",
+      overview: "overview",
+    };
+
+    if (hash && hashTab[hash]) setActiveTab(hashTab[hash]);
+  }, [editCameraIdParam]);
 
   useEffect(() => {
     if (!property || state.selectedPropertyId === property.id) return;
@@ -355,8 +366,15 @@ export default function PropertyWorkspacePage() {
         aiConfidence={aiConfidence}
       />
 
-      <CommandTabs tabs={COMMAND_TABS} />
-
+      <Tabs
+        activeId={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            id: "overview",
+            label: "Overview",
+            content: (
+              <div style={tabPanelStyle}>
       <DashboardSection eyebrow="Command Center" title="Quick Actions">
         <div style={quickActionGridStyle}>
           <DashboardCardLink
@@ -504,7 +522,14 @@ export default function PropertyWorkspacePage() {
           ))}
         </div>
       </DashboardSection>
-
+              </div>
+            ),
+          },
+          {
+            id: "cameras",
+            label: "Cameras",
+            badge: propertyCameras.length,
+            content: (
       <CameraSitesSection
         cameras={propertyCameras}
         cameraValues={cameraValues}
@@ -517,14 +542,26 @@ export default function PropertyWorkspacePage() {
         onSaveEditedCamera={saveEditedCamera}
         onCancelEditingCamera={cancelEditingCamera}
       />
-
+            ),
+          },
+          {
+            id: "stands",
+            label: "Stands",
+            badge: standCount,
+            content: (
       <StandSitesSection
         stands={propertyStands}
         standValues={standValues}
         onStandValuesChange={setStandValues}
         onAddStand={addStand}
       />
-
+            ),
+          },
+          {
+            id: "deer",
+            label: "Deer",
+            badge: deerProfileCount,
+            content: (
       <DeerProfilesSection
         profileValues={deerProfileValues}
         summaries={deerProfileSummaries}
@@ -537,7 +574,13 @@ export default function PropertyWorkspacePage() {
         onProfileValuesChange={setDeerProfileValues}
         onAddProfile={addDeerProfile}
       />
-
+            ),
+          },
+          {
+            id: "plan",
+            label: "Plan",
+            content: (
+              <div style={tabPanelStyle}>
       <DashboardSection
         id="property-timeline"
         eyebrow="Property History"
@@ -607,26 +650,12 @@ export default function PropertyWorkspacePage() {
           </div>
         </Card>
       </DashboardSection>
+              </div>
+            ),
+          },
+        ]}
+      />
     </PageShell>
-  );
-}
-
-function CommandTabs({ tabs }: { tabs: CommandTab[] }) {
-  return (
-    <nav aria-label="Property command center" style={commandTabsStyle}>
-      {tabs.map((tab) => (
-        <a
-          key={tab.href}
-          href={tab.href}
-          style={{
-            ...commandTabStyle,
-            ...(tab.primary ? primaryCommandTabStyle : null),
-          }}
-        >
-          {tab.label}
-        </a>
-      ))}
-    </nav>
   );
 }
 
@@ -708,6 +737,11 @@ const backTextLinkStyle: CSSProperties = {
   textDecoration: "none",
 };
 
+const tabPanelStyle: CSSProperties = {
+  display: "grid",
+  gap: "1.5rem",
+};
+
 const primaryLinkStyle: CSSProperties = {
   display: "inline-flex",
   marginTop: "1.25rem",
@@ -718,42 +752,6 @@ const primaryLinkStyle: CSSProperties = {
   color: "white",
   fontWeight: 700,
   textDecoration: "none",
-};
-
-const commandTabsStyle: CSSProperties = {
-  position: "sticky",
-  top: 0,
-  zIndex: 50,
-  display: "flex",
-  gap: "0.55rem",
-  marginTop: "1rem",
-  padding: "0.55rem",
-  overflowX: "auto",
-  border: "1px solid var(--border)",
-  borderRadius: "8px",
-  background: "rgba(5, 8, 6, 0.94)",
-  backdropFilter: "blur(10px)",
-};
-
-const commandTabStyle: CSSProperties = {
-  display: "inline-flex",
-  minHeight: "48px",
-  flex: "0 0 auto",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: "0.7rem 0.9rem",
-  border: "1px solid var(--border)",
-  borderRadius: "8px",
-  background: "var(--surface)",
-  color: "var(--text)",
-  fontSize: "0.94rem",
-  fontWeight: 850,
-  textDecoration: "none",
-};
-
-const primaryCommandTabStyle: CSSProperties = {
-  borderColor: "var(--accent)",
-  background: "var(--accent)",
 };
 
 const cardGridStyle: CSSProperties = {
