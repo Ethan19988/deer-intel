@@ -7,7 +7,9 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
+import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
+import { resolvePropertyCoordinate } from "@/lib/propertyLocation";
 import { getHuntPlannerSummary, plannerHuntDate } from "@/lib/huntPlanner";
 import { formatHuntDate } from "@/lib/hunts";
 
@@ -59,6 +61,10 @@ export default function Home() {
   const propertyDeerProfiles = state.deerProfiles.filter(
     (profile) => profile.propertyId === activePropertyId,
   );
+  const weatherCoordinate = resolvePropertyCoordinate({
+    pins: propertyPins,
+    cameras: propertyCameras,
+  });
   const keyInsights = getHomeInsights({
     activePropertyName: activeProperty?.name,
     cameraCheckCount: propertyCameraChecks.length,
@@ -78,7 +84,20 @@ export default function Home() {
             <p style={eyebrowStyle}>Today</p>
             <h1 style={briefTitleStyle}>Today&apos;s Brief</h1>
           </div>
-          <Badge variant="warning">Weather Coming Soon</Badge>
+          <Badge variant={weatherCoordinate ? "success" : "default"}>
+            {weatherCoordinate ? "Live Weather" : "Weather"}
+          </Badge>
+        </div>
+
+        <div style={weatherBlockStyle}>
+          <LiveWeatherPanel
+            coordinate={weatherCoordinate}
+            emptyHint={
+              activeProperty
+                ? "Add map pins or a camera location to this property to load live weather."
+                : "Set up a property with map pins to load live weather."
+            }
+          />
         </div>
 
         <div style={briefGridStyle}>
@@ -295,6 +314,13 @@ const briefTitleStyle: CSSProperties = {
   margin: "0.2rem 0 0",
   fontSize: "1.65rem",
   lineHeight: 1.15,
+};
+
+const weatherBlockStyle: CSSProperties = {
+  padding: "0.9rem",
+  border: "1px solid #243224",
+  borderRadius: "8px",
+  background: "#070a07",
 };
 
 const briefGridStyle: CSSProperties = {

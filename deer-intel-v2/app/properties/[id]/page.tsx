@@ -44,6 +44,8 @@ import { getPropertyTimelineEvents } from "@/lib/propertyTimeline";
 import { getPropertyIntelligenceCards } from "@/lib/propertyIntelligence";
 import { getHuntPlannerIntelligence } from "@/lib/huntPlannerIntelligence";
 import { getPropertyWeatherSummary } from "@/lib/weather";
+import { resolvePropertyCoordinate } from "@/lib/propertyLocation";
+import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
 import {
   createDeerIntelId,
   updateDeerIntelStore,
@@ -236,6 +238,10 @@ export default function PropertyWorkspacePage() {
   const weatherSummary = getPropertyWeatherSummary({
     hunts: propertyHunts,
     cameraChecks: propertyCameraChecks,
+  });
+  const weatherCoordinate = resolvePropertyCoordinate({
+    pins: propertyPins,
+    cameras: propertyCameras,
   });
   const intelligenceCards = getPropertyIntelligenceCards({
     cameras: propertyCameras,
@@ -488,6 +494,12 @@ export default function PropertyWorkspacePage() {
       </div>
 
       <DashboardSection eyebrow="Conditions" title="Today's Conditions">
+        <div style={liveWeatherPanelStyle}>
+          <LiveWeatherPanel
+            coordinate={weatherCoordinate}
+            emptyHint="Add map pins or a camera location to this property to load live weather."
+          />
+        </div>
         <div style={cardGridStyle}>
           <InfoCard
             title="Weather"
@@ -760,6 +772,14 @@ const cardGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
   gap: "1rem",
+};
+
+const liveWeatherPanelStyle: CSSProperties = {
+  marginBottom: "1rem",
+  padding: "1rem",
+  border: "1px solid #243224",
+  borderRadius: "10px",
+  background: "#0d120d",
 };
 
 const plannerIntelligenceWrapStyle: CSSProperties = {
