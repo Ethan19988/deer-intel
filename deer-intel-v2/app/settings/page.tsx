@@ -11,6 +11,8 @@ import PageHeader from "@/components/ui/PageHeader";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
+import AccountPanel from "@/components/auth/AccountPanel";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { saveDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 
@@ -29,6 +31,8 @@ function recordCount(candidate: DeerIntelState) {
 
 export default function SettingsPage() {
   const state = useDeerIntelStore();
+  const { configured, status, user } = useAuth();
+  const cloudActive = configured && status === "signed-in";
   const totalRecords = recordCount(state);
   const selectedProperty =
     state.properties.find(
@@ -136,7 +140,9 @@ export default function SettingsPage() {
           description="Review how Deer Intel is storing data right now and jump to the sections that help keep the app organized."
           meta={
             <>
-              <Badge variant="success">Local Persistence</Badge>
+              <Badge variant="success">
+                {cloudActive ? "Cloud Sync On" : "Local Persistence"}
+              </Badge>
               <Badge>{totalRecords} saved records</Badge>
             </>
           }
@@ -147,10 +153,15 @@ export default function SettingsPage() {
         <div style={settingsGridStyle}>
           <Card as="article" variant="subtle">
             <p style={eyebrowStyle}>Storage Mode</p>
-            <h2 style={cardTitleStyle}>This Browser</h2>
+            <h2 style={cardTitleStyle}>
+              {cloudActive ? "Cloud Sync" : "This Browser"}
+            </h2>
             <p style={mutedTextStyle}>
-              Deer Intel is currently saved in local browser storage. No account,
-              database, or cloud sync is connected yet.
+              {cloudActive
+                ? `Signed in as ${user?.email ?? "your account"}. Data is saved locally and backed up to the cloud, syncing across your devices.`
+                : configured
+                  ? "Deer Intel is saved in this browser. Sign in below to back up your data and sync it across devices."
+                  : "Deer Intel is currently saved in local browser storage. No account, database, or cloud sync is connected yet."}
             </p>
           </Card>
           <Card as="article" variant="subtle">
@@ -295,13 +306,16 @@ export default function SettingsPage() {
         </div>
       </Section>
 
+      <Section eyebrow="Account" title="Account & Cloud Sync">
+        <AccountPanel />
+      </Section>
+
       <Section eyebrow="Future Settings" title="Not Connected Yet">
         <Card as="div" variant="subtle">
           <p style={mutedTextStyle}>
-            Accounts, cloud sync, database backup, real AI calls, and paid map
-            layers are intentionally not connected yet. Local JSON export/import
-            is available above as a manual backup option in the meantime. This
-            keeps the current Deer Intel foundation simple and reliable.
+            Real AI calls and paid map layers are intentionally not connected
+            yet. Local JSON export/import above is always available as a manual
+            backup option, independent of cloud sync.
           </p>
           <Link href="/" style={primaryLinkStyle}>
             Back to Dashboard
