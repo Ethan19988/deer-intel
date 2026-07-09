@@ -108,6 +108,88 @@ body {
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
+/* ---- Action-grouped sidebar (desktop) ---- */
+.di-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  display: flex;
+  flex: 0 0 232px;
+  flex-direction: column;
+  width: 232px;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.di-sidebar-brand {
+  display: block;
+  padding: 1.15rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.18);
+  color: var(--camo-fg);
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+
+.di-sidebar-nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.85rem 0.7rem 1.1rem;
+}
+
+.di-sidebar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.di-sidebar-group + .di-sidebar-group {
+  margin-top: 0.9rem;
+}
+
+.di-sidebar-heading {
+  margin: 0.2rem 0.6rem 0.35rem;
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.di-sidebar-link {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.di-sidebar-link:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.di-sidebar-link[aria-current="page"] {
+  background: var(--accent-tint);
+  border-color: var(--accent-tint-border);
+  color: var(--accent-text);
+}
+
+.di-sidebar-spacer {
+  flex: 1;
+  min-height: 0.9rem;
+}
+
 button,
 input,
 select,
@@ -216,6 +298,10 @@ textarea {
 @media (max-width: 720px) {
   body {
     font-size: 16px;
+  }
+
+  .di-sidebar {
+    display: none;
   }
 
   .di-page-shell {
