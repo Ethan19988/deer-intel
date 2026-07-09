@@ -540,6 +540,21 @@ export default function HuntingMap() {
       : selectedMapLayer.url;
   const showYearPicker =
     Boolean(selectedMapLayer.isWayback) && waybackReleases.length > 0;
+  const currentReleaseIndex = Math.max(
+    0,
+    waybackReleases.findIndex((release) => release.release === selectedRelease),
+  );
+  const currentRelease = waybackReleases[currentReleaseIndex];
+
+  function stepImageryYear(direction: "newer" | "older") {
+    const nextIndex =
+      direction === "newer"
+        ? currentReleaseIndex - 1
+        : currentReleaseIndex + 1;
+    const next = waybackReleases[nextIndex];
+
+    if (next) setSelectedRelease(next.release);
+  }
   const pins = useMemo(
     () => state.pins.filter((pin) => pin.propertyId === selectedPropertyId),
     [selectedPropertyId, state.pins],
@@ -1023,22 +1038,6 @@ export default function HuntingMap() {
             </select>
           </label>
 
-          {showYearPicker ? (
-            <label style={fieldStyle}>
-              <span style={labelTextStyle}>Imagery year</span>
-              <select
-                style={selectStyle}
-                value={selectedRelease}
-                onChange={(event) => setSelectedRelease(event.target.value)}
-              >
-                {waybackReleases.map((release, index) => (
-                  <option key={release.release} value={release.release}>
-                    {index === 0 ? `${release.year} (current)` : release.year}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
         </div>
 
         <div style={huntAreaControlStyle}>
@@ -1206,6 +1205,43 @@ export default function HuntingMap() {
             onSearch={searchAddressOrPlace}
             onSelectResult={selectSearchResult}
           />
+
+          {showYearPicker ? (
+            <div className="di-map-year" style={yearStepperStyle}>
+              <button
+                type="button"
+                aria-label="Newer imagery"
+                onClick={() => stepImageryYear("newer")}
+                disabled={currentReleaseIndex <= 0}
+                style={{
+                  ...yearStepButtonStyle,
+                  ...(currentReleaseIndex <= 0 ? yearStepDisabledStyle : null),
+                }}
+              >
+                ▲
+              </button>
+              <div style={yearStepValueStyle}>
+                <span style={yearStepLabelStyle}>
+                  {currentReleaseIndex === 0 ? "Now" : "Imagery"}
+                </span>
+                <span style={yearStepYearStyle}>{currentRelease?.year}</span>
+              </div>
+              <button
+                type="button"
+                aria-label="Older imagery"
+                onClick={() => stepImageryYear("older")}
+                disabled={currentReleaseIndex >= waybackReleases.length - 1}
+                style={{
+                  ...yearStepButtonStyle,
+                  ...(currentReleaseIndex >= waybackReleases.length - 1
+                    ? yearStepDisabledStyle
+                    : null),
+                }}
+              >
+                ▼
+              </button>
+            </div>
+          ) : null}
 
           <MapContainer
             center={mapCenter}
@@ -1639,6 +1675,63 @@ const mapFrameStyle: CSSProperties = {
   border: "1px solid #243224",
   borderRadius: "8px",
   background: "#0a0f0a",
+};
+
+const yearStepperStyle: CSSProperties = {
+  position: "absolute",
+  top: "5.1rem",
+  left: "1rem",
+  zIndex: 1000,
+  display: "grid",
+  justifyItems: "center",
+  gap: "0.25rem",
+  padding: "0.4rem 0.45rem",
+  border: "1px solid rgba(255, 255, 255, 0.25)",
+  borderRadius: "12px",
+  background: "rgba(17, 23, 17, 0.55)",
+  backdropFilter: "blur(4px)",
+  color: "#f3f1e6",
+  boxShadow: "0 6px 18px rgba(0, 0, 0, 0.3)",
+};
+
+const yearStepButtonStyle: CSSProperties = {
+  width: "42px",
+  minHeight: "28px",
+  padding: 0,
+  border: "1px solid rgba(255, 255, 255, 0.2)",
+  borderRadius: "8px",
+  background: "rgba(255, 255, 255, 0.1)",
+  color: "#f3f1e6",
+  fontSize: "0.72rem",
+  fontWeight: 900,
+  lineHeight: 1,
+  cursor: "pointer",
+};
+
+const yearStepDisabledStyle: CSSProperties = {
+  opacity: 0.3,
+  cursor: "not-allowed",
+};
+
+const yearStepValueStyle: CSSProperties = {
+  display: "grid",
+  justifyItems: "center",
+  gap: "0.05rem",
+  padding: "0.1rem 0",
+};
+
+const yearStepLabelStyle: CSSProperties = {
+  fontSize: "0.6rem",
+  fontWeight: 800,
+  letterSpacing: "0.05em",
+  textTransform: "uppercase",
+  color: "rgba(243, 241, 230, 0.75)",
+};
+
+const yearStepYearStyle: CSSProperties = {
+  fontSize: "1.05rem",
+  fontWeight: 900,
+  lineHeight: 1,
 };
 
 const mapControlsStyle: CSSProperties = {
