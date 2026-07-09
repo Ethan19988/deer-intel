@@ -30,6 +30,42 @@ The AI Scout page's "Ask AI Scout" section calls a real LLM and needs its own An
 
 Without a key, that section of the page shows an "isn't turned on yet" message — everything else in the app works normally either way.
 
+## Login & Cloud Sync (optional)
+
+By default Deer Intel saves everything in the browser's local storage — no
+account needed. You can optionally turn on **login + cloud sync** (backed by
+[Supabase](https://supabase.com)) so a hunter can create an account and keep
+their properties, cameras, stands, hunts, photos, and deer profiles synced
+across devices.
+
+To enable it:
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. In the project's **SQL Editor**, run [`supabase/schema.sql`](supabase/schema.sql).
+   This creates the `deer_intel_state` table and row-level security policies so
+   each user can only read/write their own data.
+3. From **Settings → API**, copy the **Project URL** and **anon/public key**.
+4. Put them in `.env.local` (local dev) or your Vercel project's Environment
+   Variables (deployed) as `NEXT_PUBLIC_SUPABASE_URL` and
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Both are safe to expose to the browser; the
+   anon key is protected by the RLS policies. **Never** use the `service_role`
+   key here.
+5. Restart `npm run dev` (or redeploy).
+
+Once configured, a **Sign In** control appears in the top navigation and a full
+**Account & Cloud Sync** panel appears under Settings. How it behaves:
+
+- **First sign-in** reconciles safely — if the cloud is empty it uploads this
+  device's data; if this device is empty it downloads the cloud's; if both have
+  data the most recently edited wins (no silent data loss for a fresh device).
+- **Edits** are pushed to the cloud automatically (debounced), and the app pulls
+  newer data when the tab regains focus, so multiple devices stay in sync.
+- **Signing out** keeps this device's local data intact; it just stops syncing.
+
+Email confirmation and magic-link sign-in follow whatever you configure under
+Supabase **Authentication → Providers**. Without the env vars, none of this UI
+appears and the app stays fully local-only.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
