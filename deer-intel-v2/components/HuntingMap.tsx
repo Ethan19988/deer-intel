@@ -1316,16 +1316,12 @@ export default function HuntingMap() {
           ) : null}
 
           {isDrawingArea ? (
-            <div className="di-map-notice" style={huntAreaNoticeStyle}>
+            <div className="di-area-pill" style={huntAreaNoticeStyle}>
               {draftAreaPoints.length < 3
-                ? `Tap the map to outline your hunt area — ${
-                    3 - draftAreaPoints.length
-                  } more point${
-                    3 - draftAreaPoints.length === 1 ? "" : "s"
-                  } needed.`
-                : `Hunt area: ${draftAreaPoints.length} points${
+                ? `Tap the map · ${draftAreaPoints.length}/3`
+                : `${draftAreaPoints.length} points${
                     draftAreaAcresLabel ? ` · ${draftAreaAcresLabel}` : ""
-                  }. Tap Finish to save.`}
+                  }`}
             </div>
           ) : null}
 
@@ -1771,20 +1767,23 @@ const coordToggleStyle: CSSProperties = {
 
 const huntAreaNoticeStyle: CSSProperties = {
   position: "absolute",
-  left: "1rem",
-  bottom: "1rem",
+  left: "50%",
+  bottom: "0.6rem",
+  transform: "translateX(-50%)",
   zIndex: 1000,
-  maxWidth: "min(360px, calc(100% - 2rem))",
-  padding: "0.7rem 0.85rem",
-  border: "1px solid rgba(122, 194, 255, 0.9)",
-  borderRadius: "8px",
-  background: "rgba(9, 24, 40, 0.94)",
+  width: "fit-content",
+  maxWidth: "calc(100% - 2rem)",
+  whiteSpace: "nowrap",
+  padding: "0.3rem 0.7rem",
+  border: "1px solid rgba(122, 194, 255, 0.65)",
+  borderRadius: "999px",
+  background: "rgba(9, 24, 40, 0.7)",
   color: "#dcefff",
-  fontSize: "0.92rem",
+  fontSize: "0.8rem",
   fontWeight: 700,
-  lineHeight: 1.35,
-  boxShadow: "0 10px 24px rgba(0, 0, 0, 0.28)",
-  // Informational only — never intercept map taps meant to drop a point.
+  lineHeight: 1.2,
+  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.25)",
+  // Informational only — a small pill that never blocks or intercepts taps.
   pointerEvents: "none",
 };
 
