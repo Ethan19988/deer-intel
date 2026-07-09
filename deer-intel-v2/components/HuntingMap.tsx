@@ -39,6 +39,7 @@ import {
   updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
+import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import {
   IDLE_PARCEL_OWNER_LOOKUP_STATE,
   lookupPaParcelOwnerAtPoint,
@@ -94,6 +95,10 @@ type SearchTarget = {
 };
 
 const MAP_CENTER_EPSILON = 0.00001;
+
+// Zoom used when auto-centering on a property. Close enough to see a property's
+// footprint without diving all the way to individual-asset zoom.
+const PROPERTY_FOCUS_ZOOM = 15;
 
 function useIsMobileMapDevice() {
   const [isMobile, setIsMobile] = useState(false);
@@ -504,6 +509,35 @@ export default function HuntingMap() {
     );
     setMapZoom((currentZoom) => (currentZoom === zoom ? currentZoom : zoom));
   }, []);
+
+  // Auto-center when the selected property changes (including first load) so the
+  // map opens on the right ground. We only key on the property id — not the
+  // assets — so adding or moving a pin never yanks the view out from under the
+  // user. Latest assets are kept in a ref so the fly-to point stays accurate.
+  const focusInputsRef = useRef({ selectedProperty, propertyCameras, pins });
+
+  useEffect(() => {
+    focusInputsRef.current = { selectedProperty, propertyCameras, pins };
+  });
+
+  useEffect(() => {
+    if (!selectedPropertyId) return;
+
+    const {
+      selectedProperty: property,
+      propertyCameras: cameras,
+      pins: propertyPins,
+    } = focusInputsRef.current;
+    const point = resolvePropertyWeatherPoint(property, cameras, propertyPins);
+
+    if (!point) return;
+
+    setSearchTarget({
+      center: [point.lat, point.lng],
+      id: Date.now(),
+      zoom: PROPERTY_FOCUS_ZOOM,
+    });
+  }, [selectedPropertyId]);
 
   function selectProperty(propertyId: string) {
     updateDeerIntelStore((currentState) => ({
