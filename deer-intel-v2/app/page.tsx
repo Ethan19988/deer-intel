@@ -7,7 +7,9 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
+import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
+import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { getHuntPlannerSummary, plannerHuntDate } from "@/lib/huntPlanner";
 import { formatHuntDate } from "@/lib/hunts";
 
@@ -59,6 +61,11 @@ export default function Home() {
   const propertyDeerProfiles = state.deerProfiles.filter(
     (profile) => profile.propertyId === activePropertyId,
   );
+  const weatherPoint = resolvePropertyWeatherPoint(
+    activeProperty ?? null,
+    propertyCameras,
+    propertyPins,
+  );
   const keyInsights = getHomeInsights({
     activePropertyName: activeProperty?.name,
     cameraCheckCount: propertyCameraChecks.length,
@@ -86,8 +93,19 @@ export default function Home() {
             </p>
             <h1 style={briefTitleStyle}>Today&apos;s Brief</h1>
           </div>
-          <Badge variant="warning">Weather Coming Soon</Badge>
+          <Badge variant={weatherPoint ? "success" : "default"}>
+            {weatherPoint ? "Live Weather" : "Weather"}
+          </Badge>
         </div>
+
+        <LiveWeatherPanel
+          point={weatherPoint}
+          emptyHint={
+            activeProperty
+              ? "Add map pins or a camera location to this property to load live weather."
+              : "Set up a property with map pins to load live weather."
+          }
+        />
 
         <div style={briefGridStyle}>
           <BriefItem
