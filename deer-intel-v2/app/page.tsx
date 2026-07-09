@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import ActionCard from "@/components/ui/ActionCard";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
@@ -9,7 +9,8 @@ import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
-import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import { fetchLiveWeather, resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import { getStandWindCheck } from "@/lib/standWind";
 import { getHuntPlannerSummary, plannerHuntDate } from "@/lib/huntPlanner";
 import { formatHuntDate } from "@/lib/hunts";
 
@@ -66,6 +67,41 @@ export default function Home() {
     propertyCameras,
     propertyPins,
   );
+  const weatherKey = weatherPoint
+    ? `${weatherPoint.lat},${weatherPoint.lng}`
+    : "";
+  const [currentWind, setCurrentWind] = useState<string>();
+
+  useEffect(() => {
+    if (!weatherKey) {
+      setCurrentWind(undefined);
+      return;
+    }
+
+    const [lat, lng] = weatherKey.split(",").map(Number);
+    let active = true;
+
+    fetchLiveWeather({ lat, lng }).then((result) => {
+      if (!active) return;
+      setCurrentWind(
+        result.status === "ok" ? result.fields.windDirection : undefined,
+      );
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [weatherKey]);
+
+  const goodWindStands = currentWind
+    ? propertyStands.filter(
+        (stand) => getStandWindCheck(stand, currentWind).status === "good",
+      )
+    : [];
+  const standsWithWindNotes = propertyStands.filter(
+    (stand) => stand.bestWinds.trim() || stand.avoidWinds.trim(),
+  );
+
   const keyInsights = getHomeInsights({
     activePropertyName: activeProperty?.name,
     cameraCheckCount: propertyCameraChecks.length,
@@ -163,6 +199,64 @@ export default function Home() {
         </Card>
       </Section>
 
+      {activeProperty && propertyStands.length > 0 ? (
+        <Section eyebrow="Wind Call" title="Tonight's Sit">
+          <Card as="article" variant="subtle" style={insightCardStyle}>
+            <div>
+              {!currentWind ? (
+                <>
+                  <p style={insightTitleStyle}>Today&apos;s wind isn&apos;t loaded yet</p>
+                  <p style={mutedTextStyle}>
+                    Give {activeProperty.name} a saved location, map pins, or a
+                    camera so Deer Intel can check the wind against your stands.
+                  </p>
+                </>
+              ) : standsWithWindNotes.length === 0 ? (
+                <>
+                  <p style={insightTitleStyle}>No wind notes on your stands</p>
+                  <p style={mutedTextStyle}>
+                    Add best and avoid winds to your stands so Deer Intel can
+                    call the right sit.
+                  </p>
+                </>
+              ) : goodWindStands.length > 0 ? (
+                <>
+                  <p style={insightTitleStyle}>
+                    Good wind for {formatStandNames(goodWindStands)}
+                  </p>
+                  <p style={mutedTextStyle}>
+                    Today&apos;s wind is {currentWind}.{" "}
+                    {goodWindStands.length === 1 ? "This stand keeps" : "These stands keep"}{" "}
+                    your scent off the deer.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p style={insightTitleStyle}>
+                    No stand matches the {currentWind} wind
+                  </p>
+                  <p style={mutedTextStyle}>
+                    None of your saved stands list {currentWind} as a good wind
+                    today — scout, or pick your least-exposed sit.
+                  </p>
+                </>
+              )}
+            </div>
+            <Badge
+              variant={
+                !currentWind
+                  ? "default"
+                  : goodWindStands.length > 0
+                    ? "success"
+                    : "warning"
+              }
+            >
+              {currentWind ? `Wind ${currentWind}` : "Wind"}
+            </Badge>
+          </Card>
+        </Section>
+      ) : null}
+
       <section style={actionGridStyle} aria-label="Primary actions">
         {HOME_ACTIONS.map((action) => (
           <ActionCard
@@ -218,6 +312,15 @@ function MiniStat({ label, value }: { label: string; value: number }) {
       <span style={miniStatLabelStyle}>{label}</span>
     </div>
   );
+}
+
+function formatStandNames(stands: Array<{ name: string }>): string {
+  const names = stands.map((stand) => stand.name);
+
+  if (names.length <= 1) return names[0] ?? "";
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 }
 
 function propertySubtitle(county?: string, acres?: string) {
