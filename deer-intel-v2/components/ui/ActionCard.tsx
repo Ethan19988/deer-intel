@@ -53,10 +53,11 @@ const cardStyle: CSSProperties = {
   display: "grid",
   alignContent: "start",
   padding: "1.15rem",
-  border: "1px solid #243224",
-  borderRadius: "8px",
-  background: "#0a0f0a",
-  color: "white",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius)",
+  background: "var(--surface)",
+  color: "var(--text)",
+  boxShadow: "var(--shadow-sm)",
   textDecoration: "none",
 };
 
@@ -73,8 +74,9 @@ const sizeStyles: Record<NonNullable<ActionCardProps["size"]>, CSSProperties> = 
 const toneStyles: Record<NonNullable<ActionCardProps["tone"]>, CSSProperties> = {
   default: {},
   primary: {
-    border: "1px solid #3b6843",
-    background: "#102112",
+    border: "1px solid var(--accent-2-tint-border)",
+    background: "var(--accent-2-tint)",
+    boxShadow: "inset 0 3px 0 var(--accent-2), var(--shadow-sm)",
   },
 };
 
@@ -91,10 +93,10 @@ const iconWrapStyle: CSSProperties = {
   height: "2.35rem",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid #315135",
+  border: "1px solid var(--accent-tint-border)",
   borderRadius: "8px",
-  background: "#132414",
-  color: "#a7d1a6",
+  background: "var(--accent-tint)",
+  color: "var(--accent-text)",
 };
 
 const titleStyle: CSSProperties = {
@@ -110,7 +112,7 @@ const firstTitleStyle: CSSProperties = {
 
 const descriptionStyle: CSSProperties = {
   margin: "0.55rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   fontSize: "0.95rem",
   lineHeight: 1.5,
 };

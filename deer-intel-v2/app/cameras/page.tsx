@@ -230,7 +230,7 @@ const fieldStyle: CSSProperties = {
 };
 
 const labelStyle: CSSProperties = {
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.85rem",
   fontWeight: 800,
 };
@@ -239,10 +239,10 @@ const selectStyle: CSSProperties = {
   minHeight: "48px",
   width: "100%",
   padding: "0.75rem",
-  border: "1px solid #2b3a2b",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#070a07",
-  color: "white",
+  background: "var(--surface-2)",
+  color: "var(--text)",
 };
 
 const statGridStyle: CSSProperties = {
@@ -268,9 +268,9 @@ const primaryLinkStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "0.7rem 0.9rem",
-  border: "1px solid #3b6843",
+  border: "1px solid var(--accent)",
   borderRadius: "8px",
-  background: "#18351d",
+  background: "var(--accent)",
   color: "white",
   fontWeight: 800,
   textDecoration: "none",

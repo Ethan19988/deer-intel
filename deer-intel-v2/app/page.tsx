@@ -75,7 +75,15 @@ export default function Home() {
       <Card as="section" variant="elevated" style={briefStyle}>
         <div style={briefHeaderStyle}>
           <div>
-            <p style={eyebrowStyle}>Today</p>
+            <p
+              style={{
+                ...eyebrowStyle,
+                color: "var(--accent-2-text)",
+                textShadow: "0 1px 0 rgba(255, 255, 255, 0.4)",
+              }}
+            >
+              Today
+            </p>
             <h1 style={briefTitleStyle}>Today&apos;s Brief</h1>
           </div>
           <Badge variant="warning">Weather Coming Soon</Badge>
@@ -271,7 +279,14 @@ function getHomeInsights({
 const briefStyle: CSSProperties = {
   display: "grid",
   gap: "1rem",
-  padding: "1.2rem",
+  padding: "1.5rem",
+  border: "1px solid var(--border-strong)",
+  color: "var(--camo-fg)",
+  backgroundColor: "var(--camo-ink)",
+  backgroundImage:
+    "linear-gradient(rgba(233, 226, 206, 0.5), rgba(233, 226, 206, 0.62)), var(--camo)",
+  backgroundSize: "cover",
+  backgroundPosition: "center",
 };
 
 const briefHeaderStyle: CSSProperties = {
@@ -284,17 +299,19 @@ const briefHeaderStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-2-text)",
   fontSize: "0.78rem",
-  fontWeight: 700,
-  letterSpacing: 0,
+  fontWeight: 800,
+  letterSpacing: "0.04em",
   textTransform: "uppercase",
 };
 
 const briefTitleStyle: CSSProperties = {
   margin: "0.2rem 0 0",
-  fontSize: "1.65rem",
+  color: "var(--camo-fg)",
+  fontSize: "1.75rem",
   lineHeight: 1.15,
+  textShadow: "0 1px 0 rgba(255, 255, 255, 0.4)",
 };
 
 const briefGridStyle: CSSProperties = {
@@ -306,14 +323,14 @@ const briefGridStyle: CSSProperties = {
 const briefItemStyle: CSSProperties = {
   minHeight: "128px",
   padding: "0.9rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#070a07",
+  background: "var(--surface-2)",
 };
 
 const briefValueStyle: CSSProperties = {
   margin: "0.5rem 0 0",
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1.08rem",
   fontWeight: 850,
   lineHeight: 1.25,
@@ -321,7 +338,7 @@ const briefValueStyle: CSSProperties = {
 
 const mutedTextStyle: CSSProperties = {
   margin: "0.45rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.45,
 };
 
@@ -350,9 +367,9 @@ const propertyLinkStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "0.65rem 0.85rem",
-  border: "1px solid #3b6843",
+  border: "1px solid var(--accent)",
   borderRadius: "8px",
-  background: "#18351d",
+  background: "var(--accent)",
   color: "white",
   fontWeight: 850,
   textDecoration: "none",
@@ -370,20 +387,20 @@ const miniStatStyle: CSSProperties = {
   minHeight: "68px",
   alignContent: "center",
   padding: "0.65rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#0d120d",
+  background: "var(--surface)",
 };
 
 const miniStatValueStyle: CSSProperties = {
-  color: "#f1f5ef",
-  fontSize: "1.25rem",
+  color: "var(--accent-2)",
+  fontSize: "1.5rem",
   fontWeight: 900,
   lineHeight: 1,
 };
 
 const miniStatLabelStyle: CSSProperties = {
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   fontSize: "0.86rem",
   fontWeight: 800,
 };
@@ -409,7 +426,7 @@ const insightCardStyle: CSSProperties = {
 
 const insightTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1rem",
   fontWeight: 850,
   lineHeight: 1.3,

@@ -476,7 +476,7 @@ const fieldStyle: CSSProperties = {
 };
 
 const labelStyle: CSSProperties = {
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.85rem",
   fontWeight: 800,
 };
@@ -485,10 +485,10 @@ const selectStyle: CSSProperties = {
   minHeight: "48px",
   width: "100%",
   padding: "0.75rem",
-  border: "1px solid #2b3a2b",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#070a07",
-  color: "white",
+  background: "var(--surface-2)",
+  color: "var(--text)",
 };
 
 const bulletListStyle: CSSProperties = {
@@ -499,7 +499,7 @@ const bulletListStyle: CSSProperties = {
 };
 
 const bulletItemStyle: CSSProperties = {
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1.04rem",
   lineHeight: 1.55,
 };
@@ -514,7 +514,7 @@ const simpleHeaderStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 800,
   letterSpacing: 0,
@@ -523,14 +523,14 @@ const eyebrowStyle: CSSProperties = {
 
 const cardTitleStyle: CSSProperties = {
   margin: "0.25rem 0 0",
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1.55rem",
   lineHeight: 1.2,
 };
 
 const mutedTextStyle: CSSProperties = {
   margin: "0.7rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.55,
 };
 
@@ -540,19 +540,19 @@ const detailGridStyle: CSSProperties = {
   gap: "1rem",
   marginTop: "1rem",
   paddingTop: "1rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };
 
 const detailLabelStyle: CSSProperties = {
   margin: 0,
-  color: "#879486",
+  color: "var(--text-faint)",
   fontSize: "0.78rem",
   fontWeight: 800,
 };
 
 const detailValueStyle: CSSProperties = {
   margin: "0.25rem 0 0",
-  color: "#f1f5ef",
+  color: "var(--text)",
   lineHeight: 1.45,
 };
 
@@ -564,7 +564,7 @@ const attentionGridStyle: CSSProperties = {
 
 const attentionTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1.08rem",
   lineHeight: 1.25,
 };
@@ -572,10 +572,10 @@ const attentionTitleStyle: CSSProperties = {
 const attentionLinkStyle: CSSProperties = {
   display: "block",
   padding: "1.15rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#0a0f0a",
-  color: "white",
+  background: "var(--surface-2)",
+  color: "var(--text)",
   textDecoration: "none",
 };
 
@@ -596,9 +596,9 @@ const primaryLinkStyle: CSSProperties = {
   justifyContent: "center",
   marginTop: "1rem",
   padding: "0.7rem 0.9rem",
-  border: "1px solid #3b6843",
+  border: "1px solid var(--accent)",
   borderRadius: "8px",
-  background: "#18351d",
+  background: "var(--accent)",
   color: "white",
   fontWeight: 800,
   textDecoration: "none",
@@ -615,19 +615,19 @@ const inputStyle: CSSProperties = {
   minHeight: "48px",
   width: "100%",
   padding: "0.75rem",
-  border: "1px solid #2b3a2b",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#070a07",
-  color: "white",
+  background: "var(--surface-2)",
+  color: "var(--text)",
 };
 
 const textareaStyle: CSSProperties = {
   width: "100%",
   padding: "0.75rem",
-  border: "1px solid #2b3a2b",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#070a07",
-  color: "white",
+  background: "var(--surface-2)",
+  color: "var(--text)",
   fontFamily: "inherit",
   resize: "vertical",
 };
@@ -639,9 +639,9 @@ const primaryButtonStyle: CSSProperties = {
   justifyContent: "center",
   marginTop: "1.1rem",
   padding: "0.7rem 1.1rem",
-  border: "1px solid #3b6843",
+  border: "1px solid var(--accent)",
   borderRadius: "8px",
-  background: "#18351d",
+  background: "var(--accent)",
   color: "white",
   fontWeight: 800,
   cursor: "pointer",
@@ -655,15 +655,15 @@ const disabledButtonStyle: CSSProperties = {
 const aiScoutErrorStyle: CSSProperties = {
   margin: "0.9rem 0 0",
   padding: "0.75rem",
-  border: "1px solid #6b2b2b",
+  border: "1px solid var(--danger-border)",
   borderRadius: "8px",
-  background: "#1a0a0a",
-  color: "#f1b8b8",
+  background: "var(--danger-bg)",
+  color: "var(--danger-text)",
   lineHeight: 1.5,
 };
 
 const aiScoutReportStyle: CSSProperties = {
   marginTop: "1.25rem",
   paddingTop: "1.1rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };

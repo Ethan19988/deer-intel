@@ -23,21 +23,21 @@ const cardStyle: CSSProperties = {
 
 const labelStyle: CSSProperties = {
   margin: 0,
-  color: "#879486",
+  color: "var(--text-faint)",
   fontSize: "0.82rem",
   fontWeight: 700,
 };
 
 const valueStyle: CSSProperties = {
   margin: "0.45rem 0 0",
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1.25rem",
   fontWeight: 800,
 };
 
 const descriptionStyle: CSSProperties = {
   margin: "0.55rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   fontSize: "0.98rem",
   lineHeight: 1.5,
 };

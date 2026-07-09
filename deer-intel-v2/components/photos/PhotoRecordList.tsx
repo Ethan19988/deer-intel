@@ -78,9 +78,9 @@ const listStyle: CSSProperties = {
 
 const photoCardStyle: CSSProperties = {
   padding: "0.9rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#070a07",
+  background: "var(--surface-2)",
 };
 
 const headerStyle: CSSProperties = {
@@ -92,7 +92,7 @@ const headerStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.75rem",
   fontWeight: 700,
   letterSpacing: 0,
@@ -101,7 +101,7 @@ const eyebrowStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: "0.25rem 0 0",
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "1rem",
   lineHeight: 1.25,
 };
@@ -111,18 +111,18 @@ const detailsStyle: CSSProperties = {
   gap: "0.55rem",
   marginTop: "0.85rem",
   paddingTop: "0.85rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };
 
 const detailLabelStyle: CSSProperties = {
   margin: 0,
-  color: "#879486",
+  color: "var(--text-faint)",
   fontSize: "0.75rem",
   fontWeight: 700,
 };
 
 const detailValueStyle: CSSProperties = {
   margin: "0.25rem 0 0",
-  color: "#c7d0c5",
+  color: "var(--text-muted)",
   lineHeight: 1.5,
 };

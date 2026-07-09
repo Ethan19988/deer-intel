@@ -48,7 +48,7 @@ const badgeRowStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: "1rem 0 0",
-  color: "#f1f5ef",
+  color: "var(--text)",
   fontSize: "2.5rem",
   lineHeight: 1.05,
   fontWeight: 850,
@@ -57,7 +57,7 @@ const titleStyle: CSSProperties = {
 const descriptionStyle: CSSProperties = {
   maxWidth: "760px",
   margin: "0.9rem 0 0",
-  color: "#c7d0c5",
+  color: "var(--text-muted)",
   fontSize: "1.05rem",
   lineHeight: 1.6,
 };
@@ -68,5 +68,5 @@ const detailsStyle: CSSProperties = {
   gap: "1rem",
   marginTop: "1.25rem",
   paddingTop: "1.25rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };

@@ -95,7 +95,7 @@ const headerStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 700,
   letterSpacing: 0,
@@ -110,7 +110,7 @@ const titleStyle: CSSProperties = {
 
 const subtitleStyle: CSSProperties = {
   margin: "0.3rem 0 0",
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   fontSize: "0.95rem",
 };
 
@@ -120,7 +120,7 @@ const detailsGridStyle: CSSProperties = {
   gap: "1rem",
   marginTop: "1rem",
   paddingTop: "1rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };
 
 const notesStyle: CSSProperties = {
@@ -128,18 +128,18 @@ const notesStyle: CSSProperties = {
   gap: "0.35rem",
   marginTop: "1rem",
   paddingTop: "1rem",
-  borderTop: "1px solid #1e2a1e",
+  borderTop: "1px solid var(--border)",
 };
 
 const detailLabelStyle: CSSProperties = {
   margin: 0,
-  color: "#879486",
+  color: "var(--text-faint)",
   fontSize: "0.78rem",
   fontWeight: 700,
 };
 
 const detailValueStyle: CSSProperties = {
   margin: "0.25rem 0 0",
-  color: "#c7d0c5",
+  color: "var(--text-muted)",
   lineHeight: 1.5,
 };
