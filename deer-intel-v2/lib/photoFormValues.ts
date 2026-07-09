@@ -9,6 +9,9 @@ export type PhotoFormValues = {
   species: string;
   buckName: string;
   notes: string;
+  imageId: string;
+  imageWidth: number;
+  imageHeight: number;
 };
 
 export const EMPTY_PHOTO_FORM_VALUES: PhotoFormValues = {
@@ -19,6 +22,9 @@ export const EMPTY_PHOTO_FORM_VALUES: PhotoFormValues = {
   species: "",
   buckName: "",
   notes: "",
+  imageId: "",
+  imageWidth: 0,
+  imageHeight: 0,
 };
 
 type CreatePhotoRecordFromValuesInput = {
@@ -37,9 +43,12 @@ export function createPhotoRecordFromValues({
   cameraChecks,
 }: CreatePhotoRecordFromValuesInput): PhotoRecord | null {
   const cameraCheckId = values.cameraCheckId.trim();
-  const fileName = values.fileName.trim();
   const photoDate = values.photoDate.trim();
   const species = values.species.trim();
+  const imageId = values.imageId.trim();
+  // A label is optional once a real photo is attached; fall back to a sensible
+  // default so every record still has something to show in lists.
+  const fileName = values.fileName.trim() || (imageId ? "Uploaded photo" : "");
   const checkBelongsToCamera = cameraChecks.some(
     (check) =>
       check.id === cameraCheckId &&
@@ -71,5 +80,9 @@ export function createPhotoRecordFromValues({
     buckName: values.buckName.trim() || undefined,
     notes: values.notes.trim(),
     createdAt: new Date().toISOString(),
+    imageId: imageId || undefined,
+    imageWidth: imageId && values.imageWidth > 0 ? values.imageWidth : undefined,
+    imageHeight:
+      imageId && values.imageHeight > 0 ? values.imageHeight : undefined,
   };
 }

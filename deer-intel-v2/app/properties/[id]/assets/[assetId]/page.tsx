@@ -322,7 +322,7 @@ export default function PropertyAssetWorkspacePage() {
         <AssetPanel
           id="photos"
           title="Photos"
-          description="Attach photo records to camera checks. Actual uploads can come later."
+          description="Upload trail camera photos and attach them to camera checks."
           defaultOpen={false}
         >
           <div style={summaryGridStyle}>

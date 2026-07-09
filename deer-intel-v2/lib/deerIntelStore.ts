@@ -402,6 +402,10 @@ function normalizePhotoRecord(value: unknown): PhotoRecord | null {
     return null;
   }
 
+  const imageId = optionalStringValue(value.imageId);
+  const imageWidth = optionalNumberValue(value.imageWidth);
+  const imageHeight = optionalNumberValue(value.imageHeight);
+
   return {
     id,
     propertyId,
@@ -414,6 +418,10 @@ function normalizePhotoRecord(value: unknown): PhotoRecord | null {
     buckName: optionalStringValue(value.buckName),
     notes: stringValue(value.notes),
     createdAt: stringValue(value.createdAt, photoDate),
+    imageId,
+    imageWidth: imageId && imageWidth && imageWidth > 0 ? imageWidth : undefined,
+    imageHeight:
+      imageId && imageHeight && imageHeight > 0 ? imageHeight : undefined,
   };
 }
 
