@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import {
   fetchLiveForecast,
   type LiveForecast,
+  type PressureTrend,
   type WeatherPoint,
 } from "@/lib/liveWeather";
 
@@ -101,7 +102,26 @@ export default function LiveWeatherPanel({
             />
             <WeatherStat label="Sunrise" value={state.forecast.sunrise || "—"} />
             <WeatherStat label="Sunset" value={state.forecast.sunset || "—"} />
+            {state.forecast.pressure ? (
+              <WeatherStat
+                label="Pressure"
+                value={`${state.forecast.pressure.value} ${trendArrow(
+                  state.forecast.pressure.trend,
+                )}`}
+              />
+            ) : null}
           </div>
+
+          {state.forecast.pressure ? (
+            <p
+              style={{
+                ...cueStyle,
+                ...cueToneStyle(state.forecast.pressure.trend),
+              }}
+            >
+              Barometer {state.forecast.pressure.trend} — {state.forecast.pressure.hint}
+            </p>
+          ) : null}
 
           {state.forecast.days.length > 0 ? (
             <div style={forecastRowStyle}>
@@ -144,6 +164,42 @@ function WeatherStat({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+function trendArrow(trend: PressureTrend): string {
+  if (trend === "falling") return "↓";
+  if (trend === "rising") return "↑";
+  return "→";
+}
+
+function cueToneStyle(trend: PressureTrend): CSSProperties {
+  if (trend === "falling") {
+    return {
+      border: "1px solid var(--accent-2-tint-border)",
+      background: "var(--accent-2-tint)",
+      color: "var(--accent-2-text)",
+    };
+  }
+  if (trend === "rising") {
+    return {
+      border: "1px solid var(--success-border)",
+      background: "var(--success-bg)",
+      color: "var(--success-text)",
+    };
+  }
+  return {
+    border: "1px solid var(--border)",
+    background: "var(--surface-2)",
+    color: "var(--text-muted)",
+  };
+}
+
+const cueStyle: CSSProperties = {
+  margin: 0,
+  padding: "0.5rem 0.7rem",
+  borderRadius: "var(--radius-sm)",
+  fontSize: "0.86rem",
+  fontWeight: 700,
+};
 
 const panelStyle: CSSProperties = {
   display: "grid",
