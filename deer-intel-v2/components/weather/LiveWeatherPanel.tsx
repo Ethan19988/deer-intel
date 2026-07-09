@@ -2,8 +2,8 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import {
-  fetchLiveWeather,
-  type LiveWeatherFields,
+  fetchLiveForecast,
+  type LiveForecast,
   type WeatherPoint,
 } from "@/lib/liveWeather";
 
@@ -15,12 +15,13 @@ type LiveWeatherPanelProps = {
 type PanelState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "ok"; fields: LiveWeatherFields }
+  | { status: "ok"; forecast: LiveForecast }
   | { status: "error"; message: string };
 
 // A live-conditions panel for the dashboard. It reuses the app's existing
 // Open-Meteo layer (lib/liveWeather) rather than adding a second weather stack,
-// and renders as a light "HUD" tile that sits on the camo hero.
+// and renders as a light "HUD" tile that sits on the camo hero: current
+// conditions, today's shooting light (sunrise/sunset), and a short forecast.
 export default function LiveWeatherPanel({
   point,
   emptyHint = "Add map pins or a camera location to this property to load live weather.",
@@ -37,10 +38,10 @@ export default function LiveWeatherPanel({
     let active = true;
     setState({ status: "loading" });
 
-    fetchLiveWeather(point).then((result) => {
+    fetchLiveForecast(point).then((result) => {
       if (!active) return;
       if (result.status === "ok") {
-        setState({ status: "ok", fields: result.fields });
+        setState({ status: "ok", forecast: result.forecast });
       } else {
         setState({ status: "error", message: result.message });
       }
@@ -73,23 +74,54 @@ export default function LiveWeatherPanel({
         <div style={bodyStyle}>
           <div style={primaryRowStyle}>
             <span style={tempStyle}>
-              {state.fields.temperature ? `${state.fields.temperature}°` : "—"}
+              {state.forecast.current.temperature
+                ? `${state.forecast.current.temperature}°`
+                : "—"}
             </span>
             <span style={conditionStyle}>
-              {state.fields.weather || "Current conditions"}
+              {state.forecast.current.weather || "Current conditions"}
             </span>
           </div>
+
           <div style={statRowStyle}>
             <WeatherStat
               label="Wind"
               value={
-                [state.fields.windDirection, state.fields.windSpeed]
+                [
+                  state.forecast.current.windDirection,
+                  state.forecast.current.windSpeed,
+                ]
                   .filter(Boolean)
                   .join(" ") || "—"
               }
             />
-            <WeatherStat label="Moon" value={state.fields.moonPhase || "—"} />
+            <WeatherStat
+              label="Moon"
+              value={state.forecast.current.moonPhase || "—"}
+            />
+            <WeatherStat label="Sunrise" value={state.forecast.sunrise || "—"} />
+            <WeatherStat label="Sunset" value={state.forecast.sunset || "—"} />
           </div>
+
+          {state.forecast.days.length > 0 ? (
+            <div style={forecastRowStyle}>
+              {state.forecast.days.map((day) => (
+                <div key={day.date} style={forecastDayStyle}>
+                  <span style={forecastLabelStyle}>{day.label}</span>
+                  <span style={forecastTempStyle}>
+                    {day.high ? `${day.high}°` : "—"}
+                    {day.low ? (
+                      <span style={forecastLowStyle}> / {day.low}°</span>
+                    ) : null}
+                  </span>
+                  <span style={forecastMetaStyle}>{day.conditions}</span>
+                  {day.wind ? (
+                    <span style={forecastMetaStyle}>{day.wind}</span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : (
         <p style={messageStyle}>
@@ -185,7 +217,7 @@ const conditionStyle: CSSProperties = {
 
 const statRowStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
   gap: "0.6rem",
 };
 
@@ -210,6 +242,46 @@ const statValueStyle: CSSProperties = {
   color: "var(--text)",
   fontSize: "0.95rem",
   fontWeight: 800,
+};
+
+const forecastRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "0.6rem",
+};
+
+const forecastDayStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.2rem",
+  padding: "0.6rem 0.55rem",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--surface-2)",
+};
+
+const forecastLabelStyle: CSSProperties = {
+  color: "var(--accent-text)",
+  fontSize: "0.74rem",
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: "0.03em",
+};
+
+const forecastTempStyle: CSSProperties = {
+  color: "var(--text)",
+  fontSize: "1rem",
+  fontWeight: 850,
+};
+
+const forecastLowStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontWeight: 700,
+};
+
+const forecastMetaStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontSize: "0.8rem",
+  lineHeight: 1.3,
 };
 
 const messageStyle: CSSProperties = {
