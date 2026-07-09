@@ -1,10 +1,12 @@
 import type { CSSProperties, FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
+import LiveWeatherFill from "@/components/weather/LiveWeatherFill";
 import type {
   HuntFormValues,
   YesNoValue,
 } from "@/lib/huntFormValues";
+import type { WeatherPoint } from "@/lib/liveWeather";
 import type { Property } from "@/types/property";
 import type { Stand } from "@/types/stand";
 
@@ -12,6 +14,7 @@ type HuntLogFormProps = {
   values: HuntFormValues;
   properties: Property[];
   stands: Stand[];
+  weatherLocation?: WeatherPoint | null;
   onChange: (values: HuntFormValues) => void;
   onSubmit: () => void;
 };
@@ -20,6 +23,7 @@ export default function HuntLogForm({
   values,
   properties,
   stands,
+  weatherLocation = null,
   onChange,
   onSubmit,
 }: HuntLogFormProps) {
@@ -132,6 +136,16 @@ export default function HuntLogForm({
       </CollapsibleSection>
 
       <CollapsibleSection title="Weather and Wind">
+        <LiveWeatherFill
+          location={weatherLocation}
+          onApply={(fields) =>
+            onChange({
+              ...values,
+              ...fields,
+              weatherSource: "live",
+            })
+          }
+        />
         <div className="di-form-grid" style={formGridStyle}>
           <label style={fieldStyle}>
             <span style={labelStyle}>Wind Direction</span>

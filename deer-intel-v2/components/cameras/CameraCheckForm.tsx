@@ -1,16 +1,20 @@
 import type { CSSProperties, FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
+import LiveWeatherFill from "@/components/weather/LiveWeatherFill";
 import type { CameraCheckFormValues } from "@/lib/cameraCheckFormValues";
+import type { WeatherPoint } from "@/lib/liveWeather";
 
 type CameraCheckFormProps = {
   values: CameraCheckFormValues;
+  weatherLocation?: WeatherPoint | null;
   onChange: (values: CameraCheckFormValues) => void;
   onSubmit: () => void;
 };
 
 export default function CameraCheckForm({
   values,
+  weatherLocation = null,
   onChange,
   onSubmit,
 }: CameraCheckFormProps) {
@@ -91,6 +95,16 @@ export default function CameraCheckForm({
       </CollapsibleSection>
 
       <CollapsibleSection title="Weather During Check">
+        <LiveWeatherFill
+          location={weatherLocation}
+          onApply={(fields) =>
+            onChange({
+              ...values,
+              ...fields,
+              weatherSource: "live",
+            })
+          }
+        />
         <div className="di-form-grid" style={formGridStyle}>
           <label style={fieldStyle}>
             <span style={labelStyle}>Temperature</span>

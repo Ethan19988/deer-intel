@@ -32,6 +32,7 @@ import {
   createPhotoRecordFromValues,
   EMPTY_PHOTO_FORM_VALUES,
 } from "@/lib/photoFormValues";
+import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { getPhotoSummary } from "@/lib/photos";
 import {
   cameraRelationshipDescription,
@@ -302,6 +303,12 @@ export default function PropertyAssetWorkspacePage() {
         >
           <CameraCheckForm
             values={checkValues}
+            weatherLocation={
+              typeof camera.latitude === "number" &&
+              typeof camera.longitude === "number"
+                ? { lat: camera.latitude, lng: camera.longitude }
+                : resolvePropertyWeatherPoint(property, [], [])
+            }
             onChange={setCheckValues}
             onSubmit={addCameraCheck}
           />
