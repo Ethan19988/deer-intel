@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import PhotoImage from "@/components/photos/PhotoImage";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import { formatPhotoDate, sortPhotoRecordsChronologically } from "@/lib/photos";
@@ -38,6 +39,20 @@ export default function PhotoRecordList({
               </div>
               <Badge>{photo.species}</Badge>
             </div>
+
+            {photo.imageId ? (
+              <div style={imageWrapStyle}>
+                <PhotoImage
+                  imageId={photo.imageId}
+                  alt={`${photo.species} photo — ${photo.fileName}`}
+                  aspectRatio={
+                    photo.imageWidth && photo.imageHeight
+                      ? photo.imageWidth / photo.imageHeight
+                      : 4 / 3
+                  }
+                />
+              </div>
+            ) : null}
 
             {deerProfile || photo.buckName || photo.notes ? (
               <div style={detailsStyle}>
@@ -88,6 +103,10 @@ const headerStyle: CSSProperties = {
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: "1rem",
+};
+
+const imageWrapStyle: CSSProperties = {
+  marginTop: "0.75rem",
 };
 
 const eyebrowStyle: CSSProperties = {
