@@ -21,6 +21,8 @@ import WorkspaceIcon, {
 import Card from "@/components/ui/Card";
 import PageShell from "@/components/ui/PageShell";
 import Tabs from "@/components/ui/Tabs";
+import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
+import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import {
   createCameraFromValues,
   cameraToFormValues,
@@ -84,24 +86,6 @@ const INTELLIGENCE_MODULES: DashboardModule[] = [
   },
 ];
 
-const CONDITION_CARDS = [
-  {
-    title: "Wind",
-    value: "Coming Soon",
-    description: "Direction, speed, and stand suitability.",
-  },
-  {
-    title: "Moon",
-    value: "Coming Soon",
-    description: "Moon phase and movement context.",
-  },
-  {
-    title: "Daylight",
-    value: "Coming Soon",
-    description: "Sunrise, sunset, and legal shooting light.",
-  },
-];
-
 export default function PropertyWorkspacePage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -115,6 +99,11 @@ export default function PropertyWorkspacePage() {
     (stand) => stand.propertyId === params.id,
   );
   const propertyPins = state.pins.filter((pin) => pin.propertyId === params.id);
+  const weatherPoint = resolvePropertyWeatherPoint(
+    property,
+    state.cameras.filter((camera) => camera.propertyId === params.id),
+    state.pins.filter((pin) => pin.propertyId === params.id),
+  );
   const propertyHunts = state.hunts.filter(
     (hunt) => hunt.propertyId === params.id,
   );
@@ -506,21 +495,10 @@ export default function PropertyWorkspacePage() {
       </div>
 
       <DashboardSection eyebrow="Conditions" title="Today's Conditions">
-        <div style={cardGridStyle}>
-          <InfoCard
-            title="Weather"
-            value={weatherSummary.value}
-            description={weatherCardDescription(weatherSummary)}
-          />
-          {CONDITION_CARDS.map((condition) => (
-            <InfoCard
-              key={condition.title}
-              title={condition.title}
-              value={condition.value}
-              description={condition.description}
-            />
-          ))}
-        </div>
+        <LiveWeatherPanel
+          point={weatherPoint}
+          emptyHint={`Add a saved location, map pins, or a camera to ${property.name} to load live weather.`}
+        />
       </DashboardSection>
               </div>
             ),
