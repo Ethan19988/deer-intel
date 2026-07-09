@@ -89,7 +89,10 @@ export function weatherSnapshotDescription(snapshot: WeatherSnapshot) {
 }
 
 export function weatherSourceLabel(source: WeatherSource) {
-  return source === "live-placeholder" ? "Future live weather" : "Manual entry";
+  if (source === "live") return "Live weather";
+  if (source === "live-placeholder") return "Future live weather";
+
+  return "Manual entry";
 }
 
 export function formatWeatherTemperature(value: string) {
@@ -142,7 +145,7 @@ export function getPropertyWeatherSummary({
     return {
       value: "Ready for weather",
       description:
-        "Add weather to hunts or camera checks. Live weather can plug in later.",
+        "Add weather to hunts or camera checks, or tap Use live weather to pull current conditions automatically.",
       recordCount: 0,
       latestDateLabel: "No records yet",
       sourceLabel: LIVE_WEATHER_PLACEHOLDER.label,
@@ -205,6 +208,7 @@ function weatherSourceValue(
   value: unknown,
   fallback: WeatherSource | undefined,
 ): WeatherSource {
+  if (value === "live") return "live";
   if (value === "live-placeholder") return "live-placeholder";
   if (value === "manual") return "manual";
 

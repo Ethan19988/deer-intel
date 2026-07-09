@@ -22,6 +22,7 @@ The goal is to build an AI-assisted hunting application that learns each propert
 - Cameras
 - Stands
 - Hunt Log
+- Live Weather (auto-fill temperature, wind, sky, and moon phase from Open-Meteo)
 - AI Scout (rule-based insights + opt-in LLM recommendations via ANTHROPIC_API_KEY)
 
 ---

@@ -302,6 +302,12 @@ export default function PropertyAssetWorkspacePage() {
         >
           <CameraCheckForm
             values={checkValues}
+            weatherLocation={
+              typeof camera.latitude === "number" &&
+              typeof camera.longitude === "number"
+                ? { lat: camera.latitude, lng: camera.longitude }
+                : null
+            }
             onChange={setCheckValues}
             onSubmit={addCameraCheck}
           />

@@ -1,4 +1,4 @@
-export type WeatherSource = "manual" | "live-placeholder";
+export type WeatherSource = "manual" | "live" | "live-placeholder";
 
 export type WeatherSnapshot = {
   temperature: string;
