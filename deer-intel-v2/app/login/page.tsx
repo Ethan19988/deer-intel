@@ -68,8 +68,8 @@ const pageStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "clamp(1rem, 5vw, 3rem)",
-  background: "#050806",
-  color: "white",
+  background: "var(--bg)",
+  color: "var(--text)",
 };
 
 const shellStyle: CSSProperties = {
@@ -86,7 +86,7 @@ const headerStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 800,
   textTransform: "uppercase",
@@ -100,7 +100,7 @@ const titleStyle: CSSProperties = {
 
 const subtitleStyle: CSSProperties = {
   margin: 0,
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.55,
 };
 
@@ -108,9 +108,9 @@ const infoCardStyle: CSSProperties = {
   display: "grid",
   gap: "0.75rem",
   padding: "1.25rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "12px",
-  background: "#0a0f0a",
+  background: "var(--surface-2)",
 };
 
 const infoTitleStyle: CSSProperties = {
@@ -121,7 +121,7 @@ const infoTitleStyle: CSSProperties = {
 
 const mutedStyle: CSSProperties = {
   margin: 0,
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.55,
 };
 
@@ -131,9 +131,9 @@ const linkStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "0.6rem 0.9rem",
-  border: "1px solid #3b6843",
+  border: "1px solid var(--accent)",
   borderRadius: "8px",
-  background: "#18351d",
+  background: "var(--accent)",
   color: "white",
   fontWeight: 800,
   textDecoration: "none",
@@ -141,7 +141,7 @@ const linkStyle: CSSProperties = {
 };
 
 const backLinkStyle: CSSProperties = {
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontWeight: 700,
   textDecoration: "none",
   justifySelf: "center",

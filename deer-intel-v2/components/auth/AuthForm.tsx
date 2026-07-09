@@ -157,9 +157,9 @@ const cardStyle: CSSProperties = {
   display: "grid",
   gap: "1rem",
   padding: "1.25rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "12px",
-  background: "#0a0f0a",
+  background: "var(--surface-2)",
 };
 
 const tabRowStyle: CSSProperties = {
@@ -171,19 +171,19 @@ const tabRowStyle: CSSProperties = {
 const tabStyle: CSSProperties = {
   minHeight: "42px",
   padding: "0.5rem",
-  border: "1px solid #243224",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#0d120d",
-  color: "#c6d5c5",
+  background: "var(--surface)",
+  color: "var(--text-muted)",
   fontSize: "0.9rem",
   fontWeight: 800,
   cursor: "pointer",
 };
 
 const activeTabStyle: CSSProperties = {
-  borderColor: "#3b6843",
-  background: "#18351d",
-  color: "#c6f0c6",
+  borderColor: "var(--accent)",
+  background: "var(--accent)",
+  color: "var(--accent-fg)",
 };
 
 const formStyle: CSSProperties = {
@@ -197,7 +197,7 @@ const labelStyle: CSSProperties = {
 };
 
 const labelTextStyle: CSSProperties = {
-  color: "#85a984",
+  color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 800,
   textTransform: "uppercase",
@@ -206,27 +206,27 @@ const labelTextStyle: CSSProperties = {
 const inputStyle: CSSProperties = {
   minHeight: "46px",
   padding: "0.65rem 0.75rem",
-  border: "1px solid #2b3a2b",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#070a07",
-  color: "#f1f5ef",
+  background: "var(--surface-2)",
+  color: "var(--text)",
   fontSize: "1rem",
 };
 
 const hintStyle: CSSProperties = {
   margin: 0,
-  color: "#b8c2b6",
+  color: "var(--text-muted)",
   lineHeight: 1.5,
 };
 
 const errorStyle: CSSProperties = {
   margin: 0,
-  color: "#ffb4b4",
+  color: "var(--danger-text)",
   lineHeight: 1.5,
 };
 
 const noticeStyle: CSSProperties = {
   margin: 0,
-  color: "#c6f0c6",
+  color: "var(--success-text)",
   lineHeight: 1.5,
 };
