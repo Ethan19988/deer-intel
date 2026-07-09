@@ -12,13 +12,28 @@ export type TabItem = {
 type TabsProps = {
   items: TabItem[];
   initialId?: string;
+  /** Controlled active tab. When set, the parent owns the state. */
+  activeId?: string;
+  onChange?: (id: string) => void;
 };
 
 // A lightweight segmented tab control so a page can lead with its primary view
-// and tuck secondary content (summaries, intelligence) behind a click.
-export default function Tabs({ items, initialId }: TabsProps) {
-  const [activeId, setActiveId] = useState(initialId ?? items[0]?.id);
-  const activeItem = items.find((item) => item.id === activeId) ?? items[0];
+// and tuck secondary content (summaries, intelligence) behind a click. Works
+// uncontrolled, or controlled via activeId/onChange for deep-linking.
+export default function Tabs({
+  items,
+  initialId,
+  activeId,
+  onChange,
+}: TabsProps) {
+  const [internalId, setInternalId] = useState(initialId ?? items[0]?.id);
+  const currentId = activeId ?? internalId;
+  const activeItem = items.find((item) => item.id === currentId) ?? items[0];
+
+  function selectTab(id: string) {
+    if (activeId === undefined) setInternalId(id);
+    onChange?.(id);
+  }
 
   if (!activeItem) return null;
 
@@ -34,7 +49,7 @@ export default function Tabs({ items, initialId }: TabsProps) {
               type="button"
               role="tab"
               aria-selected={isActive}
-              onClick={() => setActiveId(item.id)}
+              onClick={() => selectTab(item.id)}
               style={{ ...tabStyle, ...(isActive ? activeTabStyle : null) }}
             >
               {item.label}
