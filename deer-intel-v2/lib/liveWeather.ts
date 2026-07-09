@@ -46,11 +46,21 @@ export type ForecastDay = {
   wind: string;
 };
 
+export type PressureTrend = "rising" | "steady" | "falling";
+
+/** Barometric pressure plus a hunting cue (deer move on a falling barometer). */
+export type PressureReading = {
+  value: string;
+  trend: PressureTrend;
+  hint: string;
+};
+
 export type LiveForecast = {
   current: LiveWeatherFields;
   sunrise: string;
   sunset: string;
   days: ForecastDay[];
+  pressure?: PressureReading;
 };
 
 export type LiveForecastResult =
@@ -58,10 +68,17 @@ export type LiveForecastResult =
   | { status: "error"; message: string };
 
 type OpenMeteoCurrent = {
+  time?: string;
   temperature_2m?: number;
   wind_speed_10m?: number;
   wind_direction_10m?: number;
   weather_code?: number;
+  pressure_msl?: number;
+};
+
+type OpenMeteoHourly = {
+  time?: string[];
+  pressure_msl?: number[];
 };
 
 type OpenMeteoDaily = {
@@ -77,6 +94,7 @@ type OpenMeteoDaily = {
 
 type OpenMeteoResponse = {
   current?: OpenMeteoCurrent;
+  hourly?: OpenMeteoHourly;
   daily?: OpenMeteoDaily;
 };
 
@@ -251,8 +269,9 @@ export async function fetchLiveForecast(
     requestUrl.searchParams.set("longitude", point.lng.toFixed(4));
     requestUrl.searchParams.set(
       "current",
-      "temperature_2m,wind_speed_10m,wind_direction_10m,weather_code",
+      "temperature_2m,wind_speed_10m,wind_direction_10m,weather_code,pressure_msl",
     );
+    requestUrl.searchParams.set("hourly", "pressure_msl");
     requestUrl.searchParams.set(
       "daily",
       "weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_direction_10m_dominant,sunrise,sunset",
@@ -312,6 +331,7 @@ export async function fetchLiveForecast(
         sunrise: formatClockTime(daily.sunrise?.[0]),
         sunset: formatClockTime(daily.sunset?.[0]),
         days,
+        pressure: buildPressureReading(payload.current, payload.hourly),
       },
     };
 
@@ -328,6 +348,50 @@ export async function fetchLiveForecast(
 
 function numberToText(value: number | undefined): string {
   return typeof value === "number" ? `${Math.round(value)}` : "";
+}
+
+const HPA_TO_INHG = 0.02953;
+// hPa change over ~3h that counts as a real barometer move rather than noise.
+const PRESSURE_TREND_THRESHOLD = 1.5;
+
+function buildPressureReading(
+  current: OpenMeteoCurrent,
+  hourly: OpenMeteoHourly | undefined,
+): PressureReading | undefined {
+  const nowHpa = current.pressure_msl;
+
+  if (typeof nowHpa !== "number" || !Number.isFinite(nowHpa)) return undefined;
+
+  const value = `${(nowHpa * HPA_TO_INHG).toFixed(2)} inHg`;
+  let trend: PressureTrend = "steady";
+
+  const times = hourly?.time ?? [];
+  const readings = hourly?.pressure_msl ?? [];
+  const currentHour = current.time ? current.time.slice(0, 13) : "";
+  let index = currentHour
+    ? times.findIndex((entry) => entry.slice(0, 13) === currentHour)
+    : -1;
+
+  // Fall back to the latest hourly sample when the current hour isn't listed.
+  if (index < 0) index = readings.length - 1;
+
+  const past = readings[index - 3];
+
+  if (typeof past === "number" && Number.isFinite(past)) {
+    const delta = nowHpa - past;
+
+    if (delta <= -PRESSURE_TREND_THRESHOLD) trend = "falling";
+    else if (delta >= PRESSURE_TREND_THRESHOLD) trend = "rising";
+  }
+
+  const hint =
+    trend === "falling"
+      ? "Front moving in — movement likely"
+      : trend === "rising"
+        ? "Clearing behind a front"
+        : "Little pressure change";
+
+  return { value, trend, hint };
 }
 
 function formatWind(
