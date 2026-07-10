@@ -21,12 +21,28 @@ export type LandOwnerDataset = {
   parcels: LandOwnerParcel[];
 };
 
+// The merged view the map overlay renders: every baked township's parcels in
+// one list, plus which townships actually loaded (some may not be baked yet).
+export type LandOwners = {
+  townships: string[];
+  parcels: LandOwnerParcel[];
+};
+
 // Owner labels are only useful zoomed in — below this they overlap into mush,
 // and above it any viewport holds few enough parcels to render smoothly.
 export const LAND_OWNERS_MIN_ZOOM = 14;
 // Hard cap on labels drawn at once, even inside the viewport, for performance.
 export const LAND_OWNERS_MAX_VISIBLE = 250;
-export const LAND_OWNERS_DATASET_URL = "/data/shippen-township-owners.json";
+
+// The baked datasets to overlay, one JSON per township under public/data.
+// Regenerate any of these with scripts/bake-land-owners.mjs. A file that isn't
+// present yet (not baked) is skipped, so this list can lead the data.
+export const LAND_OWNERS_DATASET_URLS = [
+  "/data/shippen-township-owners.json",
+  "/data/hamiltonban-township-owners.json",
+  "/data/quincy-township-owners.json",
+  "/data/guilford-township-owners.json",
+];
 
 // Smaller parcels only reveal their owner as you zoom in. At a given zoom a
 // parcel must be at least this many acres to get a label, so the view isn't a
@@ -40,22 +56,46 @@ export function minAcresForZoom(zoom: number): number {
   return 30;
 }
 
-let cachedDataset: LandOwnerDataset | null = null;
-let inflightRequest: Promise<LandOwnerDataset> | null = null;
+let cachedData: LandOwners | null = null;
+let inflightRequest: Promise<LandOwners> | null = null;
 
-// Loads the baked dataset once and caches it for the session.
-export async function loadLandOwners(): Promise<LandOwnerDataset> {
-  if (cachedDataset) return cachedDataset;
+async function fetchDataset(url: string): Promise<LandOwnerDataset | null> {
+  try {
+    const response = await fetch(url);
+    // A township that hasn't been baked yet (404) is simply skipped.
+    if (!response.ok) return null;
+    return (await response.json()) as LandOwnerDataset;
+  } catch {
+    return null;
+  }
+}
+
+// Loads every baked township dataset once, merges their parcels, and caches the
+// result for the session. Townships whose JSON isn't present yet are skipped;
+// the load only fails if none of them could be loaded.
+export async function loadLandOwners(): Promise<LandOwners> {
+  if (cachedData) return cachedData;
 
   if (!inflightRequest) {
-    inflightRequest = fetch(LAND_OWNERS_DATASET_URL)
-      .then((response) => {
-        if (!response.ok) throw new Error("Land owner dataset unavailable.");
-        return response.json() as Promise<LandOwnerDataset>;
-      })
-      .then((dataset) => {
-        cachedDataset = dataset;
-        return dataset;
+    inflightRequest = Promise.all(
+      LAND_OWNERS_DATASET_URLS.map(fetchDataset),
+    )
+      .then((datasets) => {
+        const loaded = datasets.filter(
+          (dataset): dataset is LandOwnerDataset => dataset !== null,
+        );
+
+        if (loaded.length === 0) {
+          throw new Error("Land owner datasets unavailable.");
+        }
+
+        const merged: LandOwners = {
+          townships: loaded.map((dataset) => dataset.township),
+          parcels: loaded.flatMap((dataset) => dataset.parcels),
+        };
+
+        cachedData = merged;
+        return merged;
       })
       .catch((error) => {
         inflightRequest = null;
