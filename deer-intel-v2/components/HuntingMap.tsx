@@ -1253,6 +1253,7 @@ export default function HuntingMap() {
           >
             <TileLayer
               key={`${selectedMapLayer.id}-base-${selectedRelease ?? "static"}`}
+              className={selectedMapLayer.className}
               attribution={selectedMapLayer.attribution}
               url={baseTileUrl}
               maxZoom={19}
@@ -1262,10 +1263,12 @@ export default function HuntingMap() {
             {selectedMapLayer.overlayLayers?.map((overlayLayer, index) => (
               <TileLayer
                 key={`${selectedMapLayer.id}-${overlayLayer.label}`}
+                className={overlayLayer.className}
                 attribution={overlayLayer.attribution}
                 url={overlayLayer.url}
                 maxZoom={19}
                 maxNativeZoom={19}
+                opacity={overlayLayer.opacity ?? 1}
                 zIndex={650 + index}
               />
             ))}

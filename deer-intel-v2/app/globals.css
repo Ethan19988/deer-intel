@@ -269,6 +269,20 @@ textarea {
   transform: translateX(0);
 }
 
+/* LiDAR base map — punch up the multidirectional hillshade so micro-terrain
+   reads with that crisp, high-contrast "LiDAR" bite (Spartan Forge style),
+   with a hint of warm tone. Filtering the whole layer keeps tiles seamless. */
+.di-lidar-tiles {
+  filter: contrast(1.18) saturate(0.9) sepia(0.06);
+}
+
+/* Stack a second 3DEP hillshade with a multiply blend so slopes and draws gain
+   real shadow depth instead of a flat grey wash. Falls back to plain alpha
+   blending anywhere multiply isn't supported. */
+.di-lidar-relief {
+  mix-blend-mode: multiply;
+}
+
 .di-map-frame .leaflet-control-scale {
   margin-bottom: 5.8rem;
   margin-left: 1rem;
