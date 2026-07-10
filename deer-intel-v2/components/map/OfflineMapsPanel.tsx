@@ -12,10 +12,8 @@ type OfflineMapsPanelProps = {
   supported: boolean;
   layerLabel: string;
   packs: OfflineMapPack[];
-  canSaveHuntArea: boolean;
   status: OfflineStatus;
   onSaveView: () => void;
-  onSaveHuntArea: () => void;
   onConfirm: () => void;
   onCancel: () => void;
   onDelete: (id: string) => void;
@@ -25,10 +23,8 @@ export default function OfflineMapsPanel({
   supported,
   layerLabel,
   packs,
-  canSaveHuntArea,
   status,
   onSaveView,
-  onSaveHuntArea,
   onConfirm,
   onCancel,
   onDelete,
@@ -52,36 +48,20 @@ export default function OfflineMapsPanel({
         with no signal in the field.
       </p>
 
-      <div style={buttonRowStyle}>
-        <button
-          type="button"
-          style={actionButtonStyle}
-          disabled={isBusy}
-          onClick={onSaveView}
-        >
-          Save this view
-        </button>
-        <button
-          type="button"
-          style={{
-            ...actionButtonStyle,
-            ...(canSaveHuntArea && !isBusy ? null : disabledButtonStyle),
-          }}
-          disabled={!canSaveHuntArea || isBusy}
-          onClick={onSaveHuntArea}
-        >
-          Save hunt area
-        </button>
-      </div>
+      <button
+        type="button"
+        style={{ ...actionButtonStyle, ...(isBusy ? disabledButtonStyle : null) }}
+        disabled={isBusy}
+        onClick={onSaveView}
+      >
+        Save this view
+      </button>
 
-      {!canSaveHuntArea ? (
-        <p style={hintStyle}>
-          <strong>Save hunt area</strong> turns on once you&apos;ve drawn a hunt
-          area for this property (use <strong>Hunt Area → Add Area Points</strong>
-          in the map panel). Until then, use <strong>Save this view</strong> to
-          save whatever&apos;s on screen.
-        </p>
-      ) : null}
+      <p style={hintStyle}>
+        To save your <strong>hunt area</strong>, use{" "}
+        <strong>Save this area offline</strong> under the Hunt Area controls on
+        the map.
+      </p>
 
       <OfflineDownloadStatus
         status={status}
@@ -147,13 +127,8 @@ const hintStyle: CSSProperties = {
   lineHeight: 1.45,
 };
 
-const buttonRowStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: "0.5rem",
-};
-
 const actionButtonStyle: CSSProperties = {
+  width: "100%",
   minHeight: "44px",
   padding: "0.5rem 0.6rem",
   border: "1px solid rgba(47, 109, 58, 0.4)",

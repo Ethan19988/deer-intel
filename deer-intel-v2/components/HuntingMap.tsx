@@ -1663,14 +1663,12 @@ export default function HuntingMap() {
                 supported={offlineSupported}
                 layerLabel={selectedMapLayer.label}
                 packs={offlinePacks}
-                canSaveHuntArea={hasHuntArea}
                 status={
                   offlineOrigin === "panel"
                     ? offlineStatus
                     : { phase: "idle" }
                 }
                 onSaveView={saveCurrentViewOffline}
-                onSaveHuntArea={() => saveHuntAreaOffline("panel")}
                 onConfirm={confirmOfflineDownload}
                 onCancel={cancelOfflineDownload}
                 onDelete={removeOfflinePack}
