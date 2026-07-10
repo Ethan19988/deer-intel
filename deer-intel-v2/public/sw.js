@@ -4,7 +4,7 @@
 // separate cache the page manages directly, and cross-origin requests (tiles,
 // weather, Supabase) are intentionally left untouched here.
 
-const CACHE = "deer-intel-app-v1";
+const CACHE = "deer-intel-app-v2";
 // Warm the routes a hunter reaches for offline; others are cached as visited.
 const PRECACHE = ["/", "/map"];
 
