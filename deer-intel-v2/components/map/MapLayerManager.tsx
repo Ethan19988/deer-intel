@@ -213,7 +213,7 @@ export default function MapLayerManager({
             />
             <ToggleRow
               checked={showLandOwners}
-              label="Land Owners (Shippen Twp)"
+              label="Land Owners"
               onToggle={onToggleLandOwners}
             />
           </LayerSection>
