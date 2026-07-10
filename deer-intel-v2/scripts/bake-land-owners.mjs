@@ -62,8 +62,9 @@ const TOWNSHIPS = [
     acreageFields: ["TOTAL_DEED", "BASE_ACRES"],
     parcelIdFields: ["CONTROL_NU"],
     addressFieldGroups: [["FULL_SITUS"]],
-    municipalityFields: ["MUNI_NAME", "MUNICIPALITY", "MUNI", "DISTRICT", "TWP"],
-    municipalityMatch: "QUINCY",
+    // Franklin's parcel layer has no township-name field; municipalities are
+    // identified by the numeric TAX_DIST code. Quincy Township = 19.
+    where: "TAX_DIST='19'",
   },
   {
     slug: "guilford",
@@ -77,8 +78,8 @@ const TOWNSHIPS = [
     acreageFields: ["TOTAL_DEED", "BASE_ACRES"],
     parcelIdFields: ["CONTROL_NU"],
     addressFieldGroups: [["FULL_SITUS"]],
-    municipalityFields: ["MUNI_NAME", "MUNICIPALITY", "MUNI", "DISTRICT", "TWP"],
-    municipalityMatch: "GUILFORD",
+    // Guilford Township = TAX_DIST 10 (see note on Quincy above).
+    where: "TAX_DIST='10'",
   },
 ];
 
@@ -139,9 +140,16 @@ function composeAddress(attributes, fieldGroups) {
       }
     }
     const composed = parts.join(" ").replace(/\s+/g, " ").trim();
-    if (composed) return composed;
+    if (composed) return sanitizeAddress(composed);
   }
   return "";
+}
+
+// Some services render a null house number as the literal string "None"
+// (e.g. Franklin's FULL_SITUS -> "None OLD FORGE ROAD ..."). Drop that leading
+// placeholder so the label reads as a clean street address.
+function sanitizeAddress(value) {
+  return value.replace(/^none\s+/i, "").replace(/\s+/g, " ").trim();
 }
 
 function toAcres(value) {
@@ -189,19 +197,23 @@ function centroidOf(feature) {
 
 async function bakeTownship(config) {
   const layerUrl = `${config.serviceUrl}/${config.layerId}`;
-  const layerMeta = await fetchJson(`${layerUrl}?f=json`);
-  const muniField = resolveMunicipalityField(
-    layerMeta,
-    config.municipalityFields,
-  );
-  if (!muniField) {
-    throw new Error(
-      `Could not find a municipality field on ${layerUrl}. ` +
-        `Available: ${(layerMeta.fields || []).map((f) => f.name).join(", ")}`,
-    );
+
+  // A township is selected either by an explicit `where` clause (e.g. a numeric
+  // district code) or by matching a municipality-name field the layer exposes.
+  let where = config.where;
+  let muniField = null;
+  if (!where) {
+    const layerMeta = await fetchJson(`${layerUrl}?f=json`);
+    muniField = resolveMunicipalityField(layerMeta, config.municipalityFields);
+    if (!muniField) {
+      throw new Error(
+        `Could not find a municipality field on ${layerUrl}. ` +
+          `Available: ${(layerMeta.fields || []).map((f) => f.name).join(", ")}`,
+      );
+    }
+    where = `UPPER(${muniField}) LIKE '%${config.municipalityMatch}%'`;
   }
 
-  const where = `UPPER(${muniField}) LIKE '%${config.municipalityMatch}%'`;
   const outFields = [
     ...config.ownerFields,
     ...config.acreageFields,
@@ -263,7 +275,7 @@ async function bakeTownship(config) {
   const outPath = join(OUT_DIR, `${config.slug}-township-owners.json`);
   await writeFile(outPath, JSON.stringify(dataset));
   console.log(
-    `Baked ${parcels.length} parcels for ${config.township} -> ${outPath} (municipality field: ${muniField})`,
+    `Baked ${parcels.length} parcels for ${config.township} -> ${outPath} (filter: ${where})`,
   );
 }
 
