@@ -7,7 +7,8 @@ export type MapLayerId =
   | "roads"
   | "terrain"
   | "hybrid"
-  | "topographic";
+  | "topographic"
+  | "lidar";
 export type AssetLayerId =
   | "cameras"
   | "stands"
@@ -30,10 +31,16 @@ export type MapLayer = {
   isWayback?: boolean;
   /** Deepest zoom the source has real tiles for; deeper zooms upscale it. */
   maxNativeZoom?: number;
+  /** Extra class on the base tile layer for tone/contrast tuning (e.g. LiDAR). */
+  className?: string;
   overlayLayers?: Array<{
     attribution: string;
     label: string;
     url: string;
+    /** 0-1 blend for stacking a relief pass over the base; defaults to 1. */
+    opacity?: number;
+    /** Extra class on this overlay (e.g. a multiply blend for relief depth). */
+    className?: string;
   }>;
 };
 
@@ -115,6 +122,20 @@ const NAIP_URL =
   "https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/{z}/{y}/{x}";
 const NAIP_ATTRIBUTION = "Aerial imagery &copy; USDA NAIP (US)";
 
+// LiDAR terrain — a Spartan Forge–style shaded relief. Esri's World Hillshade is
+// a *multidirectional* hillshade (lit from several angles at once) built on the
+// USGS 3DEP LiDAR-derived elevation where it exists, so subtle micro-terrain the
+// satellite can't show — benches, saddles, draws, ditches, old logging grades,
+// and the fine ridgelines that funnel deer — pops in crisp 3D. A second 3DEP
+// hillshade is stacked at low opacity to deepen shadows for extra bite, and a
+// contrast/tone filter (di-lidar-tiles) gives it the punchy LiDAR look.
+const ESRI_HILLSHADE_URL =
+  "https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}";
+const USGS_HILLSHADE_URL =
+  "https://basemap.nationalmap.gov/arcgis/rest/services/USGSHillshade/MapServer/tile/{z}/{y}/{x}";
+const LIDAR_ATTRIBUTION =
+  "Shaded relief &copy; Esri, USGS 3DEP (LiDAR-derived multidirectional hillshade)";
+
 export const MAP_LAYERS: MapLayer[] = [
   {
     id: "satellite",
@@ -155,6 +176,24 @@ export const MAP_LAYERS: MapLayer[] = [
     maxNativeZoom: 18,
     url: NAIP_URL,
     overlayLayers: SATELLITE_REFERENCE_OVERLAYS,
+  },
+  {
+    id: "lidar",
+    label: "LiDAR (US)",
+    attribution: LIDAR_ATTRIBUTION,
+    maxNativeZoom: 16,
+    url: ESRI_HILLSHADE_URL,
+    className: "di-lidar-tiles",
+    overlayLayers: [
+      {
+        attribution: "Relief &copy; USGS 3DEP",
+        label: "3DEP relief",
+        url: USGS_HILLSHADE_URL,
+        opacity: 0.5,
+        className: "di-lidar-relief",
+      },
+      ...SATELLITE_REFERENCE_OVERLAYS,
+    ],
   },
 ];
 
