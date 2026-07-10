@@ -85,6 +85,15 @@ export default function OfflineMapsPanel({
         </button>
       </div>
 
+      {!canSaveHuntArea ? (
+        <p style={hintStyle}>
+          <strong>Save hunt area</strong> turns on once you&apos;ve drawn a hunt
+          area for this property (use <strong>Hunt Area → Add Area Points</strong>
+          in the map panel). Until then, use <strong>Save this view</strong> to
+          save whatever&apos;s on screen.
+        </p>
+      ) : null}
+
       {status.phase === "preview" ? (
         <div style={noticeStyle}>
           <p style={noticeTitleStyle}>Save {status.targetLabel}?</p>
@@ -203,6 +212,17 @@ const helpStyle: CSSProperties = {
   margin: 0,
   color: "#4c5a4c",
   fontSize: "0.86rem",
+  lineHeight: 1.45,
+};
+
+const hintStyle: CSSProperties = {
+  margin: 0,
+  padding: "0.5rem 0.6rem",
+  border: "1px solid rgba(17, 23, 17, 0.1)",
+  borderRadius: "8px",
+  background: "#f6f7f3",
+  color: "#4c5a4c",
+  fontSize: "0.82rem",
   lineHeight: 1.45,
 };
 
