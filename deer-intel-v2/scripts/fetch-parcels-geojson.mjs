@@ -130,6 +130,21 @@ const COUNTIES = {
     pin: (p) => str(p.PIN),
     addr: (p) => cleanAddr(p.Physical_A),
   },
+  fulton: {
+    // PASDA has no owner data for Fulton; this is the county's own ArcGIS
+    // Online service (its OID field is FID, not OBJECTID).
+    layerUrl:
+      "https://services6.arcgis.com/pcp4UiBBXQK2kACC/arcgis/rest/services/Fulton_Parcels/FeatureServer/0",
+    orderBy: "FID",
+    outFields: ["Deeded_Nam", "Deeded_Acr", "PIN", "Location"],
+    owner: (p) => str(p.Deeded_Nam),
+    acres: (p) => toAcres(p.Deeded_Acr),
+    pin: (p) => str(p.PIN),
+    addr: (p) => {
+      const loc = cleanAddr(p.Location);
+      return /^unassigned$/i.test(loc) ? "" : loc;
+    },
+  },
 };
 
 async function fetchJson(url) {
@@ -162,7 +177,7 @@ async function fetchCounty(slug, outPath) {
     url.searchParams.set("outFields", cfg.outFields.join(","));
     url.searchParams.set("returnGeometry", "true");
     url.searchParams.set("outSR", "4326");
-    url.searchParams.set("orderByFields", "OBJECTID");
+    url.searchParams.set("orderByFields", cfg.orderBy || "OBJECTID");
     url.searchParams.set("resultOffset", String(offset));
     url.searchParams.set("resultRecordCount", String(PAGE_SIZE));
     url.searchParams.set("f", "geojson");
