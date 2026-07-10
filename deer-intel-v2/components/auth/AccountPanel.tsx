@@ -21,7 +21,6 @@ export default function AccountPanel() {
     syncMessage,
     lastSyncedAt,
     signOut,
-    syncNow,
   } = useAuth();
 
   const [busy, setBusy] = useState(false);
@@ -71,15 +70,6 @@ export default function AccountPanel() {
   const tone = syncStatusTone(syncStatus);
   const lastSynced = formatLastSynced(lastSyncedAt);
 
-  async function handleSyncNow() {
-    setBusy(true);
-    try {
-      await syncNow();
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function handleSignOut() {
     setBusy(true);
     try {
@@ -109,14 +99,6 @@ export default function AccountPanel() {
       ) : null}
 
       <div style={actionsStyle}>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={handleSyncNow}
-          disabled={busy}
-        >
-          Sync Now
-        </Button>
         <Button
           type="button"
           variant="danger"
