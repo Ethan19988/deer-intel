@@ -4,7 +4,11 @@
 // separate cache the page manages directly, and cross-origin requests (tiles,
 // weather, Supabase) are intentionally left untouched here.
 
-const CACHE = "deer-intel-app-v2";
+// Bump this version on any deploy that must invalidate stale app-shell assets
+// (e.g. a new map bundle): the activate handler deletes every older
+// "deer-intel-app-*" cache, so returning users drop cached chunks and reload
+// fresh code instead of being stranded on an old build.
+const CACHE = "deer-intel-app-v3";
 // Warm the routes a hunter reaches for offline; others are cached as visited.
 const PRECACHE = ["/", "/map"];
 
@@ -75,7 +79,30 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets (Next.js chunks, icons, data): cache-first, then populate.
+  // Baked datasets under /data (land owners, etc.): network-first so a re-baked
+  // file reaches online users on the next load, falling back to cache offline.
+  // These filenames aren't content-hashed, so cache-first would freeze them.
+  if (url.pathname.startsWith("/data/")) {
+    event.respondWith(
+      (async () => {
+        try {
+          const response = await fetch(request);
+          if (response.ok && response.type === "basic") {
+            const cache = await caches.open(CACHE);
+            cache.put(request, response.clone());
+          }
+          return response;
+        } catch {
+          return (await caches.match(request)) || Response.error();
+        }
+      })(),
+    );
+    return;
+  }
+
+  // Static assets (Next.js chunks, icons): cache-first, then populate. Chunk
+  // filenames are content-hashed, so a cached hit is always the right bytes;
+  // stale builds are purged wholesale by the CACHE version bump on activate.
   event.respondWith(
     (async () => {
       const cached = await caches.match(request);
