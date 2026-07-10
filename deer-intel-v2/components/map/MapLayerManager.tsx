@@ -39,6 +39,7 @@ const BASE_MAP_ORDER: MapLayerId[] = [
   "roads",
   "terrain",
   "topographic",
+  "lidar",
 ];
 
 const VISIBILITY_LABELS: Record<AssetLayerId, string> = {
@@ -62,7 +63,6 @@ const MAP_TOOL_LABELS: Array<{ id: MapToolId; label: string }> = [
 
 const FUTURE_LAYER_LABELS = [
   "Slope",
-  "Hillshade",
   "Sun Exposure",
   "Historical Wind",
   "Deer Movement",

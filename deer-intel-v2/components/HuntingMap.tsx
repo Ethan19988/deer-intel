@@ -9,6 +9,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import { divIcon } from "leaflet";
 import {
   MapContainer,
@@ -473,7 +474,23 @@ export default function HuntingMap() {
     useState<MapCenter>(DEFAULT_MAP_CENTER);
   const [mapZoom, setMapZoom] = useState(DEFAULT_MAP_ZOOM);
   const latestMapZoomRef = useRef(DEFAULT_MAP_ZOOM);
-  const [selectedLayer, setSelectedLayer] = useState<MapLayerId>("hybrid");
+  // A ?layer= param (e.g. the sidebar's "LiDAR" shortcut) opens the map on that
+  // base layer, and switches to it if it changes while the map is already open.
+  const requestedLayer = useSearchParams().get("layer");
+  const requestedLayerId =
+    requestedLayer && requestedLayer in MAP_LAYER_BY_ID
+      ? (requestedLayer as MapLayerId)
+      : null;
+  const [selectedLayer, setSelectedLayer] = useState<MapLayerId>(
+    requestedLayerId ?? "hybrid",
+  );
+
+  // The layer param drives the base map whenever it changes (LiDAR shortcut in,
+  // plain Map out). Manual Layers-panel picks don't touch the URL, so this only
+  // fires on navigation and never fights the user's own choice.
+  useEffect(() => {
+    setSelectedLayer(requestedLayerId ?? "hybrid");
+  }, [requestedLayerId]);
   const [waybackReleases, setWaybackReleases] = useState<WaybackRelease[]>([]);
   const [selectedRelease, setSelectedRelease] = useState<string>();
 
@@ -1253,6 +1270,7 @@ export default function HuntingMap() {
           >
             <TileLayer
               key={`${selectedMapLayer.id}-base-${selectedRelease ?? "static"}`}
+              className={selectedMapLayer.className}
               attribution={selectedMapLayer.attribution}
               url={baseTileUrl}
               maxZoom={19}
@@ -1262,10 +1280,12 @@ export default function HuntingMap() {
             {selectedMapLayer.overlayLayers?.map((overlayLayer, index) => (
               <TileLayer
                 key={`${selectedMapLayer.id}-${overlayLayer.label}`}
+                className={overlayLayer.className}
                 attribution={overlayLayer.attribution}
                 url={overlayLayer.url}
                 maxZoom={19}
                 maxNativeZoom={19}
+                opacity={overlayLayer.opacity ?? 1}
                 zIndex={650 + index}
               />
             ))}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import { Suspense, type CSSProperties, type ReactNode } from "react";
 import Sidebar from "@/components/ui/Sidebar";
 
 type PageShellProps = {
@@ -22,7 +22,9 @@ export default function PageShell({
 }: PageShellProps) {
   return (
     <div className="di-app-shell" style={appShellStyle}>
-      <Sidebar />
+      <Suspense fallback={<aside className="di-sidebar" aria-label="Primary" />}>
+        <Sidebar />
+      </Suspense>
 
       <main className="di-page-shell" style={pageStyle}>
         <div className="di-page-content" style={{ ...contentStyle, maxWidth }}>
