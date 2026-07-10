@@ -19,7 +19,7 @@ The goal is to build an AI-assisted hunting application that learns each propert
 
 - **Today dashboard** — daily brief plus a live weather panel for the active property
 - **Action-grouped sidebar navigation** — Today / Scout the land / Plan the hunt (replaces the old operating-mode bar)
-- **Interactive Map** (Leaflet) — GPS, multiple pin types, hunt-area drawing, and PA parcel / land-owner overlays
+- **Interactive Map** (Leaflet) — GPS, multiple pin types, hunt-area drawing, PA parcel / land-owner overlays, and **offline maps** (download a view or hunt area's tiles so the map still works in the field with no signal)
 - **Properties** — a command center per property with tabs (Overview, Cameras, Stands, Deer, Plan) and an optional saved coordinate
 - **Cameras** — sites, checks, and real photo uploads (client-resized, stored locally)
 - **Stands** — type, wind notes, access/exit, and per-stand intelligence
