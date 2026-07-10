@@ -24,7 +24,7 @@ WORK="${WORK:-$ROOT/.parcel-build}"
 OUT="$ROOT/public/data/pa-parcels.pmtiles"
 # The counties that publish complete owner-level parcels (see
 # discover-parcel-fields.mjs). Most PA counties don't, so this is not "all 45".
-COUNTIES="${COUNTIES:-franklin adams dauphin butler bedford juniata}"
+COUNTIES="${COUNTIES:-franklin adams dauphin butler bedford juniata fulton}"
 
 mkdir -p "$WORK"
 
