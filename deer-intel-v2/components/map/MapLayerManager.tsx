@@ -153,6 +153,13 @@ export default function MapLayerManager({
         </header>
 
         <div style={contentStyle}>
+          {offlineSection ? (
+            <section style={sectionStyle}>
+              <h4 style={sectionTitleStyle}>Offline Maps</h4>
+              {offlineSection}
+            </section>
+          ) : null}
+
           <section style={sectionStyle}>
             <h4 style={sectionTitleStyle}>Base Map</h4>
             <div style={baseMapGridStyle} role="radiogroup">
@@ -221,13 +228,6 @@ export default function MapLayerManager({
               />
             ))}
           </LayerSection>
-
-          {offlineSection ? (
-            <section style={sectionStyle}>
-              <h4 style={sectionTitleStyle}>Offline Maps</h4>
-              {offlineSection}
-            </section>
-          ) : null}
 
           <LayerSection title="Future Layers">
             {FUTURE_LAYER_LABELS.map((label) => (
