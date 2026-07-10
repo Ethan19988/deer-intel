@@ -33,11 +33,21 @@ const PROJECT_ROOT = resolve(SCRIPT_DIR, "..");
 
 // --- What we're baking -------------------------------------------------------
 
-const TOWNSHIP = "Shippen Township";
-const COUNTY = "Cameron";
-const STATE = "PA";
-const SOURCE = "Cameron County Parcels (Sept 2025) via county ArcGIS";
-const OUTPUT_PATH = resolve(PROJECT_ROOT, "public/data/shippen-township-owners.json");
+// Defaults bake Shippen Township. To bake another township in the SAME county,
+// override TOWNSHIP / OUTPUT_FILE / BOUNDARY_WHERE via env vars (a different
+// county also needs the parcel service + field constants below changed):
+//   TOWNSHIP="Lumber Township" \
+//   OUTPUT_FILE=lumber-township-owners.json \
+//   BOUNDARY_WHERE="STATE='42' AND COUNTY='023' AND NAME LIKE 'Lumber%'" \
+//   node scripts/bake-land-owners.mjs
+// Then add the new township to LAND_OWNER_TOWNSHIPS in lib/landOwners.ts.
+const TOWNSHIP = process.env.TOWNSHIP ?? "Shippen Township";
+const COUNTY = process.env.COUNTY ?? "Cameron";
+const STATE = process.env.STATE ?? "PA";
+const SOURCE =
+  process.env.SOURCE ?? "Cameron County Parcels (Sept 2025) via county ArcGIS";
+const OUTPUT_FILE = process.env.OUTPUT_FILE ?? "shippen-township-owners.json";
+const OUTPUT_PATH = resolve(PROJECT_ROOT, "public/data", OUTPUT_FILE);
 
 // --- Cameron County parcel FeatureServer (mirrors parcelProviders/pa) ---------
 
@@ -76,9 +86,12 @@ const BOUNDARY_GEOJSON_FILE = process.env.BOUNDARY_GEOJSON_FILE;
 const BOUNDARY_SERVICE_URL =
   process.env.BOUNDARY_SERVICE_URL ??
   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/1";
+// Census county-subdivision NAME is the township's leading word (e.g.
+// "Shippen Township" -> NAME LIKE 'Shippen%'). Cameron County is state 42,
+// county 023 — override BOUNDARY_WHERE wholesale for other counties.
 const BOUNDARY_WHERE =
   process.env.BOUNDARY_WHERE ??
-  "STATE='42' AND COUNTY='023' AND NAME LIKE 'Shippen%'";
+  `STATE='42' AND COUNTY='023' AND NAME LIKE '${TOWNSHIP.split(/\s+/)[0]}%'`;
 
 // --- HTTP helpers ------------------------------------------------------------
 

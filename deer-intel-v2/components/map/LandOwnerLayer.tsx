@@ -6,8 +6,8 @@ import {
   LAND_OWNERS_MIN_ZOOM,
   loadLandOwners,
   minAcresForZoom,
-  type LandOwnerDataset,
-  type LandOwnerParcel,
+  type LoadedLandOwnerParcel,
+  type LoadedLandOwners,
 } from "@/lib/landOwners";
 
 type LandOwnerLayerProps = {
@@ -22,7 +22,7 @@ export default function LandOwnerLayer({
   onStatusChange,
 }: LandOwnerLayerProps) {
   const map = useMap();
-  const [dataset, setDataset] = useState<LandOwnerDataset | null>(null);
+  const [dataset, setDataset] = useState<LoadedLandOwners | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [viewVersion, setViewVersion] = useState(0);
   const debounceRef = useRef<number | null>(null);
@@ -71,7 +71,7 @@ export default function LandOwnerLayer({
   // parcels are held back (too small for this zoom, or over the cap) so the
   // status line can tell the hunter to keep zooming in for the little ones.
   const { visibleParcels, hiddenCount } = useMemo<{
-    visibleParcels: LandOwnerParcel[];
+    visibleParcels: LoadedLandOwnerParcel[];
     hiddenCount: number;
   }>(() => {
     if (!enabled || !dataset) return { visibleParcels: [], hiddenCount: 0 };
@@ -133,7 +133,7 @@ export default function LandOwnerLayer({
     <>
       {visibleParcels.map((parcel) => (
         <Marker
-          key={parcel.pin || `${parcel.lat},${parcel.lng}`}
+          key={`${parcel.township}:${parcel.pin || `${parcel.lat},${parcel.lng}`}`}
           icon={LAND_OWNER_ICON}
           position={[parcel.lat, parcel.lng]}
         >
