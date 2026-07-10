@@ -13,6 +13,27 @@ declare module "leaflet" {
 
   export interface LatLngBounds {
     contains(latlng: LatLngExpression): boolean;
+    getSouth(): number;
+    getWest(): number;
+    getNorth(): number;
+    getEast(): number;
+  }
+
+  export interface Coords {
+    x: number;
+    y: number;
+    z: number;
+  }
+
+  export type DoneCallback = (error?: Error, tile?: HTMLElement) => void;
+
+  export namespace DomEvent {
+    function on(
+      element: HTMLElement,
+      types: string,
+      fn: (event: Event) => void,
+      context?: unknown,
+    ): void;
   }
 
   export type LatLngBoundsExpression = unknown;
@@ -57,8 +78,14 @@ declare module "leaflet" {
   export class DivIcon {}
   export class Popup extends Layer {}
   export class Tooltip extends Layer {}
-  export class TileLayer extends Layer {}
   export class GridLayer extends Layer {}
+  export class TileLayer extends GridLayer {
+    constructor(urlTemplate: string, options?: TileLayerOptions);
+    options: TileLayerOptions;
+    getTileUrl(coords: Coords): string;
+    setUrl(url: string, noRedraw?: boolean): this;
+    createTile(coords: Coords, done: DoneCallback): HTMLElement;
+  }
   export class ImageOverlay extends Layer {}
   export class SVGOverlay extends Layer {}
   export class VideoOverlay extends Layer {}
@@ -96,6 +123,8 @@ declare module "leaflet" {
   export type TooltipOptions = LayerOptions;
   export interface TileLayerOptions extends LayerOptions {
     attribution?: string;
+    crossOrigin?: boolean | string;
+    referrerPolicy?: string;
   }
   export type GridLayerOptions = LayerOptions;
   export type ImageOverlayOptions = LayerOptions;
