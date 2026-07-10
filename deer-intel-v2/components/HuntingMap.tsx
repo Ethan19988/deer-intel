@@ -36,6 +36,7 @@ import ParcelOwnerInfoCard from "@/components/map/ParcelOwnerInfoCard";
 import LandOwnerLayer from "@/components/map/LandOwnerLayer";
 import MapSearchBar from "@/components/map/MapSearchBar";
 import MapSearchResultMarker from "@/components/map/MapSearchResultMarker";
+import OfflineDownloadStatus from "@/components/map/OfflineDownloadStatus";
 import OfflineMapsPanel, {
   type OfflineStatus,
 } from "@/components/map/OfflineMapsPanel";
@@ -592,6 +593,12 @@ export default function HuntingMap() {
   const [offlineStatus, setOfflineStatus] = useState<OfflineStatus>({
     phase: "idle",
   });
+  // Where the current offline save was started, so the confirm/progress notice
+  // shows next to that entry point (the Layers panel or the Hunt Area controls)
+  // rather than in both at once.
+  const [offlineOrigin, setOfflineOrigin] = useState<"panel" | "controls">(
+    "panel",
+  );
   const mapInstanceRef = useRef<LeafletMap | null>(null);
   const offlineControllerRef = useRef<AbortController | null>(null);
   const pendingOfflineRef = useRef<{
@@ -1096,7 +1103,10 @@ export default function HuntingMap() {
     minZoom: number,
     requestedMaxZoom: number,
     targetLabel: string,
+    origin: "panel" | "controls",
   ) {
+    setOfflineOrigin(origin);
+
     const plan = planOfflinePack(
       offlineTileSources,
       bounds,
@@ -1150,13 +1160,20 @@ export default function HuntingMap() {
       baseZoom,
       Math.min(19, baseZoom + 3),
       "this view",
+      "panel",
     );
   }
 
-  function saveHuntAreaOffline() {
+  function saveHuntAreaOffline(origin: "panel" | "controls" = "panel") {
     if (!hasHuntArea || !huntArea) return;
 
-    previewOfflineDownload(boundsFromHuntArea(huntArea), 13, 17, "hunt area");
+    previewOfflineDownload(
+      boundsFromHuntArea(huntArea),
+      13,
+      17,
+      "hunt area",
+      origin,
+    );
   }
 
   async function confirmOfflineDownload() {
@@ -1411,6 +1428,30 @@ export default function HuntingMap() {
                   </Button>
                 ) : null}
               </div>
+
+              {hasHuntArea && offlineSupported ? (
+                <div style={huntAreaOfflineStyle}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    fullWidth
+                    onClick={() => saveHuntAreaOffline("controls")}
+                    disabled={
+                      offlineOrigin === "controls" &&
+                      offlineStatus.phase === "downloading"
+                    }
+                  >
+                    Save this area offline
+                  </Button>
+                  {offlineOrigin === "controls" ? (
+                    <OfflineDownloadStatus
+                      status={offlineStatus}
+                      onConfirm={confirmOfflineDownload}
+                      onCancel={cancelOfflineDownload}
+                    />
+                  ) : null}
+                </div>
+              ) : null}
             </>
           )}
         </div>
@@ -1623,9 +1664,13 @@ export default function HuntingMap() {
                 layerLabel={selectedMapLayer.label}
                 packs={offlinePacks}
                 canSaveHuntArea={hasHuntArea}
-                status={offlineStatus}
+                status={
+                  offlineOrigin === "panel"
+                    ? offlineStatus
+                    : { phase: "idle" }
+                }
                 onSaveView={saveCurrentViewOffline}
-                onSaveHuntArea={saveHuntAreaOffline}
+                onSaveHuntArea={() => saveHuntAreaOffline("panel")}
                 onConfirm={confirmOfflineDownload}
                 onCancel={cancelOfflineDownload}
                 onDelete={removeOfflinePack}
@@ -2116,6 +2161,12 @@ const huntAreaButtonRowStyle: CSSProperties = {
   display: "flex",
   gap: "0.6rem",
   flexWrap: "wrap",
+};
+
+const huntAreaOfflineStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.5rem",
+  marginTop: "0.6rem",
 };
 
 const areaPointListStyle: CSSProperties = {
