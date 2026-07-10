@@ -3,11 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/generate-land-owners-manifest.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/generate-land-owners-manifest.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "bake:land-owners": "node scripts/bake-land-owners.mjs"
+    "bake:land-owners": "node scripts/bake-land-owners.mjs",
+    "land-owners:manifest": "node scripts/generate-land-owners-manifest.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",

@@ -13,7 +13,7 @@ import {
   type AssetLayerId,
   type MapLayerId,
 } from "@/lib/propertyMap";
-import { landOwnersLayerLabel } from "@/lib/landOwners";
+import { LAND_OWNERS_LAYER_LABEL } from "@/lib/landOwners";
 
 export type MapToolId = "gps" | "compass" | "scaleBar";
 export type MapToolState = Record<MapToolId, boolean>;
@@ -205,7 +205,7 @@ export default function MapLayerManager({
             />
             <ToggleRow
               checked={showLandOwners}
-              label={landOwnersLayerLabel()}
+              label={LAND_OWNERS_LAYER_LABEL}
               onToggle={onToggleLandOwners}
             />
           </LayerSection>

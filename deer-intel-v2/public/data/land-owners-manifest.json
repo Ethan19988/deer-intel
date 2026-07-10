@@ -1,0 +1,13 @@
+{
+  "townships": [
+    {
+      "id": "shippen-township",
+      "name": "Shippen Township",
+      "shortLabel": "Shippen Twp",
+      "datasetUrl": "/data/shippen-township-owners.json",
+      "county": "Cameron",
+      "state": "PA",
+      "count": 2203
+    }
+  ]
+}

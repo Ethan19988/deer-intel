@@ -16,6 +16,8 @@
 //   3. Flatten each parcel to the compact { lat, lng, owner, acres, pin, addr,
 //      pub } record the client expects, drop the owner-less rows, sort by
 //      acreage descending, and write public/data/shippen-township-owners.json.
+//   4. Regenerate the land-owners manifest so the dataset appears under the
+//      one Land Owners layer automatically.
 //
 // Requires outbound HTTPS to the parcel + boundary services. Run it from the
 // deer-intel-v2 directory:  node scripts/bake-land-owners.mjs
@@ -27,6 +29,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { generateManifest } from "./generate-land-owners-manifest.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(SCRIPT_DIR, "..");
@@ -412,6 +415,11 @@ async function main() {
   console.log(
     `Wrote ${parcels.length} parcels (${publicCount} public) to ${OUTPUT_PATH}`,
   );
+
+  // Refresh the manifest so the new dataset shows up under the Land Owners
+  // layer without any further steps.
+  const manifest = await generateManifest();
+  console.log(`Manifest now lists ${manifest.townships.length} dataset(s).`);
 }
 
 // Only bake when run directly (`node scripts/bake-land-owners.mjs`); importing
