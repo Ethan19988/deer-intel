@@ -21,9 +21,12 @@ export type LandOwnerDataset = {
   parcels: LandOwnerParcel[];
 };
 
-// A township whose baked owner dataset the Land Owners layer can render. Add a
-// new entry here (and bake its dataset with scripts/bake-land-owners.mjs) to
-// put another township on the map — no other wiring changes needed.
+// A township whose baked owner dataset the Land Owners layer can render.
+//
+// To put a township on the map: bake its dataset with
+// scripts/bake-land-owners.mjs (see the disabled Cameron County neighbours
+// below for the exact command per township), drop the file in public/data/,
+// and flip `enabled` to true. No component changes needed.
 export type LandOwnerTownship = {
   id: string;
   // Full name, e.g. "Shippen Township".
@@ -32,16 +35,60 @@ export type LandOwnerTownship = {
   shortLabel: string;
   // Path under public/ of the baked dataset.
   datasetUrl: string;
+  // Whether the layer loads and counts this township. Disabled entries are
+  // pre-wired placeholders whose dataset hasn't been baked yet — flip to true
+  // once public/<datasetUrl> exists.
+  enabled: boolean;
 };
 
+// Cameron County, PA townships. Shippen is baked and live; its neighbours are
+// pre-registered but disabled until their datasets are baked. To bake one, run
+// from deer-intel-v2/ with outbound network access, then set enabled: true:
+//   TOWNSHIP="Lumber Township" OUTPUT_FILE=lumber-township-owners.json \
+//     node scripts/bake-land-owners.mjs
 export const LAND_OWNER_TOWNSHIPS: LandOwnerTownship[] = [
   {
     id: "shippen",
     name: "Shippen Township",
     shortLabel: "Shippen Twp",
     datasetUrl: "/data/shippen-township-owners.json",
+    enabled: true,
+  },
+  {
+    id: "lumber",
+    name: "Lumber Township",
+    shortLabel: "Lumber Twp",
+    datasetUrl: "/data/lumber-township-owners.json",
+    enabled: false,
+  },
+  {
+    id: "gibson",
+    name: "Gibson Township",
+    shortLabel: "Gibson Twp",
+    datasetUrl: "/data/gibson-township-owners.json",
+    enabled: false,
+  },
+  {
+    id: "grove",
+    name: "Grove Township",
+    shortLabel: "Grove Twp",
+    datasetUrl: "/data/grove-township-owners.json",
+    enabled: false,
+  },
+  {
+    id: "portage",
+    name: "Portage Township",
+    shortLabel: "Portage Twp",
+    datasetUrl: "/data/portage-township-owners.json",
+    enabled: false,
   },
 ];
+
+// The townships the layer actually loads and labels — everything else is a
+// placeholder awaiting a baked dataset.
+export function activeLandOwnerTownships(): LandOwnerTownship[] {
+  return LAND_OWNER_TOWNSHIPS.filter((township) => township.enabled);
+}
 
 // An in-memory parcel tagged with the township it came from, so markers key
 // uniquely across townships (parcel ids are only unique within a county).
@@ -59,14 +106,15 @@ export const LAND_OWNERS_MIN_ZOOM = 14;
 // Hard cap on labels drawn at once, even inside the viewport, for performance.
 export const LAND_OWNERS_MAX_VISIBLE = 250;
 
-// The layer toggle label: names the single township when there's only one,
-// otherwise a count. Keeps the current "(Shippen Twp)" wording until more
-// townships are added.
+// The layer toggle label: names the single active township when there's only
+// one, otherwise a count. Keeps the current "(Shippen Twp)" wording until more
+// townships are enabled.
 export function landOwnersLayerLabel(): string {
-  if (LAND_OWNER_TOWNSHIPS.length === 1) {
-    return `Land Owners (${LAND_OWNER_TOWNSHIPS[0].shortLabel})`;
+  const active = activeLandOwnerTownships();
+  if (active.length === 1) {
+    return `Land Owners (${active[0].shortLabel})`;
   }
-  return `Land Owners (${LAND_OWNER_TOWNSHIPS.length} townships)`;
+  return `Land Owners (${active.length} townships)`;
 }
 
 // Smaller parcels only reveal their owner as you zoom in. At a given zoom a
@@ -105,13 +153,14 @@ async function loadTownship(
   return tagged;
 }
 
-// Loads every registered township's baked dataset and merges them, caching for
+// Loads every enabled township's baked dataset and merges them, caching for
 // the session. A township that fails to load is skipped so the rest still
 // render; only an all-empty result rejects.
 export async function loadLandOwners(): Promise<LoadedLandOwners> {
   if (!inflightRequest) {
+    const active = activeLandOwnerTownships();
     inflightRequest = Promise.allSettled(
-      LAND_OWNER_TOWNSHIPS.map((township) => loadTownship(township)),
+      active.map((township) => loadTownship(township)),
     )
       .then((results) => {
         const parcels: LoadedLandOwnerParcel[] = [];
@@ -119,7 +168,7 @@ export async function loadLandOwners(): Promise<LoadedLandOwners> {
         results.forEach((result, index) => {
           if (result.status === "fulfilled") {
             parcels.push(...result.value);
-            townships.push(LAND_OWNER_TOWNSHIPS[index]);
+            townships.push(active[index]);
           }
         });
 
