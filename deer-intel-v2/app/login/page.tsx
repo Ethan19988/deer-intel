@@ -11,7 +11,7 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "signed-in") router.replace("/settings");
+    if (status === "signed-in") router.replace("/");
   }, [status, router]);
 
   return (
