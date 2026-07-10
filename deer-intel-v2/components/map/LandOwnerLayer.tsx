@@ -6,7 +6,7 @@ import {
   LAND_OWNERS_MIN_ZOOM,
   loadLandOwners,
   minAcresForZoom,
-  type LandOwnerDataset,
+  type LandOwners,
   type LandOwnerParcel,
 } from "@/lib/landOwners";
 
@@ -22,7 +22,7 @@ export default function LandOwnerLayer({
   onStatusChange,
 }: LandOwnerLayerProps) {
   const map = useMap();
-  const [dataset, setDataset] = useState<LandOwnerDataset | null>(null);
+  const [dataset, setDataset] = useState<LandOwners | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [viewVersion, setViewVersion] = useState(0);
   const debounceRef = useRef<number | null>(null);
