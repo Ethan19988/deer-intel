@@ -23,11 +23,13 @@ type MapLayerManagerProps = {
   ownerNamesDisabled?: boolean;
   selectedLayer: MapLayerId;
   showLandOwners: boolean;
+  showParcelTiles: boolean;
   showOwnerNames: boolean;
   showPropertyLines: boolean;
   visibleAssetLayers: Record<AssetLayerId, boolean>;
   onSelectLayer: (layerId: MapLayerId) => void;
   onToggleLandOwners: () => void;
+  onToggleParcelTiles: () => void;
   onToggleLayer: (layerId: AssetLayerId) => void;
   onToggleMapTool: (toolId: MapToolId) => void;
   onToggleOwnerNames: () => void;
@@ -76,11 +78,13 @@ export default function MapLayerManager({
   ownerNamesDisabled = false,
   selectedLayer,
   showLandOwners,
+  showParcelTiles,
   showOwnerNames,
   showPropertyLines,
   visibleAssetLayers,
   onSelectLayer,
   onToggleLandOwners,
+  onToggleParcelTiles,
   onToggleLayer,
   onToggleMapTool,
   onToggleOwnerNames,
@@ -215,6 +219,11 @@ export default function MapLayerManager({
               checked={showLandOwners}
               label="Land Owners"
               onToggle={onToggleLandOwners}
+            />
+            <ToggleRow
+              checked={showParcelTiles}
+              label="Land Owners — Statewide (beta)"
+              onToggle={onToggleParcelTiles}
             />
           </LayerSection>
 

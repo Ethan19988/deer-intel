@@ -34,6 +34,7 @@ import ParcelBoundaryLayer from "@/components/map/ParcelBoundaryLayer";
 import ParcelOwnerLabelLayer from "@/components/map/ParcelOwnerLabelLayer";
 import ParcelOwnerInfoCard from "@/components/map/ParcelOwnerInfoCard";
 import LandOwnerLayer from "@/components/map/LandOwnerLayer";
+import ParcelTilesLayer from "@/components/map/ParcelTilesLayer";
 import MapSearchBar from "@/components/map/MapSearchBar";
 import MapSearchResultMarker from "@/components/map/MapSearchResultMarker";
 import OfflineDownloadStatus from "@/components/map/OfflineDownloadStatus";
@@ -559,6 +560,7 @@ export default function HuntingMap() {
   const [showPropertyLines, setShowPropertyLines] = useState(false);
   const [showOwnerNames, setShowOwnerNames] = useState(false);
   const [showLandOwners, setShowLandOwners] = useState(false);
+  const [showParcelTiles, setShowParcelTiles] = useState(false);
   const [landOwnerMessage, setLandOwnerMessage] = useState("");
   const [parcelLayerState, setParcelLayerState] =
     useState<ParcelBoundaryLoadState | null>(null);
@@ -906,6 +908,10 @@ export default function HuntingMap() {
 
       return shouldShow;
     });
+  }
+
+  function toggleParcelTiles() {
+    setShowParcelTiles((isVisible) => !isVisible);
   }
 
   async function lookupParcelOwner(lat: number, lng: number) {
@@ -1563,6 +1569,7 @@ export default function HuntingMap() {
               enabled={showLandOwners}
               onStatusChange={setLandOwnerMessage}
             />
+            <ParcelTilesLayer enabled={showParcelTiles} />
 
             <MapSearchTargetController target={searchTarget} />
             <MapStateTracker onMapStateChange={saveMapState} />
@@ -1677,11 +1684,13 @@ export default function HuntingMap() {
             ownerNamesDisabled={isMobileMapPerformanceMode}
             selectedLayer={selectedLayer}
             showLandOwners={showLandOwners}
+            showParcelTiles={showParcelTiles}
             showOwnerNames={ownerNamesEnabled}
             showPropertyLines={showPropertyLines}
             visibleAssetLayers={visibleAssetLayers}
             onSelectLayer={setSelectedLayer}
             onToggleLandOwners={toggleLandOwners}
+            onToggleParcelTiles={toggleParcelTiles}
             onToggleLayer={toggleAssetLayer}
             onToggleMapTool={toggleMapTool}
             onToggleOwnerNames={toggleOwnerNames}
