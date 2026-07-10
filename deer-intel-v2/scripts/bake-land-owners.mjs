@@ -47,7 +47,7 @@ const TOWNSHIPS = [
     acreageFields: ["DEEDED_ACRES", "Map_Ac"],
     parcelIdFields: ["Parcel_ID"],
     addressFieldGroups: [["COMBINED_SITUS"]],
-    municipalityFields: ["MUNI_NAME", "MUNICIPALITY", "MUNI", "DISTRICT"],
+    municipalityFields: ["DISTRICT_NAME", "MUNI_NAME", "MUNICIPALITY", "MUNI"],
     municipalityMatch: "HAMILTONBAN",
   },
   {
