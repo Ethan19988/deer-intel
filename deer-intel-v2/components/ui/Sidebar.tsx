@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import AccountNavControl from "@/components/auth/AccountNavControl";
 
 type NavLink = { href: string; label: string };
@@ -14,6 +14,7 @@ const NAV_GROUPS: NavGroup[] = [
     heading: "Scout the land",
     links: [
       { href: "/map", label: "Map" },
+      { href: "/map?layer=lidar", label: "LiDAR" },
       { href: "/properties", label: "Properties" },
       { href: "/cameras", label: "Cameras" },
       { href: "/stands", label: "Stands" },
@@ -30,13 +31,27 @@ const NAV_GROUPS: NavGroup[] = [
 
 const FOOTER_LINKS: NavLink[] = [{ href: "/settings", label: "Settings" }];
 
-function isActive(pathname: string, href: string) {
-  if (href === "/") return pathname === "/";
-  return pathname === href || pathname.startsWith(`${href}/`);
+function isActive(pathname: string, activeLayer: string | null, href: string) {
+  const [path, query = ""] = href.split("?");
+  const linkLayer = new URLSearchParams(query).get("layer");
+
+  if (path === "/") return pathname === "/";
+
+  const pathMatches = pathname === path || pathname.startsWith(`${path}/`);
+  if (!pathMatches) return false;
+
+  // "Map" and "LiDAR" both point at /map — split them by the layer param so
+  // only the one matching the current view highlights.
+  if (path === "/map") {
+    return linkLayer ? activeLayer === linkLayer : activeLayer !== "lidar";
+  }
+
+  return true;
 }
 
 export default function Sidebar() {
   const pathname = usePathname() ?? "/";
+  const activeLayer = useSearchParams().get("layer");
 
   return (
     <aside className="di-sidebar" aria-label="Primary">
@@ -55,7 +70,9 @@ export default function Sidebar() {
                 key={link.href}
                 href={link.href}
                 className="di-sidebar-link"
-                aria-current={isActive(pathname, link.href) ? "page" : undefined}
+                aria-current={
+                  isActive(pathname, activeLayer, link.href) ? "page" : undefined
+                }
               >
                 {link.label}
               </Link>
@@ -71,7 +88,9 @@ export default function Sidebar() {
               key={link.href}
               href={link.href}
               className="di-sidebar-link"
-              aria-current={isActive(pathname, link.href) ? "page" : undefined}
+              aria-current={
+                isActive(pathname, activeLayer, link.href) ? "page" : undefined
+              }
             >
               {link.label}
             </Link>
