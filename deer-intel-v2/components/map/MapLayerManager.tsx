@@ -19,6 +19,7 @@ export type MapToolState = Record<MapToolId, boolean>;
 
 type MapLayerManagerProps = {
   mapTools: MapToolState;
+  offlineSection?: ReactNode;
   ownerNamesDisabled?: boolean;
   selectedLayer: MapLayerId;
   showLandOwners: boolean;
@@ -71,6 +72,7 @@ const FUTURE_LAYER_LABELS = [
 
 export default function MapLayerManager({
   mapTools,
+  offlineSection,
   ownerNamesDisabled = false,
   selectedLayer,
   showLandOwners,
@@ -219,6 +221,13 @@ export default function MapLayerManager({
               />
             ))}
           </LayerSection>
+
+          {offlineSection ? (
+            <section style={sectionStyle}>
+              <h4 style={sectionTitleStyle}>Offline Maps</h4>
+              {offlineSection}
+            </section>
+          ) : null}
 
           <LayerSection title="Future Layers">
             {FUTURE_LAYER_LABELS.map((label) => (

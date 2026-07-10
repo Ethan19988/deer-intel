@@ -10,17 +10,17 @@ import {
   type CSSProperties,
 } from "react";
 import { useSearchParams } from "next/navigation";
-import { divIcon } from "leaflet";
+import { divIcon, type Map as LeafletMap } from "leaflet";
 import {
   MapContainer,
   Marker,
   Polygon,
   Polyline,
   ScaleControl,
-  TileLayer,
   useMap,
   useMapEvents,
 } from "react-leaflet";
+import CachedTileLayer from "@/components/map/CachedTileLayer";
 import MapAssetInfoCard from "@/components/map/MapAssetInfoCard";
 import MapAssetSelectorPanel from "@/components/map/MapAssetSelectorPanel";
 import MapLayerManager, {
@@ -36,6 +36,9 @@ import ParcelOwnerInfoCard from "@/components/map/ParcelOwnerInfoCard";
 import LandOwnerLayer from "@/components/map/LandOwnerLayer";
 import MapSearchBar from "@/components/map/MapSearchBar";
 import MapSearchResultMarker from "@/components/map/MapSearchResultMarker";
+import OfflineMapsPanel, {
+  type OfflineStatus,
+} from "@/components/map/OfflineMapsPanel";
 import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
 import {
   createDeerIntelId,
@@ -46,6 +49,15 @@ import {
 } from "@/lib/deerIntelStore";
 import { formatHuntAreaAcres, huntAreaIsValid } from "@/lib/huntArea";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import {
+  deleteOfflinePack,
+  downloadOfflinePack,
+  offlineMapsSupported,
+  planOfflinePack,
+  useOfflineMapPacks,
+  type OfflineMapBounds,
+  type OfflineTileSource,
+} from "@/lib/offlineMaps";
 import {
   fetchWaybackReleases,
   waybackTileUrl,
@@ -465,6 +477,36 @@ function MapSearchTargetController({
   return null;
 }
 
+function MapInstanceBridge({
+  onReady,
+}: {
+  onReady: (map: LeafletMap) => void;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    onReady(map);
+  }, [map, onReady]);
+
+  return null;
+}
+
+// Bounding box of a property's drawn hunt area, padded outward a touch so the
+// saved map covers a little ground around the edges.
+function boundsFromHuntArea(points: HuntAreaPoint[]): OfflineMapBounds {
+  const lats = points.map((point) => point.lat);
+  const lngs = points.map((point) => point.lng);
+  const latPad = 0.003;
+  const lngPad = 0.003;
+
+  return {
+    south: Math.min(...lats) - latPad,
+    west: Math.min(...lngs) - lngPad,
+    north: Math.max(...lats) + latPad,
+    east: Math.max(...lngs) + lngPad,
+  };
+}
+
 export default function HuntingMap() {
   const state = useDeerIntelStore();
   const [pinType, setPinType] = useState<PinType>(
@@ -545,6 +587,22 @@ export default function HuntingMap() {
   >(createVisibleAssetLayerState);
   const isMobileMapPerformanceMode = useIsMobileMapDevice();
 
+  const offlinePacks = useOfflineMapPacks();
+  const offlineSupported = offlineMapsSupported();
+  const [offlineStatus, setOfflineStatus] = useState<OfflineStatus>({
+    phase: "idle",
+  });
+  const mapInstanceRef = useRef<LeafletMap | null>(null);
+  const offlineControllerRef = useRef<AbortController | null>(null);
+  const pendingOfflineRef = useRef<{
+    bounds: OfflineMapBounds;
+    sources: OfflineTileSource[];
+    minZoom: number;
+    maxZoom: number;
+    targetLabel: string;
+    propertyName: string;
+  } | null>(null);
+
   const selectedProperty =
     state.properties.find(
       (property) => property.id === state.selectedPropertyId,
@@ -555,6 +613,20 @@ export default function HuntingMap() {
     selectedMapLayer.isWayback && selectedRelease
       ? waybackTileUrl(selectedRelease)
       : selectedMapLayer.url;
+  // Tile sources the current base map draws from — the base layer plus any
+  // reference overlays — so an offline save captures exactly what's on screen.
+  const offlineTileSources = useMemo<OfflineTileSource[]>(() => {
+    const base: OfflineTileSource = {
+      url: baseTileUrl,
+      maxNativeZoom: selectedMapLayer.maxNativeZoom ?? 19,
+    };
+    const overlays = (selectedMapLayer.overlayLayers ?? []).map((overlay) => ({
+      url: overlay.url,
+      maxNativeZoom: 19,
+    }));
+
+    return [base, ...overlays];
+  }, [baseTileUrl, selectedMapLayer]);
   const showYearPicker =
     Boolean(selectedMapLayer.isWayback) && waybackReleases.length > 0;
   const currentReleaseIndex = Math.max(
@@ -1017,6 +1089,146 @@ export default function HuntingMap() {
     );
   }
 
+  // Stage an offline download: work out the tile plan for a target and show it
+  // for confirmation before anything is fetched.
+  function previewOfflineDownload(
+    bounds: OfflineMapBounds,
+    minZoom: number,
+    requestedMaxZoom: number,
+    targetLabel: string,
+  ) {
+    const plan = planOfflinePack(
+      offlineTileSources,
+      bounds,
+      minZoom,
+      requestedMaxZoom,
+    );
+
+    if (plan.tileCount === 0) {
+      setOfflineStatus({
+        phase: "error",
+        message: "Nothing to save for this spot. Zoom to your ground first.",
+      });
+      return;
+    }
+
+    pendingOfflineRef.current = {
+      bounds,
+      sources: offlineTileSources,
+      minZoom: plan.minZoom,
+      maxZoom: plan.maxZoom,
+      targetLabel,
+      propertyName: selectedProperty?.name ?? "Map",
+    };
+    setOfflineStatus({ phase: "preview", plan, targetLabel });
+  }
+
+  function saveCurrentViewOffline() {
+    const map = mapInstanceRef.current;
+
+    if (!map) {
+      setOfflineStatus({
+        phase: "error",
+        message: "The map isn't ready yet. Try again in a moment.",
+      });
+      return;
+    }
+
+    const leafletBounds = map.getBounds();
+    const bounds: OfflineMapBounds = {
+      south: leafletBounds.getSouth(),
+      west: leafletBounds.getWest(),
+      north: leafletBounds.getNorth(),
+      east: leafletBounds.getEast(),
+    };
+    // Anchor the range on the current zoom so it always spans from what's on
+    // screen down to a few levels of extra detail — never an empty range.
+    const baseZoom = Math.max(3, Math.min(17, Math.round(map.getZoom())));
+
+    previewOfflineDownload(
+      bounds,
+      baseZoom,
+      Math.min(19, baseZoom + 3),
+      "this view",
+    );
+  }
+
+  function saveHuntAreaOffline() {
+    if (!hasHuntArea || !huntArea) return;
+
+    previewOfflineDownload(boundsFromHuntArea(huntArea), 13, 17, "hunt area");
+  }
+
+  async function confirmOfflineDownload() {
+    const pending = pendingOfflineRef.current;
+
+    if (!pending) return;
+
+    const controller = new AbortController();
+    offlineControllerRef.current = controller;
+
+    setOfflineStatus({
+      phase: "downloading",
+      targetLabel: pending.targetLabel,
+      progress: { completed: 0, total: 0, failed: 0, bytes: 0 },
+    });
+
+    try {
+      const pack = await downloadOfflinePack(
+        {
+          propertyId: selectedPropertyId,
+          propertyName: pending.propertyName,
+          layerId: selectedLayer,
+          layerLabel: selectedMapLayer.label,
+          targetLabel: pending.targetLabel,
+          bounds: pending.bounds,
+          sources: pending.sources,
+          minZoom: pending.minZoom,
+          maxZoom: pending.maxZoom,
+        },
+        (progress) => {
+          setOfflineStatus({
+            phase: "downloading",
+            targetLabel: pending.targetLabel,
+            progress,
+          });
+        },
+        controller.signal,
+      );
+
+      const skipped = pack.tileCount;
+      setOfflineStatus({
+        phase: "done",
+        message: `Saved ${pending.targetLabel} — ${skipped.toLocaleString()} tiles ready offline.`,
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setOfflineStatus({ phase: "idle" });
+      } else {
+        setOfflineStatus({
+          phase: "error",
+          message:
+            "Couldn't finish the download. Check your connection and try again.",
+        });
+      }
+    } finally {
+      offlineControllerRef.current = null;
+      pendingOfflineRef.current = null;
+    }
+  }
+
+  function cancelOfflineDownload() {
+    offlineControllerRef.current?.abort();
+    pendingOfflineRef.current = null;
+    setOfflineStatus({ phase: "idle" });
+  }
+
+  async function removeOfflinePack(id: string) {
+    if (!window.confirm("Delete this saved offline map?")) return;
+
+    await deleteOfflinePack(id);
+  }
+
   return (
     <div className="di-map-layout" style={mapLayoutStyle}>
       <Card
@@ -1268,7 +1480,7 @@ export default function HuntingMap() {
             scrollWheelZoom
             style={{ height: "100%", width: "100%" }}
           >
-            <TileLayer
+            <CachedTileLayer
               key={`${selectedMapLayer.id}-base-${selectedRelease ?? "static"}`}
               className={selectedMapLayer.className}
               attribution={selectedMapLayer.attribution}
@@ -1278,7 +1490,7 @@ export default function HuntingMap() {
             />
 
             {selectedMapLayer.overlayLayers?.map((overlayLayer, index) => (
-              <TileLayer
+              <CachedTileLayer
                 key={`${selectedMapLayer.id}-${overlayLayer.label}`}
                 className={overlayLayer.className}
                 attribution={overlayLayer.attribution}
@@ -1289,6 +1501,12 @@ export default function HuntingMap() {
                 zIndex={650 + index}
               />
             ))}
+
+            <MapInstanceBridge
+              onReady={(map) => {
+                mapInstanceRef.current = map;
+              }}
+            />
 
             <ParcelBoundaryLayer
               enabled={showPropertyLines}
@@ -1399,6 +1617,20 @@ export default function HuntingMap() {
 
           <MapLayerManager
             mapTools={mapTools}
+            offlineSection={
+              <OfflineMapsPanel
+                supported={offlineSupported}
+                layerLabel={selectedMapLayer.label}
+                packs={offlinePacks}
+                canSaveHuntArea={hasHuntArea}
+                status={offlineStatus}
+                onSaveView={saveCurrentViewOffline}
+                onSaveHuntArea={saveHuntAreaOffline}
+                onConfirm={confirmOfflineDownload}
+                onCancel={cancelOfflineDownload}
+                onDelete={removeOfflinePack}
+              />
+            }
             ownerNamesDisabled={isMobileMapPerformanceMode}
             selectedLayer={selectedLayer}
             showLandOwners={showLandOwners}
@@ -1426,6 +1658,12 @@ export default function HuntingMap() {
             ) : null}
             {showLandOwners ? (
               <span style={mapStatusPillStyle}>Land Owners</span>
+            ) : null}
+            {offlinePacks.length > 0 ? (
+              <span style={mapStatusPillStyle}>
+                {offlinePacks.length} offline
+                {offlinePacks.length === 1 ? " map" : " maps"}
+              </span>
             ) : null}
             <span style={mapStatusPillStyle}>
               {selectedAsset ? selectedAsset.label : "No asset selected"}

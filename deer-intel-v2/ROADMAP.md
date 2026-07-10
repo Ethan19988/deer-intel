@@ -48,6 +48,7 @@ ties assets together, and live weather is wired throughout.
 - [x] Bedding, food, water, rub lines, scrapes, access routes, waypoints (pin types)
 - [x] Property hunt-area boundary drawing
 - [x] PA parcel + land-owner overlays
+- [x] Offline maps — download a view or hunt area's tiles for use with no signal
 
 ---
 
