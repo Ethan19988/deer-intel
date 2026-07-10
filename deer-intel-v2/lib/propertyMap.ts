@@ -189,7 +189,7 @@ export const MAP_LAYERS: MapLayer[] = [
         attribution: "Relief &copy; USGS 3DEP",
         label: "3DEP relief",
         url: USGS_HILLSHADE_URL,
-        opacity: 0.5,
+        opacity: 0.65,
         className: "di-lidar-relief",
       },
       ...SATELLITE_REFERENCE_OVERLAYS,
