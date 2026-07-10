@@ -7,7 +7,8 @@ export type MapLayerId =
   | "roads"
   | "terrain"
   | "hybrid"
-  | "topographic";
+  | "topographic"
+  | "lidar";
 export type AssetLayerId =
   | "cameras"
   | "stands"
@@ -115,6 +116,15 @@ const NAIP_URL =
   "https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/{z}/{y}/{x}";
 const NAIP_ATTRIBUTION = "Aerial imagery &copy; USDA NAIP (US)";
 
+// USGS 3DEP hillshade — shaded relief rendered from LiDAR-derived elevation
+// (bare-earth where LiDAR exists). This is the "LiDAR map" hunters use to read
+// micro-terrain the satellite can't show: benches, saddles, draws, ditches, and
+// subtle ridgelines that funnel deer. US-only, no API key.
+const LIDAR_HILLSHADE_URL =
+  "https://basemap.nationalmap.gov/arcgis/rest/services/USGSHillshade/MapServer/tile/{z}/{y}/{x}";
+const LIDAR_ATTRIBUTION =
+  "Shaded relief &copy; USGS 3DEP (LiDAR-derived elevation, US)";
+
 export const MAP_LAYERS: MapLayer[] = [
   {
     id: "satellite",
@@ -154,6 +164,14 @@ export const MAP_LAYERS: MapLayer[] = [
     attribution: NAIP_ATTRIBUTION,
     maxNativeZoom: 18,
     url: NAIP_URL,
+    overlayLayers: SATELLITE_REFERENCE_OVERLAYS,
+  },
+  {
+    id: "lidar",
+    label: "LiDAR (US)",
+    attribution: LIDAR_ATTRIBUTION,
+    maxNativeZoom: 16,
+    url: LIDAR_HILLSHADE_URL,
     overlayLayers: SATELLITE_REFERENCE_OVERLAYS,
   },
 ];
