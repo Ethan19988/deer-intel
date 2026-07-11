@@ -153,6 +153,7 @@ import type { HuntAreaPoint } from "@/types/property";
 import { useDefaultMapLayer } from "@/lib/mapPreferences";
 import Button from "./ui/Button";
 import Card from "./ui/Card";
+import CollapsibleSection from "./ui/CollapsibleSection";
 import EmptyState from "./ui/EmptyState";
 
 type ClickToAddPinProps = {
@@ -1773,26 +1774,94 @@ export default function HuntingMap() {
     await deleteOfflinePack(id);
   }
 
+  // Walk tracking now lives in the Layers drawer rather than a panel above the
+  // map, so build its UI here and hand it to MapLayerManager.
+  const walkTrackingSection = (
+    <div style={huntAreaControlStyle}>
+      {isTracking ? (
+        <>
+          <div style={huntAreaHeaderStyle}>
+            <span style={walkRecordingBadgeStyle}>
+              <span style={walkRecordingDotStyle} />
+              Recording
+            </span>
+          </div>
+          <p style={helpTextStyle}>
+            Recording your path — keep the app open as you walk. The trail draws
+            live on the map. Tap Stop when you&apos;re done.
+          </p>
+          <div style={walkStatRowStyle}>
+            <span style={walkStatValueStyle}>
+              {formatWalkDistance(activeDistanceMeters)}
+            </span>
+            <span style={walkStatLabelStyle}>
+              {activeTrackPoints.length} point
+              {activeTrackPoints.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <Button type="button" variant="danger" onClick={stopTracking}>
+            Stop Tracking
+          </Button>
+        </>
+      ) : (
+        <>
+          <p style={helpTextStyle}>
+            Record the path you walk as a trail on the map — scout a new area,
+            mark an access route, or log where the deer took you.
+          </p>
+          <Button
+            type="button"
+            fullWidth
+            onClick={startTracking}
+            disabled={!selectedPropertyId}
+          >
+            Start Tracking
+          </Button>
+        </>
+      )}
+
+      {trackMessage ? (
+        <p style={areaPointMessageStyle}>{trackMessage}</p>
+      ) : null}
+
+      {walkTracks.length > 0 ? (
+        <ul style={walkTrackListStyle}>
+          {walkTracks.map((track) => (
+            <li key={track.id} style={walkTrackRowStyle}>
+              <div style={walkTrackInfoStyle}>
+                <span style={walkTrackNameStyle}>{track.name}</span>
+                <span style={walkTrackMetaStyle}>
+                  {formatWalkDistance(walkTrackDistanceMeters(track.points))}
+                  {" · "}
+                  {formatWalkDuration(track.startedAt, track.endedAt)}
+                </span>
+              </div>
+              <button
+                type="button"
+                aria-label={`Delete ${track.name}`}
+                style={areaPointRemoveStyle}
+                onClick={() => deleteWalkTrack(track.id)}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+
   return (
     <div className="di-map-layout" style={mapLayoutStyle}>
-      <Card
-        as="section"
-        className="di-map-control-panel"
-        variant="elevated"
-        style={controlPanelStyle}
+      <CollapsibleSection
+        title="Scout the Property"
+        description={`${
+          selectedProperty?.name ?? "No property saved"
+        } · ${visibleAssets.length} shown`}
+        style={scoutSectionStyle}
       >
-        <div style={panelHeaderStyle}>
-          <div>
-            <p style={eyebrowStyle}>Property Map</p>
-            <h2 style={panelTitleStyle}>Scout the Property</h2>
-          </div>
-          <div style={statusPillRowStyle}>
-            <span style={statusPillStyle}>{visibleAssets.length} shown</span>
-            <span style={statusPillStyle}>Zoom {mapZoom}</span>
-          </div>
-        </div>
-
-        <div style={topControlGridStyle}>
+        <div style={controlPanelStyle}>
+          <div style={topControlGridStyle}>
           <label style={fieldStyle}>
             <span style={labelTextStyle}>Property</span>
             <select
@@ -1983,95 +2052,12 @@ export default function HuntingMap() {
           )}
         </div>
 
-        <div style={huntAreaControlStyle}>
-          <div style={huntAreaHeaderStyle}>
-            <span style={labelTextStyle}>Walk Tracking</span>
-            {isTracking ? (
-              <span style={walkRecordingBadgeStyle}>
-                <span style={walkRecordingDotStyle} />
-                Recording
-              </span>
-            ) : walkTracks.length > 0 ? (
-              <span style={huntAreaBadgeStyle}>
-                {walkTracks.length} saved
-              </span>
-            ) : null}
-          </div>
-
-          {isTracking ? (
-            <>
-              <p style={helpTextStyle}>
-                Recording your path — keep the app open as you walk. The trail
-                draws live on the map. Tap Stop when you&apos;re done.
-              </p>
-              <div style={walkStatRowStyle}>
-                <span style={walkStatValueStyle}>
-                  {formatWalkDistance(activeDistanceMeters)}
-                </span>
-                <span style={walkStatLabelStyle}>
-                  {activeTrackPoints.length} point
-                  {activeTrackPoints.length === 1 ? "" : "s"}
-                </span>
-              </div>
-              <Button type="button" variant="danger" onClick={stopTracking}>
-                Stop Tracking
-              </Button>
-            </>
-          ) : (
-            <>
-              <p style={helpTextStyle}>
-                Record the path you walk as a trail on the map — scout a new
-                area, mark an access route, or log where the deer took you.
-              </p>
-              <div style={huntAreaButtonRowStyle}>
-                <Button
-                  type="button"
-                  onClick={startTracking}
-                  disabled={!selectedPropertyId}
-                >
-                  Start Tracking
-                </Button>
-              </div>
-            </>
-          )}
-
-          {trackMessage ? (
-            <p style={areaPointMessageStyle}>{trackMessage}</p>
-          ) : null}
-
-          {walkTracks.length > 0 ? (
-            <ul style={walkTrackListStyle}>
-              {walkTracks.map((track) => (
-                <li key={track.id} style={walkTrackRowStyle}>
-                  <div style={walkTrackInfoStyle}>
-                    <span style={walkTrackNameStyle}>{track.name}</span>
-                    <span style={walkTrackMetaStyle}>
-                      {formatWalkDistance(
-                        walkTrackDistanceMeters(track.points),
-                      )}
-                      {" · "}
-                      {formatWalkDuration(track.startedAt, track.endedAt)}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label={`Delete ${track.name}`}
-                    style={areaPointRemoveStyle}
-                    onClick={() => deleteWalkTrack(track.id)}
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          <p style={helpTextStyle}>
+            Use the Pin Box on the map to add cameras, stands, sign, trails,
+            parking, and gates.
+          </p>
         </div>
-
-        <p style={helpTextStyle}>
-          Use the Pin Box on the map to add cameras, stands, sign, trails,
-          parking, and gates.
-        </p>
-      </Card>
+      </CollapsibleSection>
 
       <div className="di-map-stage" style={mapStageStyle}>
         <div className="di-map-frame" style={mapFrameStyle}>
@@ -2387,6 +2373,7 @@ export default function HuntingMap() {
 
           <MapLayerManager
             mapTools={mapTools}
+            trackingSection={walkTrackingSection}
             offlineSection={
               <OfflineMapsPanel
                 supported={offlineSupported}
@@ -2632,6 +2619,13 @@ const mapStageStyle: CSSProperties = {
   position: "relative",
   display: "grid",
   gap: "0.75rem",
+  order: 1,
+};
+
+// The Scout the Property panel now sits (collapsed) below the map via flex/grid
+// order, rather than taking space above it.
+const scoutSectionStyle: CSSProperties = {
+  order: 2,
 };
 
 const controlPanelStyle: CSSProperties = {
@@ -2639,47 +2633,6 @@ const controlPanelStyle: CSSProperties = {
   gap: "1rem",
 };
 
-const panelHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: "1rem",
-  flexWrap: "wrap",
-};
-
-const eyebrowStyle: CSSProperties = {
-  margin: 0,
-  color: "var(--accent-text)",
-  fontSize: "0.78rem",
-  fontWeight: 700,
-  letterSpacing: 0,
-  textTransform: "uppercase",
-};
-
-const panelTitleStyle: CSSProperties = {
-  margin: "0.2rem 0 0",
-  fontSize: "1.45rem",
-  lineHeight: 1.2,
-};
-
-const statusPillRowStyle: CSSProperties = {
-  display: "flex",
-  gap: "0.5rem",
-  flexWrap: "wrap",
-};
-
-const statusPillStyle: CSSProperties = {
-  display: "inline-flex",
-  minHeight: "36px",
-  alignItems: "center",
-  padding: "0.45rem 0.7rem",
-  border: "1px solid var(--border)",
-  borderRadius: "999px",
-  background: "var(--surface-2)",
-  color: "var(--text-muted)",
-  fontSize: "0.9rem",
-  fontWeight: 700,
-};
 
 const topControlGridStyle: CSSProperties = {
   display: "grid",

@@ -14,6 +14,7 @@ export type MapToolState = Record<MapToolId, boolean>;
 type MapLayerManagerProps = {
   mapTools: MapToolState;
   offlineSection?: ReactNode;
+  trackingSection?: ReactNode;
   ownerNamesDisabled?: boolean;
   showParcelTiles: boolean;
   showOwnerNames: boolean;
@@ -55,6 +56,7 @@ const FUTURE_LAYER_LABELS = [
 export default function MapLayerManager({
   mapTools,
   offlineSection,
+  trackingSection,
   ownerNamesDisabled = false,
   showParcelTiles,
   showOwnerNames,
@@ -129,6 +131,13 @@ export default function MapLayerManager({
         </header>
 
         <div style={contentStyle}>
+          {trackingSection ? (
+            <section style={sectionStyle}>
+              <h4 style={sectionTitleStyle}>Walk Tracking</h4>
+              {trackingSection}
+            </section>
+          ) : null}
+
           {offlineSection ? (
             <section style={sectionStyle}>
               <h4 style={sectionTitleStyle}>Offline Maps</h4>
