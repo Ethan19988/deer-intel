@@ -15,6 +15,7 @@ import PropertyTimeline from "@/components/properties/dashboard/PropertyTimeline
 import RecentActivityList from "@/components/properties/dashboard/RecentActivityList";
 import StatCard from "@/components/properties/dashboard/StatCard";
 import StandSitesSection from "@/components/properties/dashboard/StandSitesSection";
+import WalkTracksSection from "@/components/properties/dashboard/WalkTracksSection";
 import WorkspaceIcon, {
   type WorkspaceIconName,
 } from "@/components/properties/dashboard/WorkspaceIcon";
@@ -115,6 +116,9 @@ export default function PropertyWorkspacePage() {
   );
   const propertyDeerProfiles = state.deerProfiles.filter(
     (profile) => profile.propertyId === params.id,
+  );
+  const propertyWalkTracks = state.walkTracks.filter(
+    (track) => track.propertyId === params.id,
   );
   const [cameraValues, setCameraValues] = useState(EMPTY_CAMERA_FORM_VALUES);
   const [editingCameraId, setEditingCameraId] = useState<string | null>(null);
@@ -327,6 +331,17 @@ export default function PropertyWorkspacePage() {
     setStandValues(EMPTY_STAND_FORM_VALUES);
   }
 
+  function deleteWalkTrack(trackId: string) {
+    if (!window.confirm("Delete this saved walk?")) return;
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      walkTracks: currentState.walkTracks.filter(
+        (track) => track.id !== trackId,
+      ),
+    }));
+  }
+
   function addDeerProfile() {
     const newProfile = createDeerProfileFromValues({
       id: createDeerIntelId("deer-profile"),
@@ -481,6 +496,11 @@ export default function PropertyWorkspacePage() {
               value={deerProfileCount}
               detail="Saved deer history"
             />
+            <StatCard
+              label="Walks"
+              value={propertyWalkTracks.length}
+              detail="Recorded trails"
+            />
           </div>
         </DashboardSection>
 
@@ -493,6 +513,17 @@ export default function PropertyWorkspacePage() {
           <RecentActivityList activities={recentActivity} />
         </DashboardSection>
       </div>
+
+      <DashboardSection
+        id="walks"
+        eyebrow="Field History"
+        title="Saved Walks"
+      >
+        <WalkTracksSection
+          tracks={propertyWalkTracks}
+          onDelete={deleteWalkTrack}
+        />
+      </DashboardSection>
 
       <DashboardSection eyebrow="Conditions" title="Today's Conditions">
         <LiveWeatherPanel
