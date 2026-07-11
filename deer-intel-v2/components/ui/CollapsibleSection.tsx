@@ -11,6 +11,9 @@ type CollapsibleSectionProps = {
   defaultOpen?: boolean;
   variant?: CollapsibleSectionVariant;
   style?: CSSProperties;
+  // Shared name groups sections into a native single-open accordion: opening one
+  // closes its siblings. Leave unset for independent open/close behavior.
+  name?: string;
 };
 
 export default function CollapsibleSection({
@@ -20,12 +23,14 @@ export default function CollapsibleSection({
   defaultOpen = false,
   variant = "default",
   style,
+  name,
 }: CollapsibleSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
     <details
       className={`di-collapsible-section di-collapsible-${variant}`}
+      name={name}
       open={isOpen}
       onToggle={(event) => setIsOpen(event.currentTarget.open)}
       style={{

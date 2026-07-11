@@ -109,6 +109,7 @@ import type { HuntAreaPoint } from "@/types/property";
 import { useDefaultMapLayer } from "@/lib/mapPreferences";
 import Button from "./ui/Button";
 import Card from "./ui/Card";
+import CollapsibleSection from "./ui/CollapsibleSection";
 import EmptyState from "./ui/EmptyState";
 
 type ClickToAddPinProps = {
@@ -1444,19 +1445,12 @@ export default function HuntingMap() {
         variant="elevated"
         style={controlPanelStyle}
       >
-        <div style={panelHeaderStyle}>
-          <div>
+        <div style={topBarStyle}>
+          <div style={topBarHeadingStyle}>
             <p style={eyebrowStyle}>Property Map</p>
             <h2 style={panelTitleStyle}>Scout the Property</h2>
           </div>
-          <div style={statusPillRowStyle}>
-            <span style={statusPillStyle}>{visibleAssets.length} shown</span>
-            <span style={statusPillStyle}>Zoom {mapZoom}</span>
-          </div>
-        </div>
-
-        <div style={topControlGridStyle}>
-          <label style={fieldStyle}>
+          <label style={topBarPropertyStyle}>
             <span style={labelTextStyle}>Property</span>
             <select
               style={selectStyle}
@@ -1473,24 +1467,26 @@ export default function HuntingMap() {
               ))}
             </select>
           </label>
-
+          <div style={statusPillRowStyle}>
+            <span style={statusPillStyle}>{visibleAssets.length} shown</span>
+            <span style={statusPillStyle}>Zoom {mapZoom}</span>
+          </div>
         </div>
 
-        <div style={huntAreaControlStyle}>
-          <div style={huntAreaHeaderStyle}>
-            <span style={labelTextStyle}>Hunt Area</span>
-            {hasHuntArea && !isDrawingArea && savedAreaAcresLabel ? (
-              <span style={huntAreaBadgeStyle}>{savedAreaAcresLabel}</span>
-            ) : null}
-            {isDrawingArea ? (
-              <span style={huntAreaBadgeStyle}>
-                {draftAreaPoints.length} point
-                {draftAreaPoints.length === 1 ? "" : "s"}
-                {draftAreaAcresLabel ? ` · ${draftAreaAcresLabel}` : ""}
-              </span>
-            ) : null}
-          </div>
-
+        <CollapsibleSection
+          title="Hunt Area"
+          description={
+            isDrawingArea
+              ? `${draftAreaPoints.length} point${
+                  draftAreaPoints.length === 1 ? "" : "s"
+                }${draftAreaAcresLabel ? ` · ${draftAreaAcresLabel}` : ""}`
+              : hasHuntArea
+                ? savedAreaAcresLabel || "Saved"
+                : "Not set yet"
+          }
+          name="di-map-tools"
+          defaultOpen={isDrawingArea}
+        >
           {isDrawingArea ? (
             <>
               <p style={helpTextStyle}>
@@ -1644,23 +1640,20 @@ export default function HuntingMap() {
               ) : null}
             </>
           )}
-        </div>
+        </CollapsibleSection>
 
-        <div style={huntAreaControlStyle}>
-          <div style={huntAreaHeaderStyle}>
-            <span style={labelTextStyle}>Walk Tracking</span>
-            {isTracking ? (
-              <span style={walkRecordingBadgeStyle}>
-                <span style={walkRecordingDotStyle} />
-                Recording
-              </span>
-            ) : walkTracks.length > 0 ? (
-              <span style={huntAreaBadgeStyle}>
-                {walkTracks.length} saved
-              </span>
-            ) : null}
-          </div>
-
+        <CollapsibleSection
+          title="Walk Tracking"
+          description={
+            isTracking
+              ? "Recording…"
+              : walkTracks.length > 0
+                ? `${walkTracks.length} saved`
+                : "None recorded"
+          }
+          name="di-map-tools"
+          defaultOpen={isTracking}
+        >
           {isTracking ? (
             <>
               <p style={helpTextStyle}>
@@ -1728,7 +1721,7 @@ export default function HuntingMap() {
               ))}
             </ul>
           ) : null}
-        </div>
+        </CollapsibleSection>
 
         <p style={helpTextStyle}>
           Use the Pin Box on the map to add cameras, stands, sign, trails,
@@ -2195,12 +2188,28 @@ const controlPanelStyle: CSSProperties = {
   gap: "1rem",
 };
 
-const panelHeaderStyle: CSSProperties = {
+const topBarStyle: CSSProperties = {
   display: "flex",
-  alignItems: "flex-start",
+  alignItems: "flex-end",
   justifyContent: "space-between",
   gap: "1rem",
   flexWrap: "wrap",
+  paddingBottom: "1rem",
+  borderBottom: "1px solid var(--border)",
+};
+
+const topBarHeadingStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.2rem",
+  flex: "0 0 auto",
+};
+
+const topBarPropertyStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.4rem",
+  flex: "1 1 240px",
+  minWidth: "200px",
+  maxWidth: "380px",
 };
 
 const eyebrowStyle: CSSProperties = {
@@ -2235,17 +2244,6 @@ const statusPillStyle: CSSProperties = {
   color: "var(--text-muted)",
   fontSize: "0.9rem",
   fontWeight: 700,
-};
-
-const topControlGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: "1rem",
-};
-
-const fieldStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.4rem",
 };
 
 const labelTextStyle: CSSProperties = {
@@ -2437,34 +2435,6 @@ const propertyLinesNoticeStyle: CSSProperties = {
   pointerEvents: "none",
 };
 
-const huntAreaControlStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.6rem",
-  padding: "0.85rem",
-  border: "1px solid var(--border)",
-  borderRadius: "10px",
-  background: "var(--surface-2)",
-};
-
-const huntAreaHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.6rem",
-  flexWrap: "wrap",
-};
-
-const huntAreaBadgeStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "0.25rem 0.6rem",
-  borderRadius: "999px",
-  border: "1px solid var(--accent-tint-border)",
-  background: "var(--accent-tint)",
-  color: "var(--accent-text)",
-  fontSize: "0.8rem",
-  fontWeight: 700,
-};
-
 const huntAreaButtonRowStyle: CSSProperties = {
   display: "flex",
   gap: "0.6rem",
@@ -2475,19 +2445,6 @@ const huntAreaOfflineStyle: CSSProperties = {
   display: "grid",
   gap: "0.5rem",
   marginTop: "0.6rem",
-};
-
-const walkRecordingBadgeStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "0.4rem",
-  padding: "0.25rem 0.6rem",
-  borderRadius: "999px",
-  border: "1px solid var(--accent-2-tint-border)",
-  background: "var(--accent-2-tint)",
-  color: "var(--accent-2-text)",
-  fontSize: "0.8rem",
-  fontWeight: 700,
 };
 
 const walkRecordingDotStyle: CSSProperties = {
