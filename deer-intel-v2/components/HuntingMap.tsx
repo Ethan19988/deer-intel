@@ -2209,6 +2209,7 @@ export default function HuntingMap() {
                 version="1.3.0"
                 opacity={0.5}
                 zIndex={690}
+                maxZoom={19}
                 attribution={SLOPE_ATTRIBUTION}
               />
             ) : null}
@@ -2222,9 +2223,10 @@ export default function HuntingMap() {
                 format="image/png"
                 transparent
                 version="1.3.0"
-                opacity={0.7}
+                opacity={0.85}
                 zIndex={695}
                 minZoom={CONTOUR_MIN_ZOOM}
+                maxZoom={19}
                 attribution={CONTOUR_ATTRIBUTION}
               />
             ) : null}
