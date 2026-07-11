@@ -21,6 +21,7 @@ import {
   useMapEvents,
 } from "react-leaflet";
 import CachedTileLayer from "@/components/map/CachedTileLayer";
+import ContourTileLayer from "@/components/map/ContourTileLayer";
 import MapAssetInfoCard from "@/components/map/MapAssetInfoCard";
 import MapAssetSelectorPanel from "@/components/map/MapAssetSelectorPanel";
 import MapLayerManager, {
@@ -133,6 +134,13 @@ type SearchTarget = {
 };
 
 const MAP_CENTER_EPSILON = 0.00001;
+
+// Free USGS elevation contour lines (labeled, transparent background) from The
+// National Map. It's a dynamic MapServer, so ContourTileLayer requests per-tile
+// images from this `export` endpoint rather than a fixed tile URL.
+const CONTOUR_EXPORT_URL =
+  "https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer/export";
+const CONTOUR_ATTRIBUTION = "Contours &copy; USGS The National Map";
 
 // Zoom used when auto-centering on a property. Close enough to see a property's
 // footprint without diving all the way to individual-asset zoom.
@@ -603,6 +611,10 @@ export default function HuntingMap() {
   const [showOwnerNames, setShowOwnerNames] = useState(false);
   // The single statewide "Land Owners" overlay (vector parcel tiles).
   const [showParcelTiles, setShowParcelTiles] = useState(false);
+  // Contour-line overlay interval in feet; 0 hides it. The free USGS contour
+  // service renders its own native intervals, so the selection primarily drives
+  // whether contours show and is remembered for the segmented control.
+  const [contourInterval, setContourInterval] = useState(0);
   const [parcelLayerState, setParcelLayerState] =
     useState<ParcelBoundaryLoadState | null>(null);
   const [ownerLabelState, setOwnerLabelState] =
@@ -1838,6 +1850,17 @@ export default function HuntingMap() {
             />
             <ParcelTilesLayer enabled={showParcelTiles} />
 
+            {contourInterval > 0 ? (
+              <ContourTileLayer
+                key="contours"
+                attribution={CONTOUR_ATTRIBUTION}
+                url={CONTOUR_EXPORT_URL}
+                maxZoom={19}
+                opacity={0.85}
+                zIndex={640}
+              />
+            ) : null}
+
             <MapSearchTargetController target={searchTarget} />
             <MapStateTracker onMapStateChange={saveMapState} />
             <MapControlButtons
@@ -1959,6 +1982,8 @@ export default function HuntingMap() {
                 onDelete={removeOfflinePack}
               />
             }
+            contourInterval={contourInterval}
+            onSelectContourInterval={setContourInterval}
             ownerNamesDisabled={isMobileMapPerformanceMode}
             selectedLayer={selectedLayer}
             showParcelTiles={showParcelTiles}

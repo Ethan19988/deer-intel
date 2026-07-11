@@ -18,6 +18,7 @@ export type MapToolId = "gps" | "compass" | "scaleBar";
 export type MapToolState = Record<MapToolId, boolean>;
 
 type MapLayerManagerProps = {
+  contourInterval: number;
   mapTools: MapToolState;
   offlineSection?: ReactNode;
   ownerNamesDisabled?: boolean;
@@ -26,6 +27,7 @@ type MapLayerManagerProps = {
   showOwnerNames: boolean;
   showPropertyLines: boolean;
   visibleAssetLayers: Record<AssetLayerId, boolean>;
+  onSelectContourInterval: (interval: number) => void;
   onSelectLayer: (layerId: MapLayerId) => void;
   onToggleParcelTiles: () => void;
   onToggleLayer: (layerId: AssetLayerId) => void;
@@ -33,6 +35,15 @@ type MapLayerManagerProps = {
   onToggleOwnerNames: () => void;
   onTogglePropertyLines: () => void;
 };
+
+// Feet-per-contour options shown in the segmented control, mirroring the field
+// app. 0 turns contours off.
+const CONTOUR_OPTIONS: Array<{ value: number; label: string }> = [
+  { value: 0, label: "Off" },
+  { value: 10, label: "10 ft" },
+  { value: 20, label: "20 ft" },
+  { value: 25, label: "25 ft" },
+];
 
 const BASE_MAP_ORDER: MapLayerId[] = [
   "hybrid",
@@ -45,6 +56,7 @@ const BASE_MAP_ORDER: MapLayerId[] = [
 
 // A representative swatch for each base map so the picker reads like the field
 // app's tile thumbnails — imagery greens, road paper, terrain tan, LiDAR grey.
+// Shown while the real preview tile loads, and as the fallback if it can't.
 const BASE_MAP_SWATCH: Record<MapLayerId, string> = {
   hybrid: "linear-gradient(135deg, #4a6a35 0%, #26361c 100%)",
   satellite: "linear-gradient(135deg, #4a6a35 0%, #22311a 100%)",
@@ -52,6 +64,24 @@ const BASE_MAP_SWATCH: Record<MapLayerId, string> = {
   terrain: "linear-gradient(135deg, #d3bd8c 0%, #8a7748 100%)",
   topographic: "linear-gradient(135deg, #567a3c 0%, #2b401d 100%)",
   lidar: "linear-gradient(135deg, #c0b9ac 0%, #6d6860 100%)",
+};
+
+// One real map tile per source (a wooded sample area in central PA, z13) so each
+// picker tile previews the actual imagery/terrain the base map draws — the way
+// the reference app shows UAV/Sat/Lidar thumbnails. Note the differing axis
+// order: the ArcGIS/USDA services template as {z}/{y}/{x}, OSM/OpenTopo as
+// {z}/{x}/{y}.
+const BASE_MAP_THUMBNAIL: Record<MapLayerId, string> = {
+  hybrid:
+    "https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/32246/13/3074/2325",
+  satellite:
+    "https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/32246/13/3074/2325",
+  roads: "https://a.tile.openstreetmap.org/13/2325/3074.png",
+  terrain: "https://a.tile.opentopomap.org/13/2325/3074.png",
+  topographic:
+    "https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/13/3074/2325",
+  lidar:
+    "https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/13/3074/2325",
 };
 
 const VISIBILITY_LABELS: Record<AssetLayerId, string> = {
@@ -82,6 +112,7 @@ const FUTURE_LAYER_LABELS = [
 ];
 
 export default function MapLayerManager({
+  contourInterval,
   mapTools,
   offlineSection,
   ownerNamesDisabled = false,
@@ -90,6 +121,7 @@ export default function MapLayerManager({
   showOwnerNames,
   showPropertyLines,
   visibleAssetLayers,
+  onSelectContourInterval,
   onSelectLayer,
   onToggleParcelTiles,
   onToggleLayer,
@@ -191,6 +223,18 @@ export default function MapLayerManager({
                         backgroundImage: BASE_MAP_SWATCH[layer.id],
                       }}
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={BASE_MAP_THUMBNAIL[layer.id]}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        style={baseMapThumbImageStyle}
+                        onError={(event) => {
+                          // Fall back to the gradient swatch if the tile fails.
+                          event.currentTarget.style.display = "none";
+                        }}
+                      />
                       {isSelected ? (
                         <span style={baseMapCheckStyle}>✓</span>
                       ) : null}
@@ -199,6 +243,31 @@ export default function MapLayerManager({
                     {layer.isPlaceholder ? (
                       <span style={placeholderStyle}>Placeholder</span>
                     ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section style={sectionStyle}>
+            <h4 style={sectionTitleStyle}>Contours</h4>
+            <div style={segmentedStyle} role="radiogroup" aria-label="Contours">
+              {CONTOUR_OPTIONS.map((option) => {
+                const isSelected = contourInterval === option.value;
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    style={{
+                      ...segmentStyle,
+                      ...(isSelected ? selectedSegmentStyle : null),
+                    }}
+                    onClick={() => onSelectContourInterval(option.value)}
+                  >
+                    {option.label}
                   </button>
                 );
               })}
@@ -471,14 +540,26 @@ const selectedBaseMapTileStyle: CSSProperties = {
 };
 
 const baseMapSwatchStyle: CSSProperties = {
+  position: "relative",
   display: "grid",
   placeItems: "center",
   height: "58px",
+  overflow: "hidden",
   borderRadius: "8px",
   boxShadow: "inset 0 0 0 1px rgba(0, 0, 0, 0.12)",
 };
 
+const baseMapThumbImageStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+};
+
 const baseMapCheckStyle: CSSProperties = {
+  position: "relative",
+  zIndex: 1,
   display: "inline-flex",
   width: "24px",
   height: "24px",
@@ -503,6 +584,33 @@ const placeholderStyle: CSSProperties = {
   fontSize: "0.68rem",
   fontWeight: 800,
   lineHeight: 1.2,
+};
+
+const segmentedStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: "0.25rem",
+  padding: "0.25rem",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "12px",
+  background: "var(--surface-2)",
+};
+
+const segmentStyle: CSSProperties = {
+  minHeight: "40px",
+  border: "1px solid transparent",
+  borderRadius: "9px",
+  background: "transparent",
+  color: "var(--text-muted)",
+  cursor: "pointer",
+  fontSize: "0.9rem",
+  fontWeight: 800,
+};
+
+const selectedSegmentStyle: CSSProperties = {
+  borderColor: "var(--accent-tint-border)",
+  background: "var(--accent)",
+  color: "var(--accent-fg)",
 };
 
 const chipWrapStyle: CSSProperties = {
