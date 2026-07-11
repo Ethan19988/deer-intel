@@ -14,6 +14,7 @@ import {
   buildAiScoutRequestContext,
 } from "@/lib/aiScoutContext";
 import { checkAiScoutConfigured, requestAiScoutReport } from "@/lib/aiScoutClient";
+import { useAiScoutEnabled } from "@/lib/aiScoutPreferences";
 import {
   updateDeerIntelStore,
   useDeerIntelStore,
@@ -72,6 +73,7 @@ export default function AIPage() {
     }));
   }
 
+  const aiScoutEnabled = useAiScoutEnabled();
   const [aiScoutConfigured, setAiScoutConfigured] = useState<boolean | null>(null);
   const [conditions, setConditions] = useState<AiScoutConditions>(EMPTY_AI_SCOUT_CONDITIONS);
   const [aiScoutStatus, setAiScoutStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -286,9 +288,18 @@ export default function AIPage() {
           <Section
             eyebrow="6"
             title="AI Scout"
-            action={<Badge variant={aiScoutConfigured ? "success" : "warning"}>Beta</Badge>}
+            action={
+              <Badge variant={aiScoutConfigured && aiScoutEnabled ? "success" : "warning"}>
+                Beta
+              </Badge>
+            }
           >
-            {aiScoutConfigured === null ? (
+            {!aiScoutEnabled ? (
+              <EmptyState
+                title="AI Scout is turned off"
+                description="You've turned off AI Scout recommendations in Settings → AI Scout. The rule-based insights above keep working. Turn it back on there whenever you want LLM recommendations."
+              />
+            ) : aiScoutConfigured === null ? (
               <Card as="div" variant="subtle">
                 <p style={mutedTextStyle}>Checking AI Scout availability…</p>
               </Card>

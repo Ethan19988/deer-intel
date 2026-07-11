@@ -29,6 +29,7 @@ import {
   useUnitPreferences,
 } from "@/lib/units";
 import { setDefaultMapLayer, useDefaultMapLayer } from "@/lib/mapPreferences";
+import { setAiScoutEnabled, useAiScoutEnabled } from "@/lib/aiScoutPreferences";
 import { MAP_LAYERS } from "@/lib/propertyMap";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 
@@ -50,6 +51,7 @@ export default function SettingsPage() {
   const themePreference = useThemePreference();
   const units = useUnitPreferences();
   const defaultMapLayer = useDefaultMapLayer();
+  const aiScoutEnabled = useAiScoutEnabled();
   const { configured, status, user } = useAuth();
   const cloudActive = configured && status === "signed-in";
   const totalRecords = recordCount(state);
@@ -259,6 +261,51 @@ export default function SettingsPage() {
                 </button>
               );
             })}
+          </div>
+        </Card>
+      </Section>
+
+      <Section eyebrow="AI Scout" title="AI Recommendations">
+        <Card as="div" variant="subtle">
+          <p style={mutedTextStyle}>
+            AI Scout reads this property&apos;s saved stands, hunts, camera
+            checks, and buck photos to recommend where to hunt. It&apos;s
+            opt-in and pay-per-call: it only runs when you tap &ldquo;Ask AI
+            Scout,&rdquo; and only if an <code style={inlineCodeStyle}>ANTHROPIC_API_KEY</code>{" "}
+            is set on the server. When you ask, that property&apos;s data is
+            sent to Anthropic to generate the recommendation.
+          </p>
+          <p style={mutedTextStyle}>
+            Turn it off to keep AI Scout hidden and never send any data to
+            Anthropic — the rule-based insights on the Hunt Plan page keep
+            working either way. Saved on this device only.
+          </p>
+          <div style={aiScoutToggleRowStyle}>
+            <span style={unitLabelStyle}>AI Scout recommendations</span>
+            <div style={unitSegmentGroupStyle}>
+              <button
+                type="button"
+                aria-pressed={aiScoutEnabled}
+                onClick={() => setAiScoutEnabled(true)}
+                style={{
+                  ...unitSegmentStyle,
+                  ...(aiScoutEnabled ? unitSegmentActiveStyle : null),
+                }}
+              >
+                On
+              </button>
+              <button
+                type="button"
+                aria-pressed={!aiScoutEnabled}
+                onClick={() => setAiScoutEnabled(false)}
+                style={{
+                  ...unitSegmentStyle,
+                  ...(!aiScoutEnabled ? unitSegmentActiveStyle : null),
+                }}
+              >
+                Off
+              </button>
+            </div>
           </div>
         </Card>
       </Section>
@@ -541,6 +588,22 @@ const unitSegmentActiveStyle: CSSProperties = {
   border: "1px solid var(--accent)",
   background: "var(--accent-tint)",
   color: "var(--accent-text)",
+};
+
+const aiScoutToggleRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  flexWrap: "wrap",
+  gap: "0.75rem",
+  marginTop: "1rem",
+};
+
+const inlineCodeStyle: CSSProperties = {
+  padding: "0.1rem 0.3rem",
+  borderRadius: "4px",
+  background: "var(--surface-3)",
+  fontSize: "0.85em",
 };
 
 const mapLayerGridStyle: CSSProperties = {
