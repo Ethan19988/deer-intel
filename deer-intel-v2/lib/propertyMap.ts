@@ -224,6 +224,11 @@ export const CONTOUR_WMS_LAYERS: Record<Exclude<ContourInterval, "off">, string>
     "100": "10,11,12,13",
   };
 export const CONTOUR_ATTRIBUTION = "Contours &copy; USGS The National Map";
+// The National Map only draws contour lines at larger scales; below this web
+// zoom the service returns near-empty tiles, so we hold the layer off (and
+// prompt the hunter to zoom in) instead of painting a blank overlay that reads
+// as "broken."
+export const CONTOUR_MIN_ZOOM = 13;
 
 // USGS 3DEP elevation image service rendered on the fly as slope-in-degrees —
 // a color ramp that reads steepness (benches, shelves, access difficulty) the
