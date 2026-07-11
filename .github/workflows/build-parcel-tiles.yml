@@ -1,9 +1,10 @@
 name: Build parcel tiles
 
-# Rebuilds the statewide land-owner vector tiles (deer-intel-v2/public/data/
-# pa-parcels.pmtiles) that the "Land Owners" map overlay renders, pushes them to
-# a branch, and links a PR to open. tippecanoe only runs on Linux, so this is
-# the supported way to regenerate the archive (it can't be built on Windows).
+# Rebuilds the statewide land-owner vector tiles (pa-parcels.pmtiles) that the
+# "Land Owners" map overlay renders, and uploads them to the `parcel-tiles`
+# GitHub Release asset — which the app streams live via the same-origin
+# /api/parcel-tiles proxy. tippecanoe only runs on Linux, so this is the
+# supported way to regenerate the archive (it can't be built on Windows).
 #
 # Run it manually from the Actions tab (workflow_dispatch). A monthly schedule
 # is included but commented out — the output is a large binary, so enable it
@@ -15,7 +16,7 @@ on:
   #   - cron: "0 6 1 * *" # 06:00 UTC on the 1st of each month
 
 permissions:
-  # Only need to push the tiles branch; the PR is opened manually from the link.
+  # Uploading the release asset needs contents: write.
   contents: write
 
 jobs:
@@ -47,37 +48,25 @@ jobs:
           NODE_USE_ENV_PROXY: "0"
         run: bash scripts/build-parcel-tiles.sh
 
-      - name: Push refreshed tiles and link a PR
+      - name: Upload tiles to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # *.pmtiles is tracked via Git LFS (.gitattributes); make sure the
-          # filter is active so the refreshed tile is stored as an LFS object.
-          git lfs install --local
           file="deer-intel-v2/public/data/pa-parcels.pmtiles"
-
-          if git diff --quiet -- "$file"; then
-            echo "Parcel tiles unchanged — nothing to push."
-            exit 0
+          if [ ! -s "$file" ]; then
+            echo "ERROR: $file missing or empty — build produced no tiles." >&2
+            exit 1
           fi
 
-          branch="auto/parcel-tiles-$(date -u +%Y%m%d-%H%M%S)"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
-          git add "$file"
-          git commit -m "Rebuild statewide parcel tiles (pa-parcels.pmtiles)"
-          git push -u origin "$branch"
-
-          # A repo without "Actions can create PRs" can't open the PR from CI, so
-          # just surface the compare link for a one-click manual PR.
           size="$(du -h "$file" | cut -f1)"
-          base="${{ github.event.repository.default_branch }}"
-          url="${{ github.server_url }}/${{ github.repository }}/compare/${base}...${branch}?expand=1"
+          # The app serves this asset live via /api/parcel-tiles; --clobber
+          # replaces it in place so the URL stays stable.
+          gh release upload parcel-tiles "$file" --clobber --repo "${{ github.repository }}"
+
           {
-            echo "## Parcel tiles rebuilt (${size})"
+            echo "## Parcel tiles refreshed (${size})"
             echo ""
-            echo "Pushed to branch \`${branch}\`."
-            echo ""
-            echo "[Open a pull request →](${url})"
+            echo "Replaced the \`parcel-tiles\` release asset — now live via /api/parcel-tiles."
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "Open a PR: ${url}"
+          echo "Uploaded ${size} to release parcel-tiles"
