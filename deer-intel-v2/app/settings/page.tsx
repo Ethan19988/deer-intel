@@ -13,6 +13,7 @@ import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
 import AccountPanel from "@/components/auth/AccountPanel";
 import DataPrivacyManager from "@/components/settings/DataPrivacyManager";
+import NotificationsManager from "@/components/settings/NotificationsManager";
 import OfflineMapsManager from "@/components/settings/OfflineMapsManager";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { saveDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
@@ -262,6 +263,12 @@ export default function SettingsPage() {
               );
             })}
           </div>
+        </Card>
+      </Section>
+
+      <Section eyebrow="Notifications" title="Field Alerts">
+        <Card as="div" variant="subtle">
+          <NotificationsManager />
         </Card>
       </Section>
 
