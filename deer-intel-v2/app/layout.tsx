@@ -4,6 +4,12 @@ import "./globals.css";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import AuthGate from "@/components/auth/AuthGate";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
+import ThemeManager from "@/components/ThemeManager";
+
+// Runs before first paint to set <html data-theme> from the saved preference,
+// so dark/night users never see a flash of the light theme. Kept in sync with
+// lib/theme.ts (same storage key and resolution rules).
+const themeInitScript = `(function(){try{var t=localStorage.getItem('deer-intel:theme');if(t!=='light'&&t!=='dark'&&t!=='night'&&t!=='auto'){t='light';}var r=t;if(t==='auto'){r=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}document.documentElement.dataset.theme=r;}catch(e){}})();`;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,8 +50,11 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <ThemeManager />
         <ServiceWorkerRegistration />
         <AuthProvider>
           <AuthGate>{children}</AuthGate>
