@@ -433,6 +433,21 @@ export default function SettingsPage() {
         onCancel={handleCancelImport}
       />
 
+      <Section eyebrow="Import" title="Import Pins from Other Apps">
+        <Card as="div" variant="subtle">
+          <p style={mutedTextStyle}>
+            Already have waypoints saved in onX Hunt, HuntStand, BaseMap,
+            Spartan Forge, Garmin, or Google Earth? Export them as a GPX, KML,
+            or KMZ file, then upload it here to bring your stands, cameras,
+            bedding, scrapes, and more onto your Deer Intel map. You review
+            every pin and pick a property before anything is saved.
+          </p>
+          <Link href="/pins/import" style={primaryLinkStyle}>
+            Open Pin Importer
+          </Link>
+        </Card>
+      </Section>
+
       <Section eyebrow="Offline" title="Offline Maps">
         <Card as="div" variant="subtle">
           <OfflineMapsManager />
