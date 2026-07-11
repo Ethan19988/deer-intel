@@ -52,6 +52,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # *.pmtiles is tracked via Git LFS (.gitattributes); make sure the
+          # filter is active so the refreshed tile is stored as an LFS object.
+          git lfs install --local
           file="deer-intel-v2/public/data/pa-parcels.pmtiles"
 
           if git diff --quiet -- "$file"; then
