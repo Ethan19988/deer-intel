@@ -4,6 +4,7 @@ import type { Camera } from "@/types/camera";
 import type { MapPin } from "@/types/mapPin";
 import type { Property } from "@/types/property";
 import { hasPropertyCoordinate } from "@/lib/propertyLocation";
+import { describeMoonPhase } from "@/lib/moonPhase";
 import {
   DEFAULT_UNITS,
   openMeteoTemperatureUnit,
@@ -107,11 +108,6 @@ type OpenMeteoResponse = {
 };
 
 const liveWeatherCache = new Map<string, LiveWeatherResult>();
-
-// One synodic month and a known new-moon reference (2000-01-06 18:14 UTC) are
-// enough to name the current moon phase without a network call or a library.
-const SYNODIC_MONTH_DAYS = 29.530588853;
-const REFERENCE_NEW_MOON_MS = Date.UTC(2000, 0, 6, 18, 14, 0);
 
 /**
  * Derive a single representative coordinate for a property from the assets a
@@ -525,24 +521,6 @@ export function degreesToCompass(degrees: number): string {
   const index = Math.round(normalized / 22.5) % compassPoints.length;
 
   return compassPoints[index];
-}
-
-export function describeMoonPhase(timestampMs: number): string {
-  const daysSinceReference =
-    (timestampMs - REFERENCE_NEW_MOON_MS) / 86_400_000;
-  const age =
-    ((daysSinceReference % SYNODIC_MONTH_DAYS) + SYNODIC_MONTH_DAYS) %
-    SYNODIC_MONTH_DAYS;
-
-  if (age < 1.85 || age >= 27.68) return "New";
-  if (age < 5.54) return "Waxing crescent";
-  if (age < 9.23) return "First quarter";
-  if (age < 12.91) return "Waxing gibbous";
-  if (age < 16.61) return "Full";
-  if (age < 20.3) return "Waning gibbous";
-  if (age < 23.99) return "Last quarter";
-
-  return "Waning crescent";
 }
 
 function describeWeatherCode(code: number): string {

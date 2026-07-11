@@ -23,6 +23,7 @@ import {
   getDeerIntelligenceHubSummary,
   type DeerHubItem,
 } from "@/lib/deerIntelligenceHub";
+import { useMoonPhase } from "@/lib/useMoonPhase";
 import type { AiScoutConditions, AiScoutReport } from "@/types/aiScout";
 
 export default function AIPage() {
@@ -92,6 +93,11 @@ export default function AIPage() {
     };
   }, []);
 
+  // Today's moon phase (client-computed). Used to auto-fill the AI Scout
+  // conditions when the hunter hasn't typed their own, and to show a movement
+  // hint so the recommendation always reasons about lunar timing.
+  const moon = useMoonPhase();
+
   // Reset the AI Scout output when the selected property changes. Done during
   // render by tracking the previous id rather than in an effect, per React's
   // "you might not need an effect" guidance.
@@ -123,7 +129,12 @@ export default function AIPage() {
         hunts: propertyHunts,
         photoRecords: propertyPhotoRecords,
         deerProfiles: propertyDeerProfiles,
-        conditions,
+        // Fall back to today's detected moon phase when the hunter left it
+        // blank, so AI Scout always has the lunar timing to reason about.
+        conditions: {
+          ...conditions,
+          moonPhase: conditions.moonPhase || moon?.phase || "",
+        },
       });
       const report = await requestAiScoutReport(context);
 
@@ -350,8 +361,14 @@ export default function AIPage() {
                       style={inputStyle}
                       value={conditions.moonPhase}
                       onChange={(event) => updateCondition("moonPhase", event.target.value)}
-                      placeholder="e.g. Waning Gibbous"
+                      placeholder={moon ? moon.phase : "e.g. Waning Gibbous"}
                     />
+                    {moon ? (
+                      <span style={moonHintStyle}>
+                        Tonight: {moon.phase} · {moon.illumination}% lit —{" "}
+                        {moon.movement}
+                      </span>
+                    ) : null}
                   </label>
                 </div>
 
@@ -630,6 +647,12 @@ const inputStyle: CSSProperties = {
   borderRadius: "8px",
   background: "var(--surface-2)",
   color: "var(--text)",
+};
+
+const moonHintStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontSize: "0.82rem",
+  lineHeight: 1.4,
 };
 
 const textareaStyle: CSSProperties = {
