@@ -218,11 +218,16 @@ export type ContourInterval = "off" | "50" | "100";
 
 export const CONTOUR_WMS_URL =
   "https://carto.nationalmap.gov/arcgis/services/contours/MapServer/WMSServer";
-export const CONTOUR_WMS_LAYERS: Record<Exclude<ContourInterval, "off">, string> =
-  {
-    "50": "15,16,17,18",
-    "100": "10,11,12,13",
-  };
+// Index + intermediate contour lines and their elevation labels. The whole
+// layer is recolored light/white (via the di-contour-white filter) for a subtle
+// Spartan Forge-style look over satellite imagery.
+export const CONTOUR_WMS_LAYERS: Record<
+  Exclude<ContourInterval, "off">,
+  string
+> = {
+  "50": "15,16,17,18",
+  "100": "10,11,12,13",
+};
 export const CONTOUR_ATTRIBUTION = "Contours &copy; USGS The National Map";
 // The National Map only draws contour lines at larger scales; below this web
 // zoom the service returns near-empty tiles, so we hold the layer off (and
