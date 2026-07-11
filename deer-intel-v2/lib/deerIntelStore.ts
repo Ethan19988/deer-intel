@@ -12,11 +12,13 @@ import { PIN_TYPES, type MapPin, type PinType } from "@/types/mapPin";
 import type { PhotoRecord } from "@/types/photo";
 import type { HuntAreaPoint, Property } from "@/types/property";
 import { STAND_TYPES, type Stand, type StandType } from "@/types/stand";
+import type { WalkTrack, WalkTrackPoint } from "@/types/walkTrack";
 
 export { PIN_TYPES, PROPERTY_ASSET_PIN_TYPES } from "@/types/mapPin";
 export type { DeerIntelState } from "@/types/deerIntelStore";
 export type { HuntLogEntry } from "@/types/hunt";
 export type { MapPin, PinType } from "@/types/mapPin";
+export type { WalkTrack, WalkTrackPoint } from "@/types/walkTrack";
 
 const STORAGE_KEY = "deer-intel:state";
 const LEGACY_PROPERTIES_STORAGE_KEY = "deer-intel:properties";
@@ -67,6 +69,7 @@ const DEFAULT_STATE: DeerIntelState = {
   hunts: [],
   photoRecords: [],
   deerProfiles: [],
+  walkTracks: [],
 };
 
 const listeners = new Set<() => void>();
@@ -492,6 +495,53 @@ function normalizeDeerProfile(value: unknown): DeerProfile | null {
   };
 }
 
+function normalizeWalkTrackPoint(value: unknown): WalkTrackPoint | null {
+  if (!isRecord(value)) return null;
+
+  const lat = optionalNumberValue(value.lat);
+  const lng = optionalNumberValue(value.lng);
+
+  if (typeof lat !== "number" || typeof lng !== "number") return null;
+
+  return { lat, lng, at: stringValue(value.at) };
+}
+
+function normalizeWalkTrack(value: unknown): WalkTrack | null {
+  if (!isRecord(value)) return null;
+
+  const id =
+    typeof value.id === "string" || typeof value.id === "number"
+      ? String(value.id)
+      : "";
+  const propertyId =
+    typeof value.propertyId === "string" || typeof value.propertyId === "number"
+      ? String(value.propertyId)
+      : "";
+  const points = Array.isArray(value.points)
+    ? value.points
+        .map(normalizeWalkTrackPoint)
+        .filter((point): point is WalkTrackPoint => point !== null)
+    : [];
+
+  // A trail needs at least two points to draw a line worth keeping.
+  if (!id || !propertyId || points.length < 2) return null;
+
+  const startedAt = stringValue(value.startedAt, points[0]?.at ?? "");
+  const endedAt = stringValue(
+    value.endedAt,
+    points[points.length - 1]?.at ?? startedAt,
+  );
+
+  return {
+    id,
+    propertyId,
+    name: stringValue(value.name, "Walk"),
+    points,
+    startedAt,
+    endedAt,
+  };
+}
+
 function createState(properties: Property[]): DeerIntelState {
   return {
     ...DEFAULT_STATE,
@@ -542,6 +592,11 @@ function normalizeState(value: unknown): DeerIntelState | null {
         .map(normalizeDeerProfile)
         .filter((profile): profile is DeerProfile => profile !== null)
     : [];
+  const walkTracks = Array.isArray(value.walkTracks)
+    ? value.walkTracks
+        .map(normalizeWalkTrack)
+        .filter((track): track is WalkTrack => track !== null)
+    : [];
   const selectedPropertyId = properties.some(
     (property) => property.id === value.selectedPropertyId,
   )
@@ -559,6 +614,7 @@ function normalizeState(value: unknown): DeerIntelState | null {
     hunts,
     photoRecords,
     deerProfiles,
+    walkTracks,
   };
 
   // A store written before version 2 may still carry the old seeded sample
@@ -614,6 +670,7 @@ function removeUntouchedLegacyProperties(
   for (const hunt of state.hunts) referencedPropertyIds.add(hunt.propertyId);
   for (const photo of state.photoRecords) referencedPropertyIds.add(photo.propertyId);
   for (const profile of state.deerProfiles) referencedPropertyIds.add(profile.propertyId);
+  for (const track of state.walkTracks) referencedPropertyIds.add(track.propertyId);
 
   const remainingProperties = state.properties.filter((property) => {
     // Keep anything the hunter made their own, or that has data attached.

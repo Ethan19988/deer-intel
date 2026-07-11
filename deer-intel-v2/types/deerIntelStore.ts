@@ -6,6 +6,7 @@ import type { MapPin } from "@/types/mapPin";
 import type { PhotoRecord } from "@/types/photo";
 import type { Property } from "@/types/property";
 import type { Stand } from "@/types/stand";
+import type { WalkTrack } from "@/types/walkTrack";
 
 export type DeerIntelState = {
   version: 2;
@@ -18,4 +19,5 @@ export type DeerIntelState = {
   hunts: HuntLogEntry[];
   photoRecords: PhotoRecord[];
   deerProfiles: DeerProfile[];
+  walkTracks: WalkTrack[];
 };

@@ -43,6 +43,7 @@ import OfflineMapsPanel, {
 } from "@/components/map/OfflineMapsPanel";
 import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
 import UserLocationMarker from "@/components/map/UserLocationMarker";
+import WalkTrackLayer from "@/components/map/WalkTrackLayer";
 import {
   createDeerIntelId,
   PROPERTY_ASSET_PIN_TYPES,
@@ -51,6 +52,14 @@ import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { formatHuntAreaAcres, huntAreaIsValid } from "@/lib/huntArea";
+import {
+  distanceBetweenMeters,
+  formatWalkDistance,
+  formatWalkDuration,
+  MIN_TRACK_POINT_METERS,
+  walkTrackDistanceMeters,
+} from "@/lib/walkTrack";
+import type { WalkTrack, WalkTrackPoint } from "@/types/walkTrack";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import {
   deleteOfflinePack,
@@ -592,6 +601,18 @@ export default function HuntingMap() {
   // hunter moves. Off by default so scouting a property from home doesn't yank
   // the view to wherever the device is; the GPS button turns it on.
   const [followUser, setFollowUser] = useState(false);
+  // Live walk recording: while `isTracking` is on, each GPS fix is appended to
+  // `activeTrackPoints` to draw the trail as the hunter moves. On stop, the
+  // finished trail is saved to the property; the id/start-time captured when
+  // recording began ride along in refs so a mid-walk property switch can't
+  // retag or lose the walk in progress.
+  const [isTracking, setIsTracking] = useState(false);
+  const [activeTrackPoints, setActiveTrackPoints] = useState<WalkTrackPoint[]>(
+    [],
+  );
+  const [trackMessage, setTrackMessage] = useState("");
+  const trackPropertyIdRef = useRef("");
+  const trackStartedAtRef = useRef("");
   const [showPropertyLines, setShowPropertyLines] = useState(false);
   const [showOwnerNames, setShowOwnerNames] = useState(false);
   const [showLandOwners, setShowLandOwners] = useState(false);
@@ -699,6 +720,17 @@ export default function HuntingMap() {
       ),
     [selectedPropertyId, state.cameras],
   );
+  const walkTracks = useMemo(
+    () =>
+      state.walkTracks.filter(
+        (track) => track.propertyId === selectedPropertyId,
+      ),
+    [selectedPropertyId, state.walkTracks],
+  );
+  const activeDistanceMeters = useMemo(
+    () => walkTrackDistanceMeters(activeTrackPoints),
+    [activeTrackPoints],
+  );
   const mapAssets = useMemo(() => {
     const cameraAssets = propertyCameras
       .map(cameraToMapAsset)
@@ -775,6 +807,136 @@ export default function HuntingMap() {
       zoom: PROPERTY_FOCUS_ZOOM,
     });
   }, [selectedPropertyId]);
+
+  // While recording, watch the device position and append each new fix to the
+  // live trail. A small minimum-distance filter drops the jitter a GPS reports
+  // while standing still so a paused walk doesn't pad the trail with noise.
+  useEffect(() => {
+    if (!isTracking) return;
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const point: WalkTrackPoint = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          at: new Date().toISOString(),
+        };
+
+        setActiveTrackPoints((currentPoints) => {
+          const lastPoint = currentPoints[currentPoints.length - 1];
+
+          if (
+            lastPoint &&
+            distanceBetweenMeters(lastPoint, point) < MIN_TRACK_POINT_METERS
+          ) {
+            return currentPoints;
+          }
+
+          return [...currentPoints, point];
+        });
+      },
+      () => {
+        // Hold the trail on a transient error (a brief signal drop, a denied
+        // one-off read) rather than dropping what's recorded so far.
+      },
+      { enableHighAccuracy: true, maximumAge: 2_000, timeout: 15_000 },
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [isTracking]);
+
+  function startTracking() {
+    if (!selectedPropertyId || isTracking) return;
+
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setTrackMessage("This device can't share a location.");
+      return;
+    }
+
+    if (isDrawingArea) cancelAreaDraw();
+
+    trackPropertyIdRef.current = selectedPropertyId;
+    trackStartedAtRef.current = new Date().toISOString();
+    setActiveTrackPoints([]);
+    setTrackMessage("");
+    setIsTracking(true);
+    // Lock the map onto the live location so the trail stays in view as you walk.
+    setFollowUser(true);
+
+    // Recenter right away for instant feedback, then the live dot keeps it there.
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+        map.setView(
+          [position.coords.latitude, position.coords.longitude],
+          Math.max(map.getZoom(), 16),
+        );
+      },
+      () => {
+        setTrackMessage(
+          "Recording started, but couldn't get a first fix. Allow location access.",
+        );
+      },
+    );
+  }
+
+  function stopTracking() {
+    if (!isTracking) return;
+
+    setIsTracking(false);
+    setFollowUser(false);
+
+    const points = activeTrackPoints;
+    const propertyId = trackPropertyIdRef.current;
+
+    if (points.length < 2 || !propertyId) {
+      setActiveTrackPoints([]);
+      setTrackMessage(
+        "Walk discarded — you need to move a bit for a trail to save.",
+      );
+      return;
+    }
+
+    const startedAt = trackStartedAtRef.current || points[0].at;
+    const endedAt = points[points.length - 1].at;
+    const name = `Walk · ${new Date(startedAt).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })}`;
+    const track: WalkTrack = {
+      id: createDeerIntelId("track"),
+      propertyId,
+      name,
+      points,
+      startedAt,
+      endedAt,
+    };
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      walkTracks: [...currentState.walkTracks, track],
+    }));
+
+    setActiveTrackPoints([]);
+    setTrackMessage(
+      `Saved ${name} — ${formatWalkDistance(walkTrackDistanceMeters(points))}.`,
+    );
+  }
+
+  function deleteWalkTrack(trackId: string) {
+    if (!window.confirm("Delete this saved walk?")) return;
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      walkTracks: currentState.walkTracks.filter(
+        (track) => track.id !== trackId,
+      ),
+    }));
+  }
 
   function selectProperty(propertyId: string) {
     if (isDrawingArea) cancelAreaDraw();
@@ -1497,6 +1659,90 @@ export default function HuntingMap() {
           )}
         </div>
 
+        <div style={huntAreaControlStyle}>
+          <div style={huntAreaHeaderStyle}>
+            <span style={labelTextStyle}>Walk Tracking</span>
+            {isTracking ? (
+              <span style={walkRecordingBadgeStyle}>
+                <span style={walkRecordingDotStyle} />
+                Recording
+              </span>
+            ) : walkTracks.length > 0 ? (
+              <span style={huntAreaBadgeStyle}>
+                {walkTracks.length} saved
+              </span>
+            ) : null}
+          </div>
+
+          {isTracking ? (
+            <>
+              <p style={helpTextStyle}>
+                Recording your path — keep the app open as you walk. The trail
+                draws live on the map. Tap Stop when you&apos;re done.
+              </p>
+              <div style={walkStatRowStyle}>
+                <span style={walkStatValueStyle}>
+                  {formatWalkDistance(activeDistanceMeters)}
+                </span>
+                <span style={walkStatLabelStyle}>
+                  {activeTrackPoints.length} point
+                  {activeTrackPoints.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              <Button type="button" variant="danger" onClick={stopTracking}>
+                Stop Tracking
+              </Button>
+            </>
+          ) : (
+            <>
+              <p style={helpTextStyle}>
+                Record the path you walk as a trail on the map — scout a new
+                area, mark an access route, or log where the deer took you.
+              </p>
+              <div style={huntAreaButtonRowStyle}>
+                <Button
+                  type="button"
+                  onClick={startTracking}
+                  disabled={!selectedPropertyId}
+                >
+                  Start Tracking
+                </Button>
+              </div>
+            </>
+          )}
+
+          {trackMessage ? (
+            <p style={areaPointMessageStyle}>{trackMessage}</p>
+          ) : null}
+
+          {walkTracks.length > 0 ? (
+            <ul style={walkTrackListStyle}>
+              {walkTracks.map((track) => (
+                <li key={track.id} style={walkTrackRowStyle}>
+                  <div style={walkTrackInfoStyle}>
+                    <span style={walkTrackNameStyle}>{track.name}</span>
+                    <span style={walkTrackMetaStyle}>
+                      {formatWalkDistance(
+                        walkTrackDistanceMeters(track.points),
+                      )}
+                      {" · "}
+                      {formatWalkDuration(track.startedAt, track.endedAt)}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={`Delete ${track.name}`}
+                    style={areaPointRemoveStyle}
+                    onClick={() => deleteWalkTrack(track.id)}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+
         <p style={helpTextStyle}>
           Use the Pin Box on the map to add cameras, stands, sign, trails,
           parking, and gates.
@@ -1618,6 +1864,11 @@ export default function HuntingMap() {
               enabled={mapTools.gps}
               follow={mapTools.gps && followUser}
               onUserPan={() => setFollowUser(false)}
+            />
+            <WalkTrackLayer
+              tracks={walkTracks}
+              activePoints={activeTrackPoints}
+              isTracking={isTracking}
             />
             {mapTools.scaleBar ? (
               <ScaleControl imperial metric position="bottomleft" />
@@ -1806,6 +2057,25 @@ export default function HuntingMap() {
                   disabled={draftAreaPoints.length < 3}
                 >
                   Save Area
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {isTracking ? (
+            <div className="di-area-pill" style={drawActionBarStyle}>
+              <span style={drawActionStatusStyle}>
+                <span style={walkRecordingDotStyle} />
+                {formatWalkDistance(activeDistanceMeters)} ·{" "}
+                {activeTrackPoints.length} pt
+              </span>
+              <div style={drawActionButtonRowStyle}>
+                <button
+                  type="button"
+                  style={drawPrimaryButtonStyle}
+                  onClick={stopTracking}
+                >
+                  Stop
                 </button>
               </div>
             </div>
@@ -2224,6 +2494,88 @@ const huntAreaOfflineStyle: CSSProperties = {
   display: "grid",
   gap: "0.5rem",
   marginTop: "0.6rem",
+};
+
+const walkRecordingBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.4rem",
+  padding: "0.25rem 0.6rem",
+  borderRadius: "999px",
+  border: "1px solid var(--accent-2-tint-border)",
+  background: "var(--accent-2-tint)",
+  color: "var(--accent-2-text)",
+  fontSize: "0.8rem",
+  fontWeight: 700,
+};
+
+const walkRecordingDotStyle: CSSProperties = {
+  display: "inline-block",
+  width: "9px",
+  height: "9px",
+  borderRadius: "999px",
+  background: "var(--accent-2)",
+  boxShadow: "0 0 0 3px rgba(224, 100, 42, 0.25)",
+};
+
+const walkStatRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  gap: "0.5rem",
+};
+
+const walkStatValueStyle: CSSProperties = {
+  fontSize: "1.4rem",
+  fontWeight: 800,
+  color: "var(--text)",
+};
+
+const walkStatLabelStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontSize: "0.85rem",
+  fontWeight: 700,
+};
+
+const walkTrackListStyle: CSSProperties = {
+  listStyle: "none",
+  margin: 0,
+  padding: 0,
+  display: "grid",
+  gap: "0.35rem",
+  maxHeight: "180px",
+  overflowY: "auto",
+};
+
+const walkTrackRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.6rem",
+  padding: "0.5rem 0.6rem",
+  border: "1px solid var(--border)",
+  borderRadius: "8px",
+  background: "var(--surface)",
+};
+
+const walkTrackInfoStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.1rem",
+  minWidth: 0,
+};
+
+const walkTrackNameStyle: CSSProperties = {
+  fontSize: "0.92rem",
+  fontWeight: 700,
+  color: "var(--text)",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const walkTrackMetaStyle: CSSProperties = {
+  fontSize: "0.82rem",
+  color: "var(--text-muted)",
+  fontWeight: 600,
 };
 
 const areaPointListStyle: CSSProperties = {
