@@ -130,6 +130,7 @@ import {
   CONTOUR_WMS_URL,
   CONTOUR_WMS_LAYERS,
   CONTOUR_ATTRIBUTION,
+  CONTOUR_MIN_ZOOM,
   SLOPE_WMS_URL,
   SLOPE_WMS_LAYER,
   SLOPE_ATTRIBUTION,
@@ -2089,6 +2090,9 @@ export default function HuntingMap() {
           <MapTopBar
             selectedLayer={selectedLayer}
             contourInterval={contourInterval}
+            contourNeedsZoomIn={
+              contourInterval !== "off" && mapZoom < CONTOUR_MIN_ZOOM
+            }
             showSlope={showSlope}
             showPublicLand={showPublicLand}
             showWind={showWind}
@@ -2238,6 +2242,7 @@ export default function HuntingMap() {
                 version="1.3.0"
                 opacity={0.85}
                 zIndex={695}
+                minZoom={CONTOUR_MIN_ZOOM}
                 attribution={CONTOUR_ATTRIBUTION}
               />
             ) : null}

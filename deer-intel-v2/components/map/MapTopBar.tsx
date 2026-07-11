@@ -6,6 +6,7 @@ import type { ContourInterval, MapLayerId } from "@/lib/propertyMap";
 type MapTopBarProps = {
   selectedLayer: MapLayerId;
   contourInterval: ContourInterval;
+  contourNeedsZoomIn: boolean;
   showSlope: boolean;
   showPublicLand: boolean;
   showWind: boolean;
@@ -37,6 +38,7 @@ const CONTOUR_CHOICES: Array<{ id: ContourInterval; label: string }> = [
 export default function MapTopBar({
   selectedLayer,
   contourInterval,
+  contourNeedsZoomIn,
   showSlope,
   showPublicLand,
   showWind,
@@ -96,6 +98,11 @@ export default function MapTopBar({
             );
           })}
         </div>
+        {contourNeedsZoomIn ? (
+          <span style={contourHintStyle} role="status">
+            Zoom in to see
+          </span>
+        ) : null}
       </div>
 
       <span style={dividerStyle} aria-hidden="true" />
@@ -187,6 +194,13 @@ const groupLabelStyle: CSSProperties = {
   fontWeight: 900,
   letterSpacing: "0.02em",
   textTransform: "uppercase",
+  whiteSpace: "nowrap",
+};
+
+const contourHintStyle: CSSProperties = {
+  color: "#f2c98a",
+  fontSize: "0.72rem",
+  fontWeight: 800,
   whiteSpace: "nowrap",
 };
 
