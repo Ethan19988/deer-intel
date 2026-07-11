@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import ActionCard from "@/components/ui/ActionCard";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
@@ -14,8 +14,6 @@ import { fetchLiveWeather, resolvePropertyWeatherPoint } from "@/lib/liveWeather
 import { getStandWindCheck } from "@/lib/standWind";
 import { getHuntPlannerSummary, plannerHuntDate } from "@/lib/huntPlanner";
 import { formatHuntDate } from "@/lib/hunts";
-import { useMoonPhase } from "@/lib/useMoonPhase";
-import MoonPhaseIcon from "@/components/weather/MoonPhaseIcon";
 
 const HOME_ACTIONS = [
   {
@@ -74,7 +72,6 @@ export default function Home() {
     ? `${weatherPoint.lat},${weatherPoint.lng}`
     : "";
   const [currentWind, setCurrentWind] = useState<string>();
-  const moon = useMoonPhase();
 
   function selectProperty(propertyId: string) {
     updateDeerIntelStore((currentState) => ({
@@ -189,25 +186,6 @@ export default function Home() {
             label="Last Hunt"
             value={plannerHuntDate(lastHunt)}
             detail={lastHunt ? planner.lastHunt.detail : "No hunt logged yet."}
-          />
-          <BriefItem
-            label="Moon"
-            value={
-              moon ? (
-                <span style={moonValueStyle}>
-                  <MoonPhaseIcon
-                    illumination={moon.illumination}
-                    waxing={moon.waxing}
-                    phase={moon.phase}
-                    size={44}
-                  />
-                  <span>{moon.illumination}% lit</span>
-                </span>
-              ) : (
-                "Reading the sky…"
-              )
-            }
-            detail={moon ? moon.movement : "Calculating tonight's moon phase."}
           />
           <BriefItem
             label="Next Step"
@@ -345,16 +323,12 @@ function BriefItem({
 }: {
   detail: string;
   label: string;
-  value: ReactNode;
+  value: string;
 }) {
   return (
     <div style={briefItemStyle}>
       <p style={eyebrowStyle}>{label}</p>
-      {typeof value === "string" ? (
-        <p style={briefValueStyle}>{value}</p>
-      ) : (
-        <div style={briefValueStyle}>{value}</div>
-      )}
+      <p style={briefValueStyle}>{value}</p>
       <p style={mutedTextStyle}>{detail}</p>
     </div>
   );
@@ -533,12 +507,6 @@ const briefValueStyle: CSSProperties = {
   fontSize: "1.08rem",
   fontWeight: 850,
   lineHeight: 1.25,
-};
-
-const moonValueStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.6rem",
 };
 
 const mutedTextStyle: CSSProperties = {
