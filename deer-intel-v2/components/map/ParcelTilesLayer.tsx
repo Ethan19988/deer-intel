@@ -4,8 +4,11 @@ import {
   leafletLayer,
   LineSymbolizer,
   PolygonSymbolizer,
-  CenteredTextSymbolizer,
+  type Feature,
+  type LabelSymbolizer,
+  type Layout,
 } from "protomaps-leaflet";
+import { fitLabelFontPx, ownerAcresText } from "@/lib/ownerLabel";
 
 // Statewide land-owner parcels, served as a single PMTiles vector-tile archive
 // and rendered client-side. Unlike the baked-JSON overlay (which loads every
@@ -18,7 +21,12 @@ const PMTILES_URL = "/data/pa-parcels.pmtiles";
 // (protomaps' labeler also drops overlapping labels automatically.)
 const LABEL_MIN_ZOOM = 15;
 
-const LABEL_FONT = "600 12px system-ui, -apple-system, Segoe UI, sans-serif";
+// Clamp for the fit-to-parcel font. Slightly tighter than the baked overlay's
+// range since the statewide view is denser with small suburban parcels.
+const LABEL_MIN_PX = 9;
+const LABEL_MAX_PX = 28;
+
+const LABEL_FONT_STACK = "system-ui, -apple-system, Segoe UI, sans-serif";
 
 // Thin the label candidates at lower zoom so only bigger parcels get names
 // until you zoom onto a property — mirrors the JSON overlay's acreage gate.
@@ -27,6 +35,100 @@ function labelPasses(zoom: number, feature: { props: Record<string, unknown> }) 
   if (zoom >= 17) return true;
   if (zoom >= 16) return acres >= 1;
   return acres >= 4;
+}
+
+type Pt = { x: number; y: number };
+
+// A protomaps label symbolizer that sizes each owner name to fit inside its
+// parcel's on-screen footprint (Spartan-Forge style), instead of a fixed font.
+// place() receives the polygon already transformed into display pixels, so the
+// footprint — and therefore the label size — grows and shrinks with zoom.
+class FitToParcelOwnerSymbolizer {
+  place(layout: Layout, geom: Pt[][], feature: Feature) {
+    const owner = String(feature.props.owner ?? "").trim();
+    if (!owner) return undefined;
+
+    // Footprint bbox over every ring, plus the largest ring's centroid as the
+    // label anchor (a reasonable interior point for typical parcel shapes).
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    let largest: Pt[] = geom[0] ?? [];
+    for (const ring of geom) {
+      if (ring.length > largest.length) largest = ring;
+      for (const p of ring) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      }
+    }
+    if (!Number.isFinite(minX) || largest.length === 0) return undefined;
+
+    let sumX = 0;
+    let sumY = 0;
+    for (const p of largest) {
+      sumX += p.x;
+      sumY += p.y;
+    }
+    const anchor: Pt = { x: sumX / largest.length, y: sumY / largest.length };
+
+    const widthPx = maxX - minX;
+    const heightPx = maxY - minY;
+
+    const acresText = ownerAcresText(Number(feature.props.acres) || 0);
+    const lines = acresText ? [owner, acresText] : [owner];
+
+    const fontPx = fitLabelFontPx(
+      widthPx,
+      heightPx,
+      owner,
+      acresText,
+      LABEL_MIN_PX,
+      LABEL_MAX_PX,
+    );
+    const lineHeight = fontPx * 1.2;
+
+    // Measure the widest line for a collision bbox the labeler can index.
+    layout.scratch.font = `600 ${fontPx}px ${LABEL_FONT_STACK}`;
+    let textWidth = 0;
+    for (const line of lines) {
+      textWidth = Math.max(textWidth, layout.scratch.measureText(line).width);
+    }
+    const textHeight = lineHeight * lines.length;
+
+    const bboxes = [
+      {
+        minX: anchor.x - textWidth / 2,
+        minY: anchor.y - textHeight / 2,
+        maxX: anchor.x + textWidth / 2,
+        maxY: anchor.y + textHeight / 2,
+      },
+    ];
+
+    const draw = (ctx: CanvasRenderingContext2D) => {
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineJoin = "round";
+      // The canvas is already translated to the anchor, so lay the block out
+      // vertically centered around the origin.
+      lines.forEach((line, i) => {
+        const isName = i === 0;
+        const size = isName ? fontPx : fontPx * 0.8;
+        const y = (i - (lines.length - 1) / 2) * lineHeight;
+        ctx.font = `${isName ? 600 : 500} ${size}px ${LABEL_FONT_STACK}`;
+        // Light halo keeps the name legible over any satellite imagery.
+        ctx.lineWidth = Math.max(size / 5, 1.5);
+        ctx.strokeStyle = "rgba(248, 250, 252, 0.9)";
+        ctx.strokeText(line, 0, y);
+        ctx.fillStyle = isName ? "#0b1120" : "#334155";
+        ctx.fillText(line, 0, y);
+      });
+    };
+
+    return [{ anchor, bboxes, draw }];
+  }
 }
 
 type ParcelTilesLayerProps = {
@@ -68,13 +170,7 @@ export default function ParcelTilesLayer({ enabled }: ParcelTilesLayerProps) {
           dataLayer: "parcels",
           minzoom: LABEL_MIN_ZOOM,
           filter: (z, f) => labelPasses(z, f),
-          symbolizer: new CenteredTextSymbolizer({
-            labelProps: ["owner"],
-            fill: "#0b1120",
-            stroke: "#f8fafc",
-            width: 2.5,
-            font: LABEL_FONT,
-          }),
+          symbolizer: new FitToParcelOwnerSymbolizer() as unknown as LabelSymbolizer,
         },
       ],
     });

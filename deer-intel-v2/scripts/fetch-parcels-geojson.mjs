@@ -26,8 +26,8 @@ const PAGE_SIZE = 1000;
 const PUBLIC_OWNER_PATTERN =
   /\b(COMMONWEALTH|STATE GAME LAND|GAME COMMISSION|DCNR|BUREAU OF FOREST|STATE FOREST|STATE PARK|UNITED STATES|U ?S ?A\b|FEDERAL|NATIONAL PARK|FOREST SERVICE|FISH (AND|&) BOAT|COUNTY OF|TOWNSHIP OF|BOROUGH OF|MUNICIPAL|SCHOOL DISTRICT|AUTHORITY|DEPARTMENT OF)/i;
 
-const PASDA = (name) =>
-  `https://mapservices.pasda.psu.edu/server/rest/services/pasda/${name}/MapServer/0`;
+const PASDA = (name, layer = 0) =>
+  `https://mapservices.pasda.psu.edu/server/rest/services/pasda/${name}/MapServer/${layer}`;
 
 function str(v) {
   if (typeof v === "string") return v.trim();
@@ -144,6 +144,89 @@ const COUNTIES = {
       const loc = cleanAddr(p.Location);
       return /^unassigned$/i.test(loc) ? "" : loc;
     },
+  },
+  berks: {
+    layerUrl: PASDA("Berks", 6),
+    outFields: ["NAME1", "ACREAGE", "PIN", "FULLSITEAD"],
+    owner: (p) => str(p.NAME1),
+    acres: (p) => toAcres(p.ACREAGE),
+    pin: (p) => str(p.PIN),
+    addr: (p) => cleanAddr(p.FULLSITEAD),
+  },
+  bucks: {
+    layerUrl: PASDA("Bucks", 17),
+    outFields: ["OWNER1", "OWNER2", "DEED_AREA", "PARCEL_NUM", "ADDRESS"],
+    owner: (p) => joinFields(p, ["OWNER1", "OWNER2"]),
+    acres: (p) => toAcres(p.DEED_AREA),
+    pin: (p) => str(p.PARCEL_NUM),
+    addr: (p) => cleanAddr(p.ADDRESS),
+  },
+  cameron: {
+    // Cameron publishes its own ArcGIS Online FeatureServer (OID field is FID).
+    layerUrl:
+      "https://services5.arcgis.com/NN66N9nlzcCXJ9he/arcgis/rest/services/Parcels_(September_2025)/FeatureServer/0",
+    orderBy: "FID",
+    outFields: [
+      "OwnerName1", "OwnerName2", "Acres", "PIN",
+      "SitusSt", "SitusDir", "SitusDesc1", "SitusSufx",
+    ],
+    owner: (p) => joinFields(p, ["OwnerName1", "OwnerName2"]),
+    acres: (p) => toAcres(p.Acres),
+    pin: (p) => str(p.PIN),
+    addr: (p) =>
+      cleanAddr(joinFields(p, ["SitusSt", "SitusDir", "SitusDesc1", "SitusSufx"])),
+  },
+  chester: {
+    layerUrl: PASDA("Chester", 11),
+    outFields: ["OWN1", "OWN2", "ACRE_PLAN_", "ACRE_PLAN1", "PIN_COMMON", "LOC_ADDRES"],
+    owner: (p) => joinFields(p, ["OWN1", "OWN2"]),
+    acres: (p) => toAcres(p.ACRE_PLAN_ || p.ACRE_PLAN1),
+    pin: (p) => str(p.PIN_COMMON),
+    addr: (p) => cleanAddr(p.LOC_ADDRES),
+  },
+  forest: {
+    layerUrl: PASDA("Forest", 3),
+    outFields: ["OWNER1", "ACRES", "PARCEL", "SITUS"],
+    owner: (p) => str(p.OWNER1),
+    acres: (p) => toAcres(p.ACRES),
+    pin: (p) => str(p.PARCEL),
+    addr: (p) => cleanAddr(p.SITUS),
+  },
+  montgomery: {
+    // Montgomery's OID field is OBJECTID_12, not the default OBJECTID.
+    layerUrl: PASDA("Montgomery", 14),
+    orderBy: "OBJECTID_12",
+    outFields: ["OWN1", "OWN2", "LAND_ACRES", "PARCEL", "LOCATION1"],
+    owner: (p) => joinFields(p, ["OWN1", "OWN2"]),
+    acres: (p) => toAcres(p.LAND_ACRES),
+    pin: (p) => str(p.PARCEL),
+    addr: (p) => cleanAddr(p.LOCATION1),
+  },
+  wyoming: {
+    layerUrl: PASDA("Wyoming", 2),
+    outFields: ["Owner", "Owner_2", "Deeded_Acr", "CALC_AC", "PARCELNUM", "Situs_Addr"],
+    owner: (p) => joinFields(p, ["Owner", "Owner_2"]),
+    acres: (p) => toAcres(p.Deeded_Acr || p.CALC_AC),
+    pin: (p) => str(p.PARCELNUM),
+    addr: (p) => cleanAddr(p.Situs_Addr),
+  },
+  york: {
+    layerUrl: PASDA("York", 31),
+    outFields: ["OWNER_FULL", "OWN_NAME1", "ACRES", "PIDN", "PROPADR"],
+    owner: (p) => str(p.OWNER_FULL) || str(p.OWN_NAME1),
+    acres: (p) => toAcres(p.ACRES),
+    pin: (p) => str(p.PIDN),
+    addr: (p) => cleanAddr(p.PROPADR),
+  },
+  bradford: {
+    // Owner parcels live on layer 5 (a join); OID field is OBJECTID_12.
+    layerUrl: PASDA("Bradford", 5),
+    orderBy: "OBJECTID_12",
+    outFields: ["NAME", "ACREAGE", "ParcelJoin", "ADDRESS", "CITY"],
+    owner: (p) => str(p.NAME),
+    acres: (p) => toAcres(p.ACREAGE),
+    pin: (p) => str(p.ParcelJoin),
+    addr: (p) => cleanAddr(joinFields(p, ["ADDRESS", "CITY"])),
   },
 };
 
