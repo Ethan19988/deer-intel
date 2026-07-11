@@ -17,6 +17,7 @@ import {
 } from "@/lib/deerIntelStore";
 import {
   getSupabaseClient,
+  isAuthRequired,
   isCloudSyncConfigured,
 } from "@/lib/supabaseClient";
 import {
@@ -39,6 +40,7 @@ type ActionResult = { error?: string; needsConfirmation?: boolean };
 
 type AuthContextValue = {
   configured: boolean;
+  authRequired: boolean;
   status: AuthStatus;
   user: AuthUser | null;
   syncStatus: SyncStatus;
@@ -72,6 +74,7 @@ function errorMessage(error: unknown): string {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const configured = isCloudSyncConfigured();
+  const authRequired = isAuthRequired();
   const state = useDeerIntelStore();
 
   const [status, setStatus] = useState<AuthStatus>(
@@ -388,6 +391,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       configured,
+      authRequired,
       status,
       user,
       syncStatus,
@@ -404,6 +408,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [
       configured,
+      authRequired,
       status,
       user,
       syncStatus,

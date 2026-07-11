@@ -12,7 +12,7 @@ const PUBLIC_PATHS = new Set(["/login"]);
 // sync is actually configured. With no Supabase env vars the app stays fully
 // local-only and open, exactly as before.
 export default function AuthGate({ children }: { children: ReactNode }) {
-  const { configured, status } = useAuth();
+  const { configured, authRequired, status } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const isPublicPath = PUBLIC_PATHS.has(pathname);
@@ -24,7 +24,23 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     }
   }, [configured, status, isPublicPath, router]);
 
-  // Local-only mode (no cloud configured): no gate at all.
+  // Fail closed: a deployment that requires accounts must never fall back to the
+  // open local-only mode. If Supabase isn't configured we can't offer sign-in,
+  // so we block the app with a clear notice instead of silently exposing
+  // everything — this is what stops a shared link from dropping someone in.
+  if (authRequired && !configured) {
+    return (
+      <div style={splashStyle}>
+        <p style={splashTextStyle}>🦌 Deer Intel</p>
+        <p style={splashMutedStyle}>
+          Sign-in is required, but accounts aren&apos;t finished setting up on
+          this deployment. Please try again later.
+        </p>
+      </div>
+    );
+  }
+
+  // Local-only mode (no cloud configured and auth not required): no gate at all.
   if (!configured) return <>{children}</>;
 
   // The login page itself is always allowed to render.
