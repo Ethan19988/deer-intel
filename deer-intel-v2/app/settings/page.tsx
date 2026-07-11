@@ -12,6 +12,7 @@ import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
 import AccountPanel from "@/components/auth/AccountPanel";
+import DataPrivacyManager from "@/components/settings/DataPrivacyManager";
 import OfflineMapsManager from "@/components/settings/OfflineMapsManager";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { saveDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
@@ -427,6 +428,15 @@ export default function SettingsPage() {
 
       <Section eyebrow="Account" title="Account & Cloud Sync">
         <AccountPanel />
+      </Section>
+
+      <Section eyebrow="Data & Privacy" title="Your Data">
+        <Card as="div" variant="subtle">
+          <DataPrivacyManager
+            recordCount={totalRecords}
+            cloudActive={cloudActive}
+          />
+        </Card>
       </Section>
 
       <Section eyebrow="Future Settings" title="Not Connected Yet">
