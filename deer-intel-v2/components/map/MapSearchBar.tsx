@@ -1,5 +1,30 @@
-import { useState, type CSSProperties, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+} from "react";
 import type { AddressSearchPlace } from "@/lib/propertyMap";
+
+function SearchIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
 
 type MapSearchBarProps = {
   canCreateAsset: boolean;
@@ -25,10 +50,55 @@ export default function MapSearchBar({
   onSelectResult,
 }: MapSearchBarProps) {
   const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the field the moment search opens so the user can type immediately.
+  useEffect(() => {
+    if (isOpen) inputRef.current?.focus();
+  }, [isOpen]);
+
+  // Close on Escape while open.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsOpen(false);
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onSearch(query);
+  }
+
+  // Picking a result flies the map there — collapse so the map is unobstructed.
+  function handleSelectResult(result: AddressSearchPlace) {
+    onSelectResult(result);
+    setIsOpen(false);
+  }
+
+  if (!isOpen) {
+    return (
+      <div
+        className="di-map-search di-map-search-collapsed"
+        style={collapsedWrapStyle}
+        onClick={(event) => event.stopPropagation()}
+        onDoubleClick={(event) => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          aria-label="Search address or place"
+          style={iconButtonStyle}
+          onClick={() => setIsOpen(true)}
+        >
+          <SearchIcon />
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -39,7 +109,11 @@ export default function MapSearchBar({
       onDoubleClick={(event) => event.stopPropagation()}
     >
       <form onSubmit={handleSubmit} style={searchFormStyle}>
+        <span style={leadingIconStyle} aria-hidden="true">
+          <SearchIcon />
+        </span>
         <input
+          ref={inputRef}
           type="search"
           placeholder="Search address or place"
           value={query}
@@ -48,6 +122,14 @@ export default function MapSearchBar({
         />
         <button type="submit" style={searchButtonStyle}>
           {isSearching ? "Searching" : "Search"}
+        </button>
+        <button
+          type="button"
+          aria-label="Close search"
+          style={closeButtonStyle}
+          onClick={() => setIsOpen(false)}
+        >
+          ×
         </button>
       </form>
 
@@ -68,7 +150,7 @@ export default function MapSearchBar({
                       ...resultButtonStyle,
                       ...(isSelected ? selectedResultButtonStyle : null),
                     }}
-                    onClick={() => onSelectResult(result)}
+                    onClick={() => handleSelectResult(result)}
                   >
                     <span style={resultTitleStyle}>{result.label}</span>
                     <span style={resultMetaStyle}>
@@ -97,22 +179,52 @@ export default function MapSearchBar({
   );
 }
 
+const collapsedWrapStyle: CSSProperties = {
+  position: "absolute",
+  top: "1rem",
+  left: "1rem",
+  zIndex: 1060,
+};
+
+const iconButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  width: "48px",
+  height: "48px",
+  alignItems: "center",
+  justifyContent: "center",
+  border: "1px solid rgba(255, 255, 255, 0.72)",
+  borderRadius: "8px",
+  background: "rgba(255, 255, 255, 0.96)",
+  color: "#111711",
+  cursor: "pointer",
+  boxShadow: "0 12px 30px rgba(0, 0, 0, 0.22)",
+};
+
 const searchWrapStyle: CSSProperties = {
   position: "absolute",
   top: "1rem",
   left: "1rem",
-  zIndex: 1000,
-  width: "min(430px, calc(100% - 6rem))",
+  zIndex: 1080,
+  width: "min(430px, calc(100% - 2rem))",
 };
 
 const searchFormStyle: CSSProperties = {
   display: "flex",
   minHeight: "48px",
+  alignItems: "center",
   overflow: "hidden",
   border: "1px solid rgba(255, 255, 255, 0.72)",
   borderRadius: "8px",
   background: "rgba(255, 255, 255, 0.96)",
   boxShadow: "0 12px 30px rgba(0, 0, 0, 0.22)",
+};
+
+const leadingIconStyle: CSSProperties = {
+  display: "inline-flex",
+  flex: "0 0 auto",
+  alignItems: "center",
+  paddingLeft: "0.75rem",
+  color: "#56705a",
 };
 
 const searchInputStyle: CSSProperties = {
@@ -121,9 +233,26 @@ const searchInputStyle: CSSProperties = {
   border: 0,
   background: "transparent",
   color: "#111711",
-  padding: "0 0.9rem",
+  padding: "0 0.75rem",
   fontSize: "1rem",
   outline: "none",
+};
+
+const closeButtonStyle: CSSProperties = {
+  flex: "0 0 auto",
+  display: "inline-flex",
+  width: "44px",
+  alignSelf: "stretch",
+  alignItems: "center",
+  justifyContent: "center",
+  border: 0,
+  borderLeft: "1px solid rgba(17, 23, 17, 0.12)",
+  background: "#f1f5ef",
+  color: "#111711",
+  fontSize: "1.5rem",
+  lineHeight: 1,
+  fontWeight: 700,
+  cursor: "pointer",
 };
 
 const searchButtonStyle: CSSProperties = {
