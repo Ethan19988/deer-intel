@@ -14,6 +14,7 @@ const mobileNavLinks = [
   { href: "/map", label: "Map" },
   { href: "/cameras", label: "Cameras" },
   { href: "/hunt-log", label: "Hunts" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export default function PageShell({
