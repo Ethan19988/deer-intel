@@ -1,12 +1,118 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import {
   fetchLiveForecast,
   type LiveForecast,
   type WeatherPoint,
 } from "@/lib/liveWeather";
 import { TEMPERATURE_UNIT_LABEL, useUnitPreferences } from "@/lib/units";
+
+// iOS exposes the true compass heading on this non-standard field; everywhere
+// else we derive it from the absolute `alpha` rotation.
+type CompassOrientationEvent = DeviceOrientationEvent & {
+  webkitCompassHeading?: number;
+};
+
+type OrientationEventClass = {
+  requestPermission?: () => Promise<"granted" | "denied" | "default">;
+};
+
+// Track the device's compass heading (degrees clockwise from true north) so the
+// rose can point at real north. Returns null until a reading arrives — callers
+// fall back to a static north-up rose. iOS 13+ gates the sensor behind a
+// permission prompt that must follow a user gesture, so `requestPermission` is
+// wired to the rose's center button.
+function useDeviceHeading(enabled: boolean) {
+  const [heading, setHeading] = useState<number | null>(null);
+  const listeningRef = useRef(false);
+
+  const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
+    const compassEvent = event as CompassOrientationEvent;
+    let next: number | null = null;
+
+    if (
+      typeof compassEvent.webkitCompassHeading === "number" &&
+      Number.isFinite(compassEvent.webkitCompassHeading)
+    ) {
+      // iOS: already a true-north compass heading, clockwise.
+      next = compassEvent.webkitCompassHeading;
+    } else if (event.absolute && typeof event.alpha === "number") {
+      // Standard absolute orientation: alpha is counter-clockwise from north.
+      next = 360 - event.alpha;
+    }
+
+    if (next !== null && Number.isFinite(next)) {
+      setHeading(((next % 360) + 360) % 360);
+    }
+  }, []);
+
+  const startListening = useCallback(() => {
+    if (listeningRef.current) return;
+    listeningRef.current = true;
+    window.addEventListener(
+      "deviceorientationabsolute",
+      handleOrientation as EventListener,
+    );
+    window.addEventListener(
+      "deviceorientation",
+      handleOrientation as EventListener,
+    );
+  }, [handleOrientation]);
+
+  const requestPermission = useCallback(async () => {
+    if (typeof window === "undefined" || !window.DeviceOrientationEvent) return;
+
+    const orientationClass =
+      window.DeviceOrientationEvent as unknown as OrientationEventClass;
+
+    if (typeof orientationClass.requestPermission === "function") {
+      try {
+        const decision = await orientationClass.requestPermission();
+        if (decision === "granted") startListening();
+      } catch {
+        // Denied or unsupported — the rose stays static north-up.
+      }
+      return;
+    }
+
+    startListening();
+  }, [startListening]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    if (typeof window === "undefined" || !window.DeviceOrientationEvent) return;
+
+    const orientationClass =
+      window.DeviceOrientationEvent as unknown as OrientationEventClass;
+
+    // Where no permission gate exists (Android, desktop sensors), start right
+    // away; iOS waits for the user to tap the rose's center button.
+    if (typeof orientationClass.requestPermission !== "function") {
+      startListening();
+    }
+
+    return () => {
+      window.removeEventListener(
+        "deviceorientationabsolute",
+        handleOrientation as EventListener,
+      );
+      window.removeEventListener(
+        "deviceorientation",
+        handleOrientation as EventListener,
+      );
+      listeningRef.current = false;
+    };
+  }, [enabled, handleOrientation, startListening]);
+
+  return { heading, requestPermission };
+}
 
 type MapWeatherCompassProps = {
   point: WeatherPoint | null;
@@ -30,6 +136,7 @@ export default function MapWeatherCompass({
 }: MapWeatherCompassProps) {
   const [result, setResult] = useState<ForecastResult | null>(null);
   const units = useUnitPreferences();
+  const { heading, requestPermission } = useDeviceHeading(showCompass);
   const pointKey = point ? `${point.lat},${point.lng}` : "";
 
   useEffect(() => {
@@ -89,14 +196,17 @@ export default function MapWeatherCompass({
 
       {showCompass ? (
         <div style={roseWrapStyle}>
-          <CompassRose />
+          <CompassRose heading={heading} />
           <button
             type="button"
-            aria-label="Recenter map on this property"
-            title="Recenter"
+            aria-label="Recenter map and enable compass"
+            title={heading === null ? "Recenter · tap to enable compass" : "Recenter"}
             style={roseCenterStyle}
-            disabled={!onRecenter}
-            onClick={() => onRecenter?.()}
+            onClick={() => {
+              // A user gesture also unlocks the compass sensor on iOS.
+              void requestPermission();
+              onRecenter?.();
+            }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
               <circle
@@ -119,16 +229,22 @@ export default function MapWeatherCompass({
   );
 }
 
-// A static north-up compass rose: a four-point star with a blaze-orange north
-// point (matching the app's secondary accent) and cream E/S/W points.
-function CompassRose() {
+// A compass rose: a four-point star with a blaze-orange north point (matching
+// the app's secondary accent) and cream E/S/W points. When a live device
+// heading is available the whole rose rotates so north points at true north;
+// otherwise it rests north-up.
+function CompassRose({ heading }: { heading: number | null }) {
   return (
     <svg
       width="88"
       height="88"
       viewBox="0 0 100 100"
       aria-hidden="true"
-      style={{ display: "block" }}
+      style={{
+        display: "block",
+        transformOrigin: "center",
+        transform: heading === null ? undefined : `rotate(${-heading}deg)`,
+      }}
     >
       <circle
         cx="50"
