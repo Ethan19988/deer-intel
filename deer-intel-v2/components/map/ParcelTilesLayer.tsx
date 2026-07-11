@@ -13,8 +13,8 @@ import { fitLabelFontPx, ownerAcresText } from "@/lib/ownerLabel";
 // Statewide land-owner parcels, served as a single PMTiles vector-tile archive
 // and rendered client-side. Unlike the baked-JSON overlay (which loads every
 // parcel into memory), the map only fetches the tiles in view, so this scales
-// to the whole state. The tiles carry the shared parcel schema in their
-// `parcels` layer: { owner, acres, pin, addr, pub }.
+// to the whole state. The tiles carry only what the overlay renders in their
+// `parcels` layer: { owner, acres, pub }.
 //
 // The ~342 MB archive is hosted on Cloudflare R2 (public bucket with CORS +
 // range support), which the browser range-fetches directly — Vercel can't

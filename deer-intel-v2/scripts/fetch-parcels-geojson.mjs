@@ -280,10 +280,11 @@ async function fetchCounty(slug, outPath) {
           type: "Feature",
           geometry: geom,
           properties: {
+            // Only owner/acres/pub are rendered by the map overlay; pin/addr
+            // were dead weight in the tiles (click-to-identify queries the
+            // county services live), so they're dropped to shrink the archive.
             owner,
             acres: cfg.acres(p),
-            pin: cfg.pin(p),
-            addr: cfg.addr(p),
             pub: PUBLIC_OWNER_PATTERN.test(owner) ? 1 : 0,
           },
         })}\n`,

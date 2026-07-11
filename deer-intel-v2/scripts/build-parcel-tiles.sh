@@ -66,6 +66,7 @@ echo ">> building tiles -> $OUT"
 tippecanoe -o "$OUT" -l parcels -n "PA Parcels" \
   -Z12 -z15 \
   --drop-densest-as-needed --extend-zooms-if-still-dropping \
+  --simplification=4 \
   --force "${inputs[@]}"
 
 echo ">> done: $(du -h "$OUT" | cut -f1) $OUT"
