@@ -385,6 +385,29 @@ textarea {
   transform: translateX(0);
 }
 
+/* Sheet grabber: only meaningful on the mobile bottom sheet, hidden on the
+   desktop side drawer. */
+.di-layer-manager-grabber {
+  display: none;
+}
+
+/* Teardrop asset pins: strip Leaflet's default white icon box so only the SVG
+   shows, and float the pin with a soft ground shadow. */
+.leaflet-div-icon.deer-intel-map-marker {
+  background: transparent;
+  border: none;
+}
+
+.di-map-pin {
+  line-height: 0;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.45));
+  transition: filter 160ms ease;
+}
+
+.di-map-pin-selected {
+  filter: drop-shadow(0 6px 9px rgba(0, 0, 0, 0.5));
+}
+
 /* LiDAR base map — the multidirectional hillshade is naturally light and washes
    out over gentle ground, so pull the brightness down and push contrast hard to
    make ridges, benches, and draws read with that crisp "LiDAR" bite, with a hint
@@ -648,6 +671,10 @@ textarea {
 
   .di-layer-manager-panel-open {
     transform: translateY(0);
+  }
+
+  .di-layer-manager-grabber {
+    display: block !important;
   }
 
   .di-map-frame .leaflet-control-scale {

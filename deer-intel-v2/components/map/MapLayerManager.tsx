@@ -43,6 +43,17 @@ const BASE_MAP_ORDER: MapLayerId[] = [
   "lidar",
 ];
 
+// A representative swatch for each base map so the picker reads like the field
+// app's tile thumbnails — imagery greens, road paper, terrain tan, LiDAR grey.
+const BASE_MAP_SWATCH: Record<MapLayerId, string> = {
+  hybrid: "linear-gradient(135deg, #4a6a35 0%, #26361c 100%)",
+  satellite: "linear-gradient(135deg, #4a6a35 0%, #22311a 100%)",
+  roads: "linear-gradient(135deg, #edeae0 0%, #cbc7ba 100%)",
+  terrain: "linear-gradient(135deg, #d3bd8c 0%, #8a7748 100%)",
+  topographic: "linear-gradient(135deg, #567a3c 0%, #2b401d 100%)",
+  lidar: "linear-gradient(135deg, #c0b9ac 0%, #6d6860 100%)",
+};
+
 const VISIBILITY_LABELS: Record<AssetLayerId, string> = {
   cameras: "Cameras",
   stands: "Stands",
@@ -132,14 +143,16 @@ export default function MapLayerManager({
           isOpen ? " di-layer-manager-panel-open" : ""
         }`}
         style={panelStyle}
-        aria-label="Layers"
+        aria-label="Maps"
         onClick={(event) => event.stopPropagation()}
         onDoubleClick={(event) => event.stopPropagation()}
       >
+        <div className="di-layer-manager-grabber" style={grabberStyle} aria-hidden="true" />
+
         <header style={headerStyle}>
           <div>
             <p style={eyebrowStyle}>Map</p>
-            <h3 style={titleStyle}>Layers</h3>
+            <h3 style={titleStyle}>Maps &amp; Layers</h3>
           </div>
           <button
             type="button"
@@ -148,21 +161,14 @@ export default function MapLayerManager({
             aria-label="Close layers"
             onClick={() => setIsOpen(false)}
           >
-            X
+            ✕
           </button>
         </header>
 
         <div style={contentStyle}>
-          {offlineSection ? (
-            <section style={sectionStyle}>
-              <h4 style={sectionTitleStyle}>Offline Maps</h4>
-              {offlineSection}
-            </section>
-          ) : null}
-
           <section style={sectionStyle}>
             <h4 style={sectionTitleStyle}>Base Map</h4>
-            <div style={baseMapGridStyle} role="radiogroup">
+            <div style={baseMapRowStyle} role="radiogroup">
               {baseMapLayers.map((layer) => {
                 const isSelected = layer.id === selectedLayer;
 
@@ -173,11 +179,22 @@ export default function MapLayerManager({
                     role="radio"
                     aria-checked={isSelected}
                     style={{
-                      ...baseMapButtonStyle,
-                      ...(isSelected ? selectedBaseMapButtonStyle : null),
+                      ...baseMapTileStyle,
+                      ...(isSelected ? selectedBaseMapTileStyle : null),
                     }}
                     onClick={() => onSelectLayer(layer.id)}
                   >
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        ...baseMapSwatchStyle,
+                        backgroundImage: BASE_MAP_SWATCH[layer.id],
+                      }}
+                    >
+                      {isSelected ? (
+                        <span style={baseMapCheckStyle}>✓</span>
+                      ) : null}
+                    </span>
                     <span style={baseMapLabelStyle}>{layer.label}</span>
                     {layer.isPlaceholder ? (
                       <span style={placeholderStyle}>Placeholder</span>
@@ -188,50 +205,51 @@ export default function MapLayerManager({
             </div>
           </section>
 
-          <LayerSection title="Visibility">
+          <ChipSection title="Map Features">
             {ASSET_LAYERS.map((layer) => (
-              <ToggleRow
+              <Chip
                 key={layer.id}
                 checked={visibleAssetLayers[layer.id]}
                 label={VISIBILITY_LABELS[layer.id]}
+                swatch={layer.color}
                 onToggle={() => onToggleLayer(layer.id)}
               />
             ))}
-          </LayerSection>
+          </ChipSection>
 
-          <LayerSection title="Property">
-            <ToggleRow
+          <ChipSection title="Property">
+            <Chip
               checked={showPropertyLines}
               label="Property Lines"
               onToggle={onTogglePropertyLines}
             />
-            <ToggleRow
+            <Chip
               checked={showOwnerNames}
               disabled={ownerNamesDisabled}
               label="Owner Names"
               onToggle={onToggleOwnerNames}
             />
-            <ToggleRow
+            <Chip
               checked={showParcelTiles}
               label="Land Owners"
               onToggle={onToggleParcelTiles}
             />
-          </LayerSection>
+          </ChipSection>
 
-          <LayerSection title="Map Tools">
+          <ChipSection title="Map Tools">
             {MAP_TOOL_LABELS.map((tool) => (
-              <ToggleRow
+              <Chip
                 key={tool.id}
                 checked={mapTools[tool.id]}
                 label={tool.label}
                 onToggle={() => onToggleMapTool(tool.id)}
               />
             ))}
-          </LayerSection>
+          </ChipSection>
 
-          <LayerSection title="Future Layers">
+          <ChipSection title="Coming Soon">
             {FUTURE_LAYER_LABELS.map((label) => (
-              <ToggleRow
+              <Chip
                 key={label}
                 checked={false}
                 disabled
@@ -239,14 +257,21 @@ export default function MapLayerManager({
                 onToggle={() => undefined}
               />
             ))}
-          </LayerSection>
+          </ChipSection>
+
+          {offlineSection ? (
+            <section style={sectionStyle}>
+              <h4 style={sectionTitleStyle}>Offline Maps</h4>
+              {offlineSection}
+            </section>
+          ) : null}
         </div>
       </aside>
     </>
   );
 }
 
-function LayerSection({
+function ChipSection({
   children,
   title,
 }: {
@@ -256,20 +281,22 @@ function LayerSection({
   return (
     <section style={sectionStyle}>
       <h4 style={sectionTitleStyle}>{title}</h4>
-      <div style={toggleListStyle}>{children}</div>
+      <div style={chipWrapStyle}>{children}</div>
     </section>
   );
 }
 
-function ToggleRow({
+function Chip({
   checked,
   disabled = false,
   label,
+  swatch,
   onToggle,
 }: {
   checked: boolean;
   disabled?: boolean;
   label: string;
+  swatch?: string;
   onToggle: () => void;
 }) {
   return (
@@ -279,27 +306,23 @@ function ToggleRow({
       aria-checked={checked}
       disabled={disabled}
       style={{
-        ...toggleRowStyle,
-        ...(checked ? activeToggleRowStyle : null),
-        ...(disabled ? disabledToggleRowStyle : null),
+        ...chipStyle,
+        ...(checked ? activeChipStyle : null),
+        ...(disabled ? disabledChipStyle : null),
       }}
       onClick={onToggle}
     >
-      <span style={toggleLabelStyle}>{label}</span>
-      <span
-        aria-hidden="true"
-        style={{
-          ...switchTrackStyle,
-          ...(checked ? activeSwitchTrackStyle : null),
-        }}
-      >
+      {swatch ? (
         <span
+          aria-hidden="true"
           style={{
-            ...switchKnobStyle,
-            ...(checked ? activeSwitchKnobStyle : null),
+            ...chipSwatchStyle,
+            background: swatch,
+            ...(checked ? null : chipSwatchMutedStyle),
           }}
         />
-      </span>
+      ) : null}
+      <span>{label}</span>
     </button>
   );
 }
@@ -315,7 +338,7 @@ const layersButtonStyle: CSSProperties = {
   justifyContent: "center",
   padding: "0.68rem 0.95rem",
   border: "1px solid rgba(25, 34, 25, 0.28)",
-  borderRadius: "8px",
+  borderRadius: "12px",
   background: "rgba(255, 255, 255, 0.96)",
   color: "#111711",
   cursor: "pointer",
@@ -328,7 +351,7 @@ const backdropStyle: CSSProperties = {
   position: "absolute",
   inset: 0,
   zIndex: 1600,
-  background: "rgba(5, 8, 6, 0.24)",
+  background: "rgba(5, 8, 6, 0.34)",
 };
 
 const panelStyle: CSSProperties = {
@@ -338,12 +361,22 @@ const panelStyle: CSSProperties = {
   bottom: 0,
   zIndex: 1610,
   display: "grid",
-  gridTemplateRows: "auto minmax(0, 1fr)",
-  width: "min(390px, calc(100% - 1rem))",
+  gridTemplateRows: "auto auto minmax(0, 1fr)",
+  width: "min(400px, calc(100% - 1rem))",
   borderLeft: "1px solid rgba(17, 23, 17, 0.14)",
-  background: "rgba(248, 250, 246, 0.98)",
-  color: "#111711",
+  background: "var(--surface)",
+  color: "var(--text)",
   boxShadow: "-18px 0 42px rgba(0, 0, 0, 0.24)",
+};
+
+// Only meaningful as a bottom sheet (mobile); hidden on the desktop side drawer.
+const grabberStyle: CSSProperties = {
+  justifySelf: "center",
+  width: "40px",
+  height: "4px",
+  margin: "0.5rem 0 0",
+  borderRadius: "999px",
+  background: "var(--border-strong)",
 };
 
 const headerStyle: CSSProperties = {
@@ -351,22 +384,22 @@ const headerStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: "1rem",
-  padding: "1rem",
-  borderBottom: "1px solid rgba(17, 23, 17, 0.1)",
+  padding: "0.85rem 1rem",
+  borderBottom: "1px solid var(--border)",
 };
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#56705a",
-  fontSize: "0.75rem",
+  color: "var(--accent-text)",
+  fontSize: "0.72rem",
   fontWeight: 900,
-  letterSpacing: 0,
+  letterSpacing: "0.04em",
   textTransform: "uppercase",
 };
 
 const titleStyle: CSSProperties = {
-  margin: "0.1rem 0 0",
-  color: "#111711",
+  margin: "0.12rem 0 0",
+  color: "var(--text)",
   fontSize: "1.2rem",
   lineHeight: 1.2,
 };
@@ -377,145 +410,143 @@ const closeButtonStyle: CSSProperties = {
   minHeight: "42px",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid rgba(17, 23, 17, 0.12)",
-  borderRadius: "8px",
-  background: "white",
-  color: "#111711",
+  border: "1px solid var(--border)",
+  borderRadius: "10px",
+  background: "var(--surface-2)",
+  color: "var(--text)",
   cursor: "pointer",
-  fontSize: "0.9rem",
+  fontSize: "0.95rem",
   fontWeight: 900,
 };
 
 const contentStyle: CSSProperties = {
   display: "grid",
   alignContent: "start",
-  gap: "0.85rem",
+  gap: "1.15rem",
   minHeight: 0,
   overflow: "auto",
-  padding: "0.85rem",
+  padding: "1rem",
 };
 
 const sectionStyle: CSSProperties = {
   display: "grid",
-  gap: "0.55rem",
+  gap: "0.6rem",
 };
 
 const sectionTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#566157",
-  fontSize: "0.78rem",
+  color: "var(--text-muted)",
+  fontSize: "0.74rem",
   fontWeight: 900,
-  letterSpacing: 0,
+  letterSpacing: "0.05em",
   textTransform: "uppercase",
 };
 
-const baseMapGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: "0.55rem",
+const baseMapRowStyle: CSSProperties = {
+  display: "flex",
+  gap: "0.6rem",
+  overflowX: "auto",
+  paddingBottom: "0.25rem",
+  scrollSnapType: "x proximity",
 };
 
-const baseMapButtonStyle: CSSProperties = {
+const baseMapTileStyle: CSSProperties = {
   display: "grid",
-  minHeight: "58px",
-  alignContent: "center",
-  gap: "0.15rem",
-  padding: "0.65rem",
-  border: "1px solid rgba(17, 23, 17, 0.12)",
-  borderRadius: "8px",
-  background: "white",
-  color: "#182018",
+  flex: "0 0 auto",
+  width: "94px",
+  gap: "0.4rem",
+  padding: "0.4rem",
+  border: "2px solid var(--border)",
+  borderRadius: "12px",
+  background: "var(--surface-2)",
+  color: "var(--text)",
   cursor: "pointer",
-  textAlign: "left",
-  boxShadow: "0 8px 18px rgba(17, 23, 17, 0.08)",
+  textAlign: "center",
+  scrollSnapAlign: "start",
 };
 
-const selectedBaseMapButtonStyle: CSSProperties = {
-  borderColor: "#2f6d3a",
-  background: "#17331b",
-  color: "white",
+const selectedBaseMapTileStyle: CSSProperties = {
+  borderColor: "var(--accent)",
+  background: "var(--accent-tint)",
+};
+
+const baseMapSwatchStyle: CSSProperties = {
+  display: "grid",
+  placeItems: "center",
+  height: "58px",
+  borderRadius: "8px",
+  boxShadow: "inset 0 0 0 1px rgba(0, 0, 0, 0.12)",
+};
+
+const baseMapCheckStyle: CSSProperties = {
+  display: "inline-flex",
+  width: "24px",
+  height: "24px",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: "999px",
+  background: "var(--accent)",
+  color: "#ffffff",
+  fontSize: "0.85rem",
+  fontWeight: 900,
+  boxShadow: "0 2px 6px rgba(0, 0, 0, 0.3)",
 };
 
 const baseMapLabelStyle: CSSProperties = {
-  fontSize: "0.92rem",
-  fontWeight: 900,
+  fontSize: "0.8rem",
+  fontWeight: 800,
   lineHeight: 1.15,
 };
 
 const placeholderStyle: CSSProperties = {
-  color: "#8f9a90",
-  fontSize: "0.72rem",
+  color: "var(--text-faint)",
+  fontSize: "0.68rem",
   fontWeight: 800,
   lineHeight: 1.2,
 };
 
-const toggleListStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.35rem",
-};
-
-const toggleRowStyle: CSSProperties = {
+const chipWrapStyle: CSSProperties = {
   display: "flex",
-  minHeight: "48px",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "0.75rem",
-  padding: "0.5rem 0.55rem 0.5rem 0.75rem",
-  border: "1px solid rgba(17, 23, 17, 0.1)",
-  borderRadius: "8px",
-  background: "white",
-  color: "#172017",
-  cursor: "pointer",
-  textAlign: "left",
+  flexWrap: "wrap",
+  gap: "0.5rem",
 };
 
-const activeToggleRowStyle: CSSProperties = {
-  borderColor: "rgba(47, 109, 58, 0.42)",
-  background: "#f0f7ee",
-};
-
-const disabledToggleRowStyle: CSSProperties = {
-  cursor: "not-allowed",
-  opacity: 0.52,
-};
-
-const toggleLabelStyle: CSSProperties = {
-  overflow: "hidden",
-  fontSize: "0.94rem",
-  fontWeight: 850,
-  lineHeight: 1.2,
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
-
-const switchTrackStyle: CSSProperties = {
-  position: "relative",
+const chipStyle: CSSProperties = {
   display: "inline-flex",
-  width: "42px",
-  height: "26px",
-  flex: "0 0 auto",
+  minHeight: "40px",
   alignItems: "center",
-  border: "1px solid rgba(17, 23, 17, 0.18)",
+  gap: "0.45rem",
+  padding: "0.4rem 0.85rem",
+  border: "1.5px solid var(--border-strong)",
   borderRadius: "999px",
-  background: "#d9ded8",
+  background: "var(--surface)",
+  color: "var(--text-muted)",
+  cursor: "pointer",
+  fontSize: "0.9rem",
+  fontWeight: 800,
+  lineHeight: 1.1,
 };
 
-const activeSwitchTrackStyle: CSSProperties = {
-  borderColor: "#2f6d3a",
-  background: "#2f6d3a",
+const activeChipStyle: CSSProperties = {
+  borderColor: "var(--accent)",
+  background: "var(--accent-tint)",
+  color: "var(--accent-text)",
 };
 
-const switchKnobStyle: CSSProperties = {
-  position: "absolute",
-  left: "3px",
-  width: "20px",
-  height: "20px",
+const disabledChipStyle: CSSProperties = {
+  cursor: "not-allowed",
+  opacity: 0.5,
+};
+
+const chipSwatchStyle: CSSProperties = {
+  display: "inline-block",
+  width: "12px",
+  height: "12px",
+  flex: "0 0 auto",
   borderRadius: "999px",
-  background: "white",
-  boxShadow: "0 2px 5px rgba(0, 0, 0, 0.25)",
-  transition: "transform 160ms ease",
+  boxShadow: "inset 0 0 0 1px rgba(0, 0, 0, 0.2)",
 };
 
-const activeSwitchKnobStyle: CSSProperties = {
-  transform: "translateX(16px)",
+const chipSwatchMutedStyle: CSSProperties = {
+  opacity: 0.45,
 };
