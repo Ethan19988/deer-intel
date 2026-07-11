@@ -6,14 +6,13 @@ name: Build parcel tiles
 # Release as a versioned backup. tippecanoe only runs on Linux, so this is the
 # supported way to regenerate the archive (it can't be built on Windows).
 #
-# Run it manually from the Actions tab (workflow_dispatch). A monthly schedule
-# is included but commented out — the output is a large binary, so enable it
-# only if you want an automatic data refresh.
+# Runs monthly (06:00 UTC on the 1st) to refresh the data as county parcels
+# change, and can also be dispatched manually from the Actions tab.
 
 on:
   workflow_dispatch:
-  # schedule:
-  #   - cron: "0 6 1 * *" # 06:00 UTC on the 1st of each month
+  schedule:
+    - cron: "0 6 1 * *" # 06:00 UTC on the 1st of each month
 
 permissions:
   # Uploading the release asset needs contents: write.
