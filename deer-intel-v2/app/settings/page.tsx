@@ -27,6 +27,8 @@ import {
   setWindUnit,
   useUnitPreferences,
 } from "@/lib/units";
+import { setDefaultMapLayer, useDefaultMapLayer } from "@/lib/mapPreferences";
+import { MAP_LAYERS } from "@/lib/propertyMap";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 
 function recordCount(candidate: DeerIntelState) {
@@ -46,6 +48,7 @@ export default function SettingsPage() {
   const state = useDeerIntelStore();
   const themePreference = useThemePreference();
   const units = useUnitPreferences();
+  const defaultMapLayer = useDefaultMapLayer();
   const { configured, status, user } = useAuth();
   const cloudActive = configured && status === "signed-in";
   const totalRecords = recordCount(state);
@@ -225,6 +228,36 @@ export default function SettingsPage() {
                 { value: "kmh", label: "km/h" },
               ]}
             />
+          </div>
+        </Card>
+      </Section>
+
+      <Section eyebrow="Map" title="Default Map Layer">
+        <Card as="div" variant="subtle">
+          <p style={mutedTextStyle}>
+            Choose which base layer the map opens on. A shortcut link (like the
+            sidebar&apos;s LiDAR) still overrides it for that visit, and you can
+            always switch layers on the map. Saved on this device only.
+          </p>
+          <div style={mapLayerGridStyle}>
+            {MAP_LAYERS.map((layer) => {
+              const active = layer.id === defaultMapLayer;
+
+              return (
+                <button
+                  key={layer.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setDefaultMapLayer(layer.id)}
+                  style={{
+                    ...mapLayerOptionStyle,
+                    ...(active ? mapLayerOptionActiveStyle : null),
+                  }}
+                >
+                  {layer.label}
+                </button>
+              );
+            })}
           </div>
         </Card>
       </Section>
@@ -495,6 +528,31 @@ const unitSegmentStyle: CSSProperties = {
 };
 
 const unitSegmentActiveStyle: CSSProperties = {
+  border: "1px solid var(--accent)",
+  background: "var(--accent-tint)",
+  color: "var(--accent-text)",
+};
+
+const mapLayerGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: "0.6rem",
+  marginTop: "1rem",
+};
+
+const mapLayerOptionStyle: CSSProperties = {
+  minHeight: "48px",
+  padding: "0.6rem 0.8rem",
+  border: "1px solid var(--border)",
+  borderRadius: "10px",
+  background: "var(--surface)",
+  color: "var(--text)",
+  fontWeight: 800,
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const mapLayerOptionActiveStyle: CSSProperties = {
   border: "1px solid var(--accent)",
   background: "var(--accent-tint)",
   color: "var(--accent-text)",
