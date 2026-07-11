@@ -9,7 +9,7 @@ import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
-import { useDeerIntelStore } from "@/lib/deerIntelStore";
+import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import { fetchLiveWeather, resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { getStandWindCheck } from "@/lib/standWind";
 import { getHuntPlannerSummary, plannerHuntDate } from "@/lib/huntPlanner";
@@ -75,6 +75,13 @@ export default function Home() {
   const [currentWind, setCurrentWind] = useState<string>();
   const moon = useMoonPhase();
 
+  function selectProperty(propertyId: string) {
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      selectedPropertyId: propertyId,
+    }));
+  }
+
   useEffect(() => {
     if (!weatherKey) {
       setCurrentWind(undefined);
@@ -136,6 +143,22 @@ export default function Home() {
               Today
             </p>
             <h1 style={briefTitleStyle}>Today&apos;s Brief</h1>
+            {state.properties.length > 1 ? (
+              <label style={pickerStyle}>
+                <span style={pickerLabelStyle}>Property</span>
+                <select
+                  style={selectStyle}
+                  value={activePropertyId}
+                  onChange={(event) => selectProperty(event.target.value)}
+                >
+                  {state.properties.map((property) => (
+                    <option key={property.id} value={property.id}>
+                      {property.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
           </div>
           <Badge variant={weatherPoint ? "success" : "default"}>
             {weatherPoint ? "Live Weather" : "Weather"}
@@ -450,6 +473,29 @@ const briefTitleStyle: CSSProperties = {
   fontSize: "1.75rem",
   lineHeight: 1.15,
   textShadow: "0 1px 0 rgba(255, 255, 255, 0.4)",
+};
+
+const pickerStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.5rem",
+  marginTop: "0.55rem",
+};
+
+const pickerLabelStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontSize: "0.85rem",
+  fontWeight: 800,
+};
+
+const selectStyle: CSSProperties = {
+  minHeight: "42px",
+  minWidth: "180px",
+  padding: "0.5rem 0.65rem",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--surface)",
+  color: "var(--text)",
 };
 
 const briefGridStyle: CSSProperties = {
