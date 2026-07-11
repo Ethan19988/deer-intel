@@ -18,7 +18,7 @@ export type MapToolId = "gps" | "compass" | "scaleBar";
 export type MapToolState = Record<MapToolId, boolean>;
 
 type MapLayerManagerProps = {
-  contourInterval: number;
+  contourLevel: number;
   mapTools: MapToolState;
   offlineSection?: ReactNode;
   ownerNamesDisabled?: boolean;
@@ -27,7 +27,7 @@ type MapLayerManagerProps = {
   showOwnerNames: boolean;
   showPropertyLines: boolean;
   visibleAssetLayers: Record<AssetLayerId, boolean>;
-  onSelectContourInterval: (interval: number) => void;
+  onSelectContourLevel: (level: number) => void;
   onSelectLayer: (layerId: MapLayerId) => void;
   onToggleParcelTiles: () => void;
   onToggleLayer: (layerId: AssetLayerId) => void;
@@ -36,13 +36,14 @@ type MapLayerManagerProps = {
   onTogglePropertyLines: () => void;
 };
 
-// Feet-per-contour options shown in the segmented control, mirroring the field
-// app. 0 turns contours off.
+// Contour density levels shown in the segmented control. The free USGS service
+// exposes line density (index → intermediate → supplemental) rather than a
+// literal feet interval, so the options name that honestly. 0 turns it off.
 const CONTOUR_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 0, label: "Off" },
-  { value: 10, label: "10 ft" },
-  { value: 20, label: "20 ft" },
-  { value: 25, label: "25 ft" },
+  { value: 1, label: "Coarse" },
+  { value: 2, label: "Standard" },
+  { value: 3, label: "Detailed" },
 ];
 
 const BASE_MAP_ORDER: MapLayerId[] = [
@@ -112,7 +113,7 @@ const FUTURE_LAYER_LABELS = [
 ];
 
 export default function MapLayerManager({
-  contourInterval,
+  contourLevel,
   mapTools,
   offlineSection,
   ownerNamesDisabled = false,
@@ -121,7 +122,7 @@ export default function MapLayerManager({
   showOwnerNames,
   showPropertyLines,
   visibleAssetLayers,
-  onSelectContourInterval,
+  onSelectContourLevel,
   onSelectLayer,
   onToggleParcelTiles,
   onToggleLayer,
@@ -253,7 +254,7 @@ export default function MapLayerManager({
             <h4 style={sectionTitleStyle}>Contours</h4>
             <div style={segmentedStyle} role="radiogroup" aria-label="Contours">
               {CONTOUR_OPTIONS.map((option) => {
-                const isSelected = contourInterval === option.value;
+                const isSelected = contourLevel === option.value;
 
                 return (
                   <button
@@ -265,7 +266,7 @@ export default function MapLayerManager({
                       ...segmentStyle,
                       ...(isSelected ? selectedSegmentStyle : null),
                     }}
-                    onClick={() => onSelectContourInterval(option.value)}
+                    onClick={() => onSelectContourLevel(option.value)}
                   >
                     {option.label}
                   </button>

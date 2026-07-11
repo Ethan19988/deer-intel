@@ -142,6 +142,16 @@ const CONTOUR_EXPORT_URL =
   "https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer/export";
 const CONTOUR_ATTRIBUTION = "Contours &copy; USGS The National Map";
 
+// The contour density levels (1–3) map to real MapServer sublayers across the
+// 100-ft, 50-ft, and large-scale groups so the choice works at any zoom: Coarse
+// shows index lines only, Standard adds intermediates, Detailed adds
+// supplemental and depression contours. 0 is off.
+const CONTOUR_LAYER_SETS: Record<number, string> = {
+  1: "10,11,15,16,20,21,25",
+  2: "10,11,12,13,15,16,17,18,20,21,22,25,26",
+  3: "10,11,12,13,15,16,17,18,20,21,22,23,25,26,27,28,29,30,31,32,33,34,35",
+};
+
 // Zoom used when auto-centering on a property. Close enough to see a property's
 // footprint without diving all the way to individual-asset zoom.
 const PROPERTY_FOCUS_ZOOM = 16;
@@ -611,10 +621,9 @@ export default function HuntingMap() {
   const [showOwnerNames, setShowOwnerNames] = useState(false);
   // The single statewide "Land Owners" overlay (vector parcel tiles).
   const [showParcelTiles, setShowParcelTiles] = useState(false);
-  // Contour-line overlay interval in feet; 0 hides it. The free USGS contour
-  // service renders its own native intervals, so the selection primarily drives
-  // whether contours show and is remembered for the segmented control.
-  const [contourInterval, setContourInterval] = useState(0);
+  // Contour-line overlay density: 0 hides it, 1–3 show progressively more lines
+  // (Coarse → Detailed) by toggling real USGS contour sublayers.
+  const [contourLevel, setContourLevel] = useState(0);
   const [parcelLayerState, setParcelLayerState] =
     useState<ParcelBoundaryLoadState | null>(null);
   const [ownerLabelState, setOwnerLabelState] =
@@ -1850,11 +1859,12 @@ export default function HuntingMap() {
             />
             <ParcelTilesLayer enabled={showParcelTiles} />
 
-            {contourInterval > 0 ? (
+            {contourLevel > 0 ? (
               <ContourTileLayer
-                key="contours"
+                key={`contours-${contourLevel}`}
                 attribution={CONTOUR_ATTRIBUTION}
                 url={CONTOUR_EXPORT_URL}
+                showLayers={CONTOUR_LAYER_SETS[contourLevel]}
                 maxZoom={19}
                 opacity={0.85}
                 zIndex={640}
@@ -1982,8 +1992,8 @@ export default function HuntingMap() {
                 onDelete={removeOfflinePack}
               />
             }
-            contourInterval={contourInterval}
-            onSelectContourInterval={setContourInterval}
+            contourLevel={contourLevel}
+            onSelectContourLevel={setContourLevel}
             ownerNamesDisabled={isMobileMapPerformanceMode}
             selectedLayer={selectedLayer}
             showParcelTiles={showParcelTiles}

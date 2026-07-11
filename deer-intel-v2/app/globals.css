@@ -408,6 +408,13 @@ textarea {
   filter: drop-shadow(0 6px 9px rgba(0, 0, 0, 0.5));
 }
 
+/* The center coordinate readout is a mobile/field affordance; on desktop the
+   bottom strip is occupied by the asset tray, and coordinates show in the asset
+   list, so it's shown only on the mobile map (see the media query below). */
+.di-map-coordinate {
+  display: none;
+}
+
 /* LiDAR base map — the multidirectional hillshade is naturally light and washes
    out over gentle ground, so pull the brightness down and push contrast hard to
    make ridges, benches, and draws read with that crisp "LiDAR" bite, with a hint
@@ -762,13 +769,15 @@ textarea {
   }
 
   /* Bottom-right on mobile is shared with the Layers button, so lift the
-     weather/compass puck above it. */
+     weather/compass puck above it (and off its desktop top-right dock). */
   .di-map-weather {
+    top: auto !important;
     right: 0.75rem !important;
     bottom: 5rem !important;
   }
 
   .di-map-coordinate {
+    display: block !important;
     bottom: 1.9rem !important;
   }
 

@@ -15,6 +15,10 @@ import * as L from "leaflet";
 import type { LatLngBounds } from "leaflet";
 import type { TileLayerProps } from "react-leaflet";
 
+// A comma-separated list of MapServer sublayer ids to show (density control),
+// e.g. index contours only vs. index + intermediate + supplemental.
+type ContourTileLayerProps = TileLayerProps & { showLayers?: string };
+
 // Project a lat/lng to Web Mercator (EPSG:3857) metres — the exact spherical
 // mercator ArcGIS expects, without depending on Leaflet's CRS typings.
 const WEB_MERCATOR_RADIUS = 6378137;
@@ -39,23 +43,28 @@ class ContourLeafletTileLayer extends L.TileLayer {
     const southEast = toWebMercator(bounds.getSouth(), bounds.getEast());
     const bbox = `${northWest.x},${southEast.y},${southEast.x},${northWest.y}`;
     const size = self.getTileSize();
+    const showLayers: string | undefined = self.options.showLayers;
+    const layersParam = showLayers ? `&layers=show:${showLayers}` : "";
 
     return (
       `${self._url}?bbox=${bbox}&bboxSR=3857&imageSR=3857` +
-      `&size=${size.x},${size.y}&format=png32&transparent=true&dpi=96&f=image`
+      `&size=${size.x},${size.y}&format=png32&transparent=true&dpi=96&f=image` +
+      layersParam
     );
   }
 }
 
 const ContourTileLayer = createTileLayerComponent<
   ContourLeafletTileLayer,
-  TileLayerProps
+  ContourTileLayerProps
 >(
-  function createContourTileLayer({ url, ...options }, context) {
+  function createContourTileLayer({ url, showLayers, ...options }, context) {
     const layer = new ContourLeafletTileLayer(
       url as string,
       withPane(options, context),
     );
+    (layer.options as unknown as { showLayers?: string }).showLayers =
+      showLayers as string | undefined;
     return createElementObject(layer, context);
   },
   function updateContourTileLayer(layer, props, prevProps) {

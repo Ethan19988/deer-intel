@@ -274,10 +274,14 @@ function CompassRose({ heading }: { heading: number | null }) {
   );
 }
 
+// Desktop docks the puck top-right, below the zoom/GPS controls, where the
+// old compass button lived — the map's bottom-right is taken by the Pin Box and
+// the asset tray. On mobile it drops to the bottom-right field position (see
+// globals.css).
 const puckStyle: CSSProperties = {
   position: "absolute",
   right: "1rem",
-  bottom: "1rem",
+  top: "11.5rem",
   zIndex: 1000,
   display: "grid",
   justifyItems: "center",
