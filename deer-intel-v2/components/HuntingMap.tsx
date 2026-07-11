@@ -42,6 +42,7 @@ import OfflineMapsPanel, {
   type OfflineStatus,
 } from "@/components/map/OfflineMapsPanel";
 import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
+import UserLocationMarker from "@/components/map/UserLocationMarker";
 import {
   createDeerIntelId,
   PROPERTY_ASSET_PIN_TYPES,
@@ -314,18 +315,30 @@ function MapPinDropTarget({
 function MapControlButtons({
   showCompass,
   showGps,
+  isFollowing,
+  onToggleFollow,
 }: {
   showCompass: boolean;
   showGps: boolean;
+  isFollowing: boolean;
+  onToggleFollow: (next: boolean) => void;
 }) {
   const map = useMap();
 
-  function locateUser() {
+  function handleGpsClick() {
+    // Tap once to lock onto your live location; tap again to release.
+    if (isFollowing) {
+      onToggleFollow(false);
+      return;
+    }
+
     if (!navigator.geolocation) {
       alert("GPS is not supported on this device.");
       return;
     }
 
+    // Recenter right away for instant feedback, then stay following as the
+    // live-location dot keeps updating.
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const lat = position.coords.latitude;
@@ -338,6 +351,7 @@ function MapControlButtons({
         );
       },
     );
+    onToggleFollow(true);
   }
 
   return (
@@ -380,10 +394,17 @@ function MapControlButtons({
       {showGps ? (
         <button
           type="button"
-          aria-label="Locate me"
+          aria-label={
+            isFollowing ? "Stop following my location" : "Follow my location"
+          }
+          aria-pressed={isFollowing}
           className="di-map-control-button di-map-gps-button"
-          style={{ ...mapControlButtonStyle, ...gpsButtonStyle }}
-          onClick={locateUser}
+          style={{
+            ...mapControlButtonStyle,
+            ...gpsButtonStyle,
+            ...(isFollowing ? gpsButtonActiveStyle : null),
+          }}
+          onClick={handleGpsClick}
         >
           GPS
         </button>
@@ -557,6 +578,10 @@ export default function HuntingMap() {
     compass: true,
     scaleBar: true,
   });
+  // Whether the map is locked onto the live GPS location and recenters as the
+  // hunter moves. Off by default so scouting a property from home doesn't yank
+  // the view to wherever the device is; the GPS button turns it on.
+  const [followUser, setFollowUser] = useState(false);
   const [showPropertyLines, setShowPropertyLines] = useState(false);
   const [showOwnerNames, setShowOwnerNames] = useState(false);
   const [showLandOwners, setShowLandOwners] = useState(false);
@@ -1576,6 +1601,13 @@ export default function HuntingMap() {
             <MapControlButtons
               showCompass={mapTools.compass}
               showGps={mapTools.gps}
+              isFollowing={mapTools.gps && followUser}
+              onToggleFollow={setFollowUser}
+            />
+            <UserLocationMarker
+              enabled={mapTools.gps}
+              follow={mapTools.gps && followUser}
+              onUserPan={() => setFollowUser(false)}
             />
             {mapTools.scaleBar ? (
               <ScaleControl imperial metric position="bottomleft" />
@@ -2070,6 +2102,14 @@ const mapControlButtonStyle: CSSProperties = {
 const gpsButtonStyle: CSSProperties = {
   width: "58px",
   fontSize: "0.78rem",
+};
+
+// While the map is locked onto the live location, the GPS button lights up in
+// the app's hunter-green so it reads clearly as an active "following" state.
+const gpsButtonActiveStyle: CSSProperties = {
+  background: "#2f6d3a",
+  color: "#f2f9f2",
+  borderColor: "#265c30",
 };
 
 const compassButtonStyle: CSSProperties = {
