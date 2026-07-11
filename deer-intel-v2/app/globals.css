@@ -620,6 +620,36 @@ textarea {
     padding-left: 0.75rem !important;
   }
 
+  /* Collapsed search stays a compact icon — don't let the wide search rule
+     above stretch it into an invisible bar that swallows taps on the map. */
+  .di-map-search.di-map-search-collapsed {
+    right: auto !important;
+    width: auto !important;
+  }
+
+  /* The overlay bar drops to its own full-width row below the top corner
+     controls so all the layer options have room and can be swiped through,
+     instead of being crushed into the narrow desktop band between them. */
+  .di-map-topbar {
+    top: 4.75rem !important;
+    left: 0.5rem !important;
+    /* Leave room for the top-right zoom/GPS control column, which extends down
+       into this row. */
+    right: 5.5rem !important;
+    justify-content: flex-start !important;
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
+  }
+
+  .di-map-topbar button {
+    min-height: 42px !important;
+  }
+
+  /* Push the wayback year stepper below the relocated overlay bar. */
+  .di-map-year {
+    top: 9rem !important;
+  }
+
   .di-map-controls {
     top: 0.75rem !important;
     right: 0.75rem !important;
