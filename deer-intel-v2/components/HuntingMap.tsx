@@ -41,6 +41,7 @@ import OfflineMapsPanel, {
   type OfflineStatus,
 } from "@/components/map/OfflineMapsPanel";
 import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
+import MapWeatherCompass from "@/components/map/MapWeatherCompass";
 import UserLocationMarker from "@/components/map/UserLocationMarker";
 import WalkTrackLayer from "@/components/map/WalkTrackLayer";
 import {
@@ -322,12 +323,10 @@ function MapPinDropTarget({
 }
 
 function MapControlButtons({
-  showCompass,
   showGps,
   isFollowing,
   onToggleFollow,
 }: {
-  showCompass: boolean;
   showGps: boolean;
   isFollowing: boolean;
   onToggleFollow: (next: boolean) => void;
@@ -388,18 +387,6 @@ function MapControlButtons({
       >
         -
       </button>
-      {showCompass ? (
-        <div
-          aria-label="Compass north indicator"
-          className="di-map-control-button di-map-compass"
-          role="img"
-          style={{ ...mapControlButtonStyle, ...compassButtonStyle }}
-          title="Compass"
-        >
-          <span style={compassNeedleStyle}>^</span>
-          <span style={compassTextStyle}>N</span>
-        </div>
-      ) : null}
       {showGps ? (
         <button
           type="button"
@@ -738,6 +725,12 @@ export default function HuntingMap() {
   }, [pins, propertyCameras]);
   const visibleAssets = mapAssets.filter((asset) =>
     asset.layerId === "other" ? true : visibleAssetLayers[asset.layerId],
+  );
+  // Where the corner weather/compass puck reads conditions from — the property's
+  // saved center, or the average of its placed assets.
+  const weatherPoint = useMemo(
+    () => resolvePropertyWeatherPoint(selectedProperty, propertyCameras, pins),
+    [selectedProperty, propertyCameras, pins],
   );
   const selectedAsset = mapAssets.find((asset) => asset.id === selectedAssetId);
   const ownerNamesEnabled = showOwnerNames && !isMobileMapPerformanceMode;
@@ -1222,6 +1215,16 @@ export default function HuntingMap() {
       center: [selectedAsset.lat, selectedAsset.lng],
       id: Date.now(),
       zoom: Math.max(latestMapZoomRef.current, 17),
+    });
+  }
+
+  function recenterOnProperty() {
+    if (!weatherPoint) return;
+
+    setSearchTarget({
+      center: [weatherPoint.lat, weatherPoint.lng],
+      id: Date.now(),
+      zoom: Math.max(latestMapZoomRef.current, PROPERTY_FOCUS_ZOOM),
     });
   }
 
@@ -1838,7 +1841,6 @@ export default function HuntingMap() {
             <MapSearchTargetController target={searchTarget} />
             <MapStateTracker onMapStateChange={saveMapState} />
             <MapControlButtons
-              showCompass={mapTools.compass}
               showGps={mapTools.gps}
               isFollowing={mapTools.gps && followUser}
               onToggleFollow={setFollowUser}
@@ -1995,6 +1997,18 @@ export default function HuntingMap() {
               {selectedAsset ? selectedAsset.label : "No asset selected"}
             </span>
           </div>
+
+          <MapWeatherCompass
+            point={weatherPoint}
+            showCompass={mapTools.compass}
+            onRecenter={weatherPoint ? recenterOnProperty : undefined}
+          />
+
+          {!isDrawingArea && !isTracking ? (
+            <div className="di-map-coordinate" style={coordinateReadoutStyle}>
+              {formatCoordinate(mapCenter[0])}, {formatCoordinate(mapCenter[1])}
+            </div>
+          ) : null}
 
           {mapOverlayMessages.length > 0 ? (
             <div className="di-map-notice" style={propertyLinesNoticeStyle}>
@@ -2349,9 +2363,9 @@ const mapControlsStyle: CSSProperties = {
 const mapControlButtonStyle: CSSProperties = {
   width: "46px",
   minHeight: "46px",
-  border: "1px solid rgba(25, 34, 25, 0.38)",
-  borderRadius: "8px",
-  background: "rgba(255, 255, 255, 0.94)",
+  border: "1px solid rgba(25, 34, 25, 0.28)",
+  borderRadius: "12px",
+  background: "rgba(255, 255, 255, 0.96)",
   color: "#111711",
   fontSize: "1.25rem",
   fontWeight: 900,
@@ -2371,27 +2385,6 @@ const gpsButtonActiveStyle: CSSProperties = {
   background: "#2f6d3a",
   color: "#f2f9f2",
   borderColor: "#265c30",
-};
-
-const compassButtonStyle: CSSProperties = {
-  display: "grid",
-  placeItems: "center",
-  gap: 0,
-  cursor: "default",
-  lineHeight: 1,
-};
-
-const compassNeedleStyle: CSSProperties = {
-  marginBottom: "-0.18rem",
-  color: "#2f6d3a",
-  fontSize: "0.82rem",
-  fontWeight: 900,
-};
-
-const compassTextStyle: CSSProperties = {
-  color: "#111711",
-  fontSize: "0.88rem",
-  fontWeight: 900,
 };
 
 const mapStatusStyle: CSSProperties = {
@@ -2416,6 +2409,26 @@ const mapStatusPillStyle: CSSProperties = {
   fontSize: "0.86rem",
   fontWeight: 800,
   boxShadow: "0 10px 24px rgba(0, 0, 0, 0.18)",
+};
+
+// A subtle live readout of the map center, bottom-center like a field GPS.
+const coordinateReadoutStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  bottom: "0.85rem",
+  zIndex: 1000,
+  transform: "translateX(-50%)",
+  padding: "0.3rem 0.7rem",
+  borderRadius: "999px",
+  background: "rgba(18, 24, 16, 0.72)",
+  color: "#eef1e8",
+  fontSize: "0.8rem",
+  fontWeight: 700,
+  fontVariantNumeric: "tabular-nums",
+  letterSpacing: "0.02em",
+  boxShadow: "0 6px 16px rgba(0, 0, 0, 0.28)",
+  pointerEvents: "none",
+  whiteSpace: "nowrap",
 };
 
 const propertyLinesNoticeStyle: CSSProperties = {

@@ -745,6 +745,17 @@ textarea {
     left: 0.75rem !important;
   }
 
+  /* Bottom-right on mobile is shared with the Layers button, so lift the
+     weather/compass puck above it. */
+  .di-map-weather {
+    right: 0.75rem !important;
+    bottom: 5rem !important;
+  }
+
+  .di-map-coordinate {
+    bottom: 1.9rem !important;
+  }
+
   .di-map-status span {
     min-height: 34px !important;
     font-size: 0.8rem !important;

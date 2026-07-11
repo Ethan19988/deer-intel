@@ -110,9 +110,9 @@ const searchFormStyle: CSSProperties = {
   minHeight: "48px",
   overflow: "hidden",
   border: "1px solid rgba(255, 255, 255, 0.72)",
-  borderRadius: "8px",
+  borderRadius: "12px",
   background: "rgba(255, 255, 255, 0.96)",
-  boxShadow: "0 12px 30px rgba(0, 0, 0, 0.22)",
+  boxShadow: "0 10px 24px rgba(0, 0, 0, 0.22)",
 };
 
 const searchInputStyle: CSSProperties = {
