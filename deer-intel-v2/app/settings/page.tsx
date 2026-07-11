@@ -12,6 +12,7 @@ import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
 import AccountPanel from "@/components/auth/AccountPanel";
+import OfflineMapsManager from "@/components/settings/OfflineMapsManager";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { saveDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import {
@@ -343,6 +344,12 @@ export default function SettingsPage() {
         onConfirm={handleConfirmImport}
         onCancel={handleCancelImport}
       />
+
+      <Section eyebrow="Offline" title="Offline Maps">
+        <Card as="div" variant="subtle">
+          <OfflineMapsManager />
+        </Card>
+      </Section>
 
       <Section eyebrow="Navigation" title="Keep Building Your Data">
         <div style={actionGridStyle}>
