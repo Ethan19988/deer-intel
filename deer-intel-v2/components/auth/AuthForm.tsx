@@ -4,20 +4,24 @@ import { useState, type CSSProperties, type FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import { useAuth } from "@/components/auth/AuthProvider";
 
-type Mode = "sign-in" | "sign-up";
+type Mode = "sign-in" | "sign-up" | "reset";
 
+// Submit-button label per mode.
 const MODE_LABELS: Record<Mode, string> = {
   "sign-in": "Sign In",
   "sign-up": "Create Account",
+  reset: "Send Reset Link",
 };
 
-const TAB_LABELS: Record<Mode, string> = {
+// Only sign-in / sign-up are shown as tabs. "reset" is reached from the
+// "Forgot password?" link below the form.
+const TAB_LABELS: Partial<Record<Mode, string>> = {
   "sign-in": "Sign In",
   "sign-up": "Sign Up",
 };
 
 export default function AuthForm() {
-  const { signInWithPassword, signUp } = useAuth();
+  const { signInWithPassword, signUp, sendPasswordReset } = useAuth();
 
   const [mode, setMode] = useState<Mode>("sign-in");
   const [email, setEmail] = useState("");
@@ -42,7 +46,7 @@ export default function AuthForm() {
       return;
     }
 
-    if (password.length < 6) {
+    if (mode !== "reset" && password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
     }
@@ -53,13 +57,22 @@ export default function AuthForm() {
       if (mode === "sign-in") {
         const result = await signInWithPassword(email, password);
         if (result.error) setError(result.error);
-      } else {
+      } else if (mode === "sign-up") {
         const result = await signUp(email, password);
         if (result.error) {
           setError(result.error);
         } else if (result.needsConfirmation) {
           setNotice(
             "Account created. Check your email to confirm it, then sign in.",
+          );
+        }
+      } else {
+        const result = await sendPasswordReset(email);
+        if (result.error) {
+          setError(result.error);
+        } else {
+          setNotice(
+            "If an account exists for that email, we've sent a link to reset your password.",
           );
         }
       }
@@ -107,19 +120,26 @@ export default function AuthForm() {
           />
         </label>
 
-        <label style={labelStyle}>
-          <span style={labelTextStyle}>Password</span>
-          <input
-            type="password"
-            autoComplete={
-              mode === "sign-up" ? "new-password" : "current-password"
-            }
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="At least 6 characters"
-            style={inputStyle}
-          />
-        </label>
+        {mode !== "reset" ? (
+          <label style={labelStyle}>
+            <span style={labelTextStyle}>Password</span>
+            <input
+              type="password"
+              autoComplete={
+                mode === "sign-up" ? "new-password" : "current-password"
+              }
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="At least 6 characters"
+              style={inputStyle}
+            />
+          </label>
+        ) : (
+          <p style={hintStyle}>
+            Enter your account email and we&apos;ll send you a link to set a new
+            password.
+          </p>
+        )}
 
         {error ? (
           <p style={errorStyle} role="alert">
@@ -135,6 +155,24 @@ export default function AuthForm() {
         <Button type="submit" variant="primary" fullWidth disabled={busy}>
           {busy ? "Working…" : MODE_LABELS[mode]}
         </Button>
+
+        {mode === "sign-in" ? (
+          <button
+            type="button"
+            onClick={() => switchMode("reset")}
+            style={textButtonStyle}
+          >
+            Forgot password?
+          </button>
+        ) : mode === "reset" ? (
+          <button
+            type="button"
+            onClick={() => switchMode("sign-in")}
+            style={textButtonStyle}
+          >
+            ← Back to sign in
+          </button>
+        ) : null}
       </form>
     </div>
   );
@@ -198,6 +236,23 @@ const inputStyle: CSSProperties = {
   background: "var(--surface-2)",
   color: "var(--text)",
   fontSize: "1rem",
+};
+
+const textButtonStyle: CSSProperties = {
+  justifySelf: "center",
+  padding: "0.25rem",
+  border: "none",
+  background: "none",
+  color: "var(--accent-text)",
+  fontSize: "0.88rem",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const hintStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text-muted)",
+  lineHeight: 1.5,
 };
 
 const errorStyle: CSSProperties = {

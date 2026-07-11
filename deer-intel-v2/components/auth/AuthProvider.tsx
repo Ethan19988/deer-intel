@@ -48,6 +48,8 @@ type AuthContextValue = {
   signUp: (email: string, password: string) => Promise<ActionResult>;
   signInWithMagicLink: (email: string) => Promise<ActionResult>;
   signInWithGitHub: () => Promise<ActionResult>;
+  sendPasswordReset: (email: string) => Promise<ActionResult>;
+  updatePassword: (password: string) => Promise<ActionResult>;
   signOut: () => Promise<void>;
   syncNow: () => Promise<void>;
 };
@@ -334,6 +336,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return error ? { error: error.message } : {};
   }, []);
 
+  const sendPasswordReset = useCallback(
+    async (email: string): Promise<ActionResult> => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return { error: "Cloud sync is not configured." };
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo:
+          typeof window !== "undefined"
+            ? `${window.location.origin}/reset-password`
+            : undefined,
+      });
+
+      return error ? { error: error.message } : {};
+    },
+    [],
+  );
+
+  const updatePassword = useCallback(
+    async (password: string): Promise<ActionResult> => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return { error: "Cloud sync is not configured." };
+
+      const { error } = await supabase.auth.updateUser({ password });
+
+      return error ? { error: error.message } : {};
+    },
+    [],
+  );
+
   const signOut = useCallback(async () => {
     const supabase = getSupabaseClient();
 
@@ -366,6 +397,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signInWithMagicLink,
       signInWithGitHub,
+      sendPasswordReset,
+      updatePassword,
       signOut,
       syncNow,
     }),
@@ -380,6 +413,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signInWithMagicLink,
       signInWithGitHub,
+      sendPasswordReset,
+      updatePassword,
       signOut,
       syncNow,
     ],
