@@ -19,6 +19,13 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? "
 // existing "deer-intel:*" keys and is easy to spot / clear.
 const AUTH_STORAGE_KEY = "deer-intel:auth";
 
+// When set to "true", this deployment REQUIRES a signed-in account and must
+// never fall back to the open, local-only mode. This is the switch that turns a
+// shared link into a hard sign-in wall: if the Supabase env vars are ever
+// missing, the app fails closed (shows "sign in required") instead of silently
+// opening everything. Leave it unset for local dev, where the app stays open.
+const REQUIRE_AUTH = (process.env.NEXT_PUBLIC_REQUIRE_AUTH?.trim() ?? "") === "true";
+
 let cachedClient: SupabaseClient | null = null;
 
 /**
@@ -28,6 +35,15 @@ let cachedClient: SupabaseClient | null = null;
  */
 export function isCloudSyncConfigured(): boolean {
   return SUPABASE_URL.length > 0 && SUPABASE_ANON_KEY.length > 0;
+}
+
+/**
+ * True when this deployment must not be usable without a signed-in account. The
+ * AuthGate uses this to fail closed: if auth is required but Supabase isn't
+ * configured, it blocks the app instead of dropping into open local-only mode.
+ */
+export function isAuthRequired(): boolean {
+  return REQUIRE_AUTH;
 }
 
 /**
