@@ -2404,12 +2404,10 @@ export default function HuntingMap() {
               />
             }
             ownerNamesDisabled={isMobileMapPerformanceMode}
-            selectedLayer={selectedLayer}
             showParcelTiles={showParcelTiles}
             showOwnerNames={ownerNamesEnabled}
             showPropertyLines={showPropertyLines}
             visibleAssetLayers={visibleAssetLayers}
-            onSelectLayer={setSelectedLayer}
             onToggleParcelTiles={toggleParcelTiles}
             onToggleLayer={toggleAssetLayer}
             onToggleMapTool={toggleMapTool}

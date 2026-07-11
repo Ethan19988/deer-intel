@@ -2,17 +2,11 @@
 
 import {
   useEffect,
-  useMemo,
   useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
-import {
-  ASSET_LAYERS,
-  MAP_LAYER_BY_ID,
-  type AssetLayerId,
-  type MapLayerId,
-} from "@/lib/propertyMap";
+import { ASSET_LAYERS, type AssetLayerId } from "@/lib/propertyMap";
 
 export type MapToolId = "gps" | "compass" | "scaleBar";
 export type MapToolState = Record<MapToolId, boolean>;
@@ -21,27 +15,16 @@ type MapLayerManagerProps = {
   mapTools: MapToolState;
   offlineSection?: ReactNode;
   ownerNamesDisabled?: boolean;
-  selectedLayer: MapLayerId;
   showParcelTiles: boolean;
   showOwnerNames: boolean;
   showPropertyLines: boolean;
   visibleAssetLayers: Record<AssetLayerId, boolean>;
-  onSelectLayer: (layerId: MapLayerId) => void;
   onToggleParcelTiles: () => void;
   onToggleLayer: (layerId: AssetLayerId) => void;
   onToggleMapTool: (toolId: MapToolId) => void;
   onToggleOwnerNames: () => void;
   onTogglePropertyLines: () => void;
 };
-
-const BASE_MAP_ORDER: MapLayerId[] = [
-  "hybrid",
-  "satellite",
-  "roads",
-  "terrain",
-  "topographic",
-  "lidar",
-];
 
 const VISIBILITY_LABELS: Record<AssetLayerId, string> = {
   cameras: "Cameras",
@@ -73,12 +56,10 @@ export default function MapLayerManager({
   mapTools,
   offlineSection,
   ownerNamesDisabled = false,
-  selectedLayer,
   showParcelTiles,
   showOwnerNames,
   showPropertyLines,
   visibleAssetLayers,
-  onSelectLayer,
   onToggleParcelTiles,
   onToggleLayer,
   onToggleMapTool,
@@ -86,10 +67,6 @@ export default function MapLayerManager({
   onTogglePropertyLines,
 }: MapLayerManagerProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const baseMapLayers = useMemo(
-    () => BASE_MAP_ORDER.map((layerId) => MAP_LAYER_BY_ID[layerId]),
-    [],
-  );
 
   useEffect(() => {
     if (!isOpen) return;
@@ -158,34 +135,6 @@ export default function MapLayerManager({
               {offlineSection}
             </section>
           ) : null}
-
-          <section style={sectionStyle}>
-            <h4 style={sectionTitleStyle}>Base Map</h4>
-            <div style={baseMapGridStyle} role="radiogroup">
-              {baseMapLayers.map((layer) => {
-                const isSelected = layer.id === selectedLayer;
-
-                return (
-                  <button
-                    key={layer.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={isSelected}
-                    style={{
-                      ...baseMapButtonStyle,
-                      ...(isSelected ? selectedBaseMapButtonStyle : null),
-                    }}
-                    onClick={() => onSelectLayer(layer.id)}
-                  >
-                    <span style={baseMapLabelStyle}>{layer.label}</span>
-                    {layer.isPlaceholder ? (
-                      <span style={placeholderStyle}>Placeholder</span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
 
           <LayerSection title="Visibility">
             {ASSET_LAYERS.map((layer) => (
@@ -406,46 +355,6 @@ const sectionTitleStyle: CSSProperties = {
   fontWeight: 900,
   letterSpacing: 0,
   textTransform: "uppercase",
-};
-
-const baseMapGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: "0.55rem",
-};
-
-const baseMapButtonStyle: CSSProperties = {
-  display: "grid",
-  minHeight: "58px",
-  alignContent: "center",
-  gap: "0.15rem",
-  padding: "0.65rem",
-  border: "1px solid rgba(17, 23, 17, 0.12)",
-  borderRadius: "8px",
-  background: "white",
-  color: "#182018",
-  cursor: "pointer",
-  textAlign: "left",
-  boxShadow: "0 8px 18px rgba(17, 23, 17, 0.08)",
-};
-
-const selectedBaseMapButtonStyle: CSSProperties = {
-  borderColor: "#2f6d3a",
-  background: "#17331b",
-  color: "white",
-};
-
-const baseMapLabelStyle: CSSProperties = {
-  fontSize: "0.92rem",
-  fontWeight: 900,
-  lineHeight: 1.15,
-};
-
-const placeholderStyle: CSSProperties = {
-  color: "#8f9a90",
-  fontSize: "0.72rem",
-  fontWeight: 800,
-  lineHeight: 1.2,
 };
 
 const toggleListStyle: CSSProperties = {
