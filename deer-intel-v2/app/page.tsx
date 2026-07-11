@@ -14,6 +14,7 @@ import { fetchLiveWeather, resolvePropertyWeatherPoint } from "@/lib/liveWeather
 import { getStandWindCheck } from "@/lib/standWind";
 import { getHuntPlannerSummary, plannerHuntDate } from "@/lib/huntPlanner";
 import { formatHuntDate } from "@/lib/hunts";
+import { useMoonPhase } from "@/lib/useMoonPhase";
 
 const HOME_ACTIONS = [
   {
@@ -72,6 +73,7 @@ export default function Home() {
     ? `${weatherPoint.lat},${weatherPoint.lng}`
     : "";
   const [currentWind, setCurrentWind] = useState<string>();
+  const moon = useMoonPhase();
 
   useEffect(() => {
     if (!weatherKey) {
@@ -163,6 +165,15 @@ export default function Home() {
             label="Last Hunt"
             value={plannerHuntDate(lastHunt)}
             detail={lastHunt ? planner.lastHunt.detail : "No hunt logged yet."}
+          />
+          <BriefItem
+            label="Moon"
+            value={
+              moon
+                ? `${moon.phase} · ${moon.illumination}% lit`
+                : "Reading the sky…"
+            }
+            detail={moon ? moon.movement : "Calculating tonight's moon phase."}
           />
           <BriefItem
             label="Next Step"

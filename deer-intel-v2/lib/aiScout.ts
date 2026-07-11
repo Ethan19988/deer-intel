@@ -28,6 +28,11 @@ Rules:
   confidence to "low" rather than overstating certainty.
 - Weigh today's conditions (wind, temperature, moon phase) against each stand's noted best/avoid
   winds and recent activity when picking a recommendation.
+- Factor the moon phase into deer-movement timing, not just stand choice. As a rule of thumb: a
+  bright moon (full or a waxing/waning gibbous) lets deer feed overnight, which tends to slow
+  dawn/dusk movement and push more activity toward midday; a dark moon (new or thin crescent)
+  concentrates movement into the first and last light windows. Use this to advise WHEN to be in
+  the stand today, and reflect it in the key factors.
 - Keep the tone practical and direct, like an experienced hunting buddy, not a generic assistant.`;
 
 const REPORT_TOOL = {
