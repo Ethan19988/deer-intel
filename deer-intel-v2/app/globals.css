@@ -400,6 +400,13 @@ textarea {
   mix-blend-mode: multiply;
 }
 
+/* USGS contour tiles are a thin, low-contrast tan that washes out over green
+   satellite imagery. Darken and boost contrast so the lines read as crisp dark
+   contours (and the elevation numbers stay legible) instead of vanishing. */
+.di-contour-bold {
+  filter: brightness(0.45) contrast(2.1) saturate(1.4);
+}
+
 .di-map-frame .leaflet-control-scale {
   margin-bottom: 5.8rem;
   margin-left: 1rem;
