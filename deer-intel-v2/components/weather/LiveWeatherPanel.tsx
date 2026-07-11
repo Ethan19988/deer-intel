@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import {
   fetchLiveForecast,
   type LiveForecast,
@@ -8,6 +8,8 @@ import {
   type WeatherPoint,
 } from "@/lib/liveWeather";
 import { TEMPERATURE_UNIT_LABEL, useUnitPreferences } from "@/lib/units";
+import { useMoonPhase } from "@/lib/useMoonPhase";
+import MoonPhaseIcon from "@/components/weather/MoonPhaseIcon";
 
 type LiveWeatherPanelProps = {
   point: WeatherPoint | null;
@@ -30,6 +32,7 @@ export default function LiveWeatherPanel({
 }: LiveWeatherPanelProps) {
   const [state, setState] = useState<PanelState>({ status: "idle" });
   const units = useUnitPreferences();
+  const moon = useMoonPhase();
   const pointKey = point ? `${point.lat},${point.lng}` : "";
 
   useEffect(() => {
@@ -102,7 +105,21 @@ export default function LiveWeatherPanel({
             />
             <WeatherStat
               label="Moon"
-              value={state.forecast.current.moonPhase || "—"}
+              value={
+                moon ? (
+                  <span style={moonStatStyle}>
+                    <MoonPhaseIcon
+                      illumination={moon.illumination}
+                      waxing={moon.waxing}
+                      phase={moon.phase}
+                      size={30}
+                    />
+                    <span>{moon.illumination}% lit</span>
+                  </span>
+                ) : (
+                  "—"
+                )
+              }
             />
             <WeatherStat label="Sunrise" value={state.forecast.sunrise || "—"} />
             <WeatherStat label="Sunset" value={state.forecast.sunset || "—"} />
@@ -160,7 +177,7 @@ export default function LiveWeatherPanel({
   );
 }
 
-function WeatherStat({ label, value }: { label: string; value: string }) {
+function WeatherStat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div style={statStyle}>
       <span style={statLabelStyle}>{label}</span>
@@ -302,6 +319,12 @@ const statValueStyle: CSSProperties = {
   color: "var(--text)",
   fontSize: "0.95rem",
   fontWeight: 800,
+};
+
+const moonStatStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.4rem",
 };
 
 const forecastRowStyle: CSSProperties = {
