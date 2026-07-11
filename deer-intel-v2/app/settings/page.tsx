@@ -21,6 +21,11 @@ import {
   THEME_PREFERENCES,
   useThemePreference,
 } from "@/lib/theme";
+import {
+  setTemperatureUnit,
+  setWindUnit,
+  useUnitPreferences,
+} from "@/lib/units";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 
 function recordCount(candidate: DeerIntelState) {
@@ -39,6 +44,7 @@ function recordCount(candidate: DeerIntelState) {
 export default function SettingsPage() {
   const state = useDeerIntelStore();
   const themePreference = useThemePreference();
+  const units = useUnitPreferences();
   const { configured, status, user } = useAuth();
   const cloudActive = configured && status === "signed-in";
   const totalRecords = recordCount(state);
@@ -188,6 +194,36 @@ export default function SettingsPage() {
                 </button>
               );
             })}
+          </div>
+        </Card>
+      </Section>
+
+      <Section eyebrow="Units" title="Measurement Units">
+        <Card as="div" variant="subtle">
+          <p style={mutedTextStyle}>
+            Choose how live weather is shown across the dashboard, forecast, and
+            the live-weather auto-fill. Records you already saved keep the units
+            they were recorded in. This is saved on this device only.
+          </p>
+          <div style={unitSettingsStyle}>
+            <UnitSetting
+              label="Temperature"
+              value={units.temperature}
+              onSelect={setTemperatureUnit}
+              options={[
+                { value: "F", label: "°F" },
+                { value: "C", label: "°C" },
+              ]}
+            />
+            <UnitSetting
+              label="Wind speed"
+              value={units.wind}
+              onSelect={setWindUnit}
+              options={[
+                { value: "mph", label: "mph" },
+                { value: "kmh", label: "km/h" },
+              ]}
+            />
           </div>
         </Card>
       </Section>
@@ -369,8 +405,92 @@ export default function SettingsPage() {
   );
 }
 
+function UnitSetting<T extends string>({
+  label,
+  value,
+  onSelect,
+  options,
+}: {
+  label: string;
+  value: T;
+  onSelect: (value: T) => void;
+  options: { value: T; label: string }[];
+}) {
+  return (
+    <div style={unitSettingStyle}>
+      <span style={unitLabelStyle}>{label}</span>
+      <div style={unitSegmentGroupStyle}>
+        {options.map((option) => {
+          const active = option.value === value;
+
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onSelect(option.value)}
+              style={{
+                ...unitSegmentStyle,
+                ...(active ? unitSegmentActiveStyle : null),
+              }}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const heroCardStyle: CSSProperties = {
   padding: "1.5rem",
+};
+
+const unitSettingsStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
+  marginTop: "1rem",
+};
+
+const unitSettingStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  flexWrap: "wrap",
+  gap: "0.75rem",
+};
+
+const unitLabelStyle: CSSProperties = {
+  fontWeight: 800,
+  fontSize: "0.95rem",
+};
+
+const unitSegmentGroupStyle: CSSProperties = {
+  display: "inline-flex",
+  padding: "0.2rem",
+  gap: "0.2rem",
+  border: "1px solid var(--border)",
+  borderRadius: "10px",
+  background: "var(--surface)",
+};
+
+const unitSegmentStyle: CSSProperties = {
+  minHeight: "40px",
+  minWidth: "56px",
+  padding: "0.4rem 0.9rem",
+  border: "1px solid transparent",
+  borderRadius: "8px",
+  background: "transparent",
+  color: "var(--text-muted)",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const unitSegmentActiveStyle: CSSProperties = {
+  border: "1px solid var(--accent)",
+  background: "var(--accent-tint)",
+  color: "var(--accent-text)",
 };
 
 const settingsGridStyle: CSSProperties = {
@@ -402,7 +522,7 @@ const themeOptionStyle: CSSProperties = {
 };
 
 const themeOptionActiveStyle: CSSProperties = {
-  borderColor: "var(--accent)",
+  border: "1px solid var(--accent)",
   background: "var(--accent-tint)",
   boxShadow: "0 0 0 1px var(--accent)",
 };

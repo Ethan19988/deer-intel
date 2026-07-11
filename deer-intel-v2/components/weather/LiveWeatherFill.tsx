@@ -6,6 +6,7 @@ import {
   type LiveWeatherFields,
   type WeatherPoint,
 } from "@/lib/liveWeather";
+import { useUnitPreferences } from "@/lib/units";
 
 type FetchStatus = "idle" | "loading" | "success" | "error";
 
@@ -23,6 +24,7 @@ export default function LiveWeatherFill({
 }: LiveWeatherFillProps) {
   const [status, setStatus] = useState<FetchStatus>("idle");
   const [message, setMessage] = useState("");
+  const units = useUnitPreferences();
 
   async function resolvePoint(): Promise<WeatherPoint | null> {
     if (location) return location;
@@ -58,7 +60,7 @@ export default function LiveWeatherFill({
       return;
     }
 
-    const result = await fetchLiveWeather(point);
+    const result = await fetchLiveWeather(point, units);
 
     if (result.status === "error") {
       setStatus("error");
