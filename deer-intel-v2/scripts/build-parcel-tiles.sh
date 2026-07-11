@@ -29,13 +29,38 @@ COUNTIES="${COUNTIES:-franklin adams dauphin butler bedford juniata fulton berks
 mkdir -p "$WORK"
 
 inputs=()
+failed=()
 for county in $COUNTIES; do
   ndjson="$WORK/$county.ndjson"
   echo ">> fetching $county"
-  NODE_USE_ENV_PROXY="${NODE_USE_ENV_PROXY:-1}" \
-    node "$HERE/fetch-parcels-geojson.mjs" "$county" "$ndjson"
-  inputs+=("$ndjson")
+  # A single county service can hiccup mid-stream (large counties occasionally
+  # trip an undici assertion), so retry each a few times. One county that stays
+  # down is skipped with a warning rather than aborting the whole build.
+  ok=0
+  for attempt in 1 2 3; do
+    if NODE_USE_ENV_PROXY="${NODE_USE_ENV_PROXY:-1}" \
+        node "$HERE/fetch-parcels-geojson.mjs" "$county" "$ndjson"; then
+      ok=1
+      break
+    fi
+    echo "   attempt $attempt for $county failed; retrying in 10s"
+    sleep 10
+  done
+  if [ "$ok" -eq 1 ]; then
+    inputs+=("$ndjson")
+  else
+    echo "WARNING: giving up on $county after 3 attempts; excluding it"
+    failed+=("$county")
+  fi
 done
+
+if [ "${#inputs[@]}" -eq 0 ]; then
+  echo "ERROR: no counties fetched successfully" >&2
+  exit 1
+fi
+if [ "${#failed[@]}" -gt 0 ]; then
+  echo ">> NOTE: excluded counties after retries: ${failed[*]}"
+fi
 
 echo ">> building tiles -> $OUT"
 tippecanoe -o "$OUT" -l parcels -n "PA Parcels" \
