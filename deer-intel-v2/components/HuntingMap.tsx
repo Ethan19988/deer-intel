@@ -17,10 +17,38 @@ import {
   Polygon,
   Polyline,
   ScaleControl,
+  WMSTileLayer,
   useMap,
   useMapEvents,
 } from "react-leaflet";
 import CachedTileLayer from "@/components/map/CachedTileLayer";
+import MapTopBar from "@/components/map/MapTopBar";
+import WindThermalLayer, {
+  type WindStandPoint,
+} from "@/components/map/WindThermalLayer";
+import WindThermalBadge, {
+  type WindBadgeStatus,
+} from "@/components/map/WindThermalBadge";
+import MovementLayer from "@/components/map/MovementLayer";
+import MovementBadge from "@/components/map/MovementBadge";
+import {
+  buildCorridors,
+  corridorDirection,
+  corridorEvidence,
+  currentMovementPeriod,
+  movementForecast,
+  movementPhaseForDate,
+  movementPhaseLabel,
+  propertyMovementSignal,
+  resolveSeasonalPhotos,
+  rutRegionLabel,
+  rutShiftDays,
+  type BeddingPoint,
+  type CameraPhotoTiming,
+  type CameraPoint,
+  type MovementForecast,
+  type ResourcePoint,
+} from "@/lib/movementPrediction";
 import MapAssetInfoCard from "@/components/map/MapAssetInfoCard";
 import MapAssetSelectorPanel from "@/components/map/MapAssetSelectorPanel";
 import MapLayerManager, {
@@ -59,7 +87,12 @@ import {
   walkTrackDistanceMeters,
 } from "@/lib/walkTrack";
 import type { WalkTrack, WalkTrackPoint } from "@/types/walkTrack";
-import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import {
+  fetchLiveForecast,
+  resolvePropertyWeatherPoint,
+} from "@/lib/liveWeather";
+import { parseWindSpeed, thermalCue, type ThermalCue } from "@/lib/windViz";
+import { getStandWindCheck } from "@/lib/standWind";
 import {
   deleteOfflinePack,
   downloadOfflinePack,
@@ -94,7 +127,17 @@ import {
   geocodeAddressOrPlace,
   MAP_LAYER_BY_ID,
   pinToMapAsset,
+  CONTOUR_WMS_URL,
+  CONTOUR_WMS_LAYERS,
+  CONTOUR_ATTRIBUTION,
+  SLOPE_WMS_URL,
+  SLOPE_WMS_LAYER,
+  SLOPE_ATTRIBUTION,
+  PUBLIC_LAND_TILE_URL,
+  PUBLIC_LAND_ATTRIBUTION,
+  PUBLIC_LAND_MAX_NATIVE_ZOOM,
   type AddressSearchPlace,
+  type ContourInterval,
   type MapAsset,
   type AssetLayerId,
   type MapCenter,
@@ -574,6 +617,29 @@ export default function HuntingMap() {
   useEffect(() => {
     setSelectedLayer(requestedLayerId ?? defaultLayerRef.current);
   }, [requestedLayerId]);
+  // Data overlays from the top bar — independent of the base map, stacked on top.
+  const [contourInterval, setContourInterval] =
+    useState<ContourInterval>("off");
+  const [showSlope, setShowSlope] = useState(false);
+  const [showPublicLand, setShowPublicLand] = useState(false);
+  const [showWind, setShowWind] = useState(false);
+  const [showMovement, setShowMovement] = useState(false);
+  // One live-weather fetch feeds both the wind and movement overlays.
+  const [forecastStatus, setForecastStatus] =
+    useState<WindBadgeStatus>("loading");
+  const [windData, setWindData] = useState<{
+    fromCompass: string;
+    speedLabel: string;
+    speedMph: number | null;
+    thermal: ThermalCue | null;
+  } | null>(null);
+  const [forecastMeta, setForecastMeta] = useState<{
+    sunriseISO: string;
+    sunsetISO: string;
+    moonPhase?: string;
+    pressureTrend?: "rising" | "steady" | "falling";
+    temperature?: string;
+  } | null>(null);
   const [waybackReleases, setWaybackReleases] = useState<WaybackRelease[]>([]);
   const [selectedRelease, setSelectedRelease] = useState<string>();
 
@@ -739,6 +805,200 @@ export default function HuntingMap() {
   const visibleAssets = mapAssets.filter((asset) =>
     asset.layerId === "other" ? true : visibleAssetLayers[asset.layerId],
   );
+  const propertyStands = useMemo(
+    () =>
+      state.stands.filter((stand) => stand.propertyId === selectedPropertyId),
+    [state.stands, selectedPropertyId],
+  );
+  // A stand *pin* carries a location; a saved Stand carries best/avoid winds.
+  // There's no hard link, so bridge them by matching the pin's label to a
+  // stand's name (case-insensitive). Matched cones get a good/avoid/marginal
+  // color from today's wind; unmatched ones stay neutral.
+  const windStandPoints = useMemo<WindStandPoint[]>(() => {
+    const currentWind = windData?.fromCompass;
+    const standByName = new Map(
+      propertyStands.map((stand) => [stand.name.trim().toLowerCase(), stand]),
+    );
+
+    return visibleAssets
+      .filter((asset) => asset.layerId === "stands")
+      .map((asset) => {
+        const match = standByName.get(asset.label.trim().toLowerCase());
+        const status = match
+          ? getStandWindCheck(match, currentWind).status
+          : "unknown";
+
+        return {
+          id: asset.id,
+          lat: asset.lat,
+          lng: asset.lng,
+          label: asset.label,
+          status,
+        };
+      });
+  }, [visibleAssets, propertyStands, windData?.fromCompass]);
+  const windStatusSummary = useMemo(() => {
+    let good = 0;
+    let avoid = 0;
+    let matched = 0;
+
+    for (const point of windStandPoints) {
+      if (point.status === "unknown") continue;
+      matched += 1;
+      if (point.status === "good") good += 1;
+      if (point.status === "avoid") avoid += 1;
+    }
+
+    return { good, avoid, matched };
+  }, [windStandPoints]);
+
+  // Movement prediction: corridors are bedding→food/water links from the
+  // property's own pins; direction and the outlook rating come from the shared
+  // live-weather fetch.
+  const beddingPoints = useMemo<BeddingPoint[]>(
+    () =>
+      visibleAssets
+        .filter((asset) => asset.layerId === "bedding")
+        .map((asset) => ({
+          id: asset.id,
+          lat: asset.lat,
+          lng: asset.lng,
+          label: asset.label,
+        })),
+    [visibleAssets],
+  );
+  const resourcePoints = useMemo<ResourcePoint[]>(
+    () =>
+      visibleAssets
+        .filter(
+          (asset) => asset.layerId === "food" || asset.layerId === "water",
+        )
+        .map((asset) => ({
+          id: asset.id,
+          lat: asset.lat,
+          lng: asset.lng,
+          label: asset.label,
+          kind: asset.layerId === "water" ? "water" : "food",
+        })),
+    [visibleAssets],
+  );
+  const movementCorridors = useMemo(
+    () => buildCorridors(beddingPoints, resourcePoints),
+    [beddingPoints, resourcePoints],
+  );
+  const movementPeriod = useMemo(
+    () =>
+      forecastMeta
+        ? currentMovementPeriod(
+            new Date(),
+            forecastMeta.sunriseISO,
+            forecastMeta.sunsetISO,
+          )
+        : "midday",
+    [forecastMeta],
+  );
+  // The property's own deer photos (with usable capture times) tune the outlook
+  // to this ground rather than relying on generic almanac patterns alone.
+  const propertyPhotoTimings = useMemo<CameraPhotoTiming[]>(
+    () =>
+      state.photoRecords
+        .filter((photo) => photo.propertyId === selectedPropertyId)
+        .map((photo) => ({
+          cameraSiteId: photo.cameraSiteId,
+          photoDate: photo.photoDate,
+          species: photo.species,
+          buckName: photo.buckName,
+          deerProfileId: photo.deerProfileId,
+        })),
+    [state.photoRecords, selectedPropertyId],
+  );
+  const cameraPoints = useMemo<CameraPoint[]>(
+    () =>
+      propertyCameras
+        .filter(
+          (camera) =>
+            typeof camera.latitude === "number" &&
+            typeof camera.longitude === "number",
+        )
+        .map((camera) => ({
+          id: camera.id,
+          lat: camera.latitude as number,
+          lng: camera.longitude as number,
+        })),
+    [propertyCameras],
+  );
+  // Rut phase runs later at southern latitudes, so anchor it to the property's
+  // own location (falling back to the map center when it has none saved yet).
+  const propertyLatitude = useMemo(() => {
+    const point = resolvePropertyWeatherPoint(
+      selectedProperty,
+      propertyCameras,
+      pins,
+    );
+    return point ? point.lat : mapCenter[0];
+  }, [selectedProperty, propertyCameras, pins, mapCenter]);
+  // Bucket history by rut phase so early-season and rut patterns don't average
+  // out. Falls back to all-season photos when the current phase is still thin.
+  const currentMovementPhase = useMemo(
+    () => movementPhaseForDate(new Date(), propertyLatitude),
+    [propertyLatitude],
+  );
+  const seasonalPhotos = useMemo(
+    () =>
+      resolveSeasonalPhotos(
+        propertyPhotoTimings,
+        currentMovementPhase,
+        propertyLatitude,
+      ),
+    [propertyPhotoTimings, currentMovementPhase, propertyLatitude],
+  );
+  const movementOutlook = useMemo<MovementForecast | null>(() => {
+    if (!forecastMeta) return null;
+
+    const propertySignal = propertyMovementSignal(
+      seasonalPhotos.photos,
+      movementPeriod,
+      forecastMeta.sunriseISO,
+      forecastMeta.sunsetISO,
+    );
+
+    return movementForecast({
+      period: movementPeriod,
+      moonPhase: forecastMeta.moonPhase,
+      pressureTrend: forecastMeta.pressureTrend,
+      temperature: forecastMeta.temperature,
+      propertySignal,
+    });
+  }, [forecastMeta, movementPeriod, seasonalPhotos]);
+  // Push the same camera-timing signal down to each corridor via nearby cameras.
+  const corridorEvidenceById = useMemo(
+    () =>
+      forecastMeta
+        ? corridorEvidence(
+            movementCorridors,
+            cameraPoints,
+            seasonalPhotos.photos,
+            movementPeriod,
+            forecastMeta.sunriseISO,
+            forecastMeta.sunsetISO,
+          )
+        : {},
+    [
+      forecastMeta,
+      movementCorridors,
+      cameraPoints,
+      seasonalPhotos,
+      movementPeriod,
+    ],
+  );
+  const hotCorridorCount = useMemo(
+    () =>
+      Object.values(corridorEvidenceById).filter(
+        (evidence) => evidence.level === "hot",
+      ).length,
+    [corridorEvidenceById],
+  );
+
   const selectedAsset = mapAssets.find((asset) => asset.id === selectedAssetId);
   const ownerNamesEnabled = showOwnerNames && !isMobileMapPerformanceMode;
   const pinBoxDisabled =
@@ -780,10 +1040,20 @@ export default function HuntingMap() {
   // map opens on the right ground. We only key on the property id — not the
   // assets — so adding or moving a pin never yanks the view out from under the
   // user. Latest assets are kept in a ref so the fly-to point stays accurate.
-  const focusInputsRef = useRef({ selectedProperty, propertyCameras, pins });
+  const focusInputsRef = useRef({
+    selectedProperty,
+    propertyCameras,
+    pins,
+    mapCenter,
+  });
 
   useEffect(() => {
-    focusInputsRef.current = { selectedProperty, propertyCameras, pins };
+    focusInputsRef.current = {
+      selectedProperty,
+      propertyCameras,
+      pins,
+      mapCenter,
+    };
   });
 
   useEffect(() => {
@@ -804,6 +1074,72 @@ export default function HuntingMap() {
       zoom: PROPERTY_FOCUS_ZOOM,
     });
   }, [selectedPropertyId]);
+
+  // Live wind for the wind/thermal overlay. Fetch only while the layer is on
+  // (and re-fetch when the property changes) so panning never spams the API —
+  // the point comes from refs, and Open-Meteo responses are cached per point.
+  useEffect(() => {
+    if (!showWind && !showMovement) return;
+
+    const {
+      selectedProperty: property,
+      propertyCameras: cameras,
+      pins: propertyPins,
+      mapCenter: center,
+    } = focusInputsRef.current;
+    const point =
+      resolvePropertyWeatherPoint(property, cameras, propertyPins) ??
+      { lat: center[0], lng: center[1] };
+
+    let cancelled = false;
+
+    fetchLiveForecast(point)
+      .then((result) => {
+        if (cancelled) return;
+
+        if (result.status !== "ok") {
+          setWindData(null);
+          setForecastMeta(null);
+          setForecastStatus("error");
+          return;
+        }
+
+        const { current, sunrise, sunset, pressure } = result.forecast;
+        setWindData({
+          fromCompass: current.windDirection,
+          speedLabel: current.windSpeed,
+          speedMph: parseWindSpeed(current.windSpeed),
+          thermal: thermalCue(new Date(), sunrise, sunset),
+        });
+        setForecastMeta({
+          sunriseISO: sunrise,
+          sunsetISO: sunset,
+          moonPhase: current.moonPhase,
+          pressureTrend: pressure?.trend,
+          temperature: current.temperature,
+        });
+        setForecastStatus("ok");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWindData(null);
+          setForecastMeta(null);
+          setForecastStatus("error");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showWind, showMovement, selectedPropertyId]);
+
+  function toggleWind() {
+    setShowWind((current) => !current);
+  }
+
+  function toggleMovement() {
+    setShowMovement((current) => !current);
+  }
 
   // While recording, watch the device position and append each new fix to the
   // live trail. A small minimum-distance filter drops the jitter a GPS reports
@@ -1750,6 +2086,54 @@ export default function HuntingMap() {
             onSelectResult={selectSearchResult}
           />
 
+          <MapTopBar
+            selectedLayer={selectedLayer}
+            contourInterval={contourInterval}
+            showSlope={showSlope}
+            showPublicLand={showPublicLand}
+            showWind={showWind}
+            showMovement={showMovement}
+            onSelectLayer={setSelectedLayer}
+            onSelectContour={setContourInterval}
+            onToggleSlope={() => setShowSlope((current) => !current)}
+            onTogglePublicLand={() =>
+              setShowPublicLand((current) => !current)
+            }
+            onToggleWind={toggleWind}
+            onToggleMovement={toggleMovement}
+          />
+
+          {showWind ? (
+            <WindThermalBadge
+              status={forecastStatus}
+              windFromCompass={windData?.fromCompass ?? ""}
+              speedLabel={windData?.speedLabel ?? ""}
+              thermal={windData?.thermal ?? null}
+              standCount={windStandPoints.length}
+              goodCount={windStatusSummary.good}
+              avoidCount={windStatusSummary.avoid}
+              matchedCount={windStatusSummary.matched}
+            />
+          ) : null}
+
+          {showMovement ? (
+            <MovementBadge
+              status={forecastStatus}
+              forecast={movementOutlook}
+              corridorCount={movementCorridors.length}
+              direction={corridorDirection(movementPeriod)}
+              hasBedding={beddingPoints.length > 0}
+              hasResources={resourcePoints.length > 0}
+              personalized={movementOutlook?.personalized ?? false}
+              sampleSize={movementOutlook?.sampleSize ?? 0}
+              hotCorridorCount={hotCorridorCount}
+              phaseLabel={movementPhaseLabel(currentMovementPhase)}
+              phaseScoped={seasonalPhotos.scope === "phase"}
+              regionLabel={rutRegionLabel(propertyLatitude)}
+              rutShiftDays={rutShiftDays(propertyLatitude)}
+            />
+          ) : null}
+
           {showYearPicker ? (
             <div className="di-map-year" style={yearStepperStyle}>
               <button
@@ -1816,6 +2200,63 @@ export default function HuntingMap() {
                 zIndex={650 + index}
               />
             ))}
+
+            {showPublicLand ? (
+              <CachedTileLayer
+                key="public-land-overlay"
+                attribution={PUBLIC_LAND_ATTRIBUTION}
+                url={PUBLIC_LAND_TILE_URL}
+                maxZoom={19}
+                maxNativeZoom={PUBLIC_LAND_MAX_NATIVE_ZOOM}
+                opacity={0.55}
+                zIndex={685}
+              />
+            ) : null}
+
+            {showSlope ? (
+              <WMSTileLayer
+                key="slope-overlay"
+                url={SLOPE_WMS_URL}
+                layers={SLOPE_WMS_LAYER}
+                styles="default"
+                format="image/png"
+                transparent
+                version="1.3.0"
+                opacity={0.5}
+                zIndex={690}
+                attribution={SLOPE_ATTRIBUTION}
+              />
+            ) : null}
+
+            {contourInterval !== "off" ? (
+              <WMSTileLayer
+                key={`contours-${contourInterval}`}
+                url={CONTOUR_WMS_URL}
+                layers={CONTOUR_WMS_LAYERS[contourInterval]}
+                format="image/png"
+                transparent
+                version="1.3.0"
+                opacity={0.85}
+                zIndex={695}
+                attribution={CONTOUR_ATTRIBUTION}
+              />
+            ) : null}
+
+            {showWind && forecastStatus === "ok" && windData ? (
+              <WindThermalLayer
+                standPoints={windStandPoints}
+                windFromCompass={windData.fromCompass}
+                speedMph={windData.speedMph}
+              />
+            ) : null}
+
+            {showMovement ? (
+              <MovementLayer
+                corridors={movementCorridors}
+                period={movementPeriod}
+                evidenceById={corridorEvidenceById}
+              />
+            ) : null}
 
             <MapInstanceBridge
               onReady={(map) => {
