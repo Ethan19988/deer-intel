@@ -1,18 +1,18 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import type { ContourInterval, MapLayerId } from "@/lib/propertyMap";
+import type { MapLayerId } from "@/lib/propertyMap";
 
 type MapTopBarProps = {
   selectedLayer: MapLayerId;
-  contourInterval: ContourInterval;
+  showContours: boolean;
   contourNeedsZoomIn: boolean;
   showSlope: boolean;
   showPublicLand: boolean;
   showWind: boolean;
   showMovement: boolean;
   onSelectLayer: (layerId: MapLayerId) => void;
-  onSelectContour: (interval: ContourInterval) => void;
+  onToggleContours: () => void;
   onToggleSlope: () => void;
   onTogglePublicLand: () => void;
   onToggleWind: () => void;
@@ -29,22 +29,16 @@ const BASE_MAP_CHOICES: Array<{ id: MapLayerId; label: string }> = [
   { id: "roads", label: "Roads" },
 ];
 
-const CONTOUR_CHOICES: Array<{ id: ContourInterval; label: string }> = [
-  { id: "off", label: "Off" },
-  { id: "50", label: "50 ft" },
-  { id: "100", label: "100 ft" },
-];
-
 export default function MapTopBar({
   selectedLayer,
-  contourInterval,
+  showContours,
   contourNeedsZoomIn,
   showSlope,
   showPublicLand,
   showWind,
   showMovement,
   onSelectLayer,
-  onSelectContour,
+  onToggleContours,
   onToggleSlope,
   onTogglePublicLand,
   onToggleWind,
@@ -76,36 +70,20 @@ export default function MapTopBar({
 
       <span style={dividerStyle} aria-hidden="true" />
 
-      <div style={groupWithLabelStyle}>
-        <span style={groupLabelStyle}>Contours</span>
-        <div style={groupStyle} role="radiogroup" aria-label="Contour interval">
-          {CONTOUR_CHOICES.map((choice) => {
-            const isActive = choice.id === contourInterval;
-            return (
-              <button
-                key={choice.id}
-                type="button"
-                role="radio"
-                aria-checked={isActive}
-                style={{
-                  ...segmentStyle,
-                  ...(isActive ? activeSegmentStyle : null),
-                }}
-                onClick={() => onSelectContour(choice.id)}
-              >
-                {choice.label}
-              </button>
-            );
-          })}
-        </div>
-        {contourNeedsZoomIn ? (
-          <span style={contourHintStyle} role="status">
-            Zoom in to see
-          </span>
-        ) : null}
-      </div>
-
-      <span style={dividerStyle} aria-hidden="true" />
+      <button
+        type="button"
+        role="switch"
+        aria-checked={showContours}
+        style={{ ...pillStyle, ...(showContours ? activeSegmentStyle : null) }}
+        onClick={onToggleContours}
+      >
+        Contours
+      </button>
+      {contourNeedsZoomIn ? (
+        <span style={contourHintStyle} role="status">
+          Zoom in to see
+        </span>
+      ) : null}
 
       <button
         type="button"
@@ -180,21 +158,6 @@ const groupStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: "0.2rem",
-};
-
-const groupWithLabelStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.4rem",
-};
-
-const groupLabelStyle: CSSProperties = {
-  color: "#c9d6c6",
-  fontSize: "0.72rem",
-  fontWeight: 900,
-  letterSpacing: "0.02em",
-  textTransform: "uppercase",
-  whiteSpace: "nowrap",
 };
 
 const contourHintStyle: CSSProperties = {

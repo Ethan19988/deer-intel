@@ -127,7 +127,7 @@ import {
   MAP_LAYER_BY_ID,
   pinToMapAsset,
   CONTOUR_WMS_URL,
-  CONTOUR_WMS_LAYERS,
+  CONTOUR_WMS_ALL_LAYERS,
   CONTOUR_ATTRIBUTION,
   CONTOUR_MIN_ZOOM,
   SLOPE_WMS_URL,
@@ -137,7 +137,6 @@ import {
   PUBLIC_LAND_ATTRIBUTION,
   PUBLIC_LAND_MAX_NATIVE_ZOOM,
   type AddressSearchPlace,
-  type ContourInterval,
   type MapAsset,
   type AssetLayerId,
   type MapCenter,
@@ -617,8 +616,7 @@ export default function HuntingMap() {
     setSelectedLayer(requestedLayerId ?? defaultLayerRef.current);
   }, [requestedLayerId]);
   // Data overlays from the top bar — independent of the base map, stacked on top.
-  const [contourInterval, setContourInterval] =
-    useState<ContourInterval>("off");
+  const [showContours, setShowContours] = useState(false);
   const [showSlope, setShowSlope] = useState(false);
   const [showPublicLand, setShowPublicLand] = useState(false);
   const [showWind, setShowWind] = useState(false);
@@ -2070,16 +2068,14 @@ export default function HuntingMap() {
 
           <MapTopBar
             selectedLayer={selectedLayer}
-            contourInterval={contourInterval}
-            contourNeedsZoomIn={
-              contourInterval !== "off" && mapZoom < CONTOUR_MIN_ZOOM
-            }
+            showContours={showContours}
+            contourNeedsZoomIn={showContours && mapZoom < CONTOUR_MIN_ZOOM}
             showSlope={showSlope}
             showPublicLand={showPublicLand}
             showWind={showWind}
             showMovement={showMovement}
             onSelectLayer={setSelectedLayer}
-            onSelectContour={setContourInterval}
+            onToggleContours={() => setShowContours((current) => !current)}
             onToggleSlope={() => setShowSlope((current) => !current)}
             onTogglePublicLand={() =>
               setShowPublicLand((current) => !current)
@@ -2214,12 +2210,12 @@ export default function HuntingMap() {
               />
             ) : null}
 
-            {contourInterval !== "off" ? (
+            {showContours ? (
               <WMSTileLayer
-                key={`contours-${contourInterval}`}
+                key="contours"
                 className="di-contour-bold"
                 url={CONTOUR_WMS_URL}
-                layers={CONTOUR_WMS_LAYERS[contourInterval]}
+                layers={CONTOUR_WMS_ALL_LAYERS}
                 format="image/png"
                 transparent
                 version="1.3.0"
