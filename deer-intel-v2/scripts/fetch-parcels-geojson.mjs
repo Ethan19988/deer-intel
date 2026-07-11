@@ -146,7 +146,7 @@ const COUNTIES = {
     },
   },
   berks: {
-    layerUrl: PASDA("Berks", 6),
+    layerUrl: PASDA("BerksCounty", 6),
     outFields: ["NAME1", "ACREAGE", "PIN", "FULLSITEAD"],
     owner: (p) => str(p.NAME1),
     acres: (p) => toAcres(p.ACREAGE),
@@ -154,7 +154,7 @@ const COUNTIES = {
     addr: (p) => cleanAddr(p.FULLSITEAD),
   },
   bucks: {
-    layerUrl: PASDA("Bucks", 17),
+    layerUrl: PASDA("BucksCounty", 17),
     outFields: ["OWNER1", "OWNER2", "DEED_AREA", "PARCEL_NUM", "ADDRESS"],
     owner: (p) => joinFields(p, ["OWNER1", "OWNER2"]),
     acres: (p) => toAcres(p.DEED_AREA),
@@ -177,7 +177,7 @@ const COUNTIES = {
       cleanAddr(joinFields(p, ["SitusSt", "SitusDir", "SitusDesc1", "SitusSufx"])),
   },
   chester: {
-    layerUrl: PASDA("Chester", 11),
+    layerUrl: PASDA("ChesterCounty", 11),
     outFields: ["OWN1", "OWN2", "ACRE_PLAN_", "ACRE_PLAN1", "PIN_COMMON", "LOC_ADDRES"],
     owner: (p) => joinFields(p, ["OWN1", "OWN2"]),
     acres: (p) => toAcres(p.ACRE_PLAN_ || p.ACRE_PLAN1),
@@ -185,7 +185,7 @@ const COUNTIES = {
     addr: (p) => cleanAddr(p.LOC_ADDRES),
   },
   forest: {
-    layerUrl: PASDA("Forest", 3),
+    layerUrl: PASDA("ForestCounty", 3),
     outFields: ["OWNER1", "ACRES", "PARCEL", "SITUS"],
     owner: (p) => str(p.OWNER1),
     acres: (p) => toAcres(p.ACRES),
@@ -194,7 +194,7 @@ const COUNTIES = {
   },
   montgomery: {
     // Montgomery's OID field is OBJECTID_12, not the default OBJECTID.
-    layerUrl: PASDA("Montgomery", 14),
+    layerUrl: PASDA("MontgomeryCounty", 14),
     orderBy: "OBJECTID_12",
     outFields: ["OWN1", "OWN2", "LAND_ACRES", "PARCEL", "LOCATION1"],
     owner: (p) => joinFields(p, ["OWN1", "OWN2"]),
@@ -203,7 +203,7 @@ const COUNTIES = {
     addr: (p) => cleanAddr(p.LOCATION1),
   },
   wyoming: {
-    layerUrl: PASDA("Wyoming", 2),
+    layerUrl: PASDA("WyomingCounty", 2),
     outFields: ["Owner", "Owner_2", "Deeded_Acr", "CALC_AC", "PARCELNUM", "Situs_Addr"],
     owner: (p) => joinFields(p, ["Owner", "Owner_2"]),
     acres: (p) => toAcres(p.Deeded_Acr || p.CALC_AC),
@@ -211,7 +211,7 @@ const COUNTIES = {
     addr: (p) => cleanAddr(p.Situs_Addr),
   },
   york: {
-    layerUrl: PASDA("York", 31),
+    layerUrl: PASDA("YorkCounty", 31),
     outFields: ["OWNER_FULL", "OWN_NAME1", "ACRES", "PIDN", "PROPADR"],
     owner: (p) => str(p.OWNER_FULL) || str(p.OWN_NAME1),
     acres: (p) => toAcres(p.ACRES),
@@ -220,7 +220,7 @@ const COUNTIES = {
   },
   bradford: {
     // Owner parcels live on layer 5 (a join); OID field is OBJECTID_12.
-    layerUrl: PASDA("Bradford", 5),
+    layerUrl: PASDA("BradfordCounty", 5),
     orderBy: "OBJECTID_12",
     outFields: ["NAME", "ACREAGE", "ParcelJoin", "ADDRESS", "CITY"],
     owner: (p) => str(p.NAME),
