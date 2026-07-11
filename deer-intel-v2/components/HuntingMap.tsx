@@ -2216,12 +2216,13 @@ export default function HuntingMap() {
             {contourInterval !== "off" ? (
               <WMSTileLayer
                 key={`contours-${contourInterval}`}
+                className="di-contour-white"
                 url={CONTOUR_WMS_URL}
                 layers={CONTOUR_WMS_LAYERS[contourInterval]}
                 format="image/png"
                 transparent
                 version="1.3.0"
-                opacity={0.85}
+                opacity={0.7}
                 zIndex={695}
                 minZoom={CONTOUR_MIN_ZOOM}
                 attribution={CONTOUR_ATTRIBUTION}

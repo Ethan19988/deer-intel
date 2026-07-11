@@ -400,6 +400,13 @@ textarea {
   mix-blend-mode: multiply;
 }
 
+/* Recolor the USGS contour tiles (brown lines + labels) to white so they read
+   against dark satellite imagery. brightness(0) flattens every opaque pixel to
+   black, then invert(1) flips it to white while transparent areas stay clear. */
+.di-contour-white {
+  filter: brightness(0) invert(1);
+}
+
 .di-map-frame .leaflet-control-scale {
   margin-bottom: 5.8rem;
   margin-left: 1rem;
