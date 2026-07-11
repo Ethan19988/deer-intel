@@ -15,7 +15,11 @@ import { fitLabelFontPx, ownerAcresText } from "@/lib/ownerLabel";
 // parcel into memory), the map only fetches the tiles in view, so this scales
 // to the whole state. The tiles carry the shared parcel schema in their
 // `parcels` layer: { owner, acres, pin, addr, pub }.
-const PMTILES_URL = "/data/pa-parcels.pmtiles";
+//
+// The ~342 MB archive is hosted as a GitHub Release asset (too large/CORS-less
+// to ship in the deployment), streamed to the browser via the same-origin
+// /api/parcel-tiles range-proxy route.
+const PMTILES_URL = "/api/parcel-tiles";
 
 // Owner labels only make sense zoomed in; below this they collide into mush.
 // (protomaps' labeler also drops overlapping labels automatically.)
