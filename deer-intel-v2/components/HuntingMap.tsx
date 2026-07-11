@@ -33,7 +33,6 @@ import MapPinBox, {
 import ParcelBoundaryLayer from "@/components/map/ParcelBoundaryLayer";
 import ParcelOwnerLabelLayer from "@/components/map/ParcelOwnerLabelLayer";
 import ParcelOwnerInfoCard from "@/components/map/ParcelOwnerInfoCard";
-import LandOwnerLayer from "@/components/map/LandOwnerLayer";
 import ParcelTilesLayer from "@/components/map/ParcelTilesLayer";
 import MapSearchBar from "@/components/map/MapSearchBar";
 import MapSearchResultMarker from "@/components/map/MapSearchResultMarker";
@@ -615,9 +614,8 @@ export default function HuntingMap() {
   const trackStartedAtRef = useRef("");
   const [showPropertyLines, setShowPropertyLines] = useState(false);
   const [showOwnerNames, setShowOwnerNames] = useState(false);
-  const [showLandOwners, setShowLandOwners] = useState(false);
+  // The single statewide "Land Owners" overlay (vector parcel tiles).
   const [showParcelTiles, setShowParcelTiles] = useState(false);
-  const [landOwnerMessage, setLandOwnerMessage] = useState("");
   const [parcelLayerState, setParcelLayerState] =
     useState<ParcelBoundaryLoadState | null>(null);
   const [ownerLabelState, setOwnerLabelState] =
@@ -765,7 +763,6 @@ export default function HuntingMap() {
     parcelOwnerLookupState.status !== "found"
       ? parcelOwnerLookupState.message
       : "",
-    showLandOwners ? landOwnerMessage : "",
   ].filter((message): message is string => Boolean(message));
 
   const saveMapState = useCallback((center: MapCenter, zoom: number) => {
@@ -1094,16 +1091,6 @@ export default function HuntingMap() {
       }
 
       return shouldShowOwnerNames;
-    });
-  }
-
-  function toggleLandOwners() {
-    setShowLandOwners((isVisible) => {
-      const shouldShow = !isVisible;
-
-      if (!shouldShow) setLandOwnerMessage("");
-
-      return shouldShow;
     });
   }
 
@@ -1846,10 +1833,6 @@ export default function HuntingMap() {
               propertyId={selectedPropertyId}
               onStateChange={setOwnerLabelState}
             />
-            <LandOwnerLayer
-              enabled={showLandOwners}
-              onStatusChange={setLandOwnerMessage}
-            />
             <ParcelTilesLayer enabled={showParcelTiles} />
 
             <MapSearchTargetController target={searchTarget} />
@@ -1976,13 +1959,11 @@ export default function HuntingMap() {
             }
             ownerNamesDisabled={isMobileMapPerformanceMode}
             selectedLayer={selectedLayer}
-            showLandOwners={showLandOwners}
             showParcelTiles={showParcelTiles}
             showOwnerNames={ownerNamesEnabled}
             showPropertyLines={showPropertyLines}
             visibleAssetLayers={visibleAssetLayers}
             onSelectLayer={setSelectedLayer}
-            onToggleLandOwners={toggleLandOwners}
             onToggleParcelTiles={toggleParcelTiles}
             onToggleLayer={toggleAssetLayer}
             onToggleMapTool={toggleMapTool}
@@ -2001,7 +1982,7 @@ export default function HuntingMap() {
             {ownerNamesEnabled ? (
               <span style={mapStatusPillStyle}>Owner Names</span>
             ) : null}
-            {showLandOwners ? (
+            {showParcelTiles ? (
               <span style={mapStatusPillStyle}>Land Owners</span>
             ) : null}
             {offlinePacks.length > 0 ? (

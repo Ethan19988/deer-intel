@@ -22,13 +22,11 @@ type MapLayerManagerProps = {
   offlineSection?: ReactNode;
   ownerNamesDisabled?: boolean;
   selectedLayer: MapLayerId;
-  showLandOwners: boolean;
   showParcelTiles: boolean;
   showOwnerNames: boolean;
   showPropertyLines: boolean;
   visibleAssetLayers: Record<AssetLayerId, boolean>;
   onSelectLayer: (layerId: MapLayerId) => void;
-  onToggleLandOwners: () => void;
   onToggleParcelTiles: () => void;
   onToggleLayer: (layerId: AssetLayerId) => void;
   onToggleMapTool: (toolId: MapToolId) => void;
@@ -77,13 +75,11 @@ export default function MapLayerManager({
   offlineSection,
   ownerNamesDisabled = false,
   selectedLayer,
-  showLandOwners,
   showParcelTiles,
   showOwnerNames,
   showPropertyLines,
   visibleAssetLayers,
   onSelectLayer,
-  onToggleLandOwners,
   onToggleParcelTiles,
   onToggleLayer,
   onToggleMapTool,
@@ -216,13 +212,8 @@ export default function MapLayerManager({
               onToggle={onToggleOwnerNames}
             />
             <ToggleRow
-              checked={showLandOwners}
-              label="Land Owners"
-              onToggle={onToggleLandOwners}
-            />
-            <ToggleRow
               checked={showParcelTiles}
-              label="Land Owners — Statewide (beta)"
+              label="Land Owners"
               onToggle={onToggleParcelTiles}
             />
           </LayerSection>
