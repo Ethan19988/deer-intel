@@ -1,7 +1,7 @@
 "use client";
 
 import { getSupabaseClient } from "@/lib/supabaseClient";
-import { DEFAULT_PROPERTIES } from "@/lib/deerIntelStore";
+import { isUntouchedLegacySeedProperty } from "@/lib/deerIntelStore";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 
 // One JSONB row per user holds the whole DeerIntelState. See supabase/schema.sql
@@ -30,26 +30,11 @@ export type ReconcileDecision =
   | { action: "pull"; state: DeerIntelState; reason: string }
   | { action: "in-sync"; reason: string };
 
-const DEFAULT_PROPERTY_IDS = new Set(DEFAULT_PROPERTIES.map((p) => p.id));
-
 function isDefaultOnlyProperties(state: DeerIntelState): boolean {
-  // A brand-new local store is seeded with the two default properties and
-  // nothing else. Treat that (or fewer) as "no real data the user typed".
-  if (state.properties.length > DEFAULT_PROPERTIES.length) return false;
-
-  return state.properties.every((property) => {
-    if (!DEFAULT_PROPERTY_IDS.has(property.id)) return false;
-
-    const seeded = DEFAULT_PROPERTIES.find((p) => p.id === property.id);
-
-    return (
-      seeded !== undefined &&
-      property.name === seeded.name &&
-      property.county === seeded.county &&
-      property.acres === seeded.acres &&
-      property.notes === seeded.notes
-    );
-  });
+  // A brand-new local store now starts with no properties at all. Older stores
+  // still carry the two seeded sample properties. Treat either — an empty list,
+  // or only untouched samples — as "no real data the user typed".
+  return state.properties.every(isUntouchedLegacySeedProperty);
 }
 
 /**

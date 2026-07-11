@@ -21,7 +21,25 @@ export type { MapPin, PinType } from "@/types/mapPin";
 const STORAGE_KEY = "deer-intel:state";
 const LEGACY_PROPERTIES_STORAGE_KEY = "deer-intel:properties";
 
-export const DEFAULT_PROPERTIES: Property[] = [
+// New accounts start empty — the hunter adds their own properties. Kept as an
+// exported constant so seeding, default-state, and cloud-sync logic share one
+// source of truth for "what a fresh store looks like".
+export const DEFAULT_PROPERTIES: Property[] = [];
+
+// Bumped to 2 so the one-time "drop the old seeded sample properties" migration
+// runs once against each existing store, then never again.
+const CURRENT_STATE_VERSION = 2 as const;
+
+// The two sample properties every store used to be seeded with (see git history
+// of DEFAULT_PROPERTIES). Existing users still carry these; the migration below
+// removes them, but only while they remain untouched sample data.
+const LEGACY_SEED_PROPERTIES: readonly {
+  id: string;
+  name: string;
+  county: string;
+  acres: string;
+  notes: string;
+}[] = [
   {
     id: "finley-run",
     name: "Finley Run",
@@ -39,7 +57,7 @@ export const DEFAULT_PROPERTIES: Property[] = [
 ];
 
 const DEFAULT_STATE: DeerIntelState = {
-  version: 1,
+  version: CURRENT_STATE_VERSION,
   properties: DEFAULT_PROPERTIES,
   selectedPropertyId: DEFAULT_PROPERTIES[0]?.id ?? "",
   cameras: [],
@@ -530,8 +548,8 @@ function normalizeState(value: unknown): DeerIntelState | null {
     ? String(value.selectedPropertyId)
     : properties[0]?.id ?? "";
 
-  return {
-    version: 1,
+  const normalized: DeerIntelState = {
+    version: CURRENT_STATE_VERSION,
     properties,
     selectedPropertyId,
     cameras,
@@ -542,6 +560,78 @@ function normalizeState(value: unknown): DeerIntelState | null {
     photoRecords,
     deerProfiles,
   };
+
+  // A store written before version 2 may still carry the old seeded sample
+  // properties. Run the one-time cleanup only when upgrading from an older
+  // version; states already at the current version are left untouched.
+  const incomingVersion =
+    typeof value.version === "number" ? value.version : 1;
+
+  return incomingVersion < CURRENT_STATE_VERSION
+    ? removeUntouchedLegacyProperties(normalized)
+    : normalized;
+}
+
+/**
+ * True when a property is still one of the old seeded samples exactly as it was
+ * shipped — same id and fields, no location or hunt area added. Once the hunter
+ * renames it, gives it a location/hunt area, or otherwise edits it, it's theirs
+ * and this returns false. Shared with cloud sync so both agree on what counts
+ * as untouched sample data (versus data worth syncing/keeping).
+ */
+export function isUntouchedLegacySeedProperty(property: Property): boolean {
+  const seed = LEGACY_SEED_PROPERTIES.find((s) => s.id === property.id);
+
+  if (!seed) return false;
+
+  return (
+    property.name === seed.name &&
+    property.county === seed.county &&
+    property.acres === seed.acres &&
+    property.notes === seed.notes &&
+    property.latitude === undefined &&
+    property.longitude === undefined &&
+    property.huntArea === undefined
+  );
+}
+
+/**
+ * Drop the old seeded sample properties (Finley Run, Moore Hill Area) from an
+ * existing store — but only ones the hunter never made their own. A legacy
+ * property is removed only when it still exactly matches the original seed and
+ * has no cameras, stands, hunts, pins, photos, or deer attached to it. Anything
+ * the user edited or built on is kept, so no real data is ever destroyed.
+ */
+function removeUntouchedLegacyProperties(
+  state: DeerIntelState,
+): DeerIntelState {
+  const referencedPropertyIds = new Set<string>();
+
+  for (const camera of state.cameras) referencedPropertyIds.add(camera.propertyId);
+  for (const check of state.cameraChecks) referencedPropertyIds.add(check.propertyId);
+  for (const stand of state.stands) referencedPropertyIds.add(stand.propertyId);
+  for (const pin of state.pins) referencedPropertyIds.add(pin.propertyId);
+  for (const hunt of state.hunts) referencedPropertyIds.add(hunt.propertyId);
+  for (const photo of state.photoRecords) referencedPropertyIds.add(photo.propertyId);
+  for (const profile of state.deerProfiles) referencedPropertyIds.add(profile.propertyId);
+
+  const remainingProperties = state.properties.filter((property) => {
+    // Keep anything the hunter made their own, or that has data attached.
+    if (!isUntouchedLegacySeedProperty(property)) return true;
+    if (referencedPropertyIds.has(property.id)) return true;
+
+    return false;
+  });
+
+  if (remainingProperties.length === state.properties.length) return state;
+
+  const selectedPropertyId = remainingProperties.some(
+    (property) => property.id === state.selectedPropertyId,
+  )
+    ? state.selectedPropertyId
+    : remainingProperties[0]?.id ?? "";
+
+  return { ...state, properties: remainingProperties, selectedPropertyId };
 }
 
 function parseState(rawState: string | null): DeerIntelState | null {
