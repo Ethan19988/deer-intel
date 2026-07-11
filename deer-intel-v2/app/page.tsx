@@ -8,6 +8,7 @@ import Card from "@/components/ui/Card";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
+import HuntConditionAlerts from "@/components/HuntConditionAlerts";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
 import { fetchLiveWeather, resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { getStandWindCheck } from "@/lib/standWind";
@@ -115,6 +116,11 @@ export default function Home() {
 
   return (
     <PageShell maxWidth="980px">
+      <HuntConditionAlerts
+        propertyName={activeProperty?.name ?? "This property"}
+        point={weatherPoint}
+        stands={propertyStands}
+      />
       <Card as="section" variant="elevated" style={briefStyle}>
         <div style={briefHeaderStyle}>
           <div>
