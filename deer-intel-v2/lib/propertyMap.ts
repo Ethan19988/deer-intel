@@ -210,30 +210,23 @@ export const MAP_LAYER_BY_ID = MAP_LAYERS.reduce<Record<MapLayerId, MapLayer>>(
 // tiles are rendered on demand with a per-tile bbox — so they render via
 // react-leaflet's <WMSTileLayer>, not the XYZ CachedTileLayer path.
 
-// USGS "The National Map" contour service. Free intervals are 50 ft and 100 ft
-// only (finer intervals like 10/20/25 ft would need a custom DEM→contour build).
-// Layer IDs come from the service's /layers metadata: index + intermediate
-// lines plus their elevation labels.
-export type ContourInterval = "off" | "50" | "100";
+// USGS "The National Map" contour service. Its sublayer groups are SCALE
+// BANDS, not selectable intervals: one group only draws around web zooms
+// 12–13 and the other only at ~14+ (measured empirically — the service's
+// advertised scale ranges don't match what its WMS actually renders). A
+// "pick your interval" UI can't be honored, so contours are a single on/off
+// overlay that requests both bands' lines + labels and lets the service show
+// the densest set available at the current zoom, like a paper topo.
+export type ContourSetting = "off" | "on";
 
 export const CONTOUR_WMS_URL =
   "https://carto.nationalmap.gov/arcgis/services/contours/MapServer/WMSServer";
-// Index + intermediate contour lines and their elevation labels. The whole
-// layer is recolored light/white (via the di-contour-white filter) for a subtle
-// Spartan Forge-style look over satellite imagery.
-export const CONTOUR_WMS_LAYERS: Record<
-  Exclude<ContourInterval, "off">,
-  string
-> = {
-  "50": "15,16,17,18",
-  "100": "10,11,12,13",
-};
+export const CONTOUR_WMS_ALL_LAYERS = "10,11,12,13,15,16,17,18";
 export const CONTOUR_ATTRIBUTION = "Contours &copy; USGS The National Map";
-// The National Map only draws contour lines at larger scales; below this web
-// zoom the service returns near-empty tiles, so we hold the layer off (and
-// prompt the hunter to zoom in) instead of painting a blank overlay that reads
-// as "broken."
-export const CONTOUR_MIN_ZOOM = 13;
+// Below this web zoom the service returns near-empty tiles, so we hold the
+// layer off (and prompt the hunter to zoom in) instead of painting a blank
+// overlay that reads as "broken."
+export const CONTOUR_MIN_ZOOM = 12;
 
 // USGS 3DEP elevation image service rendered on the fly as slope-in-degrees —
 // a color ramp that reads steepness (benches, shelves, access difficulty) the
