@@ -1,9 +1,9 @@
 name: Build parcel tiles
 
 # Rebuilds the statewide land-owner vector tiles (pa-parcels.pmtiles) that the
-# "Land Owners" map overlay renders, and uploads them to the `parcel-tiles`
-# GitHub Release asset — which the app streams live via the same-origin
-# /api/parcel-tiles proxy. tippecanoe only runs on Linux, so this is the
+# "Land Owners" map overlay renders, uploads them to Cloudflare R2 (the bucket
+# the app streams from), and also keeps a copy on the `parcel-tiles` GitHub
+# Release as a versioned backup. tippecanoe only runs on Linux, so this is the
 # supported way to regenerate the archive (it can't be built on Windows).
 #
 # Run it manually from the Actions tab (workflow_dispatch). A monthly schedule
@@ -48,9 +48,17 @@ jobs:
           NODE_USE_ENV_PROXY: "0"
         run: bash scripts/build-parcel-tiles.sh
 
-      - name: Upload tiles to the release
+      - name: Publish tiles to R2 (live) and the release (backup)
         env:
           GH_TOKEN: ${{ github.token }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # aws-cli v2 adds default integrity checksums R2 rejects; scope them.
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: deer-intel-tiles
         run: |
           set -euo pipefail
           file="deer-intel-v2/public/data/pa-parcels.pmtiles"
@@ -58,15 +66,19 @@ jobs:
             echo "ERROR: $file missing or empty — build produced no tiles." >&2
             exit 1
           fi
-
           size="$(du -h "$file" | cut -f1)"
-          # The app serves this asset live via /api/parcel-tiles; --clobber
-          # replaces it in place so the URL stays stable.
+
+          # Primary: upload to the R2 bucket the app streams from (CORS + range).
+          aws s3 cp "$file" "s3://${R2_BUCKET}/pa-parcels.pmtiles" \
+            --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" \
+            --content-type application/octet-stream
+
+          # Backup: keep a versioned copy on the GitHub Release.
           gh release upload parcel-tiles "$file" --clobber --repo "${{ github.repository }}"
 
           {
             echo "## Parcel tiles refreshed (${size})"
             echo ""
-            echo "Replaced the \`parcel-tiles\` release asset — now live via /api/parcel-tiles."
+            echo "Uploaded to R2 (\`${R2_BUCKET}/pa-parcels.pmtiles\`, live) and the \`parcel-tiles\` release (backup)."
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "Uploaded ${size} to release parcel-tiles"
+          echo "Published ${size} to R2 + release"

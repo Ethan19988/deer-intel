@@ -16,10 +16,12 @@ import { fitLabelFontPx, ownerAcresText } from "@/lib/ownerLabel";
 // to the whole state. The tiles carry the shared parcel schema in their
 // `parcels` layer: { owner, acres, pin, addr, pub }.
 //
-// The ~342 MB archive is hosted as a GitHub Release asset (too large/CORS-less
-// to ship in the deployment), streamed to the browser via the same-origin
-// /api/parcel-tiles range-proxy route.
-const PMTILES_URL = "/api/parcel-tiles";
+// The ~342 MB archive is hosted on Cloudflare R2 (public bucket with CORS +
+// range support), which the browser range-fetches directly — Vercel can't
+// serve the Git LFS pointer, and a serverless proxy buckled under protomaps'
+// concurrent range-request burst.
+const PMTILES_URL =
+  "https://pub-d5fa85d2972147979d3a9820dd7195f2.r2.dev/pa-parcels.pmtiles";
 
 // Owner labels only make sense zoomed in; below this they collide into mush.
 // (protomaps' labeler also drops overlapping labels automatically.)
