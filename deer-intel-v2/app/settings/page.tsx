@@ -14,6 +14,13 @@ import StatCard from "@/components/ui/StatCard";
 import AccountPanel from "@/components/auth/AccountPanel";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { saveDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
+import {
+  setThemePreference,
+  THEME_DESCRIPTIONS,
+  THEME_LABELS,
+  THEME_PREFERENCES,
+  useThemePreference,
+} from "@/lib/theme";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 
 function recordCount(candidate: DeerIntelState) {
@@ -31,6 +38,7 @@ function recordCount(candidate: DeerIntelState) {
 
 export default function SettingsPage() {
   const state = useDeerIntelStore();
+  const themePreference = useThemePreference();
   const { configured, status, user } = useAuth();
   const cloudActive = configured && status === "signed-in";
   const totalRecords = recordCount(state);
@@ -148,6 +156,41 @@ export default function SettingsPage() {
           }
         />
       </Card>
+
+      <Section eyebrow="Appearance" title="Theme">
+        <Card as="div" variant="subtle">
+          <p style={mutedTextStyle}>
+            Choose how Deer Intel looks. Night mode uses red on black to protect
+            your night vision on the walk in before first light. This is saved
+            on this device only.
+          </p>
+          <div style={themeGridStyle}>
+            {THEME_PREFERENCES.map((preference) => {
+              const active = preference === themePreference;
+
+              return (
+                <button
+                  key={preference}
+                  type="button"
+                  onClick={() => setThemePreference(preference)}
+                  aria-pressed={active}
+                  style={{
+                    ...themeOptionStyle,
+                    ...(active ? themeOptionActiveStyle : null),
+                  }}
+                >
+                  <span style={themeOptionLabelStyle}>
+                    {THEME_LABELS[preference]}
+                  </span>
+                  <span style={themeOptionDescStyle}>
+                    {THEME_DESCRIPTIONS[preference]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+      </Section>
 
       <Section eyebrow="Storage" title="Current Data Setup">
         <div style={settingsGridStyle}>
@@ -334,6 +377,45 @@ const settingsGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
   gap: "1rem",
+};
+
+const themeGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: "0.75rem",
+  marginTop: "1rem",
+};
+
+const themeOptionStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  gap: "0.3rem",
+  minHeight: "auto",
+  padding: "0.85rem 0.9rem",
+  border: "1px solid var(--border)",
+  borderRadius: "10px",
+  background: "var(--surface)",
+  color: "var(--text)",
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const themeOptionActiveStyle: CSSProperties = {
+  borderColor: "var(--accent)",
+  background: "var(--accent-tint)",
+  boxShadow: "0 0 0 1px var(--accent)",
+};
+
+const themeOptionLabelStyle: CSSProperties = {
+  fontWeight: 800,
+  fontSize: "1rem",
+};
+
+const themeOptionDescStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontSize: "0.85rem",
+  lineHeight: 1.4,
 };
 
 const statGridStyle: CSSProperties = {

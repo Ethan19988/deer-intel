@@ -60,6 +60,122 @@
   --foreground: var(--text);
 }
 
+/* ---- Dark theme (warm, low-light) ---- */
+/* Same token contract as :root, just re-pointed to dark surfaces so every
+   component that styles with tokens follows automatically. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #12150d;
+  --surface: #1c2016;
+  --surface-2: #232a1c;
+  --surface-3: #2b3322;
+
+  --border: #333b28;
+  --border-strong: #454f38;
+
+  --text: #ecebdc;
+  --text-muted: #a8b096;
+  --text-faint: #7d866c;
+
+  --accent: #2f8a49;
+  --accent-strong: #256d38;
+  --accent-fg: #ffffff;
+  --accent-tint: #18271b;
+  --accent-tint-border: #2f5238;
+  --accent-text: #7dc389;
+
+  --accent-2: #e0642a;
+  --accent-2-strong: #c1521d;
+  --accent-2-fg: #ffffff;
+  --accent-2-tint: #331d10;
+  --accent-2-tint-border: #6b3c1f;
+  --accent-2-text: #f0895a;
+
+  --success-bg: #16281b;
+  --success-border: #2f5136;
+  --success-text: #7fce93;
+  --warning-bg: #2c2410;
+  --warning-border: #574818;
+  --warning-text: #e3c568;
+  --danger-bg: #2e1613;
+  --danger-border: #5a2e28;
+  --danger-text: #f0918a;
+
+  --camo-ink: #2a2717;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 12px 28px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- Night theme (red-on-black to protect night vision) ---- */
+:root[data-theme="night"] {
+  color-scheme: dark;
+
+  --bg: #0a0503;
+  --surface: #160b07;
+  --surface-2: #1d0f09;
+  --surface-3: #26130b;
+
+  --border: #3c1c11;
+  --border-strong: #55291a;
+
+  --text: #ef8f7c;
+  --text-muted: #b45f50;
+  --text-faint: #7e433a;
+
+  --accent: #c23a2a;
+  --accent-strong: #9c2c1f;
+  --accent-fg: #14060a;
+  --accent-tint: #2a0f0a;
+  --accent-tint-border: #5a2418;
+  --accent-text: #ef7a66;
+
+  /* Keep the secondary accent red too — greens and oranges break night vision. */
+  --accent-2: #d65033;
+  --accent-2-strong: #b03d24;
+  --accent-2-fg: #14060a;
+  --accent-2-tint: #2f120b;
+  --accent-2-tint-border: #6b2c1a;
+  --accent-2-text: #f08a6a;
+
+  --success-bg: #241009;
+  --success-border: #4d2115;
+  --success-text: #e88a70;
+  --warning-bg: #241009;
+  --warning-border: #4d2115;
+  --warning-text: #ef9c6a;
+  --danger-bg: #2c0f0b;
+  --danger-border: #5a221a;
+  --danger-text: #f5998c;
+
+  --camo-ink: #1f0d07;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.55), 0 12px 28px rgba(0, 0, 0, 0.6);
+}
+
+/* Camo brand band assumes a light cream scrim + dark text; flip it dark so the
+   brand stays readable on the dark/night themes. */
+:root[data-theme="dark"] .di-camo-band,
+:root[data-theme="night"] .di-camo-band {
+  background-image:
+    linear-gradient(rgba(8, 10, 6, 0.74), rgba(8, 10, 6, 0.82)),
+    var(--camo);
+  color: var(--text);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+/* The mobile bottom nav uses a hard-coded translucent-white glass; retint it so
+   it doesn't glow white against a dark page. */
+:root[data-theme="dark"] .di-mobile-nav {
+  background: rgba(18, 21, 13, 0.94);
+}
+
+:root[data-theme="night"] .di-mobile-nav {
+  background: rgba(10, 5, 3, 0.94);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
