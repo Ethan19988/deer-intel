@@ -22,6 +22,8 @@ export type MoonPhaseInfo = {
   phase: MoonPhaseName;
   /** Share of the disc lit, 0–100, rounded. */
   illumination: number;
+  /** True while the moon is filling toward full (lit limb on the right). */
+  waxing: boolean;
   /** Peak deer-movement guidance a hunter can act on for this phase. */
   movement: string;
 };
@@ -84,6 +86,7 @@ export function getMoonPhaseInfo(timestampMs: number): MoonPhaseInfo {
   const illumination = Math.round(
     ((1 - Math.cos((2 * Math.PI * age) / SYNODIC_MONTH_DAYS)) / 2) * 100,
   );
+  const waxing = age < SYNODIC_MONTH_DAYS / 2;
 
-  return { phase, illumination, movement: MOON_MOVEMENT[phase] };
+  return { phase, illumination, waxing, movement: MOON_MOVEMENT[phase] };
 }
