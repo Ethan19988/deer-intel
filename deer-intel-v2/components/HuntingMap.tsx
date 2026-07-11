@@ -98,6 +98,7 @@ import type {
   ParcelOwnerLabelLoadState,
 } from "@/types/parcel";
 import type { HuntAreaPoint } from "@/types/property";
+import { useDefaultMapLayer } from "@/lib/mapPreferences";
 import Button from "./ui/Button";
 import Card from "./ui/Card";
 import EmptyState from "./ui/EmptyState";
@@ -546,15 +547,24 @@ export default function HuntingMap() {
     requestedLayer && requestedLayer in MAP_LAYER_BY_ID
       ? (requestedLayer as MapLayerId)
       : null;
+  // The base layer the map opens on comes from Settings; a ?layer= param still
+  // wins for that visit. Kept in a ref so changing the default in Settings while
+  // the map is open doesn't yank the user off a layer they picked manually.
+  const defaultLayer = useDefaultMapLayer();
+  const defaultLayerRef = useRef(defaultLayer);
+  useEffect(() => {
+    defaultLayerRef.current = defaultLayer;
+  }, [defaultLayer]);
+
   const [selectedLayer, setSelectedLayer] = useState<MapLayerId>(
-    requestedLayerId ?? "hybrid",
+    requestedLayerId ?? defaultLayer,
   );
 
   // The layer param drives the base map whenever it changes (LiDAR shortcut in,
   // plain Map out). Manual Layers-panel picks don't touch the URL, so this only
   // fires on navigation and never fights the user's own choice.
   useEffect(() => {
-    setSelectedLayer(requestedLayerId ?? "hybrid");
+    setSelectedLayer(requestedLayerId ?? defaultLayerRef.current);
   }, [requestedLayerId]);
   const [waybackReleases, setWaybackReleases] = useState<WaybackRelease[]>([]);
   const [selectedRelease, setSelectedRelease] = useState<string>();
