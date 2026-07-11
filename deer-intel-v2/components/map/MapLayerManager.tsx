@@ -63,7 +63,6 @@ const MAP_TOOL_LABELS: Array<{ id: MapToolId; label: string }> = [
 ];
 
 const FUTURE_LAYER_LABELS = [
-  "Slope",
   "Sun Exposure",
   "Historical Wind",
   "Deer Movement",

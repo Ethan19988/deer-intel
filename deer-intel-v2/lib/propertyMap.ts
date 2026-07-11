@@ -205,6 +205,45 @@ export const MAP_LAYER_BY_ID = MAP_LAYERS.reduce<Record<MapLayerId, MapLayer>>(
   {} as Record<MapLayerId, MapLayer>,
 );
 
+// Data overlays that stack on ANY base map, toggled independently (unlike the
+// base-map-bound overlayLayers above). These are dynamic ArcGIS WMS services —
+// tiles are rendered on demand with a per-tile bbox — so they render via
+// react-leaflet's <WMSTileLayer>, not the XYZ CachedTileLayer path.
+
+// USGS "The National Map" contour service. Free intervals are 50 ft and 100 ft
+// only (finer intervals like 10/20/25 ft would need a custom DEM→contour build).
+// Layer IDs come from the service's /layers metadata: index + intermediate
+// lines plus their elevation labels.
+export type ContourInterval = "off" | "50" | "100";
+
+export const CONTOUR_WMS_URL =
+  "https://carto.nationalmap.gov/arcgis/services/contours/MapServer/WMSServer";
+export const CONTOUR_WMS_LAYERS: Record<Exclude<ContourInterval, "off">, string> =
+  {
+    "50": "15,16,17,18",
+    "100": "10,11,12,13",
+  };
+export const CONTOUR_ATTRIBUTION = "Contours &copy; USGS The National Map";
+
+// USGS 3DEP elevation image service rendered on the fly as slope-in-degrees —
+// a color ramp that reads steepness (benches, shelves, access difficulty) the
+// hillshade can't quantify.
+export const SLOPE_WMS_URL =
+  "https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WMSServer";
+export const SLOPE_WMS_LAYER = "3DEPElevation:Slope Degrees";
+export const SLOPE_ATTRIBUTION = "Slope &copy; USGS 3DEP";
+
+// BLM Surface Management Agency — federal + state/local public land colored by
+// its managing agency (BLM, USFS, NPS, USFWS, state, …). It's a cached XYZ
+// service (Web Mercator), so it rides the normal CachedTileLayer path and gets
+// offline caching for free. Cache is capped short of deep zooms, so overzoom
+// rather than 404 past the native level.
+export const PUBLIC_LAND_TILE_URL =
+  "https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_Cached_without_PriUnk/MapServer/tile/{z}/{y}/{x}";
+export const PUBLIC_LAND_ATTRIBUTION =
+  "Public land &copy; BLM Surface Management Agency";
+export const PUBLIC_LAND_MAX_NATIVE_ZOOM = 16;
+
 export const ASSET_LAYERS: AssetLayer[] = [
   {
     id: "cameras",
