@@ -8,7 +8,7 @@ import type { Property } from "@/types/property";
 import type { Stand } from "@/types/stand";
 
 export type DeerIntelState = {
-  version: 1;
+  version: 2;
   properties: Property[];
   selectedPropertyId: string;
   cameras: Camera[];
