@@ -1,18 +1,17 @@
 "use client";
 
-import {
-  useEffect,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { ASSET_LAYERS, type AssetLayerId } from "@/lib/propertyMap";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 
 export type MapToolId = "gps" | "compass" | "scaleBar";
 export type MapToolState = Record<MapToolId, boolean>;
 
 type MapLayerManagerProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   mapTools: MapToolState;
+  pinBoxSection?: ReactNode;
   offlineSection?: ReactNode;
   trackingSection?: ReactNode;
   ownerNamesDisabled?: boolean;
@@ -54,33 +53,36 @@ const FUTURE_LAYER_LABELS = [
 ];
 
 export default function MapLayerManager({
+  open,
+  onOpenChange,
   mapTools,
+  pinBoxSection,
   offlineSection,
   trackingSection,
-  ownerNamesDisabled = false,
   showParcelTiles,
-  showOwnerNames,
   showPropertyLines,
   visibleAssetLayers,
   onToggleParcelTiles,
   onToggleLayer,
   onToggleMapTool,
-  onToggleOwnerNames,
   onTogglePropertyLines,
 }: MapLayerManagerProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const isOpen = open;
+  const visibleCount = Object.values(visibleAssetLayers).filter(
+    Boolean,
+  ).length;
 
   useEffect(() => {
     if (!isOpen) return;
 
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setIsOpen(false);
+      if (event.key === "Escape") onOpenChange(false);
     }
 
     document.addEventListener("keydown", closeOnEscape);
 
     return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [isOpen]);
+  }, [isOpen, onOpenChange]);
 
   return (
     <>
@@ -91,7 +93,7 @@ export default function MapLayerManager({
         aria-expanded={isOpen}
         onClick={(event) => {
           event.stopPropagation();
-          setIsOpen(true);
+          onOpenChange(true);
         }}
       >
         Layers
@@ -102,7 +104,7 @@ export default function MapLayerManager({
           isOpen ? " di-layer-manager-backdrop-open" : ""
         }`}
         style={backdropStyle}
-        onClick={() => setIsOpen(false)}
+        onClick={() => onOpenChange(false)}
       />
 
       <aside
@@ -124,13 +126,17 @@ export default function MapLayerManager({
             className="di-layer-manager-close"
             style={closeButtonStyle}
             aria-label="Close layers"
-            onClick={() => setIsOpen(false)}
+            onClick={() => onOpenChange(false)}
           >
             X
           </button>
         </header>
 
         <div style={contentStyle}>
+          {pinBoxSection ? (
+            <section style={sectionStyle}>{pinBoxSection}</section>
+          ) : null}
+
           {trackingSection ? (
             <section style={sectionStyle}>
               <h4 style={sectionTitleStyle}>Walk Tracking</h4>
@@ -145,28 +151,28 @@ export default function MapLayerManager({
             </section>
           ) : null}
 
-          <LayerSection title="Visibility">
-            {ASSET_LAYERS.map((layer) => (
-              <ToggleRow
-                key={layer.id}
-                checked={visibleAssetLayers[layer.id]}
-                label={VISIBILITY_LABELS[layer.id]}
-                onToggle={() => onToggleLayer(layer.id)}
-              />
-            ))}
-          </LayerSection>
+          <CollapsibleSection
+            title="Visibility"
+            description={`${visibleCount} of ${ASSET_LAYERS.length} pin types shown`}
+            style={sectionStyle}
+          >
+            <div style={toggleListStyle}>
+              {ASSET_LAYERS.map((layer) => (
+                <ToggleRow
+                  key={layer.id}
+                  checked={visibleAssetLayers[layer.id]}
+                  label={VISIBILITY_LABELS[layer.id]}
+                  onToggle={() => onToggleLayer(layer.id)}
+                />
+              ))}
+            </div>
+          </CollapsibleSection>
 
           <LayerSection title="Property">
             <ToggleRow
               checked={showPropertyLines}
               label="Property Lines"
               onToggle={onTogglePropertyLines}
-            />
-            <ToggleRow
-              checked={showOwnerNames}
-              disabled={ownerNamesDisabled}
-              label="Owner Names"
-              onToggle={onToggleOwnerNames}
             />
             <ToggleRow
               checked={showParcelTiles}

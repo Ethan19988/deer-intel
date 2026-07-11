@@ -121,7 +121,6 @@ import {
   createVisibleAssetLayerState,
   DEFAULT_MAP_CENTER,
   DEFAULT_MAP_ZOOM,
-  formatCoordinate,
   getAssetDetailHref,
   getAssetEditHref,
   geocodeAddressOrPlace,
@@ -152,9 +151,7 @@ import type {
 import type { HuntAreaPoint } from "@/types/property";
 import { useDefaultMapLayer } from "@/lib/mapPreferences";
 import Button from "./ui/Button";
-import Card from "./ui/Card";
 import CollapsibleSection from "./ui/CollapsibleSection";
-import EmptyState from "./ui/EmptyState";
 
 type ClickToAddPinProps = {
   enabled: boolean;
@@ -693,6 +690,7 @@ export default function HuntingMap() {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [isMobileAssetSheetOpen, setIsMobileAssetSheetOpen] = useState(false);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
+  const [layersOpen, setLayersOpen] = useState(false);
   const [isDrawingArea, setIsDrawingArea] = useState(false);
   const [draftAreaPoints, setDraftAreaPoints] = useState<HuntAreaPoint[]>([]);
   const [areaCoordInput, setAreaCoordInput] = useState("");
@@ -1513,6 +1511,9 @@ export default function HuntingMap() {
 
     setIsPlacingPin(true);
     setPinBoxMessage(`Tap map to place ${pinType}`);
+    // The Pin Box lives in the Layers drawer now — close it so the map is
+    // tappable for placement.
+    setLayersOpen(false);
   }
 
   function cancelPinPlacement() {
@@ -1804,20 +1805,14 @@ export default function HuntingMap() {
           </Button>
         </>
       ) : (
-        <>
-          <p style={helpTextStyle}>
-            Record the path you walk as a trail on the map — scout a new area,
-            mark an access route, or log where the deer took you.
-          </p>
-          <Button
-            type="button"
-            fullWidth
-            onClick={startTracking}
-            disabled={!selectedPropertyId}
-          >
-            Start Tracking
-          </Button>
-        </>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={startTracking}
+          disabled={!selectedPropertyId}
+        >
+          Start Tracking
+        </Button>
       )}
 
       {trackMessage ? (
@@ -2372,7 +2367,20 @@ export default function HuntingMap() {
           </MapContainer>
 
           <MapLayerManager
+            open={layersOpen}
+            onOpenChange={setLayersOpen}
             mapTools={mapTools}
+            pinBoxSection={
+              <MapPinBox
+                disabled={pinBoxDisabled}
+                isPlacing={isPlacingPin}
+                message={currentPinBoxMessage}
+                pinType={pinType}
+                onCancelPlacement={cancelPinPlacement}
+                onPinTypeChange={updatePinType}
+                onStartPlacement={startPinPlacement}
+              />
+            }
             trackingSection={walkTrackingSection}
             offlineSection={
               <OfflineMapsPanel
@@ -2430,6 +2438,23 @@ export default function HuntingMap() {
           {mapOverlayMessages.length > 0 ? (
             <div className="di-map-notice" style={propertyLinesNoticeStyle}>
               {mapOverlayMessages.join(" ")}
+            </div>
+          ) : null}
+
+          {isPlacingPin && !isDrawingArea ? (
+            <div className="di-area-pill" style={drawActionBarStyle}>
+              <span style={drawActionStatusStyle}>
+                Tap map to place {pinType}
+              </span>
+              <div style={drawActionButtonRowStyle}>
+                <button
+                  type="button"
+                  style={drawSecondaryButtonStyle}
+                  onClick={cancelPinPlacement}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           ) : null}
 
@@ -2528,84 +2553,8 @@ export default function HuntingMap() {
             />
           ) : null}
         </div>
-
-        <MapPinBox
-          disabled={pinBoxDisabled}
-          isPlacing={isPlacingPin}
-          message={currentPinBoxMessage}
-          pinType={pinType}
-          onCancelPlacement={cancelPinPlacement}
-          onPinTypeChange={updatePinType}
-          onStartPlacement={startPinPlacement}
-        />
       </div>
 
-      <div style={belowMapGridStyle}>
-        <Card as="section">
-          <h2 style={sectionTitleStyle}>Mapped Locations</h2>
-          <p style={helpTextStyle}>
-            Camera sites with GPS are shown with saved pins for this property.
-          </p>
-
-          <div style={assetListStyle}>
-            {mapAssets.length === 0 ? (
-              <EmptyState description="No map locations yet. Use the Pin Box to save the first one." />
-            ) : (
-              mapAssets.map((asset) => {
-                const isSelected = asset.id === selectedAssetId;
-                const isHidden =
-                  asset.layerId !== "other" &&
-                  !visibleAssetLayers[asset.layerId];
-
-                return (
-                  <div
-                    className="di-map-row"
-                    key={asset.id}
-                    style={{
-                      ...assetRowStyle,
-                      ...(isSelected ? selectedAssetRowStyle : null),
-                      ...(isHidden ? hiddenAssetRowStyle : null),
-                    }}
-                  >
-                    <div style={assetRowContentStyle}>
-                      <span
-                        style={{
-                          ...assetMiniIconStyle,
-                          background: asset.background,
-                          borderColor: asset.color,
-                          color: asset.color,
-                        }}
-                      >
-                        {asset.shortLabel}
-                      </span>
-                      <div>
-                        <p style={assetTitleStyle}>{asset.label}</p>
-                        <p style={assetMetaStyle}>
-                          {asset.typeLabel} - {formatCoordinate(asset.lat)},{" "}
-                          {formatCoordinate(asset.lng)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {asset.pinId ? (
-                      <Button
-                        type="button"
-                        variant="danger"
-                        onClick={() => deletePin(asset.pinId ?? "")}
-                        style={deleteButtonStyle}
-                      >
-                        Delete
-                      </Button>
-                    ) : (
-                      <span style={cameraSourceStyle}>Camera Site</span>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </Card>
-      </div>
     </div>
   );
 }
@@ -3116,95 +3065,3 @@ const drawDisabledButtonStyle: CSSProperties = {
   cursor: "not-allowed",
 };
 
-const belowMapGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-  gap: "1rem",
-};
-
-const sectionTitleStyle: CSSProperties = {
-  margin: 0,
-  fontSize: "1.45rem",
-  lineHeight: 1.2,
-};
-
-const assetListStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.75rem",
-  marginTop: "1rem",
-};
-
-const assetRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "1rem",
-  flexWrap: "wrap",
-  padding: "0.9rem",
-  border: "1px solid #243224",
-  borderRadius: "8px",
-  background: "#0a0f0a",
-  color: "#f1f5ef",
-};
-
-const selectedAssetRowStyle: CSSProperties = {
-  borderColor: "#4d7d55",
-  background: "#101b10",
-};
-
-const hiddenAssetRowStyle: CSSProperties = {
-  opacity: 0.58,
-};
-
-const assetRowContentStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.75rem",
-  minWidth: 0,
-};
-
-const assetMiniIconStyle: CSSProperties = {
-  display: "inline-flex",
-  width: "34px",
-  height: "34px",
-  flex: "0 0 auto",
-  alignItems: "center",
-  justifyContent: "center",
-  border: "2px solid",
-  borderRadius: "999px",
-  fontSize: "0.72rem",
-  fontWeight: 900,
-};
-
-const assetTitleStyle: CSSProperties = {
-  margin: 0,
-  color: "#f1f5ef",
-  fontWeight: 800,
-  lineHeight: 1.25,
-};
-
-const assetMetaStyle: CSSProperties = {
-  margin: "0.2rem 0 0",
-  color: "#b8c2b6",
-  fontSize: "0.92rem",
-  lineHeight: 1.4,
-};
-
-const cameraSourceStyle: CSSProperties = {
-  display: "inline-flex",
-  minHeight: "38px",
-  alignItems: "center",
-  padding: "0.45rem 0.7rem",
-  border: "1px solid #2b3a2b",
-  borderRadius: "8px",
-  background: "#101710",
-  color: "#dce9da",
-  fontSize: "0.86rem",
-  fontWeight: 800,
-};
-
-const deleteButtonStyle: CSSProperties = {
-  minHeight: "40px",
-  padding: "0.55rem 0.75rem",
-  fontSize: "0.9rem",
-};

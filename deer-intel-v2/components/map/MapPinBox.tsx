@@ -122,19 +122,8 @@ function getPinStyle(pinType: PinType) {
 }
 
 const pinBoxStyle: CSSProperties = {
-  position: "absolute",
-  top: "auto",
-  right: "1rem",
-  bottom: "8.6rem",
-  zIndex: 1050,
   display: "grid",
-  gap: "0.75rem",
-  width: "min(300px, calc(100% - 2rem))",
-  padding: "0.85rem",
-  border: "1px solid rgba(255, 255, 255, 0.58)",
-  borderRadius: "8px",
-  background: "rgba(17, 23, 17, 0.92)",
-  boxShadow: "0 14px 30px rgba(0, 0, 0, 0.26)",
+  gap: "0.65rem",
 };
 
 const headerStyle: CSSProperties = {
@@ -146,17 +135,17 @@ const headerStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#dce9da",
-  fontSize: "0.78rem",
+  color: "#56705a",
+  fontSize: "0.75rem",
   fontWeight: 900,
   letterSpacing: 0,
   textTransform: "uppercase",
 };
 
 const titleStyle: CSSProperties = {
-  margin: "0.15rem 0 0",
-  color: "#f1f5ef",
-  fontSize: "1.1rem",
+  margin: "0.1rem 0 0",
+  color: "#111711",
+  fontSize: "1.05rem",
   lineHeight: 1.2,
 };
 
@@ -181,19 +170,19 @@ const fieldStyle: CSSProperties = {
 };
 
 const labelStyle: CSSProperties = {
-  color: "#c6d5c5",
-  fontSize: "0.86rem",
+  color: "#56705a",
+  fontSize: "0.84rem",
   fontWeight: 800,
 };
 
 const selectStyle: CSSProperties = {
   width: "100%",
-  minHeight: "50px",
-  padding: "0.75rem",
-  border: "1px solid #2b3a2b",
+  minHeight: "48px",
+  padding: "0.65rem 0.75rem",
+  border: "1px solid rgba(17, 23, 17, 0.16)",
   borderRadius: "8px",
-  background: "#070a07",
-  color: "white",
+  background: "white",
+  color: "#111711",
   fontSize: "0.98rem",
 };
 
@@ -224,8 +213,8 @@ const disabledButtonStyle: CSSProperties = {
 
 const messageStyle: CSSProperties = {
   margin: 0,
-  color: "#d8e2d6",
-  fontSize: "0.86rem",
+  color: "#566157",
+  fontSize: "0.84rem",
   fontWeight: 700,
   lineHeight: 1.4,
 };
