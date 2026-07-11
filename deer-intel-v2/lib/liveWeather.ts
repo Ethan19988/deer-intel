@@ -4,6 +4,14 @@ import type { Camera } from "@/types/camera";
 import type { MapPin } from "@/types/mapPin";
 import type { Property } from "@/types/property";
 import { hasPropertyCoordinate } from "@/lib/propertyLocation";
+import {
+  DEFAULT_UNITS,
+  openMeteoTemperatureUnit,
+  openMeteoWindSpeedUnit,
+  TEMPERATURE_UNIT_LABEL,
+  WIND_UNIT_LABEL,
+  type UnitPreferences,
+} from "@/lib/units";
 
 // Live weather is fetched from Open-Meteo (https://open-meteo.com), a free
 // no-API-key forecast service. We only ask for the current conditions a hunter
@@ -169,6 +177,7 @@ export function resolvePropertyWeatherPoint(
 
 export async function fetchLiveWeather(
   point: WeatherPoint,
+  units: UnitPreferences = DEFAULT_UNITS,
 ): Promise<LiveWeatherResult> {
   if (
     !Number.isFinite(point.lat) ||
@@ -184,7 +193,7 @@ export async function fetchLiveWeather(
     };
   }
 
-  const cacheKey = `${point.lat.toFixed(3)},${point.lng.toFixed(3)}`;
+  const cacheKey = `${point.lat.toFixed(3)},${point.lng.toFixed(3)}|${units.temperature}|${units.wind}`;
   const cached = liveWeatherCache.get(cacheKey);
 
   if (cached) return cached;
@@ -198,8 +207,14 @@ export async function fetchLiveWeather(
       "current",
       "temperature_2m,wind_speed_10m,wind_direction_10m,weather_code",
     );
-    requestUrl.searchParams.set("temperature_unit", "fahrenheit");
-    requestUrl.searchParams.set("wind_speed_unit", "mph");
+    requestUrl.searchParams.set(
+      "temperature_unit",
+      openMeteoTemperatureUnit(units.temperature),
+    );
+    requestUrl.searchParams.set(
+      "wind_speed_unit",
+      openMeteoWindSpeedUnit(units.wind),
+    );
 
     const response = await fetch(requestUrl.toString(), {
       headers: { Accept: "application/json" },
@@ -221,7 +236,7 @@ export async function fetchLiveWeather(
       };
     }
 
-    const result = buildLiveWeatherResult(point, payload.current);
+    const result = buildLiveWeatherResult(point, payload.current, units);
 
     liveWeatherCache.set(cacheKey, result);
 
@@ -242,6 +257,7 @@ const liveForecastCache = new Map<string, LiveForecastResult>();
 // the form auto-fill continues to use the lighter fetchLiveWeather.
 export async function fetchLiveForecast(
   point: WeatherPoint,
+  units: UnitPreferences = DEFAULT_UNITS,
 ): Promise<LiveForecastResult> {
   if (
     !Number.isFinite(point.lat) ||
@@ -257,7 +273,7 @@ export async function fetchLiveForecast(
     };
   }
 
-  const cacheKey = `${point.lat.toFixed(3)},${point.lng.toFixed(3)}`;
+  const cacheKey = `${point.lat.toFixed(3)},${point.lng.toFixed(3)}|${units.temperature}|${units.wind}`;
   const cached = liveForecastCache.get(cacheKey);
 
   if (cached) return cached;
@@ -276,8 +292,14 @@ export async function fetchLiveForecast(
       "daily",
       "weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_direction_10m_dominant,sunrise,sunset",
     );
-    requestUrl.searchParams.set("temperature_unit", "fahrenheit");
-    requestUrl.searchParams.set("wind_speed_unit", "mph");
+    requestUrl.searchParams.set(
+      "temperature_unit",
+      openMeteoTemperatureUnit(units.temperature),
+    );
+    requestUrl.searchParams.set(
+      "wind_speed_unit",
+      openMeteoWindSpeedUnit(units.wind),
+    );
     requestUrl.searchParams.set("timezone", "auto");
     requestUrl.searchParams.set("forecast_days", "3");
 
@@ -301,7 +323,7 @@ export async function fetchLiveForecast(
       };
     }
 
-    const base = buildLiveWeatherResult(point, payload.current);
+    const base = buildLiveWeatherResult(point, payload.current, units);
 
     if (base.status !== "ok") {
       return { status: "error", message: "Live weather returned no data." };
@@ -320,6 +342,7 @@ export async function fetchLiveForecast(
       wind: formatWind(
         daily.wind_direction_10m_dominant?.[index],
         daily.wind_speed_10m_max?.[index],
+        units,
       ),
     }));
 
@@ -397,9 +420,13 @@ function buildPressureReading(
 function formatWind(
   direction: number | undefined,
   speed: number | undefined,
+  units: UnitPreferences,
 ): string {
   const dir = typeof direction === "number" ? degreesToCompass(direction) : "";
-  const spd = typeof speed === "number" ? `${Math.round(speed)} mph` : "";
+  const spd =
+    typeof speed === "number"
+      ? `${Math.round(speed)} ${WIND_UNIT_LABEL[units.wind]}`
+      : "";
 
   return [dir, spd].filter(Boolean).join(" ");
 }
@@ -430,6 +457,7 @@ function weekdayLabel(iso: string, index: number): string {
 function buildLiveWeatherResult(
   point: WeatherPoint,
   current: OpenMeteoCurrent,
+  units: UnitPreferences,
 ): LiveWeatherResult {
   const temperature =
     typeof current.temperature_2m === "number"
@@ -437,7 +465,7 @@ function buildLiveWeatherResult(
       : "";
   const windSpeed =
     typeof current.wind_speed_10m === "number"
-      ? `${Math.round(current.wind_speed_10m)} mph`
+      ? `${Math.round(current.wind_speed_10m)} ${WIND_UNIT_LABEL[units.wind]}`
       : "";
   const windDirection =
     typeof current.wind_direction_10m === "number"
@@ -458,7 +486,7 @@ function buildLiveWeatherResult(
   };
 
   const summaryParts = [
-    temperature ? `${temperature} F` : "",
+    temperature ? `${temperature}${TEMPERATURE_UNIT_LABEL[units.temperature]}` : "",
     windDirection && windSpeed
       ? `${windDirection} at ${windSpeed}`
       : windDirection || windSpeed,

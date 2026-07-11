@@ -7,6 +7,7 @@ import {
   type PressureTrend,
   type WeatherPoint,
 } from "@/lib/liveWeather";
+import { TEMPERATURE_UNIT_LABEL, useUnitPreferences } from "@/lib/units";
 
 type LiveWeatherPanelProps = {
   point: WeatherPoint | null;
@@ -28,6 +29,7 @@ export default function LiveWeatherPanel({
   emptyHint = "Add map pins or a camera location to this property to load live weather.",
 }: LiveWeatherPanelProps) {
   const [state, setState] = useState<PanelState>({ status: "idle" });
+  const units = useUnitPreferences();
   const pointKey = point ? `${point.lat},${point.lng}` : "";
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export default function LiveWeatherPanel({
     let active = true;
     setState({ status: "loading" });
 
-    fetchLiveForecast(point).then((result) => {
+    fetchLiveForecast(point, units).then((result) => {
       if (!active) return;
       if (result.status === "ok") {
         setState({ status: "ok", forecast: result.forecast });
@@ -51,7 +53,9 @@ export default function LiveWeatherPanel({
     return () => {
       active = false;
     };
-  }, [pointKey, point]);
+    // Refetch when the point or the unit preference changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pointKey, units.temperature, units.wind]);
 
   return (
     <div style={panelStyle}>
@@ -76,7 +80,7 @@ export default function LiveWeatherPanel({
           <div style={primaryRowStyle}>
             <span style={tempStyle}>
               {state.forecast.current.temperature
-                ? `${state.forecast.current.temperature}°`
+                ? `${state.forecast.current.temperature}${TEMPERATURE_UNIT_LABEL[units.temperature]}`
                 : "—"}
             </span>
             <span style={conditionStyle}>
