@@ -38,15 +38,6 @@ const OWNER_ACRES_LINE_PX = OWNER_ACRES_FONT_PX * 1.3;
 // to sit cleanly in a parcel, so the label is gated out until you zoom in.
 const OWNER_NAME_MAX_LINES = 3;
 
-// One owner's holding is usually several adjacent tax parcels (and a single big
-// parcel gets clipped into a separate feature per vector tile), so the same name
-// would otherwise print once per piece — cluttered and confusing. Tag each label
-// with the owner name so protomaps' labeler drops a repeat of the same owner
-// within this many screen pixels, collapsing a property to a single name. Big
-// enough to span a typical property at label zooms (>=15); genuinely distinct
-// owners who happen to share an identical name this close are vanishingly rare.
-const OWNER_LABEL_DEDUP_PX = 600;
-
 const LABEL_FONT_STACK = "system-ui, -apple-system, Segoe UI, sans-serif";
 
 // Thin the label candidates at lower zoom so only bigger parcels get names
@@ -233,15 +224,10 @@ class FitToParcelOwnerSymbolizer {
       }
     };
 
-    return [
-      {
-        anchor,
-        bboxes,
-        draw,
-        deduplicationKey: owner,
-        deduplicationDistance: OWNER_LABEL_DEDUP_PX,
-      },
-    ];
+    // No owner dedup: label every parcel (Spartan-Forge style), so a multi-parcel
+    // owner shows their name on each parcel. protomaps still drops labels whose
+    // boxes physically collide, so nearby duplicates that would overlap are culled.
+    return [{ anchor, bboxes, draw }];
   }
 }
 
@@ -284,9 +270,8 @@ export default function ParcelTilesLayer({ enabled }: ParcelTilesLayerProps) {
           dataLayer: "parcels",
           minzoom: LABEL_MIN_ZOOM,
           filter: (z, f) => labelPasses(z, f),
-          // Place bigger parcels first so that when several parcels share an
-          // owner, the owner-name dedup keeps the label on the largest one —
-          // the most central spot for the name across their holding.
+          // Place bigger parcels first so that when labels collide, the larger
+          // parcel keeps its name and the smaller neighbor is the one dropped.
           sort: (a, b) => (Number(b.acres) || 0) - (Number(a.acres) || 0),
           symbolizer: new FitToParcelOwnerSymbolizer() as unknown as LabelSymbolizer,
         },
