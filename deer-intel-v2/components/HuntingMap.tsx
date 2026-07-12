@@ -128,10 +128,12 @@ import {
   pinToMapAsset,
   CONTOUR_WMS_URL,
   CONTOUR_WMS_ALL_LAYERS,
+  CONTOUR_WMS_COARSE_LINES,
   CONTOUR_FINE_WMS_URL,
   CONTOUR_FINE_WMS_LAYER,
   CONTOUR_ATTRIBUTION,
   CONTOUR_MIN_ZOOM,
+  CONTOUR_FINE_ZOOM,
   SLOPE_WMS_URL,
   SLOPE_WMS_LAYER,
   SLOPE_ATTRIBUTION,
@@ -2212,9 +2214,29 @@ export default function HuntingMap() {
               />
             ) : null}
 
-            {showContours ? (
+            {showContours && mapZoom < CONTOUR_FINE_ZOOM ? (
+              /* Zoomed out: a sparse white 100-ft overview so the map reads
+                 through instead of drowning in a white blur. */
+              <WMSTileLayer
+                key="contours-coarse"
+                className="di-contour-line-white"
+                url={CONTOUR_WMS_URL}
+                layers={CONTOUR_WMS_COARSE_LINES}
+                format="image/png"
+                transparent
+                version="1.3.0"
+                opacity={0.9}
+                zIndex={695}
+                minZoom={CONTOUR_MIN_ZOOM}
+                maxZoom={CONTOUR_FINE_ZOOM - 1}
+                detectRetina
+                attribution={CONTOUR_ATTRIBUTION}
+              />
+            ) : null}
+
+            {showContours && mapZoom >= CONTOUR_FINE_ZOOM ? (
               <>
-                {/* Thin white 25-ft contour lines. */}
+                {/* Zoomed in: thin white 25-ft contour lines. */}
                 <WMSTileLayer
                   key="contours-fine"
                   className="di-contour-line-white"
@@ -2226,7 +2248,7 @@ export default function HuntingMap() {
                   version="1.3.0"
                   opacity={0.9}
                   zIndex={695}
-                  minZoom={CONTOUR_MIN_ZOOM}
+                  minZoom={CONTOUR_FINE_ZOOM}
                   maxZoom={19}
                   detectRetina
                 />
@@ -2242,7 +2264,7 @@ export default function HuntingMap() {
                   version="1.3.0"
                   opacity={1}
                   zIndex={696}
-                  minZoom={CONTOUR_MIN_ZOOM}
+                  minZoom={CONTOUR_FINE_ZOOM}
                   maxZoom={19}
                   detectRetina
                   attribution={CONTOUR_ATTRIBUTION}
