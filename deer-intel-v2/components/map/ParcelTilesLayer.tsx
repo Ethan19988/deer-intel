@@ -29,8 +29,9 @@ const PMTILES_URL =
 const LABEL_MIN_ZOOM = 15;
 
 // Spartan-Forge-style labels: a uniform, modest font (not sized to the parcel),
-// white with a dark halo, the owner in CAPS with the acreage spelled out on the
-// line below. Long names wrap to fit the parcel width instead of shrinking.
+// plain white regular-weight lettering (no halo, no bold), the owner in CAPS
+// with the acreage spelled out on the line below. Long names wrap to fit the
+// parcel width instead of shrinking.
 const OWNER_NAME_FONT_PX = 13;
 const OWNER_ACRES_FONT_PX = 11;
 const OWNER_NAME_LINE_PX = OWNER_NAME_FONT_PX * 1.18;
@@ -47,10 +48,11 @@ const OWNER_NAME_MAX_LINES = 3;
 const OWNER_LABEL_DEDUP_PX = 600;
 
 // Aptos leads the stack (user preference). It ships with modern Windows and
-// Office but not iOS/Android, so the system font stands in where it's absent —
-// canvas text falls back per-device just like DOM text.
+// Office but not iOS/Android; Seravek (bundled with iOS) is the closest
+// Aptos-like face on iPhones, then the system font — canvas text falls back
+// per-device just like DOM text.
 const LABEL_FONT_STACK =
-  "Aptos, system-ui, -apple-system, Segoe UI, sans-serif";
+  "Aptos, Seravek, system-ui, -apple-system, Segoe UI, sans-serif";
 
 // Thin the label candidates at lower zoom so only bigger parcels get names
 // until you zoom onto a property — mirrors the JSON overlay's acreage gate.
@@ -201,9 +203,9 @@ function poleOfInaccessibility(ring: Pt[]): Pt {
 
 // A protomaps label symbolizer that renders each owner name as a uniform,
 // Spartan-Forge-style label centered in the parcel: CAPS name (wrapped to fit
-// the width) with the acreage spelled out beneath, white with a dark halo. The
-// label is only placed once the parcel's on-screen footprint can hold the block
-// — small parcels stay unlabeled until you zoom in far enough.
+// the width) with the acreage spelled out beneath, in plain white. The label is
+// only placed once the parcel's on-screen footprint can hold the block — small
+// parcels stay unlabeled until you zoom in far enough.
 class FitToParcelOwnerSymbolizer {
   place(layout: Layout, geom: Pt[][], feature: Feature) {
     const owner = String(feature.props.owner ?? "")
@@ -251,8 +253,8 @@ class FitToParcelOwnerSymbolizer {
 
     // Wrap the CAPS name to the parcel width at the fixed font, then lay out the
     // (optional) acreage caption beneath it.
-    const nameFont = `700 ${OWNER_NAME_FONT_PX}px ${LABEL_FONT_STACK}`;
-    const acresFont = `500 ${OWNER_ACRES_FONT_PX}px ${LABEL_FONT_STACK}`;
+    const nameFont = `400 ${OWNER_NAME_FONT_PX}px ${LABEL_FONT_STACK}`;
+    const acresFont = `400 ${OWNER_ACRES_FONT_PX}px ${LABEL_FONT_STACK}`;
     const widthBudget = widthPx * 0.92;
 
     layout.scratch.font = nameFont;
@@ -295,44 +297,19 @@ class FitToParcelOwnerSymbolizer {
     const draw = (ctx: CanvasRenderingContext2D) => {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.lineJoin = "round";
+      ctx.fillStyle = "#ffffff";
       // The canvas is translated to the anchor, so lay the block out from the
       // top edge (−textHeight/2) downward, advancing one line at a time.
       let y = -textHeight / 2;
-      const drawLine = (line: string, font: string, linePx: number) => {
+      const fillLine = (line: string, font: string, linePx: number) => {
         ctx.font = font;
-        const cy = y + linePx / 2;
-        // Dark halo so the light text reads over any satellite imagery.
-        ctx.lineWidth = 2.4;
-        ctx.strokeStyle = "rgba(10, 15, 20, 0.85)";
-        ctx.strokeText(line, 0, cy);
-        y += linePx;
-      };
-      for (const line of nameLines) {
-        drawLine(line, nameFont, OWNER_NAME_LINE_PX);
-      }
-      if (acresText) drawLine(acresText, acresFont, OWNER_ACRES_LINE_PX);
-
-      // Second pass fills the text on top of every halo so adjacent lines'
-      // strokes never overlap a neighbor's fill.
-      y = -textHeight / 2;
-      const fillLine = (
-        line: string,
-        font: string,
-        linePx: number,
-        color: string,
-      ) => {
-        ctx.font = font;
-        ctx.fillStyle = color;
         ctx.fillText(line, 0, y + linePx / 2);
         y += linePx;
       };
       for (const line of nameLines) {
-        fillLine(line, nameFont, OWNER_NAME_LINE_PX, "#ffffff");
+        fillLine(line, nameFont, OWNER_NAME_LINE_PX);
       }
-      if (acresText) {
-        fillLine(acresText, acresFont, OWNER_ACRES_LINE_PX, "rgba(226, 232, 240, 0.92)");
-      }
+      if (acresText) fillLine(acresText, acresFont, OWNER_ACRES_LINE_PX);
     };
 
     return [
