@@ -23,6 +23,7 @@ import {
 } from "react-leaflet";
 import CachedTileLayer from "@/components/map/CachedTileLayer";
 import SuperWMSTileLayer from "@/components/map/SuperWMSTileLayer";
+import ContourLabels from "@/components/map/ContourLabels";
 import MapTopBar from "@/components/map/MapTopBar";
 import WindThermalLayer, {
   type WindStandPoint,
@@ -131,7 +132,6 @@ import {
   MAP_LAYER_BY_ID,
   pinToMapAsset,
   CONTOUR_WMS_URL,
-  CONTOUR_WMS_NUMBER_LAYERS,
   CONTOUR_WMS_COARSE_LINES,
   CONTOUR_FINE_WMS_URL,
   CONTOUR_FINE_WMS_LAYER,
@@ -683,10 +683,10 @@ export default function HuntingMap() {
   const [trackMessage, setTrackMessage] = useState("");
   const trackPropertyIdRef = useRef("");
   const trackStartedAtRef = useRef("");
+  // One switch drives the whole ownership picture: the parcel-line overlay
+  // plus the statewide land-owner tiles (names + tap-to-identify).
   const [showPropertyLines, setShowPropertyLines] = useState(false);
   const [showOwnerNames, setShowOwnerNames] = useState(false);
-  // The single statewide "Land Owners" overlay (vector parcel tiles).
-  const [showParcelTiles, setShowParcelTiles] = useState(false);
   const [parcelLayerState, setParcelLayerState] =
     useState<ParcelBoundaryLoadState | null>(null);
   const [ownerLabelState, setOwnerLabelState] =
@@ -1409,6 +1409,8 @@ export default function HuntingMap() {
     const shouldShowPropertyLines = !showPropertyLines;
 
     setShowPropertyLines(shouldShowPropertyLines);
+    // Whichever direction the toggle goes, any open parcel card is stale.
+    setTileOwnerPick(null);
 
     if (!shouldShowPropertyLines) {
       setShowOwnerNames(false);
@@ -1438,12 +1440,6 @@ export default function HuntingMap() {
 
       return shouldShowOwnerNames;
     });
-  }
-
-  function toggleParcelTiles() {
-    // Whichever direction the toggle goes, any open parcel card is stale.
-    setTileOwnerPick(null);
-    setShowParcelTiles((isVisible) => !isVisible);
   }
 
   function handleTileOwnerPick(pick: ParcelTileOwnerPick | null) {
@@ -2270,26 +2266,11 @@ export default function HuntingMap() {
                   maxZoom={19}
                   superSample={4}
                 />
-                {/* Elevation numbers, recolored light blue (di-contour-labels)
-                    so they read over the terrain. They ride on the index contour
-                    lines (index-only layer to stay clean); detectRetina keeps the
-                    layer thin and consistent on phone and desktop instead of
-                    upscaling it into thick lines on high-DPI screens. */}
-                <WMSTileLayer
-                  key="contour-labels"
-                  className="di-contour-labels"
-                  url={CONTOUR_WMS_URL}
-                  layers={CONTOUR_WMS_NUMBER_LAYERS}
-                  format="image/png"
-                  transparent
-                  version="1.3.0"
-                  opacity={1}
-                  zIndex={696}
-                  minZoom={CONTOUR_FINE_ZOOM}
-                  maxZoom={19}
-                  detectRetina
-                  attribution={CONTOUR_ATTRIBUTION}
-                />
+                {/* Elevation numbers as our own bold, dark-outlined labels
+                    (queried from the index-contour features), not from the
+                    raster — so the contour lines above stay all white while the
+                    numbers stay crisp and legible at any screen density. */}
+                <ContourLabels minZoom={CONTOUR_FINE_ZOOM} />
               </>
             ) : null}
 
@@ -2326,7 +2307,7 @@ export default function HuntingMap() {
               onStateChange={setOwnerLabelState}
             />
             <ParcelTilesLayer
-              enabled={showParcelTiles}
+              enabled={showPropertyLines}
               pickEnabled={!isPlacingPin && !isDrawingArea}
               onOwnerPick={handleTileOwnerPick}
             />
@@ -2468,11 +2449,9 @@ export default function HuntingMap() {
               />
             }
             ownerNamesDisabled={isMobileMapPerformanceMode}
-            showParcelTiles={showParcelTiles}
             showOwnerNames={ownerNamesEnabled}
             showPropertyLines={showPropertyLines}
             visibleAssetLayers={visibleAssetLayers}
-            onToggleParcelTiles={toggleParcelTiles}
             onToggleLayer={toggleAssetLayer}
             onToggleMapTool={toggleMapTool}
             onToggleOwnerNames={toggleOwnerNames}
@@ -2485,13 +2464,10 @@ export default function HuntingMap() {
               <span style={mapStatusPillStyle}>Topo provider placeholder</span>
             ) : null}
             {showPropertyLines ? (
-              <span style={mapStatusPillStyle}>Property Lines</span>
+              <span style={mapStatusPillStyle}>Property Lines & Owners</span>
             ) : null}
             {ownerNamesEnabled ? (
               <span style={mapStatusPillStyle}>Owner Names</span>
-            ) : null}
-            {showParcelTiles ? (
-              <span style={mapStatusPillStyle}>Land Owners</span>
             ) : null}
             {offlinePacks.length > 0 ? (
               <span style={mapStatusPillStyle}>

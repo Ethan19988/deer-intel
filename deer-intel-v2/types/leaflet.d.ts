@@ -59,6 +59,7 @@ declare module "leaflet" {
     getContainer(): HTMLElement;
     getCenter(): LatLng;
     getBounds(): LatLngBounds;
+    getSize(): { x: number; y: number };
     getZoom(): number;
     flyTo(center: LatLngExpression, zoom?: number, options?: unknown): this;
     setView(center: LatLngExpression, zoom?: number): this;
