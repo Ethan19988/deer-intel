@@ -8,7 +8,7 @@ import {
   type LabelSymbolizer,
   type Layout,
 } from "protomaps-leaflet";
-import { fitLabelFontPx, ownerAcresText } from "@/lib/ownerLabel";
+import { idealLabelFontPx, ownerAcresText } from "@/lib/ownerLabel";
 
 // Statewide land-owner parcels, served as a single PMTiles vector-tile archive
 // and rendered client-side. Unlike the baked-JSON overlay (which loads every
@@ -32,6 +32,15 @@ const LABEL_MIN_ZOOM = 15;
 const LABEL_MIN_PX = 9;
 const LABEL_MAX_PX = 28;
 
+// One owner's holding is usually several adjacent tax parcels (and a single big
+// parcel gets clipped into a separate feature per vector tile), so the same name
+// would otherwise print once per piece — cluttered and confusing. Tag each label
+// with the owner name so protomaps' labeler drops a repeat of the same owner
+// within this many screen pixels, collapsing a property to a single name. Big
+// enough to span a typical property at label zooms (>=15); genuinely distinct
+// owners who happen to share an identical name this close are vanishingly rare.
+const OWNER_LABEL_DEDUP_PX = 600;
+
 const LABEL_FONT_STACK = "system-ui, -apple-system, Segoe UI, sans-serif";
 
 // Thin the label candidates at lower zoom so only bigger parcels get names
@@ -54,8 +63,7 @@ class FitToParcelOwnerSymbolizer {
     const owner = String(feature.props.owner ?? "").trim();
     if (!owner) return undefined;
 
-    // Footprint bbox over every ring, plus the largest ring's centroid as the
-    // label anchor (a reasonable interior point for typical parcel shapes).
+    // Footprint bbox over every ring, plus the largest ring for centering.
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
@@ -72,13 +80,25 @@ class FitToParcelOwnerSymbolizer {
     }
     if (!Number.isFinite(minX) || largest.length === 0) return undefined;
 
-    let sumX = 0;
-    let sumY = 0;
-    for (const p of largest) {
-      sumX += p.x;
-      sumY += p.y;
+    // Anchor at the largest ring's area-weighted (shoelace) centroid so the name
+    // sits at the visual middle of the parcel, instead of drifting toward an
+    // edge where the vertices happen to bunch up. Falls back to the bbox center
+    // for a degenerate (near-zero-area) ring.
+    let signedArea2 = 0;
+    let cx = 0;
+    let cy = 0;
+    for (let i = 0; i < largest.length; i++) {
+      const p0 = largest[i];
+      const p1 = largest[(i + 1) % largest.length];
+      const cross = p0.x * p1.y - p1.x * p0.y;
+      signedArea2 += cross;
+      cx += (p0.x + p1.x) * cross;
+      cy += (p0.y + p1.y) * cross;
     }
-    const anchor: Pt = { x: sumX / largest.length, y: sumY / largest.length };
+    const anchor: Pt =
+      Math.abs(signedArea2) > 1e-6
+        ? { x: cx / (3 * signedArea2), y: cy / (3 * signedArea2) }
+        : { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
 
     const widthPx = maxX - minX;
     const heightPx = maxY - minY;
@@ -86,14 +106,14 @@ class FitToParcelOwnerSymbolizer {
     const acresText = ownerAcresText(Number(feature.props.acres) || 0);
     const lines = acresText ? [owner, acresText] : [owner];
 
-    const fontPx = fitLabelFontPx(
-      widthPx,
-      heightPx,
-      owner,
-      acresText,
-      LABEL_MIN_PX,
-      LABEL_MAX_PX,
-    );
+    // Only label a parcel once it's physically big enough on screen to hold the
+    // name at a readable size. If the best-fit font would fall below the
+    // minimum, the parcel is too small at this zoom — skip it so the name is
+    // revealed by zooming in (the footprint grows with zoom), not crammed over
+    // the boundary. Replaces clamping a tiny parcel's name up to the minimum.
+    const idealPx = idealLabelFontPx(widthPx, heightPx, owner, acresText);
+    if (idealPx < LABEL_MIN_PX) return undefined;
+    const fontPx = Math.min(idealPx, LABEL_MAX_PX);
     const lineHeight = fontPx * 1.2;
 
     // Measure the widest line for a collision bbox the labeler can index.
@@ -133,7 +153,15 @@ class FitToParcelOwnerSymbolizer {
       });
     };
 
-    return [{ anchor, bboxes, draw }];
+    return [
+      {
+        anchor,
+        bboxes,
+        draw,
+        deduplicationKey: owner,
+        deduplicationDistance: OWNER_LABEL_DEDUP_PX,
+      },
+    ];
   }
 }
 
@@ -176,6 +204,10 @@ export default function ParcelTilesLayer({ enabled }: ParcelTilesLayerProps) {
           dataLayer: "parcels",
           minzoom: LABEL_MIN_ZOOM,
           filter: (z, f) => labelPasses(z, f),
+          // Place bigger parcels first so that when several parcels share an
+          // owner, the owner-name dedup keeps the label on the largest one —
+          // the most central spot for the name across their holding.
+          sort: (a, b) => (Number(b.acres) || 0) - (Number(a.acres) || 0),
           symbolizer: new FitToParcelOwnerSymbolizer() as unknown as LabelSymbolizer,
         },
       ],

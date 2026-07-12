@@ -13,16 +13,17 @@ export function ownerAcresText(acres: number): string {
   return acres > 0 ? `${acres.toFixed(acres >= 10 ? 0 : 1)} ac` : "";
 }
 
-// Core label sizing: pick the largest font that fits the owner name (and
-// optional acreage line) inside a parcel's on-screen footprint of
-// widthPx x heightPx, clamped between minPx and maxPx.
-export function fitLabelFontPx(
+// The largest font that lets the owner name (and optional acreage line) fit
+// inside a parcel's on-screen footprint of widthPx x heightPx — before any
+// min/max clamp. Callers use this raw value to decide whether a parcel is even
+// big enough on screen to be worth labeling: if the ideal size is below the
+// readable minimum, the parcel is too small at this zoom (zoom in to reveal it)
+// rather than cramming a clamped-up name that overflows the boundary.
+export function idealLabelFontPx(
   widthPx: number,
   heightPx: number,
   ownerName: string,
   acresText: string,
-  minPx: number = LAND_OWNER_LABEL_MIN_PX,
-  maxPx: number = LAND_OWNER_LABEL_MAX_PX,
 ): number {
   // Keep the label a touch inside the parcel edges.
   const widthBudget = widthPx * 0.92;
@@ -35,5 +36,19 @@ export function fitLabelFontPx(
   const lineCount = acresText ? 2 : 1;
   const fromHeight = (heightPx * 0.92) / (lineCount * 1.2);
 
-  return Math.min(Math.max(Math.min(fromWidth, fromHeight), minPx), maxPx);
+  return Math.min(fromWidth, fromHeight);
+}
+
+// Core label sizing: the ideal fit clamped into the readable [minPx, maxPx]
+// range so a huge tract isn't a billboard and a tight fit stays legible.
+export function fitLabelFontPx(
+  widthPx: number,
+  heightPx: number,
+  ownerName: string,
+  acresText: string,
+  minPx: number = LAND_OWNER_LABEL_MIN_PX,
+  maxPx: number = LAND_OWNER_LABEL_MAX_PX,
+): number {
+  const ideal = idealLabelFontPx(widthPx, heightPx, ownerName, acresText);
+  return Math.min(Math.max(ideal, minPx), maxPx);
 }
