@@ -2420,6 +2420,19 @@ export default function HuntingMap() {
             ) : null}
           </MapContainer>
 
+          {showSlope ? (
+            <div className="di-slope-legend" aria-label="Slope angle key">
+              <span className="di-slope-legend-title">Slope angle</span>
+              <div className="di-slope-legend-bar" />
+              <div className="di-slope-legend-ticks">
+                <span>Flat</span>
+                <span>15°</span>
+                <span>30°</span>
+                <span>45°+</span>
+              </div>
+            </div>
+          ) : null}
+
           <MapLayerManager
             open={layersOpen}
             onOpenChange={setLayersOpen}
