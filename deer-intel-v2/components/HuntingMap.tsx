@@ -2204,13 +2204,14 @@ export default function HuntingMap() {
             {showSlope ? (
               <WMSTileLayer
                 key="slope-overlay"
+                className="di-slope-overlay"
                 url={SLOPE_WMS_URL}
                 layers={SLOPE_WMS_LAYER}
                 styles="default"
                 format="image/png"
                 transparent
                 version="1.3.0"
-                opacity={0.5}
+                opacity={0.75}
                 zIndex={690}
                 maxZoom={19}
                 attribution={SLOPE_ATTRIBUTION}
