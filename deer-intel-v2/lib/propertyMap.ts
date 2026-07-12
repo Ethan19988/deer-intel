@@ -221,11 +221,6 @@ export type ContourSetting = "off" | "on";
 
 export const CONTOUR_WMS_URL =
   "https://carto.nationalmap.gov/arcgis/services/contours/MapServer/WMSServer";
-// The elevation numbers ride on the USGS *index* contour lines (100-ft layer 11
-// + 50-ft layer 16) — the separate "labels" sublayers draw nothing on their own.
-// Requesting index-only keeps this number layer from re-drawing every
-// intermediate line under the white contours, so it stays clean.
-export const CONTOUR_WMS_NUMBER_LAYERS = "11,16";
 // Zoomed OUT, 25-ft lines pack into an unreadable white blur, so switch to a
 // sparse 100-ft-only overview (USGS index + intermediate contour lines) that
 // lets the map read through. Recolored white like the fine lines.

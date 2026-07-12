@@ -415,15 +415,31 @@ textarea {
   filter: brightness(0) invert(1) drop-shadow(0 0 0.8px rgba(0, 0, 0, 0.45));
 }
 
-/* The USGS index layer supplies the elevation numbers (and the index lines they
-   sit on). Recolor the brown ink to a light sky blue so the numbers read over
-   green/brown terrain, with a soft dark halo so they hold up over bright fields
-   or snow. The chain flattens the ink (brightness 0) then tints it toward blue;
-   values were solved to land on ~#7dbae2. */
-.di-contour-labels {
-  filter: brightness(0) invert(0.6) sepia(0.8) hue-rotate(160deg)
-    saturate(2.25) brightness(1.05) contrast(0.8)
-    drop-shadow(0 0 1px rgba(0, 0, 0, 0.6));
+/* Elevation numbers are rendered as our own labels (ContourLabels), not baked
+   into the raster, so the contour lines can stay all-white while the numbers
+   are bold and legible. Bold white text with a strong dark outline reads over
+   the terrain and over the white contour lines alike. */
+.di-contour-vlabel {
+  background: transparent !important;
+  border: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: visible;
+}
+.di-contour-vlabel span {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: #ffffff;
+  font: 800 14px/1 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  text-shadow:
+    0 0 2px #0a1a12,
+    0 0 3px #0a1a12,
+    1px 1px 0 #0a1a12,
+    -1px 1px 0 #0a1a12,
+    1px -1px 0 #0a1a12,
+    -1px -1px 0 #0a1a12;
 }
 
 .di-map-frame .leaflet-control-scale {
