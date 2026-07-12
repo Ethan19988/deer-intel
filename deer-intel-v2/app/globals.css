@@ -407,6 +407,14 @@ textarea {
   mix-blend-mode: multiply;
 }
 
+/* Slope map: multiply so the pale "flat" end of the ramp stays out of the way
+   (white × terrain ≈ terrain) while the yellow→red steep end tints the
+   satellite, making benches, bluffs, and steep access read at a glance. Falls
+   back to plain alpha blending where multiply isn't supported. */
+.di-slope-overlay {
+  mix-blend-mode: multiply;
+}
+
 /* Recolor the contour tiles to thin white lines. The filter goes on each tile
    IMAGE, not the layer container: mobile Safari/Chrome drop a `filter` set on a
    container whose tiles are GPU/3D-transformed (leaving the raw dark tiles — the

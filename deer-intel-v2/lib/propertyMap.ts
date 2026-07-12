@@ -240,12 +240,14 @@ export const CONTOUR_MIN_ZOOM = 14;
 // to the detailed 25-ft lines + elevation numbers.
 export const CONTOUR_FINE_ZOOM = 16;
 
-// USGS 3DEP elevation image service rendered on the fly as slope-in-degrees —
-// a color ramp that reads steepness (benches, shelves, access difficulty) the
-// hillshade can't quantify.
+// USGS 3DEP elevation image service rendered on the fly as a slope map — a
+// color ramp that reads steepness (benches, shelves, access difficulty) the
+// hillshade can't quantify. Use the "Slope Map" rendering (colorized ramp,
+// pale→yellow→red), NOT "Slope Degrees" (a raw grayscale of degrees that
+// renders near-black — flat ground ≈ 0° ≈ black — so it just dims the map).
 export const SLOPE_WMS_URL =
   "https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WMSServer";
-export const SLOPE_WMS_LAYER = "3DEPElevation:Slope Degrees";
+export const SLOPE_WMS_LAYER = "3DEPElevation:Slope Map";
 export const SLOPE_ATTRIBUTION = "Slope &copy; USGS 3DEP";
 
 // BLM Surface Management Agency — federal + state/local public land colored by
