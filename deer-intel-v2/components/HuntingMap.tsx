@@ -2214,35 +2214,36 @@ export default function HuntingMap() {
 
             {showContours ? (
               <>
+                {/* Native-tan elevation numbers (with their lines) underneath. */}
+                <WMSTileLayer
+                  key="contour-labels"
+                  url={CONTOUR_WMS_URL}
+                  layers={CONTOUR_WMS_ALL_LAYERS}
+                  format="image/png"
+                  transparent
+                  version="1.3.0"
+                  opacity={0.9}
+                  zIndex={694}
+                  minZoom={CONTOUR_MIN_ZOOM}
+                  maxZoom={19}
+                  detectRetina
+                  attribution={CONTOUR_ATTRIBUTION}
+                />
+                {/* Thin white 25-ft contour lines on top. */}
                 <WMSTileLayer
                   key="contours-fine"
-                  className="di-contour-bold"
+                  className="di-contour-line-white"
                   url={CONTOUR_FINE_WMS_URL}
                   layers={CONTOUR_FINE_WMS_LAYER}
                   styles="default"
                   format="image/png"
                   transparent
                   version="1.3.0"
-                  opacity={0.65}
-                  zIndex={694}
-                  minZoom={CONTOUR_MIN_ZOOM}
-                  maxZoom={19}
-                  detectRetina
-                />
-                <WMSTileLayer
-                  key="contours"
-                  className="di-contour-bold"
-                  url={CONTOUR_WMS_URL}
-                  layers={CONTOUR_WMS_ALL_LAYERS}
-                  format="image/png"
-                  transparent
-                  version="1.3.0"
-                  opacity={0.85}
+                  opacity={0.9}
                   zIndex={695}
                   minZoom={CONTOUR_MIN_ZOOM}
                   maxZoom={19}
                   detectRetina
-                  attribution={CONTOUR_ATTRIBUTION}
                 />
               </>
             ) : null}
