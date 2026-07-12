@@ -2211,7 +2211,7 @@ export default function HuntingMap() {
                 format="image/png"
                 transparent
                 version="1.3.0"
-                opacity={0.75}
+                opacity={0.5}
                 zIndex={690}
                 maxZoom={19}
                 attribution={SLOPE_ATTRIBUTION}

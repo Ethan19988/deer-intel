@@ -407,12 +407,16 @@ textarea {
   mix-blend-mode: multiply;
 }
 
-/* Slope map: multiply so the pale "flat" end of the ramp stays out of the way
-   (white × terrain ≈ terrain) while the yellow→red steep end tints the
-   satellite, making benches, bluffs, and steep access read at a glance. Falls
-   back to plain alpha blending where multiply isn't supported. */
-.di-slope-overlay {
-  mix-blend-mode: multiply;
+/* Slope map: plain alpha blend (NOT multiply). Multiply mixes the ramp's
+   orange with the green satellite and collapses it to a dark muddy olive — the
+   steep end becomes hard to see. Normal blending paints the actual orange/red
+   over the imagery so steep ground reads as a lighter, clearly-orange tint.
+   Saturating each tile keeps that orange vivid at the lower opacity that stops
+   the pale "flat" end from washing the map out. Filter goes on each tile IMAGE
+   (not the container) for reliable mobile rendering, same as the contours. */
+.di-slope-overlay .leaflet-tile {
+  -webkit-filter: saturate(1.3);
+  filter: saturate(1.3);
 }
 
 /* Recolor the contour tiles to thin white lines. The filter goes on each tile
