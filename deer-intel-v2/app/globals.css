@@ -168,11 +168,13 @@
 
 /* The mobile bottom nav uses a hard-coded translucent-white glass; retint it so
    it doesn't glow white against a dark page. */
-:root[data-theme="dark"] .di-mobile-nav {
+:root[data-theme="dark"] .di-mobile-nav,
+:root[data-theme="dark"] .di-mobile-settings {
   background: rgba(18, 21, 13, 0.94);
 }
 
-:root[data-theme="night"] .di-mobile-nav {
+:root[data-theme="night"] .di-mobile-nav,
+:root[data-theme="night"] .di-mobile-settings {
   background: rgba(10, 5, 3, 0.94);
 }
 
@@ -341,6 +343,11 @@ textarea {
   display: none;
 }
 
+/* Floating settings gear — mobile only (desktop has Settings in the sidebar). */
+.di-mobile-settings {
+  display: none;
+}
+
 /* On-map imagery-year stepper: faded until hovered/focused. */
 .di-map-year {
   opacity: 0.55;
@@ -454,7 +461,8 @@ textarea {
   }
 
   .di-page-shell {
-    padding: 0.85rem 0.85rem calc(5.8rem + env(safe-area-inset-bottom)) !important;
+    padding: calc(3.4rem + env(safe-area-inset-top)) 0.85rem
+      calc(5.8rem + env(safe-area-inset-bottom)) !important;
   }
 
   .di-page-content {
@@ -471,6 +479,24 @@ textarea {
 
   .di-mode-hunting .di-main-content {
     display: none !important;
+  }
+
+  .di-mobile-settings {
+    position: fixed;
+    top: calc(0.6rem + env(safe-area-inset-top));
+    right: calc(0.7rem + env(safe-area-inset-right));
+    z-index: 2300;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(12px);
+    color: var(--text);
+    box-shadow: 0 6px 18px rgba(16, 32, 20, 0.16);
   }
 
   .di-mobile-nav {
