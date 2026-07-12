@@ -128,6 +128,8 @@ import {
   pinToMapAsset,
   CONTOUR_WMS_URL,
   CONTOUR_WMS_ALL_LAYERS,
+  CONTOUR_FINE_WMS_URL,
+  CONTOUR_FINE_WMS_LAYER,
   CONTOUR_ATTRIBUTION,
   CONTOUR_MIN_ZOOM,
   SLOPE_WMS_URL,
@@ -2211,20 +2213,38 @@ export default function HuntingMap() {
             ) : null}
 
             {showContours ? (
-              <WMSTileLayer
-                key="contours"
-                className="di-contour-bold"
-                url={CONTOUR_WMS_URL}
-                layers={CONTOUR_WMS_ALL_LAYERS}
-                format="image/png"
-                transparent
-                version="1.3.0"
-                opacity={1}
-                zIndex={695}
-                minZoom={CONTOUR_MIN_ZOOM}
-                maxZoom={19}
-                attribution={CONTOUR_ATTRIBUTION}
-              />
+              <>
+                <WMSTileLayer
+                  key="contours-fine"
+                  className="di-contour-bold"
+                  url={CONTOUR_FINE_WMS_URL}
+                  layers={CONTOUR_FINE_WMS_LAYER}
+                  styles="default"
+                  format="image/png"
+                  transparent
+                  version="1.3.0"
+                  opacity={0.65}
+                  zIndex={694}
+                  minZoom={CONTOUR_MIN_ZOOM}
+                  maxZoom={19}
+                  detectRetina
+                />
+                <WMSTileLayer
+                  key="contours"
+                  className="di-contour-bold"
+                  url={CONTOUR_WMS_URL}
+                  layers={CONTOUR_WMS_ALL_LAYERS}
+                  format="image/png"
+                  transparent
+                  version="1.3.0"
+                  opacity={0.85}
+                  zIndex={695}
+                  minZoom={CONTOUR_MIN_ZOOM}
+                  maxZoom={19}
+                  detectRetina
+                  attribution={CONTOUR_ATTRIBUTION}
+                />
+              </>
             ) : null}
 
             {showWind && forecastStatus === "ok" && windData ? (

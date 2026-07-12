@@ -222,7 +222,15 @@ export type ContourSetting = "off" | "on";
 export const CONTOUR_WMS_URL =
   "https://carto.nationalmap.gov/arcgis/services/contours/MapServer/WMSServer";
 export const CONTOUR_WMS_ALL_LAYERS = "10,11,12,13,15,16,17,18";
-export const CONTOUR_ATTRIBUTION = "Contours &copy; USGS The National Map";
+// The labeled service tops out at ~100-ft lines at scouting zooms, so a second
+// pass renders fine 25-ft contours on the fly from the 3DEP DEM (the same
+// image service the slope overlay uses). No labels — it stacks beneath the
+// labeled layer to fill in the lines between the numbered ones.
+export const CONTOUR_FINE_WMS_URL =
+  "https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WMSServer";
+export const CONTOUR_FINE_WMS_LAYER = "3DEPElevation:Contour 25";
+export const CONTOUR_ATTRIBUTION =
+  "Contours &copy; USGS The National Map, 3DEP";
 // Below this web zoom the service returns near-empty tiles, so we hold the
 // layer off (and prompt the hunter to zoom in) instead of painting a blank
 // overlay that reads as "broken."
