@@ -46,7 +46,11 @@ const OWNER_NAME_MAX_LINES = 3;
 // within this many screen pixels, collapsing a property to a single name.
 const OWNER_LABEL_DEDUP_PX = 600;
 
-const LABEL_FONT_STACK = "system-ui, -apple-system, Segoe UI, sans-serif";
+// Aptos leads the stack (user preference). It ships with modern Windows and
+// Office but not iOS/Android, so the system font stands in where it's absent —
+// canvas text falls back per-device just like DOM text.
+const LABEL_FONT_STACK =
+  "Aptos, system-ui, -apple-system, Segoe UI, sans-serif";
 
 // Thin the label candidates at lower zoom so only bigger parcels get names
 // until you zoom onto a property — mirrors the JSON overlay's acreage gate.

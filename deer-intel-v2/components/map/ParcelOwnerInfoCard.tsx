@@ -76,6 +76,10 @@ const headerStyle: CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
   gap: "0.7rem",
+  // As a grid item this would otherwise refuse to shrink below its content
+  // (min-width:auto), letting a long owner name push the close button out of
+  // the card instead of wrapping.
+  minWidth: 0,
 };
 
 const iconStyle: CSSProperties = {
@@ -107,14 +111,14 @@ const eyebrowStyle: CSSProperties = {
   textTransform: "uppercase",
 };
 
+// Long owner names wrap onto extra lines (never ellipsized away — the name is
+// the whole point of the card) while the close button stays pinned top-right.
 const titleStyle: CSSProperties = {
   margin: "0.15rem 0 0",
-  overflow: "hidden",
   color: "white",
   fontSize: "1.18rem",
   lineHeight: 1.2,
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
+  overflowWrap: "anywhere",
 };
 
 const closeButtonStyle: CSSProperties = {
@@ -151,4 +155,5 @@ const infoValueStyle: CSSProperties = {
   color: "#d8e2d6",
   fontSize: "0.94rem",
   lineHeight: 1.45,
+  overflowWrap: "anywhere",
 };
