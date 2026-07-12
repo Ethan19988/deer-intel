@@ -7,6 +7,11 @@ import Sidebar from "@/components/ui/Sidebar";
 type PageShellProps = {
   children: ReactNode;
   maxWidth?: string;
+  /**
+   * Full-bleed layout: drop the page padding and max-width so the content
+   * (e.g. the map) fills the entire area next to the sidebar.
+   */
+  bare?: boolean;
 };
 
 const mobileNavLinks = [
@@ -20,6 +25,7 @@ const mobileNavLinks = [
 export default function PageShell({
   children,
   maxWidth = "1180px",
+  bare = false,
 }: PageShellProps) {
   return (
     <div className="di-app-shell" style={appShellStyle}>
@@ -27,8 +33,16 @@ export default function PageShell({
         <Sidebar />
       </Suspense>
 
-      <main className="di-page-shell" style={pageStyle}>
-        <div className="di-page-content" style={{ ...contentStyle, maxWidth }}>
+      <main
+        className={`di-page-shell${bare ? " di-page-shell-bare" : ""}`}
+        style={bare ? pageBareStyle : pageStyle}
+      >
+        <div
+          className="di-page-content"
+          style={
+            bare ? contentBareStyle : { ...contentStyle, maxWidth }
+          }
+        >
           <div className="di-main-content">{children}</div>
         </div>
       </main>
@@ -81,4 +95,16 @@ const pageStyle: CSSProperties = {
 const contentStyle: CSSProperties = {
   width: "100%",
   margin: "0 auto",
+};
+
+const pageBareStyle: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  padding: 0,
+};
+
+const contentBareStyle: CSSProperties = {
+  width: "100%",
+  maxWidth: "none",
+  margin: 0,
 };

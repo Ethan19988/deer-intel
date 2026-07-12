@@ -155,7 +155,6 @@ import type {
 import type { HuntAreaPoint } from "@/types/property";
 import { useDefaultMapLayer } from "@/lib/mapPreferences";
 import Button from "./ui/Button";
-import CollapsibleSection from "./ui/CollapsibleSection";
 
 type ClickToAddPinProps = {
   enabled: boolean;
@@ -697,6 +696,7 @@ export default function HuntingMap() {
   const [isMobileAssetSheetOpen, setIsMobileAssetSheetOpen] = useState(false);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
+  const [scoutOpen, setScoutOpen] = useState(false);
   const [isDrawingArea, setIsDrawingArea] = useState(false);
   const [draftAreaPoints, setDraftAreaPoints] = useState<HuntAreaPoint[]>([]);
   const [areaCoordInput, setAreaCoordInput] = useState("");
@@ -1857,18 +1857,13 @@ export default function HuntingMap() {
     </div>
   );
 
+  const scoutPanelOpen = scoutOpen || isDrawingArea;
+
   return (
     <div className="di-map-layout" style={mapLayoutStyle}>
-      <CollapsibleSection
-        title="Scout the Property"
-        description={`${
-          selectedProperty?.name ?? "No property saved"
-        } · ${visibleAssets.length} shown`}
-        style={scoutSectionStyle}
-      >
-        <div style={controlPanelStyle}>
-          <div style={topControlGridStyle}>
-          <label style={fieldStyle}>
+      <div className="di-map-scout" style={scoutOverlayStyle}>
+        <div style={scoutHeaderStyle}>
+          <label style={scoutFieldStyle}>
             <span style={labelTextStyle}>Property</span>
             <select
               style={selectStyle}
@@ -1885,10 +1880,22 @@ export default function HuntingMap() {
               ))}
             </select>
           </label>
-
+          <button
+            type="button"
+            style={{
+              ...scoutToggleStyle,
+              ...(scoutPanelOpen ? scoutToggleActiveStyle : null),
+            }}
+            aria-expanded={scoutPanelOpen}
+            onClick={() => setScoutOpen((current) => !current)}
+          >
+            {scoutPanelOpen ? "Close" : "Hunt Area"}
+          </button>
         </div>
 
-        <div style={huntAreaControlStyle}>
+        {scoutPanelOpen ? (
+          <div style={scoutBodyStyle}>
+            <div style={huntAreaControlStyle}>
           <div style={huntAreaHeaderStyle}>
             <span style={labelTextStyle}>Hunt Area</span>
             {hasHuntArea && !isDrawingArea && savedAreaAcresLabel ? (
@@ -2056,14 +2063,15 @@ export default function HuntingMap() {
               ) : null}
             </>
           )}
-        </div>
+            </div>
 
-          <p style={helpTextStyle}>
-            Use the Pin Box on the map to add cameras, stands, sign, trails,
-            parking, and gates.
-          </p>
-        </div>
-      </CollapsibleSection>
+            <p style={helpTextStyle}>
+              Use the Pin Box on the map to add cameras, stands, sign, trails,
+              parking, and gates.
+            </p>
+          </div>
+        ) : null}
+      </div>
 
       <div className="di-map-stage" style={mapStageStyle}>
         <div className="di-map-frame" style={mapFrameStyle}>
@@ -2626,6 +2634,7 @@ export default function HuntingMap() {
 }
 
 const mapLayoutStyle: CSSProperties = {
+  position: "relative",
   display: "grid",
   gap: "1rem",
 };
@@ -2637,27 +2646,70 @@ const mapStageStyle: CSSProperties = {
   order: 1,
 };
 
-// The Scout the Property panel now sits (collapsed) below the map via flex/grid
-// order, rather than taking space above it.
-const scoutSectionStyle: CSSProperties = {
-  order: 2,
-};
-
-const controlPanelStyle: CSSProperties = {
+// "Scout the Property" is now a floating panel anchored to the bottom-left of
+// the map itself, so the map can fill the whole page with nothing above or
+// below it. The property picker stays visible in the header; the hunt-area
+// tools live behind the toggle.
+const scoutOverlayStyle: CSSProperties = {
+  position: "absolute",
+  left: "1rem",
+  bottom: "1.25rem",
+  zIndex: 1100,
+  width: "min(340px, calc(100% - 2rem))",
+  maxHeight: "calc(100% - 2.5rem)",
   display: "grid",
-  gap: "1rem",
+  gap: "0.75rem",
+  padding: "0.85rem",
+  border: "1px solid rgba(255, 255, 255, 0.72)",
+  borderRadius: "12px",
+  background: "rgba(255, 255, 255, 0.96)",
+  color: "var(--text)",
+  boxShadow: "0 12px 28px rgba(0, 0, 0, 0.22)",
+  overflow: "hidden",
 };
 
-
-const topControlGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: "1rem",
+const scoutHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-end",
+  gap: "0.5rem",
 };
 
-const fieldStyle: CSSProperties = {
+const scoutFieldStyle: CSSProperties = {
   display: "grid",
   gap: "0.4rem",
+  flex: 1,
+  minWidth: 0,
+};
+
+const scoutToggleStyle: CSSProperties = {
+  display: "inline-flex",
+  minHeight: "48px",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0 0.9rem",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--surface-2)",
+  color: "var(--text)",
+  cursor: "pointer",
+  fontSize: "0.9rem",
+  fontWeight: 800,
+  whiteSpace: "nowrap",
+};
+
+const scoutToggleActiveStyle: CSSProperties = {
+  borderColor: "#265c30",
+  background: "#2f6d3a",
+  color: "#f2f9f2",
+};
+
+const scoutBodyStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.85rem",
+  maxHeight: "min(52vh, 420px)",
+  overflowY: "auto",
+  paddingTop: "0.6rem",
+  borderTop: "1px solid var(--border)",
 };
 
 const labelTextStyle: CSSProperties = {

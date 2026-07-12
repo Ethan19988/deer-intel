@@ -465,6 +465,23 @@ textarea {
   gap: 0;
 }
 
+/* Full-bleed map page: the map fills the whole viewport next to the sidebar,
+   with no chrome above or below it and nothing to scroll to. Mobile keeps its
+   own full-height rules below (max-width: 720px), so scope this to desktop. */
+@media (min-width: 721px) {
+  .di-page-shell-bare {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .di-page-shell-bare .di-map-frame {
+    height: 100dvh !important;
+    min-height: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+  }
+}
+
 .di-page-header-action {
   display: flex;
   align-items: flex-start;
