@@ -38,6 +38,13 @@ const OWNER_ACRES_LINE_PX = OWNER_ACRES_FONT_PX * 1.3;
 // to sit cleanly in a parcel, so the label is gated out until you zoom in.
 const OWNER_NAME_MAX_LINES = 3;
 
+// One owner's holding is usually several adjacent tax parcels (and a single big
+// parcel gets clipped into a separate feature per vector tile), so the same name
+// would otherwise print once per piece — cluttered and confusing. Tag each label
+// with the owner name so protomaps' labeler drops a repeat of the same owner
+// within this many screen pixels, collapsing a property to a single name.
+const OWNER_LABEL_DEDUP_PX = 600;
+
 const LABEL_FONT_STACK = "system-ui, -apple-system, Segoe UI, sans-serif";
 
 // Thin the label candidates at lower zoom so only bigger parcels get names
@@ -217,17 +224,22 @@ class FitToParcelOwnerSymbolizer {
         y += linePx;
       };
       for (const line of nameLines) {
-        fillLine(line, nameFont, OWNER_NAME_LINE_PX, "#f8fafc");
+        fillLine(line, nameFont, OWNER_NAME_LINE_PX, "#ffffff");
       }
       if (acresText) {
         fillLine(acresText, acresFont, OWNER_ACRES_LINE_PX, "rgba(226, 232, 240, 0.92)");
       }
     };
 
-    // No owner dedup: label every parcel (Spartan-Forge style), so a multi-parcel
-    // owner shows their name on each parcel. protomaps still drops labels whose
-    // boxes physically collide, so nearby duplicates that would overlap are culled.
-    return [{ anchor, bboxes, draw }];
+    return [
+      {
+        anchor,
+        bboxes,
+        draw,
+        deduplicationKey: owner,
+        deduplicationDistance: OWNER_LABEL_DEDUP_PX,
+      },
+    ];
   }
 }
 
@@ -270,8 +282,9 @@ export default function ParcelTilesLayer({ enabled }: ParcelTilesLayerProps) {
           dataLayer: "parcels",
           minzoom: LABEL_MIN_ZOOM,
           filter: (z, f) => labelPasses(z, f),
-          // Place bigger parcels first so that when labels collide, the larger
-          // parcel keeps its name and the smaller neighbor is the one dropped.
+          // Place bigger parcels first so that when several parcels share an
+          // owner, the owner-name dedup keeps the label on the largest one — the
+          // most central spot for the name across their holding.
           sort: (a, b) => (Number(b.acres) || 0) - (Number(a.acres) || 0),
           symbolizer: new FitToParcelOwnerSymbolizer() as unknown as LabelSymbolizer,
         },
