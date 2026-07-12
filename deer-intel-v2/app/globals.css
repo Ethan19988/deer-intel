@@ -482,6 +482,62 @@ textarea {
   }
 }
 
+/* On mobile the bare map page fills the entire screen: no page padding, the
+   map runs edge-to-edge behind the fixed top Settings button and bottom nav,
+   and the map's own controls shift to clear that chrome (and the notch). */
+@media (max-width: 720px) {
+  /* Two classes so this beats the base `.di-page-shell` mobile padding rule,
+     which is also !important. */
+  .di-page-shell.di-page-shell-bare {
+    padding: 0 !important;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .di-page-shell-bare .di-map-frame {
+    height: 100dvh !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* The map now starts at the very top, so drop the top controls below the
+     notch/status bar and the fixed Settings button. */
+  .di-page-shell-bare .di-map-search {
+    top: calc(0.75rem + env(safe-area-inset-top)) !important;
+  }
+  .di-page-shell-bare .di-map-controls {
+    top: calc(3.9rem + env(safe-area-inset-top)) !important;
+  }
+  .di-page-shell-bare .di-map-topbar {
+    top: calc(4.75rem + env(safe-area-inset-top)) !important;
+  }
+  .di-page-shell-bare .di-map-year {
+    top: calc(9rem + env(safe-area-inset-top)) !important;
+  }
+
+  /* Lift the bottom controls above the fixed mobile nav; the property panel
+     sits beside the layer button rather than spanning under it. */
+  .di-page-shell-bare .di-map-scout {
+    left: 0.75rem !important;
+    right: 7rem !important;
+    width: auto !important;
+    max-width: none !important;
+    bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
+  }
+  .di-page-shell-bare .di-layer-manager-button {
+    bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
+  }
+  .di-page-shell-bare .di-area-pill {
+    bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
+  }
+  /* Float the scale above the property panel instead of behind it. */
+  .di-page-shell-bare .di-map-frame .leaflet-control-scale {
+    margin-bottom: calc(13rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
 .di-page-header-action {
   display: flex;
   align-items: flex-start;
