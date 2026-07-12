@@ -415,6 +415,15 @@ textarea {
   filter: brightness(0) invert(1) drop-shadow(0 0 0.6px rgba(0, 0, 0, 0.85));
 }
 
+/* The USGS labeled layer supplies the elevation numbers. Darken them to a bold
+   near-black and wrap them in a white halo so the small labels pop over the
+   imagery and stay readable where the white contour lines cross them. */
+.di-contour-labels {
+  filter: brightness(0.42) contrast(1.9)
+    drop-shadow(0 0 1.2px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 0 1.2px rgba(255, 255, 255, 0.9));
+}
+
 .di-map-frame .leaflet-control-scale {
   margin-bottom: 5.8rem;
   margin-left: 1rem;

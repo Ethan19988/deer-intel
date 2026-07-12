@@ -2214,22 +2214,7 @@ export default function HuntingMap() {
 
             {showContours ? (
               <>
-                {/* Native-tan elevation numbers (with their lines) underneath. */}
-                <WMSTileLayer
-                  key="contour-labels"
-                  url={CONTOUR_WMS_URL}
-                  layers={CONTOUR_WMS_ALL_LAYERS}
-                  format="image/png"
-                  transparent
-                  version="1.3.0"
-                  opacity={0.9}
-                  zIndex={694}
-                  minZoom={CONTOUR_MIN_ZOOM}
-                  maxZoom={19}
-                  detectRetina
-                  attribution={CONTOUR_ATTRIBUTION}
-                />
-                {/* Thin white 25-ft contour lines on top. */}
+                {/* Thin white 25-ft contour lines. */}
                 <WMSTileLayer
                   key="contours-fine"
                   className="di-contour-line-white"
@@ -2244,6 +2229,23 @@ export default function HuntingMap() {
                   minZoom={CONTOUR_MIN_ZOOM}
                   maxZoom={19}
                   detectRetina
+                />
+                {/* Bold, white-haloed elevation numbers on top so they pop and
+                    stay readable where the white lines cross them. */}
+                <WMSTileLayer
+                  key="contour-labels"
+                  className="di-contour-labels"
+                  url={CONTOUR_WMS_URL}
+                  layers={CONTOUR_WMS_ALL_LAYERS}
+                  format="image/png"
+                  transparent
+                  version="1.3.0"
+                  opacity={1}
+                  zIndex={696}
+                  minZoom={CONTOUR_MIN_ZOOM}
+                  maxZoom={19}
+                  detectRetina
+                  attribution={CONTOUR_ATTRIBUTION}
                 />
               </>
             ) : null}
