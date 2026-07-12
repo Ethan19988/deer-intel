@@ -14,9 +14,22 @@ import { divIcon } from "leaflet";
 
 const SERVICE =
   "https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer";
-// Index-contour feature layers that carry CONTOURELEVATION: 100-ft (11) + 50-ft (16).
-const LAYERS = [11, 16];
+// "Normal Index Contours" (large-scale, active at zoom 16+): the index lines
+// carry the elevations, ~100-ft apart on a 20-ft base. Field name is lowercase
+// here (the 100-ft/50-ft group layers use uppercase), so read it case-tolerantly.
+const LAYERS = [25];
 const MAX_LABELS = 48;
+
+function readElevation(attrs: Record<string, unknown> | undefined): number | null {
+  if (!attrs) return null;
+  for (const key of Object.keys(attrs)) {
+    if (key.toLowerCase() === "contourelevation") {
+      const v = attrs[key];
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+    }
+  }
+  return null;
+}
 
 type ContourLabel = { id: string; lat: number; lng: number; text: string };
 
@@ -44,15 +57,15 @@ export default function ContourLabels({ minZoom }: { minZoom: number }) {
             `${SERVICE}/${layer}/query?where=1%3D1` +
             `&geometry=${encodeURIComponent(bbox)}` +
             `&geometryType=esriGeometryEnvelope&inSR=4326` +
-            `&spatialRel=esriSpatialRelIntersects&outFields=CONTOURELEVATION` +
+            `&spatialRel=esriSpatialRelIntersects&outFields=contourelevation` +
             `&returnGeometry=true&maxAllowableOffset=${offset}` +
             `&outSR=4326&f=json&resultRecordCount=250`;
           const res = await fetch(url);
           const json = await res.json();
           for (const f of json.features ?? []) {
-            const elev = f.attributes?.CONTOURELEVATION;
+            const elev = readElevation(f.attributes);
             const paths = f.geometry?.paths;
-            if (typeof elev !== "number" || !Array.isArray(paths)) continue;
+            if (elev == null || !Array.isArray(paths)) continue;
             for (const path of paths) segments.push({ elev, pts: path });
           }
         }),
