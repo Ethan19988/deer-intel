@@ -22,6 +22,7 @@ import {
   useMapEvents,
 } from "react-leaflet";
 import CachedTileLayer from "@/components/map/CachedTileLayer";
+import SuperWMSTileLayer from "@/components/map/SuperWMSTileLayer";
 import MapTopBar from "@/components/map/MapTopBar";
 import WindThermalLayer, {
   type WindStandPoint,
@@ -2217,7 +2218,7 @@ export default function HuntingMap() {
             {showContours && mapZoom < CONTOUR_FINE_ZOOM ? (
               /* Zoomed out: a sparse white 100-ft overview so the map reads
                  through instead of drowning in a white blur. */
-              <WMSTileLayer
+              <SuperWMSTileLayer
                 key="contours-coarse"
                 className="di-contour-line-white"
                 url={CONTOUR_WMS_URL}
@@ -2229,15 +2230,16 @@ export default function HuntingMap() {
                 zIndex={695}
                 minZoom={CONTOUR_MIN_ZOOM}
                 maxZoom={CONTOUR_FINE_ZOOM - 1}
-                detectRetina
+                superSample={4}
                 attribution={CONTOUR_ATTRIBUTION}
               />
             ) : null}
 
             {showContours && mapZoom >= CONTOUR_FINE_ZOOM ? (
               <>
-                {/* Zoomed in: thin white 25-ft contour lines. */}
-                <WMSTileLayer
+                {/* Zoomed in: thin white 25-ft contour lines, supersampled so
+                    they stay smooth instead of pixelated at device resolution. */}
+                <SuperWMSTileLayer
                   key="contours-fine"
                   className="di-contour-line-white"
                   url={CONTOUR_FINE_WMS_URL}
@@ -2250,7 +2252,7 @@ export default function HuntingMap() {
                   zIndex={695}
                   minZoom={CONTOUR_FINE_ZOOM}
                   maxZoom={19}
-                  detectRetina
+                  superSample={4}
                 />
                 {/* Bold, white-haloed elevation numbers on top so they pop and
                     stay readable where the white lines cross them. */}

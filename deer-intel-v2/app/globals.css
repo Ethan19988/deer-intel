@@ -408,11 +408,11 @@ textarea {
 }
 
 /* Recolor the 3DEP contour tiles to thin white lines: brightness(0) flattens
-   every opaque pixel to black, invert(1) flips it to white, and the hair-thin
-   dark drop-shadow gives a subtle edge so the white lines hold up over bright
-   or washed-out patches of imagery. */
+   every opaque pixel to black, invert(1) flips it to white, and a soft, light
+   drop-shadow gives just enough edge to hold up over bright imagery without
+   thickening the now supersampled (smooth, anti-aliased) lines. */
 .di-contour-line-white {
-  filter: brightness(0) invert(1) drop-shadow(0 0 0.6px rgba(0, 0, 0, 0.85));
+  filter: brightness(0) invert(1) drop-shadow(0 0 0.8px rgba(0, 0, 0, 0.45));
 }
 
 /* The USGS labeled layer supplies the elevation numbers. Darken them to a bold
