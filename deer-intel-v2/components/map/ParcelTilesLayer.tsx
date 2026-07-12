@@ -8,7 +8,7 @@ import {
   type LabelSymbolizer,
   type Layout,
 } from "protomaps-leaflet";
-import { idealLabelFontPx, ownerAcresText } from "@/lib/ownerLabel";
+import { ownerAcresText } from "@/lib/ownerLabel";
 
 // Statewide land-owner parcels, served as a single PMTiles vector-tile archive
 // and rendered client-side. Unlike the baked-JSON overlay (which loads every
@@ -27,10 +27,16 @@ const PMTILES_URL =
 // (protomaps' labeler also drops overlapping labels automatically.)
 const LABEL_MIN_ZOOM = 15;
 
-// Clamp for the fit-to-parcel font. Slightly tighter than the baked overlay's
-// range since the statewide view is denser with small suburban parcels.
-const LABEL_MIN_PX = 9;
-const LABEL_MAX_PX = 28;
+// Spartan-Forge-style labels: a uniform, modest font (not sized to the parcel),
+// white with a dark halo, the owner in CAPS with the acreage spelled out on the
+// line below. Long names wrap to fit the parcel width instead of shrinking.
+const OWNER_NAME_FONT_PX = 13;
+const OWNER_ACRES_FONT_PX = 11;
+const OWNER_NAME_LINE_PX = OWNER_NAME_FONT_PX * 1.18;
+const OWNER_ACRES_LINE_PX = OWNER_ACRES_FONT_PX * 1.3;
+// Don't wrap a name into more lines than this — beyond it the block is too tall
+// to sit cleanly in a parcel, so the label is gated out until you zoom in.
+const OWNER_NAME_MAX_LINES = 3;
 
 // One owner's holding is usually several adjacent tax parcels (and a single big
 // parcel gets clipped into a separate feature per vector tile), so the same name
@@ -54,13 +60,49 @@ function labelPasses(zoom: number, feature: { props: Record<string, unknown> }) 
 
 type Pt = { x: number; y: number };
 
-// A protomaps label symbolizer that sizes each owner name to fit inside its
-// parcel's on-screen footprint (Spartan-Forge style), instead of a fixed font.
-// place() receives the polygon already transformed into display pixels, so the
-// footprint — and therefore the label size — grows and shrinks with zoom.
+// Greedy word-wrap: break `text` into as few lines as possible that each fit
+// within maxWidth at the context's current font, up to maxLines. A single word
+// longer than maxWidth stays on its own (over-long) line — the caller's fit
+// check then decides whether the whole block still fits the parcel.
+function wrapWords(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (!words.length) return [text];
+  const lines: string[] = [];
+  let current = words[0];
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i];
+    const trial = `${current} ${word}`;
+    if (ctx.measureText(trial).width <= maxWidth) {
+      current = trial;
+    } else if (lines.length < maxLines - 1) {
+      lines.push(current);
+      current = word;
+    } else {
+      // Out of allowed lines — cram the rest onto the last one and let the
+      // caller's fit check reject the label if it's now too wide.
+      current = `${current} ${words.slice(i).join(" ")}`;
+      break;
+    }
+  }
+  lines.push(current);
+  return lines;
+}
+
+// A protomaps label symbolizer that renders each owner name as a uniform,
+// Spartan-Forge-style label centered in the parcel: CAPS name (wrapped to fit
+// the width) with the acreage spelled out beneath, white with a dark halo. The
+// label is only placed once the parcel's on-screen footprint can hold the block
+// — small parcels stay unlabeled until you zoom in far enough.
 class FitToParcelOwnerSymbolizer {
   place(layout: Layout, geom: Pt[][], feature: Feature) {
-    const owner = String(feature.props.owner ?? "").trim();
+    const owner = String(feature.props.owner ?? "")
+      .trim()
+      .toUpperCase();
     if (!owner) return undefined;
 
     // Footprint bbox over every ring, plus the largest ring for centering.
@@ -104,25 +146,40 @@ class FitToParcelOwnerSymbolizer {
     const heightPx = maxY - minY;
 
     const acresText = ownerAcresText(Number(feature.props.acres) || 0);
-    const lines = acresText ? [owner, acresText] : [owner];
 
-    // Only label a parcel once it's physically big enough on screen to hold the
-    // name at a readable size. If the best-fit font would fall below the
-    // minimum, the parcel is too small at this zoom — skip it so the name is
-    // revealed by zooming in (the footprint grows with zoom), not crammed over
-    // the boundary. Replaces clamping a tiny parcel's name up to the minimum.
-    const idealPx = idealLabelFontPx(widthPx, heightPx, owner, acresText);
-    if (idealPx < LABEL_MIN_PX) return undefined;
-    const fontPx = Math.min(idealPx, LABEL_MAX_PX);
-    const lineHeight = fontPx * 1.2;
+    // Wrap the CAPS name to the parcel width at the fixed font, then lay out the
+    // (optional) acreage caption beneath it.
+    const nameFont = `700 ${OWNER_NAME_FONT_PX}px ${LABEL_FONT_STACK}`;
+    const acresFont = `500 ${OWNER_ACRES_FONT_PX}px ${LABEL_FONT_STACK}`;
+    const widthBudget = widthPx * 0.92;
 
-    // Measure the widest line for a collision bbox the labeler can index.
-    layout.scratch.font = `600 ${fontPx}px ${LABEL_FONT_STACK}`;
+    layout.scratch.font = nameFont;
+    const nameLines = wrapWords(
+      layout.scratch,
+      owner,
+      widthBudget,
+      OWNER_NAME_MAX_LINES,
+    );
+
     let textWidth = 0;
-    for (const line of lines) {
+    for (const line of nameLines) {
       textWidth = Math.max(textWidth, layout.scratch.measureText(line).width);
     }
-    const textHeight = lineHeight * lines.length;
+    if (acresText) {
+      layout.scratch.font = acresFont;
+      textWidth = Math.max(textWidth, layout.scratch.measureText(acresText).width);
+    }
+
+    const textHeight =
+      nameLines.length * OWNER_NAME_LINE_PX +
+      (acresText ? OWNER_ACRES_LINE_PX : 0);
+
+    // Gate on fit: only label the parcel once its footprint can actually hold
+    // the block. Below that the parcel is too small at this zoom, so leave it
+    // unlabeled and let zooming in (which grows the footprint) reveal it.
+    if (textWidth > widthPx * 0.98 || textHeight > heightPx * 0.98) {
+      return undefined;
+    }
 
     const bboxes = [
       {
@@ -137,20 +194,43 @@ class FitToParcelOwnerSymbolizer {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.lineJoin = "round";
-      // The canvas is already translated to the anchor, so lay the block out
-      // vertically centered around the origin.
-      lines.forEach((line, i) => {
-        const isName = i === 0;
-        const size = isName ? fontPx : fontPx * 0.8;
-        const y = (i - (lines.length - 1) / 2) * lineHeight;
-        ctx.font = `${isName ? 600 : 500} ${size}px ${LABEL_FONT_STACK}`;
-        // Light halo keeps the name legible over any satellite imagery.
-        ctx.lineWidth = Math.max(size / 5, 1.5);
-        ctx.strokeStyle = "rgba(248, 250, 252, 0.9)";
-        ctx.strokeText(line, 0, y);
-        ctx.fillStyle = isName ? "#0b1120" : "#334155";
-        ctx.fillText(line, 0, y);
-      });
+      // The canvas is translated to the anchor, so lay the block out from the
+      // top edge (−textHeight/2) downward, advancing one line at a time.
+      let y = -textHeight / 2;
+      const drawLine = (line: string, font: string, linePx: number) => {
+        ctx.font = font;
+        const cy = y + linePx / 2;
+        // Dark halo so the light text reads over any satellite imagery.
+        ctx.lineWidth = 2.4;
+        ctx.strokeStyle = "rgba(10, 15, 20, 0.85)";
+        ctx.strokeText(line, 0, cy);
+        y += linePx;
+      };
+      for (const line of nameLines) {
+        drawLine(line, nameFont, OWNER_NAME_LINE_PX);
+      }
+      if (acresText) drawLine(acresText, acresFont, OWNER_ACRES_LINE_PX);
+
+      // Second pass fills the text on top of every halo so adjacent lines'
+      // strokes never overlap a neighbor's fill.
+      y = -textHeight / 2;
+      const fillLine = (
+        line: string,
+        font: string,
+        linePx: number,
+        color: string,
+      ) => {
+        ctx.font = font;
+        ctx.fillStyle = color;
+        ctx.fillText(line, 0, y + linePx / 2);
+        y += linePx;
+      };
+      for (const line of nameLines) {
+        fillLine(line, nameFont, OWNER_NAME_LINE_PX, "#f8fafc");
+      }
+      if (acresText) {
+        fillLine(acresText, acresFont, OWNER_ACRES_LINE_PX, "rgba(226, 232, 240, 0.92)");
+      }
     };
 
     return [
