@@ -367,8 +367,15 @@ textarea {
   content: "";
 }
 
+/* On desktop, hide the whole "Mapped Assets" list — the toggle, the close
+   button, and the box itself. Its inline styles otherwise keep it pinned open
+   full-width across the bottom of the map, covering the imagery. Assets stay
+   selectable by clicking their markers, and the property pages list them in
+   full. The mobile on-demand bottom sheet (max-width: 720px) is unaffected —
+   its `.di-map-bottom-sheet-open` rule re-shows the sheet when opened. */
 .di-map-assets-toggle,
-.di-map-bottom-sheet-close {
+.di-map-bottom-sheet-close,
+.di-map-bottom-sheet {
   display: none !important;
 }
 
