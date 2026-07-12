@@ -2214,6 +2214,13 @@ export default function HuntingMap() {
                 opacity={0.5}
                 zIndex={690}
                 maxZoom={19}
+                // Only fetch when the map settles, and never mid-zoom, so
+                // zooming out doesn't fire a storm of WMS requests that blocks
+                // the main thread. keepBuffer trimmed to hold fewer offscreen
+                // tiles in memory.
+                updateWhenIdle
+                updateWhenZooming={false}
+                keepBuffer={1}
                 attribution={SLOPE_ATTRIBUTION}
               />
             ) : null}
@@ -2233,7 +2240,10 @@ export default function HuntingMap() {
                 zIndex={695}
                 minZoom={CONTOUR_MIN_ZOOM}
                 maxZoom={CONTOUR_FINE_ZOOM - 1}
-                superSample={4}
+                superSample={2}
+                updateWhenIdle
+                updateWhenZooming={false}
+                keepBuffer={1}
                 attribution={CONTOUR_ATTRIBUTION}
               />
             ) : null}
@@ -2255,7 +2265,10 @@ export default function HuntingMap() {
                   zIndex={695}
                   minZoom={CONTOUR_FINE_ZOOM}
                   maxZoom={19}
-                  superSample={4}
+                  superSample={2}
+                  updateWhenIdle
+                  updateWhenZooming={false}
+                  keepBuffer={1}
                 />
                 {/* Elevation numbers as our own bold, dark-outlined labels
                     (queried from the index-contour features), not from the
