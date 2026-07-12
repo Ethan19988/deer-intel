@@ -2432,12 +2432,10 @@ export default function HuntingMap() {
             }
             ownerNamesDisabled={isMobileMapPerformanceMode}
             showOwnerNames={ownerNamesEnabled}
-            showPropertyLines={showPropertyLines}
             visibleAssetLayers={visibleAssetLayers}
             onToggleLayer={toggleAssetLayer}
             onToggleMapTool={toggleMapTool}
             onToggleOwnerNames={toggleOwnerNames}
-            onTogglePropertyLines={togglePropertyLines}
           />
 
           <div className="di-map-status" style={mapStatusStyle}>

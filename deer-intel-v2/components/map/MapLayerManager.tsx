@@ -16,12 +16,10 @@ type MapLayerManagerProps = {
   trackingSection?: ReactNode;
   ownerNamesDisabled?: boolean;
   showOwnerNames: boolean;
-  showPropertyLines: boolean;
   visibleAssetLayers: Record<AssetLayerId, boolean>;
   onToggleLayer: (layerId: AssetLayerId) => void;
   onToggleMapTool: (toolId: MapToolId) => void;
   onToggleOwnerNames: () => void;
-  onTogglePropertyLines: () => void;
 };
 
 const VISIBILITY_LABELS: Record<AssetLayerId, string> = {
@@ -57,11 +55,9 @@ export default function MapLayerManager({
   pinBoxSection,
   offlineSection,
   trackingSection,
-  showPropertyLines,
   visibleAssetLayers,
   onToggleLayer,
   onToggleMapTool,
-  onTogglePropertyLines,
 }: MapLayerManagerProps) {
   const isOpen = open;
   const visibleCount = Object.values(visibleAssetLayers).filter(
@@ -163,16 +159,6 @@ export default function MapLayerManager({
               ))}
             </div>
           </CollapsibleSection>
-
-          <LayerSection title="Property">
-            {/* One switch for the whole ownership picture: the parcel-line
-                overlay plus the land-owner tiles (names + tap-to-identify). */}
-            <ToggleRow
-              checked={showPropertyLines}
-              label="Property Lines & Owners"
-              onToggle={onTogglePropertyLines}
-            />
-          </LayerSection>
 
           <LayerSection title="Map Tools">
             {MAP_TOOL_LABELS.map((tool) => (
