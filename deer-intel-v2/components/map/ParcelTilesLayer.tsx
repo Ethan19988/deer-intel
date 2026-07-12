@@ -91,6 +91,109 @@ function wrapWords(
   return lines;
 }
 
+// Squared distance from (px, py) to the segment a-b.
+function segDistSq(px: number, py: number, a: Pt, b: Pt): number {
+  let x = a.x;
+  let y = a.y;
+  const dx0 = b.x - x;
+  const dy0 = b.y - y;
+  if (dx0 !== 0 || dy0 !== 0) {
+    const t = ((px - x) * dx0 + (py - y) * dy0) / (dx0 * dx0 + dy0 * dy0);
+    if (t > 1) {
+      x = b.x;
+      y = b.y;
+    } else if (t > 0) {
+      x += dx0 * t;
+      y += dy0 * t;
+    }
+  }
+  const dx = px - x;
+  const dy = py - y;
+  return dx * dx + dy * dy;
+}
+
+// Signed distance from a point to the ring boundary: positive inside the ring,
+// negative outside (even-odd rule).
+function signedRingDist(px: number, py: number, ring: Pt[]): number {
+  let inside = false;
+  let minSq = Infinity;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i];
+    const b = ring[j];
+    if (
+      a.y > py !== b.y > py &&
+      px < ((b.x - a.x) * (py - a.y)) / (b.y - a.y) + a.x
+    ) {
+      inside = !inside;
+    }
+    minSq = Math.min(minSq, segDistSq(px, py, a, b));
+  }
+  return (inside ? 1 : -1) * Math.sqrt(minSq);
+}
+
+// Pole of inaccessibility (Mapbox's polylabel, simplified): the interior point
+// farthest from every edge — the visual center a person would label, robust for
+// L-shaped/concave parcels where the plain centroid sits near an edge or even
+// outside the polygon. Grid cells are refined only while they might still beat
+// the best point found, to a tolerance that scales with the ring's size.
+function poleOfInaccessibility(ring: Pt[]): Pt {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of ring) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  const width = maxX - minX;
+  const height = maxY - minY;
+  const cellSize = Math.min(width, height);
+  const bboxCenter: Pt = { x: minX + width / 2, y: minY + height / 2 };
+  if (cellSize <= 0) return bboxCenter;
+  const precision = Math.max(cellSize / 16, 1);
+
+  type Cell = { x: number; y: number; h: number; d: number; max: number };
+  const makeCell = (x: number, y: number, h: number): Cell => {
+    const d = signedRingDist(x, y, ring);
+    return { x, y, h, d, max: d + h * Math.SQRT2 };
+  };
+
+  let best = makeCell(bboxCenter.x, bboxCenter.y, 0);
+  const queue: Cell[] = [];
+  const h0 = cellSize / 2;
+  for (let x = minX; x < maxX; x += cellSize) {
+    for (let y = minY; y < maxY; y += cellSize) {
+      queue.push(makeCell(x + h0, y + h0, h0));
+    }
+  }
+
+  while (queue.length) {
+    // Pop the most promising cell (small queues make a linear scan fine here).
+    let bi = 0;
+    for (let i = 1; i < queue.length; i++) {
+      if (queue[i].max > queue[bi].max) bi = i;
+    }
+    const cell = queue[bi];
+    queue[bi] = queue[queue.length - 1];
+    queue.pop();
+
+    if (cell.d > best.d) best = cell;
+    if (cell.max - best.d <= precision) continue;
+
+    const h = cell.h / 2;
+    queue.push(
+      makeCell(cell.x - h, cell.y - h, h),
+      makeCell(cell.x + h, cell.y - h, h),
+      makeCell(cell.x - h, cell.y + h, h),
+      makeCell(cell.x + h, cell.y + h, h),
+    );
+  }
+
+  return { x: best.x, y: best.y };
+}
+
 // A protomaps label symbolizer that renders each owner name as a uniform,
 // Spartan-Forge-style label centered in the parcel: CAPS name (wrapped to fit
 // the width) with the acreage spelled out beneath, white with a dark halo. The
@@ -103,42 +206,38 @@ class FitToParcelOwnerSymbolizer {
       .toUpperCase();
     if (!owner) return undefined;
 
-    // Footprint bbox over every ring, plus the largest ring for centering.
+    // Footprint bbox over every ring; the largest ring *by area* (not vertex
+    // count — a tiny but vertex-dense ring must not win) carries the label.
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
     let largest: Pt[] = geom[0] ?? [];
+    let largestArea = -1;
     for (const ring of geom) {
-      if (ring.length > largest.length) largest = ring;
-      for (const p of ring) {
+      let area2 = 0;
+      for (let i = 0; i < ring.length; i++) {
+        const p = ring[i];
+        const q = ring[(i + 1) % ring.length];
+        area2 += p.x * q.y - q.x * p.y;
         if (p.x < minX) minX = p.x;
         if (p.x > maxX) maxX = p.x;
         if (p.y < minY) minY = p.y;
         if (p.y > maxY) maxY = p.y;
       }
+      const area = Math.abs(area2);
+      if (area > largestArea) {
+        largestArea = area;
+        largest = ring;
+      }
     }
     if (!Number.isFinite(minX) || largest.length === 0) return undefined;
 
-    // Anchor at the largest ring's area-weighted (shoelace) centroid so the name
-    // sits at the visual middle of the parcel, instead of drifting toward an
-    // edge where the vertices happen to bunch up. Falls back to the bbox center
-    // for a degenerate (near-zero-area) ring.
-    let signedArea2 = 0;
-    let cx = 0;
-    let cy = 0;
-    for (let i = 0; i < largest.length; i++) {
-      const p0 = largest[i];
-      const p1 = largest[(i + 1) % largest.length];
-      const cross = p0.x * p1.y - p1.x * p0.y;
-      signedArea2 += cross;
-      cx += (p0.x + p1.x) * cross;
-      cy += (p0.y + p1.y) * cross;
-    }
-    const anchor: Pt =
-      Math.abs(signedArea2) > 1e-6
-        ? { x: cx / (3 * signedArea2), y: cy / (3 * signedArea2) }
-        : { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+    // Anchor at the ring's pole of inaccessibility — the interior point
+    // farthest from every boundary — so the name sits where a person would
+    // hand-place it, even in L-shaped or concave parcels where the plain
+    // centroid drifts to an edge (or outside the lot entirely).
+    const anchor = poleOfInaccessibility(largest);
 
     const widthPx = maxX - minX;
     const heightPx = maxY - minY;
