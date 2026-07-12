@@ -64,6 +64,16 @@ declare module "leaflet" {
     setView(center: LatLngExpression, zoom?: number): this;
     zoomIn(delta?: number): this;
     zoomOut(delta?: number): this;
+    on(
+      type: string,
+      fn: (event: LeafletMouseEvent) => void,
+      context?: unknown,
+    ): this;
+    off(
+      type: string,
+      fn: (event: LeafletMouseEvent) => void,
+      context?: unknown,
+    ): this;
   }
 
   export class Layer {}

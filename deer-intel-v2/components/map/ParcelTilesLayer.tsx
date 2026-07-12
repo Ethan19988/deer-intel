@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
+import type { LeafletMouseEvent } from "leaflet";
 import {
   leafletLayer,
   LineSymbolizer,
@@ -342,12 +343,36 @@ class FitToParcelOwnerSymbolizer {
   }
 }
 
-type ParcelTilesLayerProps = {
-  enabled: boolean;
+// A parcel picked by tapping the map: the owner record under the tap, straight
+// from the loaded vector tiles (no network lookup).
+export type ParcelTileOwnerPick = {
+  ownerName: string;
+  acres: number;
+  isPublic: boolean;
 };
 
-export default function ParcelTilesLayer({ enabled }: ParcelTilesLayerProps) {
+type ParcelTilesLayerProps = {
+  enabled: boolean;
+  // Tap-to-identify: while true, a map tap reports the parcel under it (or null
+  // for empty ground) via onOwnerPick. Lets small parcels — whose labels are
+  // zoom-gated out — still reveal their owner on demand.
+  pickEnabled?: boolean;
+  onOwnerPick?: (pick: ParcelTileOwnerPick | null) => void;
+};
+
+export default function ParcelTilesLayer({
+  enabled,
+  pickEnabled = false,
+  onOwnerPick,
+}: ParcelTilesLayerProps) {
   const map = useMap();
+
+  // The click handler reads these through a ref so toggling pick mode (e.g.
+  // while placing a pin) doesn't tear down and re-create the tile layer.
+  const pickRef = useRef({ pickEnabled, onOwnerPick });
+  useEffect(() => {
+    pickRef.current = { pickEnabled, onOwnerPick };
+  });
 
   useEffect(() => {
     if (!enabled) return;
@@ -392,7 +417,41 @@ export default function ParcelTilesLayer({ enabled }: ParcelTilesLayerProps) {
 
     layer.addTo(map);
 
+    // Tap-to-identify against the tiles already in the browser (despite the
+    // "Debug" name, queryTileFeaturesDebug is the layer's public feature-picking
+    // API). When parcels overlap or nest, report the smallest — that's the tiny
+    // lot the tap was aimed at, not the farm surrounding it.
+    const handleClick = (event: LeafletMouseEvent) => {
+      const { pickEnabled: canPick, onOwnerPick: report } = pickRef.current;
+      if (!canPick || !report) return;
+
+      const { lat, lng } = event.latlng;
+      const picked = layer.queryTileFeaturesDebug(lng, lat, 8);
+
+      let best: ParcelTileOwnerPick | null = null;
+      for (const picks of picked.values()) {
+        for (const pick of picks) {
+          if (pick.layerName !== "parcels") continue;
+          const ownerName = String(pick.feature.props.owner ?? "").trim();
+          if (!ownerName) continue;
+          const acres = Number(pick.feature.props.acres) || 0;
+          if (!best || acres < best.acres) {
+            best = {
+              ownerName,
+              acres,
+              isPublic: pick.feature.props.pub === 1,
+            };
+          }
+        }
+      }
+
+      report(best);
+    };
+
+    map.on("click", handleClick);
+
     return () => {
+      map.off("click", handleClick);
       layer.remove();
     };
   }, [enabled, map]);

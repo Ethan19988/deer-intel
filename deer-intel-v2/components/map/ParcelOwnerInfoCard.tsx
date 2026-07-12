@@ -1,13 +1,17 @@
 import type { CSSProperties } from "react";
-import type { ParcelOwnerLookupResult } from "@/types/parcel";
 
+// A generic owner card: title plus whatever detail lines the lookup produced.
+// Line-driven so both owner sources share it — the ArcGIS point lookup (county,
+// parcel id, address, source) and the tap-on-tile pick (acres, land type).
 type ParcelOwnerInfoCardProps = {
-  parcel: ParcelOwnerLookupResult;
+  ownerName: string;
+  lines: { label: string; value: string }[];
   onClose: () => void;
 };
 
 export default function ParcelOwnerInfoCard({
-  parcel,
+  ownerName,
+  lines,
   onClose,
 }: ParcelOwnerInfoCardProps) {
   return (
@@ -21,7 +25,7 @@ export default function ParcelOwnerInfoCard({
         <span style={iconStyle}>ON</span>
         <div style={titleWrapStyle}>
           <p style={eyebrowStyle}>Parcel Owner</p>
-          <h3 style={titleStyle}>{parcel.ownerName}</h3>
+          <h3 style={titleStyle}>{ownerName}</h3>
         </div>
         <button
           type="button"
@@ -35,11 +39,9 @@ export default function ParcelOwnerInfoCard({
       </div>
 
       <div style={detailsStyle}>
-        <InfoLine label="County" value={`${parcel.countyName} County`} />
-        <InfoLine label="Parcel ID" value={parcel.parcelId ?? "Not listed"} />
-        <InfoLine label="Address" value={parcel.address ?? "Not listed"} />
-        <InfoLine label="Acres" value={parcel.acreage ?? "Not listed"} />
-        <InfoLine label="Source" value={parcel.providerName} />
+        {lines.map((line) => (
+          <InfoLine key={line.label} label={line.label} value={line.value} />
+        ))}
       </div>
     </aside>
   );
