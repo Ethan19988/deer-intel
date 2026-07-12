@@ -18,7 +18,12 @@ const SERVICE =
 // carry the elevations, ~100-ft apart on a 20-ft base. Field name is lowercase
 // here (the 100-ft/50-ft group layers use uppercase), so read it case-tolerantly.
 const LAYERS = [25];
-const MAX_LABELS = 48;
+// Keep the elevation numbers sparse so they don't crowd the map: fewer labels
+// overall, spread on a coarser grid, and each distinct elevation capped so a
+// single winding contour can't stamp its number across the whole view.
+const MAX_LABELS = 24;
+const LABEL_GRID = 6;
+const MAX_PER_ELEV = 3;
 
 function readElevation(attrs: Record<string, unknown> | undefined): number | null {
   if (!attrs) return null;
@@ -74,9 +79,10 @@ export default function ContourLabels({ minZoom }: { minZoom: number }) {
 
       // Thin the labels onto a ~9x9 grid of the view so they spread evenly and
       // never pile up (grid in degrees; close enough to even pixel spacing).
-      const cellLat = (b.getNorth() - b.getSouth()) / 9;
-      const cellLng = (b.getEast() - b.getWest()) / 9;
+      const cellLat = (b.getNorth() - b.getSouth()) / LABEL_GRID;
+      const cellLng = (b.getEast() - b.getWest()) / LABEL_GRID;
       const seen = new Set<string>();
+      const elevCount = new Map<number, number>();
       const next: ContourLabel[] = [];
       for (const seg of segments) {
         for (const [lng, lat] of seg.pts) {
@@ -89,7 +95,9 @@ export default function ContourLabels({ minZoom }: { minZoom: number }) {
             continue;
           const key = `${Math.round(lat / cellLat)}_${Math.round(lng / cellLng)}`;
           if (seen.has(key)) continue;
+          if ((elevCount.get(seg.elev) ?? 0) >= MAX_PER_ELEV) continue;
           seen.add(key);
+          elevCount.set(seg.elev, (elevCount.get(seg.elev) ?? 0) + 1);
           next.push({ id: `${seg.elev}-${key}`, lat, lng, text: `${seg.elev}` });
           if (next.length >= MAX_LABELS) break;
         }
