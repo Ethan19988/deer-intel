@@ -62,7 +62,10 @@ import MapPinBox, {
 import ParcelBoundaryLayer from "@/components/map/ParcelBoundaryLayer";
 import ParcelOwnerLabelLayer from "@/components/map/ParcelOwnerLabelLayer";
 import ParcelOwnerInfoCard from "@/components/map/ParcelOwnerInfoCard";
-import ParcelTilesLayer from "@/components/map/ParcelTilesLayer";
+import ParcelTilesLayer, {
+  type ParcelTileOwnerPick,
+} from "@/components/map/ParcelTilesLayer";
+import { ownerAcresText } from "@/lib/ownerLabel";
 import MapSearchBar from "@/components/map/MapSearchBar";
 import MapSearchResultMarker from "@/components/map/MapSearchResultMarker";
 import OfflineDownloadStatus from "@/components/map/OfflineDownloadStatus";
@@ -128,7 +131,7 @@ import {
   MAP_LAYER_BY_ID,
   pinToMapAsset,
   CONTOUR_WMS_URL,
-  CONTOUR_WMS_ALL_LAYERS,
+  CONTOUR_WMS_NUMBER_LAYERS,
   CONTOUR_WMS_COARSE_LINES,
   CONTOUR_FINE_WMS_URL,
   CONTOUR_FINE_WMS_LAYER,
@@ -690,6 +693,10 @@ export default function HuntingMap() {
     useState<ParcelOwnerLabelLoadState | null>(null);
   const [parcelOwnerLookupState, setParcelOwnerLookupState] =
     useState<ParcelOwnerLookupState>(IDLE_PARCEL_OWNER_LOOKUP_STATE);
+  // Parcel picked by tapping the Land Owners overlay (owner read straight from
+  // the loaded tiles) — how small, label-gated parcels reveal their owner.
+  const [tileOwnerPick, setTileOwnerPick] =
+    useState<ParcelTileOwnerPick | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [isMobileAssetSheetOpen, setIsMobileAssetSheetOpen] = useState(false);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
@@ -1434,7 +1441,16 @@ export default function HuntingMap() {
   }
 
   function toggleParcelTiles() {
+    // Whichever direction the toggle goes, any open parcel card is stale.
+    setTileOwnerPick(null);
     setShowParcelTiles((isVisible) => !isVisible);
+  }
+
+  function handleTileOwnerPick(pick: ParcelTileOwnerPick | null) {
+    // A parcel card replaces any open asset card; tapping empty ground just
+    // dismisses the parcel card.
+    if (pick) setSelectedAssetId(null);
+    setTileOwnerPick(pick);
   }
 
   async function lookupParcelOwner(lat: number, lng: number) {
@@ -2255,12 +2271,16 @@ export default function HuntingMap() {
                   superSample={4}
                 />
                 {/* Bold, white-haloed elevation numbers on top so they pop and
-                    stay readable where the white lines cross them. */}
-                <WMSTileLayer
+                    stay readable where the white lines cross them. A low
+                    superSample (1.33 vs the ~2x detectRetina fetched before)
+                    means the browser upscales the tile on a retina screen,
+                    enlarging the numbers ~1.5x for readability. They ride on the
+                    index contour lines, so the layer is index-only to stay clean. */}
+                <SuperWMSTileLayer
                   key="contour-labels"
                   className="di-contour-labels"
                   url={CONTOUR_WMS_URL}
-                  layers={CONTOUR_WMS_ALL_LAYERS}
+                  layers={CONTOUR_WMS_NUMBER_LAYERS}
                   format="image/png"
                   transparent
                   version="1.3.0"
@@ -2268,7 +2288,7 @@ export default function HuntingMap() {
                   zIndex={696}
                   minZoom={CONTOUR_FINE_ZOOM}
                   maxZoom={19}
-                  detectRetina
+                  superSample={1.33}
                   attribution={CONTOUR_ATTRIBUTION}
                 />
               </>
@@ -2306,7 +2326,11 @@ export default function HuntingMap() {
               propertyId={selectedPropertyId}
               onStateChange={setOwnerLabelState}
             />
-            <ParcelTilesLayer enabled={showParcelTiles} />
+            <ParcelTilesLayer
+              enabled={showParcelTiles}
+              pickEnabled={!isPlacingPin && !isDrawingArea}
+              onOwnerPick={handleTileOwnerPick}
+            />
 
             <MapSearchTargetController target={searchTarget} />
             <MapStateTracker onMapStateChange={saveMapState} />
@@ -2592,10 +2616,51 @@ export default function HuntingMap() {
           {parcelOwnerLookupState.status === "found" &&
           parcelOwnerLookupState.parcel ? (
             <ParcelOwnerInfoCard
-              parcel={parcelOwnerLookupState.parcel}
+              ownerName={parcelOwnerLookupState.parcel.ownerName}
+              lines={[
+                {
+                  label: "County",
+                  value: `${parcelOwnerLookupState.parcel.countyName} County`,
+                },
+                {
+                  label: "Parcel ID",
+                  value: parcelOwnerLookupState.parcel.parcelId ?? "Not listed",
+                },
+                {
+                  label: "Address",
+                  value: parcelOwnerLookupState.parcel.address ?? "Not listed",
+                },
+                {
+                  label: "Acres",
+                  value: parcelOwnerLookupState.parcel.acreage ?? "Not listed",
+                },
+                {
+                  label: "Source",
+                  value: parcelOwnerLookupState.parcel.providerName,
+                },
+              ]}
               onClose={() =>
                 setParcelOwnerLookupState(IDLE_PARCEL_OWNER_LOOKUP_STATE)
               }
+            />
+          ) : null}
+
+          {tileOwnerPick ? (
+            <ParcelOwnerInfoCard
+              ownerName={tileOwnerPick.ownerName}
+              lines={[
+                {
+                  label: "Acres",
+                  value: ownerAcresText(tileOwnerPick.acres) || "Not listed",
+                },
+                {
+                  label: "Land",
+                  value: tileOwnerPick.isPublic
+                    ? "Public / government"
+                    : "Private",
+                },
+              ]}
+              onClose={() => setTileOwnerPick(null)}
             />
           ) : null}
         </div>

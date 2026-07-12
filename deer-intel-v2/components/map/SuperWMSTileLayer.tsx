@@ -37,8 +37,8 @@ class SuperSampledWMS extends WMSTileLayerCtor {
     const size = this.getTileSize();
     // Ask the server for a denser image than the tile's CSS box; the browser
     // shrinks it back down, smoothing the thin contour lines in the process.
-    this.wmsParams.width = size.x * ss;
-    this.wmsParams.height = size.y * ss;
+    this.wmsParams.width = Math.round(size.x * ss);
+    this.wmsParams.height = Math.round(size.y * ss);
     return super.getTileUrl(coords);
   }
 }
