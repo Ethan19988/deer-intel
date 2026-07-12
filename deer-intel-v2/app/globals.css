@@ -424,7 +424,7 @@ textarea {
    with steepness ticks, so the colors on the map read as slope angles. */
 .di-slope-legend {
   position: absolute;
-  bottom: 2.5rem;
+  bottom: 1.5rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
@@ -472,11 +472,12 @@ textarea {
   color: #3a4432;
 }
 
-/* On the full-screen mobile map, lift the key clear of the bottom control row
-   (property panel + Layers button) so it doesn't overlap them. */
+/* On the full-screen mobile map, sit the key just above the (now slim) bottom
+   control row (property panel + Layers button) so it clears the map as much as
+   possible without overlapping them. */
 @media (max-width: 720px) {
   .di-slope-legend {
-    bottom: calc(12.5rem + env(safe-area-inset-bottom)) !important;
+    bottom: calc(8.75rem + env(safe-area-inset-bottom)) !important;
   }
 }
 
