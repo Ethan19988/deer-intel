@@ -141,9 +141,6 @@ import {
   SLOPE_WMS_URL,
   SLOPE_WMS_LAYER,
   SLOPE_ATTRIBUTION,
-  PUBLIC_LAND_TILE_URL,
-  PUBLIC_LAND_ATTRIBUTION,
-  PUBLIC_LAND_MAX_NATIVE_ZOOM,
   type AddressSearchPlace,
   type MapAsset,
   type AssetLayerId,
@@ -626,7 +623,6 @@ export default function HuntingMap() {
   // Data overlays from the top bar — independent of the base map, stacked on top.
   const [showContours, setShowContours] = useState(false);
   const [showSlope, setShowSlope] = useState(false);
-  const [showPublicLand, setShowPublicLand] = useState(false);
   const [showWind, setShowWind] = useState(false);
   const [showMovement, setShowMovement] = useState(false);
   // One live-weather fetch feeds both the wind and movement overlays.
@@ -2088,15 +2084,13 @@ export default function HuntingMap() {
             showContours={showContours}
             contourNeedsZoomIn={showContours && mapZoom < CONTOUR_MIN_ZOOM}
             showSlope={showSlope}
-            showPublicLand={showPublicLand}
+            showPropertyOwners={showPropertyLines}
             showWind={showWind}
             showMovement={showMovement}
             onSelectLayer={setSelectedLayer}
             onToggleContours={() => setShowContours((current) => !current)}
             onToggleSlope={() => setShowSlope((current) => !current)}
-            onTogglePublicLand={() =>
-              setShowPublicLand((current) => !current)
-            }
+            onTogglePropertyOwners={togglePropertyLines}
             onToggleWind={toggleWind}
             onToggleMovement={toggleMovement}
           />
@@ -2198,18 +2192,6 @@ export default function HuntingMap() {
                 zIndex={650 + index}
               />
             ))}
-
-            {showPublicLand ? (
-              <CachedTileLayer
-                key="public-land-overlay"
-                attribution={PUBLIC_LAND_ATTRIBUTION}
-                url={PUBLIC_LAND_TILE_URL}
-                maxZoom={19}
-                maxNativeZoom={PUBLIC_LAND_MAX_NATIVE_ZOOM}
-                opacity={0.55}
-                zIndex={685}
-              />
-            ) : null}
 
             {showSlope ? (
               <WMSTileLayer

@@ -8,13 +8,13 @@ type MapTopBarProps = {
   showContours: boolean;
   contourNeedsZoomIn: boolean;
   showSlope: boolean;
-  showPublicLand: boolean;
+  showPropertyOwners: boolean;
   showWind: boolean;
   showMovement: boolean;
   onSelectLayer: (layerId: MapLayerId) => void;
   onToggleContours: () => void;
   onToggleSlope: () => void;
-  onTogglePublicLand: () => void;
+  onTogglePropertyOwners: () => void;
   onToggleWind: () => void;
   onToggleMovement: () => void;
 };
@@ -34,13 +34,13 @@ export default function MapTopBar({
   showContours,
   contourNeedsZoomIn,
   showSlope,
-  showPublicLand,
+  showPropertyOwners,
   showWind,
   showMovement,
   onSelectLayer,
   onToggleContours,
   onToggleSlope,
-  onTogglePublicLand,
+  onTogglePropertyOwners,
   onToggleWind,
   onToggleMovement,
 }: MapTopBarProps) {
@@ -98,14 +98,14 @@ export default function MapTopBar({
       <button
         type="button"
         role="switch"
-        aria-checked={showPublicLand}
+        aria-checked={showPropertyOwners}
         style={{
           ...pillStyle,
-          ...(showPublicLand ? activePublicLandPillStyle : null),
+          ...(showPropertyOwners ? activePropertyOwnersPillStyle : null),
         }}
-        onClick={onTogglePublicLand}
+        onClick={onTogglePropertyOwners}
       >
-        Public Land
+        Property & Owners
       </button>
 
       <button
@@ -200,7 +200,7 @@ const activePillStyle: CSSProperties = {
   color: "white",
 };
 
-const activePublicLandPillStyle: CSSProperties = {
+const activePropertyOwnersPillStyle: CSSProperties = {
   borderColor: "rgba(116, 199, 255, 0.6)",
   background: "#1d4e6b",
   color: "white",
