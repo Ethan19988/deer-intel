@@ -415,13 +415,15 @@ textarea {
   filter: brightness(0) invert(1) drop-shadow(0 0 0.8px rgba(0, 0, 0, 0.45));
 }
 
-/* The USGS labeled layer supplies the elevation numbers. Darken them to a bold
-   near-black and wrap them in a white halo so the small labels pop over the
-   imagery and stay readable where the white contour lines cross them. */
+/* The USGS index layer supplies the elevation numbers (and the index lines they
+   sit on). Recolor the brown ink to a light sky blue so the numbers read over
+   green/brown terrain, with a soft dark halo so they hold up over bright fields
+   or snow. The chain flattens the ink (brightness 0) then tints it toward blue;
+   values were solved to land on ~#7dbae2. */
 .di-contour-labels {
-  filter: brightness(0.42) contrast(1.9)
-    drop-shadow(0 0 1.2px rgba(255, 255, 255, 0.95))
-    drop-shadow(0 0 1.2px rgba(255, 255, 255, 0.9));
+  filter: brightness(0) invert(0.6) sepia(0.8) hue-rotate(160deg)
+    saturate(2.25) brightness(1.05) contrast(0.8)
+    drop-shadow(0 0 1px rgba(0, 0, 0, 0.6));
 }
 
 .di-map-frame .leaflet-control-scale {

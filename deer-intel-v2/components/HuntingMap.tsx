@@ -2270,13 +2270,12 @@ export default function HuntingMap() {
                   maxZoom={19}
                   superSample={4}
                 />
-                {/* Bold, white-haloed elevation numbers on top so they pop and
-                    stay readable where the white lines cross them. A low
-                    superSample (1.33 vs the ~2x detectRetina fetched before)
-                    means the browser upscales the tile on a retina screen,
-                    enlarging the numbers ~1.5x for readability. They ride on the
-                    index contour lines, so the layer is index-only to stay clean. */}
-                <SuperWMSTileLayer
+                {/* Elevation numbers, recolored light blue (di-contour-labels)
+                    so they read over the terrain. They ride on the index contour
+                    lines (index-only layer to stay clean); detectRetina keeps the
+                    layer thin and consistent on phone and desktop instead of
+                    upscaling it into thick lines on high-DPI screens. */}
+                <WMSTileLayer
                   key="contour-labels"
                   className="di-contour-labels"
                   url={CONTOUR_WMS_URL}
@@ -2288,7 +2287,7 @@ export default function HuntingMap() {
                   zIndex={696}
                   minZoom={CONTOUR_FINE_ZOOM}
                   maxZoom={19}
-                  superSample={1.33}
+                  detectRetina
                   attribution={CONTOUR_ATTRIBUTION}
                 />
               </>
