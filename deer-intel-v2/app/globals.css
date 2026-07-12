@@ -407,12 +407,16 @@ textarea {
   mix-blend-mode: multiply;
 }
 
-/* Recolor the 3DEP contour tiles to thin white lines: brightness(0) flattens
-   every opaque pixel to black, invert(1) flips it to white, and a soft, light
-   drop-shadow gives just enough edge to hold up over bright imagery without
-   thickening the now supersampled (smooth, anti-aliased) lines. */
-.di-contour-line-white {
-  filter: brightness(0) invert(1) drop-shadow(0 0 0.8px rgba(0, 0, 0, 0.45));
+/* Recolor the contour tiles to thin white lines. The filter goes on each tile
+   IMAGE, not the layer container: mobile Safari/Chrome drop a `filter` set on a
+   container whose tiles are GPU/3D-transformed (leaving the raw dark tiles — the
+   "black lines on mobile" bug), whereas filtering each <img> is reliable
+   everywhere. brightness(0) flattens every opaque pixel to black, invert(1)
+   flips it to white. (No drop-shadow: a per-tile shadow would seam at tile
+   edges, and dropping it keeps the filter maximally mobile-compatible.) */
+.di-contour-line-white .leaflet-tile {
+  -webkit-filter: brightness(0) invert(1);
+  filter: brightness(0) invert(1);
 }
 
 /* Elevation numbers are rendered as our own labels (ContourLabels), not baked
