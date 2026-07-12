@@ -419,6 +419,67 @@ textarea {
   filter: brightness(1.2) saturate(1.3);
 }
 
+/* Slope angle key — shown only while the Slope Angle overlay is on. A compact
+   gradient bar matching the USGS slope-map ramp (pale = flat → red = steep)
+   with steepness ticks, so the colors on the map read as slope angles. */
+.di-slope-legend {
+  position: absolute;
+  bottom: 2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: grid;
+  gap: 0.3rem;
+  justify-items: center;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1c2417;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.di-slope-legend-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #3a4432;
+}
+
+.di-slope-legend-bar {
+  width: 170px;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #f3edc0 0%,
+    #eeee1e 30%,
+    #f2b41c 60%,
+    #ef7a12 82%,
+    #d6441a 100%
+  );
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+}
+
+.di-slope-legend-ticks {
+  display: flex;
+  justify-content: space-between;
+  width: 170px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #3a4432;
+}
+
+/* On the full-screen mobile map, lift the key clear of the bottom control row
+   (property panel + Layers button) so it doesn't overlap them. */
+@media (max-width: 720px) {
+  .di-slope-legend {
+    bottom: calc(12.5rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
 /* Recolor the contour tiles to thin white lines. The filter goes on each tile
    IMAGE, not the layer container: mobile Safari/Chrome drop a `filter` set on a
    container whose tiles are GPU/3D-transformed (leaving the raw dark tiles — the
