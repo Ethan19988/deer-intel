@@ -1863,23 +1863,21 @@ export default function HuntingMap() {
     <div className="di-map-layout" style={mapLayoutStyle}>
       <div className="di-map-scout" style={scoutOverlayStyle}>
         <div style={scoutHeaderStyle}>
-          <label style={scoutFieldStyle}>
-            <span style={labelTextStyle}>Property</span>
-            <select
-              style={selectStyle}
-              value={selectedPropertyId}
-              onChange={(event) => selectProperty(event.target.value)}
-            >
-              {state.properties.length === 0 ? (
-                <option value="">No properties saved</option>
-              ) : null}
-              {state.properties.map((property) => (
-                <option key={property.id} value={property.id}>
-                  {property.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <select
+            aria-label="Property"
+            style={scoutSelectStyle}
+            value={selectedPropertyId}
+            onChange={(event) => selectProperty(event.target.value)}
+          >
+            {state.properties.length === 0 ? (
+              <option value="">No properties saved</option>
+            ) : null}
+            {state.properties.map((property) => (
+              <option key={property.id} value={property.id}>
+                {property.name}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             style={{
@@ -2660,44 +2658,50 @@ const scoutOverlayStyle: CSSProperties = {
   left: "1rem",
   bottom: "1.25rem",
   zIndex: 1100,
-  width: "min(340px, calc(100% - 2rem))",
+  width: "min(300px, calc(100% - 2rem))",
   maxHeight: "calc(100% - 2.5rem)",
   display: "grid",
-  gap: "0.75rem",
-  padding: "0.85rem",
+  gap: "0.5rem",
+  padding: "0.4rem",
   border: "1px solid rgba(255, 255, 255, 0.72)",
-  borderRadius: "12px",
+  borderRadius: "10px",
   background: "rgba(255, 255, 255, 0.96)",
   color: "var(--text)",
-  boxShadow: "0 12px 28px rgba(0, 0, 0, 0.22)",
+  boxShadow: "0 10px 24px rgba(0, 0, 0, 0.2)",
   overflow: "hidden",
 };
 
 const scoutHeaderStyle: CSSProperties = {
   display: "flex",
-  alignItems: "flex-end",
-  gap: "0.5rem",
+  alignItems: "center",
+  gap: "0.4rem",
 };
 
-const scoutFieldStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.4rem",
+const scoutSelectStyle: CSSProperties = {
   flex: 1,
   minWidth: 0,
+  minHeight: "34px",
+  padding: "0.3rem 0.45rem",
+  border: "1px solid var(--border)",
+  borderRadius: "8px",
+  background: "var(--surface)",
+  color: "var(--text)",
+  fontSize: "0.85rem",
+  fontWeight: 700,
 };
 
 const scoutToggleStyle: CSSProperties = {
   display: "inline-flex",
-  minHeight: "48px",
+  minHeight: "34px",
   alignItems: "center",
   justifyContent: "center",
-  padding: "0 0.9rem",
+  padding: "0 0.65rem",
   border: "1px solid var(--border)",
-  borderRadius: "var(--radius-sm)",
+  borderRadius: "8px",
   background: "var(--surface-2)",
   color: "var(--text)",
   cursor: "pointer",
-  fontSize: "0.9rem",
+  fontSize: "0.82rem",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
@@ -2721,16 +2725,6 @@ const labelTextStyle: CSSProperties = {
   color: "var(--text-muted)",
   fontSize: "0.85rem",
   fontWeight: 700,
-};
-
-const selectStyle: CSSProperties = {
-  minHeight: "48px",
-  width: "100%",
-  padding: "0.75rem",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius-sm)",
-  background: "var(--surface)",
-  color: "var(--text)",
 };
 
 const helpTextStyle: CSSProperties = {
