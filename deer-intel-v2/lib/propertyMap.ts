@@ -222,18 +222,24 @@ export type ContourSetting = "off" | "on";
 export const CONTOUR_WMS_URL =
   "https://carto.nationalmap.gov/arcgis/services/contours/MapServer/WMSServer";
 export const CONTOUR_WMS_ALL_LAYERS = "10,11,12,13,15,16,17,18";
-// Thin white contour lines come from the 3DEP DEM's on-the-fly 25-ft contours
-// (the same image service the slope overlay uses), recolored white via the
-// di-contour-line-white filter. It stacks ON TOP of the labeled USGS layer,
-// which supplies the elevation numbers in their native tan underneath.
+// Zoomed OUT, 25-ft lines pack into an unreadable white blur, so switch to a
+// sparse 100-ft-only overview (USGS index + intermediate contour lines) that
+// lets the map read through. Recolored white like the fine lines.
+export const CONTOUR_WMS_COARSE_LINES = "11,13";
+// Zoomed IN, thin white 25-ft lines come from the 3DEP DEM's on-the-fly
+// contours (same image service the slope overlay uses), recolored white via
+// the di-contour-line-white filter, with the labeled USGS layer stacked under
+// them for the elevation numbers.
 export const CONTOUR_FINE_WMS_URL =
   "https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WMSServer";
 export const CONTOUR_FINE_WMS_LAYER = "3DEPElevation:Contour 25";
 export const CONTOUR_ATTRIBUTION =
   "Contours &copy; USGS The National Map, 3DEP";
-// The 25-ft 3DEP contours don't render above ~1:30k, so hold the layer off
-// (and prompt the hunter to zoom in) until they kick in and read cleanly.
+// Below this web zoom, hold contours off (prompt the hunter to zoom in).
 export const CONTOUR_MIN_ZOOM = 14;
+// At/above this zoom, switch from the sparse 100-ft overview (with no numbers)
+// to the detailed 25-ft lines + elevation numbers.
+export const CONTOUR_FINE_ZOOM = 16;
 
 // USGS 3DEP elevation image service rendered on the fly as slope-in-degrees —
 // a color ramp that reads steepness (benches, shelves, access difficulty) the
