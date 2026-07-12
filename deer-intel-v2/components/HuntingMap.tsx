@@ -2446,28 +2446,6 @@ export default function HuntingMap() {
             onToggleOwnerNames={toggleOwnerNames}
           />
 
-          <div className="di-map-status" style={mapStatusStyle}>
-            <span style={mapStatusPillStyle}>{selectedMapLayer.label}</span>
-            {selectedMapLayer.isPlaceholder ? (
-              <span style={mapStatusPillStyle}>Topo provider placeholder</span>
-            ) : null}
-            {showPropertyLines ? (
-              <span style={mapStatusPillStyle}>Property Lines & Owners</span>
-            ) : null}
-            {ownerNamesEnabled ? (
-              <span style={mapStatusPillStyle}>Owner Names</span>
-            ) : null}
-            {offlinePacks.length > 0 ? (
-              <span style={mapStatusPillStyle}>
-                {offlinePacks.length} offline
-                {offlinePacks.length === 1 ? " map" : " maps"}
-              </span>
-            ) : null}
-            <span style={mapStatusPillStyle}>
-              {selectedAsset ? selectedAsset.label : "No asset selected"}
-            </span>
-          </div>
-
           {mapOverlayMessages.length > 0 ? (
             <div className="di-map-notice" style={propertyLinesNoticeStyle}>
               {mapOverlayMessages.join(" ")}
@@ -2856,30 +2834,6 @@ const compassTextStyle: CSSProperties = {
   color: "#111711",
   fontSize: "0.88rem",
   fontWeight: 900,
-};
-
-const mapStatusStyle: CSSProperties = {
-  position: "absolute",
-  left: "1rem",
-  bottom: "7rem",
-  zIndex: 1000,
-  display: "flex",
-  gap: "0.5rem",
-  flexWrap: "wrap",
-};
-
-const mapStatusPillStyle: CSSProperties = {
-  display: "inline-flex",
-  minHeight: "36px",
-  alignItems: "center",
-  padding: "0.45rem 0.7rem",
-  border: "1px solid rgba(255, 255, 255, 0.72)",
-  borderRadius: "999px",
-  background: "rgba(255, 255, 255, 0.92)",
-  color: "#111711",
-  fontSize: "0.86rem",
-  fontWeight: 800,
-  boxShadow: "0 10px 24px rgba(0, 0, 0, 0.18)",
 };
 
 const propertyLinesNoticeStyle: CSSProperties = {
