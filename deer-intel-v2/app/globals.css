@@ -404,7 +404,7 @@ textarea {
    satellite imagery. Darken and boost contrast so the lines read as crisp dark
    contours (and the elevation numbers stay legible) instead of vanishing. */
 .di-contour-bold {
-  filter: brightness(0.45) contrast(2.1) saturate(1.4);
+  filter: brightness(0.62) contrast(1.75) saturate(1.35);
 }
 
 .di-map-frame .leaflet-control-scale {
