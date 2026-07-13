@@ -972,9 +972,15 @@ textarea {
     font-size: 0.8rem !important;
   }
 
+  /* Sit below the relocated feature bar and stop short of the top-right
+     zoom/GPS control column. It used to run full width to right:0.75rem —
+     directly under that column — so with the dark feature bar (higher z-index)
+     covering its left half, only its right end peeked out, reading as a white
+     box sitting on top of the zoom buttons whenever Property & Owners added a
+     message. */
   .di-map-notice {
-    top: 4.7rem !important;
-    right: 0.75rem !important;
+    top: 8.75rem !important;
+    right: 5.5rem !important;
     left: 0.75rem !important;
     max-width: none !important;
   }
