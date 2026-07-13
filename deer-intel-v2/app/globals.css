@@ -862,8 +862,9 @@ textarea {
     top: 4.75rem !important;
     /* Line up with the search bar's left edge above it. */
     left: 0.75rem !important;
-    /* Leave room for the top-right gear + Layers button column. */
-    right: 5.5rem !important;
+    /* Clear the top-right gear + the "Layers" text button beneath it (~5rem
+       wide at right:0.75rem, so its left edge is ~5.9rem from the right). */
+    right: 7rem !important;
     justify-content: flex-start !important;
     touch-action: pan-x;
     overscroll-behavior-x: contain;
