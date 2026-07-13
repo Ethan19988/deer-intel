@@ -378,8 +378,12 @@ function MapControlButtons({
   onToggleFollow: (next: boolean) => void;
 }) {
   const map = useMap();
+  const [heading, setHeading] = useState<number | null>(null);
+  const [compassOn, setCompassOn] = useState(false);
+  const gpsTapTimerRef = useRef<number | null>(null);
+  const lastHeadingAtRef = useRef(0);
 
-  function handleGpsClick() {
+  function recenterAndFollow() {
     // Tap once to lock onto your live location; tap again to release.
     if (isFollowing) {
       onToggleFollow(false);
@@ -408,6 +412,105 @@ function MapControlButtons({
     onToggleFollow(true);
   }
 
+  // Single tap follows your location; a quick double tap toggles the live
+  // compass. A short timer tells the two apart so a double tap doesn't also
+  // trigger the follow.
+  function handleGpsTap() {
+    if (gpsTapTimerRef.current !== null) {
+      window.clearTimeout(gpsTapTimerRef.current);
+      gpsTapTimerRef.current = null;
+      void toggleCompass();
+      return;
+    }
+    gpsTapTimerRef.current = window.setTimeout(() => {
+      gpsTapTimerRef.current = null;
+      recenterAndFollow();
+    }, 280);
+  }
+
+  async function toggleCompass() {
+    if (compassOn) {
+      setCompassOn(false);
+      setHeading(null);
+      return;
+    }
+
+    // iOS 13+ only delivers compass data after an explicit grant, and the
+    // request has to come straight from this tap gesture.
+    const orientationApi = window.DeviceOrientationEvent as
+      | (typeof DeviceOrientationEvent & {
+          requestPermission?: () => Promise<"granted" | "denied" | "default">;
+        })
+      | undefined;
+
+    if (
+      orientationApi &&
+      typeof orientationApi.requestPermission === "function"
+    ) {
+      try {
+        const permission = await orientationApi.requestPermission();
+        if (permission !== "granted") {
+          alert("Compass permission was declined.");
+          return;
+        }
+      } catch {
+        alert("The compass isn't available on this device.");
+        return;
+      }
+    }
+
+    setCompassOn(true);
+  }
+
+  // While the compass is on, follow the device's heading. Prefer iOS's
+  // true-north webkitCompassHeading; otherwise use an absolute-orientation
+  // event's alpha (relative deviceorientation isn't tied to north, so skip it).
+  useEffect(() => {
+    if (!compassOn) return;
+
+    function onOrientation(event: DeviceOrientationEvent) {
+      const now = Date.now();
+      if (now - lastHeadingAtRef.current < 80) return;
+
+      const iosHeading = (
+        event as DeviceOrientationEvent & { webkitCompassHeading?: number }
+      ).webkitCompassHeading;
+
+      let next: number | null = null;
+      if (typeof iosHeading === "number" && !Number.isNaN(iosHeading)) {
+        next = iosHeading;
+      } else if (event.absolute && typeof event.alpha === "number") {
+        next = 360 - event.alpha;
+      }
+
+      if (next === null) return;
+      lastHeadingAtRef.current = now;
+      setHeading(Math.round(((next % 360) + 360) % 360));
+    }
+
+    window.addEventListener(
+      "deviceorientationabsolute",
+      onOrientation as EventListener,
+      true,
+    );
+    window.addEventListener("deviceorientation", onOrientation, true);
+    return () => {
+      window.removeEventListener(
+        "deviceorientationabsolute",
+        onOrientation as EventListener,
+        true,
+      );
+      window.removeEventListener("deviceorientation", onOrientation, true);
+    };
+  }, [compassOn]);
+
+  const facingCardinal =
+    heading === null
+      ? null
+      : ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][
+          Math.round(heading / 45) % 8
+        ];
+
   return (
     <div
       className="di-map-controls"
@@ -435,14 +538,44 @@ function MapControlButtons({
       </button>
       {showCompass ? (
         <div
-          aria-label="Compass north indicator"
+          aria-label={
+            compassOn && heading !== null
+              ? `Facing ${facingCardinal}, ${heading} degrees`
+              : "Compass north indicator"
+          }
           className="di-map-control-button di-map-compass"
           role="img"
-          style={{ ...mapControlButtonStyle, ...compassButtonStyle }}
-          title="Compass"
+          style={{
+            ...mapControlButtonStyle,
+            ...compassButtonStyle,
+            ...(compassOn ? compassActiveStyle : null),
+          }}
+          title={
+            compassOn
+              ? heading !== null
+                ? `Facing ${facingCardinal} · ${heading}°`
+                : "Reading compass…"
+              : "Double-tap GPS to point the compass the way you're facing"
+          }
         >
-          <span style={compassNeedleStyle}>^</span>
-          <span style={compassTextStyle}>N</span>
+          {compassOn && heading !== null ? (
+            <>
+              <span
+                style={{
+                  ...compassArrowStyle,
+                  transform: `rotate(${heading}deg)`,
+                }}
+              >
+                ▲
+              </span>
+              <span style={compassFacingStyle}>{facingCardinal}</span>
+            </>
+          ) : (
+            <>
+              <span style={compassNeedleStyle}>^</span>
+              <span style={compassTextStyle}>N</span>
+            </>
+          )}
         </div>
       ) : null}
       {showGps ? (
@@ -458,7 +591,7 @@ function MapControlButtons({
             ...gpsButtonStyle,
             ...(isFollowing ? gpsButtonActiveStyle : null),
           }}
-          onClick={handleGpsClick}
+          onClick={handleGpsTap}
         >
           GPS
         </button>
@@ -2856,6 +2989,29 @@ const compassTextStyle: CSSProperties = {
   color: "#111711",
   fontSize: "0.88rem",
   fontWeight: 900,
+};
+
+// Live-heading arrow: points the way you're facing on the north-up map, so it
+// rotates by the device heading. A short transition keeps the spin smooth.
+const compassArrowStyle: CSSProperties = {
+  color: "#c2410c",
+  fontSize: "1.15rem",
+  lineHeight: 1,
+  transformOrigin: "center",
+  transition: "transform 0.12s ease-out",
+};
+
+const compassFacingStyle: CSSProperties = {
+  marginTop: "-0.05rem",
+  color: "#111711",
+  fontSize: "0.72rem",
+  fontWeight: 900,
+  letterSpacing: "0.02em",
+};
+
+const compassActiveStyle: CSSProperties = {
+  borderColor: "#c2410c",
+  background: "#fff4ec",
 };
 
 const propertyLinesNoticeStyle: CSSProperties = {
