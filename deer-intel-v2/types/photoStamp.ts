@@ -9,8 +9,23 @@ export type PhotoStamp = {
   moonPhase: string;
   // Main animal in the photo as one of the app's species options, else "".
   species: string;
-  // Short description of what was seen (e.g. "8-point buck at a scrape"), else "".
+  // What the animal is doing (e.g. "Chasing", "Feeding", "Traveling"), else "".
+  behavior: string;
+  // Behavior-led hunting read of what was seen (e.g. "Chasing — mature buck
+  // pushing a doe, rut movement"), else "".
   animalNotes: string;
+  // When the buck matches one of the property's saved deer profiles: the
+  // profile's id and how sure the match is; both "" when no match.
+  matchedProfileId: string;
+  matchConfidence: "" | "possible" | "likely";
+};
+
+// What the client sends so vision can recognize individual bucks: the saved
+// deer profiles' names and distinguishing characteristics.
+export type KnownBuckSummary = {
+  id: string;
+  name: string;
+  description: string;
 };
 
 export type PhotoStampStatusResponse = {

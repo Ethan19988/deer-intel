@@ -63,6 +63,9 @@ type ImportDraft = {
   // Kept separate from `species` so the badge still shows the AI's call after
   // the hunter adjusts the dropdown.
   aiSpecies: string;
+  aiBehavior: string;
+  // "Big 8 (likely)" when the AI matched a saved deer profile, else "".
+  aiMatchLabel: string;
   // The stored (resized) image blob's id and dimensions; "" / 0 when storing
   // the image failed and the record will be metadata-only.
   imageId: string;
@@ -170,6 +173,16 @@ export default function CameraImportPage() {
 
     setMessage("Saving photos and reading their dates and stamps…");
 
+    // The saved deer profiles' descriptions let vision recognize individual
+    // bucks by their characteristics.
+    const knownBucks = deerProfiles.map((profile) => ({
+      id: profile.id,
+      name: profile.nickname,
+      description: [profile.estimatedAge, profile.notes]
+        .filter(Boolean)
+        .join(" — "),
+    }));
+
     // Store each image (resized, in IndexedDB) and read its EXIF capture time
     // plus the info bar the camera printed on it (vision, when configured).
     // This must all happen now — the File objects are not kept once staged.
@@ -177,21 +190,29 @@ export default function CameraImportPage() {
       files.map(async (file) => {
         const [exifDate, stamp, storedImage] = await Promise.all([
           readPhotoDateTimeInput(file),
-          requestPhotoStamp(file, units.temperature),
+          requestPhotoStamp(file, units.temperature, knownBucks),
           storeImportImage(file),
         ]);
+        const matchedProfile = stamp?.matchedProfileId
+          ? deerProfiles.find((profile) => profile.id === stamp.matchedProfileId)
+          : undefined;
 
         return createImportDraft({
           file,
           // The AI's identification pre-fills the species; the hunter can
           // change it on the draft card before creating records.
           species: stamp?.species || defaultSpecies,
-          deerProfileId: defaultDeerProfileId,
+          deerProfileId: matchedProfile?.id || defaultDeerProfileId,
+          buckName: matchedProfile?.nickname ?? "",
           exifDate,
           stampDate: stamp?.dateTime ?? "",
           stampedTemperature: stamp?.temperature ?? "",
           stampedMoonPhase: stamp?.moonPhase ?? "",
           aiSpecies: stamp?.species ?? "",
+          aiBehavior: stamp?.behavior ?? "",
+          aiMatchLabel: matchedProfile
+            ? `${matchedProfile.nickname}${stamp?.matchConfidence ? ` (${stamp.matchConfidence})` : ""}`
+            : "",
           animalNotes: stamp?.animalNotes ?? "",
           imageId: storedImage?.imageId ?? "",
           imageWidth: storedImage?.width ?? 0,
@@ -610,7 +631,15 @@ export default function CameraImportPage() {
                   </label>
                   <div style={draftBadgeRowStyle}>
                     {draft.aiSpecies ? (
-                      <Badge variant="success">AI saw: {draft.aiSpecies}</Badge>
+                      <Badge variant="success">
+                        AI saw: {draft.aiSpecies}
+                        {draft.aiBehavior ? ` — ${draft.aiBehavior}` : ""}
+                      </Badge>
+                    ) : null}
+                    {draft.aiMatchLabel ? (
+                      <Badge variant="warning">
+                        Looks like: {draft.aiMatchLabel}
+                      </Badge>
                     ) : null}
                     <Badge>{draft.species || "Species needed"}</Badge>
                   </div>
@@ -769,11 +798,14 @@ function createImportDraft({
   file,
   species,
   deerProfileId,
+  buckName,
   exifDate,
   stampDate,
   stampedTemperature,
   stampedMoonPhase,
   aiSpecies,
+  aiBehavior,
+  aiMatchLabel,
   animalNotes,
   imageId,
   imageWidth,
@@ -782,11 +814,14 @@ function createImportDraft({
   file: File;
   species: string;
   deerProfileId: string;
+  buckName: string;
   exifDate: string;
   stampDate: string;
   stampedTemperature: string;
   stampedMoonPhase: string;
   aiSpecies: string;
+  aiBehavior: string;
+  aiMatchLabel: string;
   animalNotes: string;
   imageId: string;
   imageWidth: number;
@@ -802,7 +837,7 @@ function createImportDraft({
     metadataSource: metadata.metadataSource,
     species,
     deerProfileId,
-    buckName: "",
+    buckName,
     // Seed the notes with what the AI saw so it lands on the record; the
     // hunter can edit or clear it on the draft card.
     notes: animalNotes || "Imported through Camera Import Inbox.",
@@ -810,6 +845,8 @@ function createImportDraft({
     stampedTemperature,
     stampedMoonPhase,
     aiSpecies,
+    aiBehavior,
+    aiMatchLabel,
     imageId,
     imageWidth,
     imageHeight,

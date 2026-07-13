@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  KnownBuckSummary,
   PhotoStamp,
   PhotoStampStatusResponse,
 } from "@/types/photoStamp";
@@ -42,6 +43,7 @@ function isConfigured(): Promise<boolean> {
 export async function requestPhotoStamp(
   file: File,
   unit: "F" | "C",
+  knownBucks: KnownBuckSummary[] = [],
 ): Promise<PhotoStamp | null> {
   if (!(await isConfigured())) return null;
 
@@ -60,6 +62,7 @@ export async function requestPhotoStamp(
         imageBase64: cropped.base64,
         mediaType: cropped.mediaType,
         unit,
+        knownBucks,
       }),
       signal: controller.signal,
     });

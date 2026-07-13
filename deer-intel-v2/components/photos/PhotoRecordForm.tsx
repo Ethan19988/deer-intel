@@ -50,6 +50,16 @@ export default function PhotoRecordForm({
     });
   }
 
+  // The saved deer profiles' descriptions let vision recognize individual
+  // bucks by their characteristics.
+  const knownBucks = deerProfiles.map((profile) => ({
+    id: profile.id,
+    name: profile.nickname,
+    description: [profile.estimatedAge, profile.notes]
+      .filter(Boolean)
+      .join(" — "),
+  }));
+
   function handleImageSelected(image: SelectedPhotoImage) {
     // The photo's own capture date (EXIF) is the most trustworthy source, then
     // the file's date; either wins over the default so the date matches the
@@ -67,9 +77,16 @@ export default function PhotoRecordForm({
       stampedTemperature: image.stampedTemperature,
       stampedMoonPhase: image.stampedMoonPhase,
       // Pre-select what the AI saw; anything the hunter already picked or
-      // typed stays untouched, and both stay editable before submitting.
+      // typed stays untouched, and everything stays editable before submitting.
       species: values.species || image.detectedSpecies,
       notes: values.notes.trim() ? values.notes : image.detectedNotes,
+      deerProfileId: values.deerProfileId || image.matchedProfileId,
+      buckName:
+        values.buckName.trim() ||
+        (image.matchedProfileId
+          ? deerProfiles.find((profile) => profile.id === image.matchedProfileId)
+              ?.nickname ?? ""
+          : ""),
     });
   }
 
@@ -96,6 +113,7 @@ export default function PhotoRecordForm({
           <span style={labelStyle}>Photo</span>
           <PhotoUploadField
             imageId={values.imageId}
+            knownBucks={knownBucks}
             onImageSelected={handleImageSelected}
             onImageCleared={handleImageCleared}
           />

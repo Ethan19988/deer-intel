@@ -9,6 +9,7 @@ import { deletePhotoImage, putPhotoImage } from "@/lib/imageStore";
 import { readPhotoDateTimeInput } from "@/lib/photoExif";
 import { requestPhotoStamp } from "@/lib/photoStampClient";
 import { useUnitPreferences } from "@/lib/units";
+import type { KnownBuckSummary } from "@/types/photoStamp";
 
 export type SelectedPhotoImage = {
   imageId: string;
@@ -24,16 +25,22 @@ export type SelectedPhotoImage = {
   // Animal the AI identified in the frame, or "" if none / not configured.
   detectedSpecies: string;
   detectedNotes: string;
+  // Saved deer profile the AI matched the buck to, or "" if no match.
+  matchedProfileId: string;
+  matchConfidence: string;
 };
 
 type PhotoUploadFieldProps = {
   imageId: string;
+  // Saved deer profiles the AI compares a photographed buck against.
+  knownBucks?: KnownBuckSummary[];
   onImageSelected: (image: SelectedPhotoImage) => void;
   onImageCleared: () => void;
 };
 
 export default function PhotoUploadField({
   imageId,
+  knownBucks = [],
   onImageSelected,
   onImageCleared,
 }: PhotoUploadFieldProps) {
@@ -80,7 +87,7 @@ export default function PhotoUploadField({
       // Read the date/temp/moon printed on the photo (opt-in, when configured).
       // Returns null and falls back to EXIF + weather lookup otherwise.
       setStatusText("Reading photo info…");
-      const stamp = await requestPhotoStamp(file, units.temperature);
+      const stamp = await requestPhotoStamp(file, units.temperature, knownBucks);
 
       onImageSelected({
         imageId: newImageId,
@@ -93,6 +100,8 @@ export default function PhotoUploadField({
         stampedMoonPhase: stamp?.moonPhase ?? "",
         detectedSpecies: stamp?.species ?? "",
         detectedNotes: stamp?.animalNotes ?? "",
+        matchedProfileId: stamp?.matchedProfileId ?? "",
+        matchConfidence: stamp?.matchConfidence ?? "",
       });
     } catch (caughtError) {
       setError(

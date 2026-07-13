@@ -1,4 +1,4 @@
-import type { PhotoStamp } from "@/types/photoStamp";
+import type { KnownBuckSummary, PhotoStamp } from "@/types/photoStamp";
 
 // Server-only module: reads process.env.ANTHROPIC_API_KEY directly, so this must
 // only ever be imported from a Route Handler (app/api/**/route.ts), never from a
@@ -27,6 +27,17 @@ const SPECIES_VALUES = [
   "Other",
 ] as const;
 
+// What the animal is doing — the movement intel a hunter patterns deer with.
+const BEHAVIOR_VALUES = [
+  "Traveling",
+  "Feeding",
+  "Chasing",
+  "At scrape or rub",
+  "Bedded",
+  "Alert",
+  "Other",
+] as const;
+
 export type PhotoStampUnit = "F" | "C";
 
 export function isPhotoVisionConfigured() {
@@ -43,8 +54,25 @@ export class PhotoVisionError extends Error {
   }
 }
 
-function buildTool(unit: PhotoStampUnit) {
+function buildTool(unit: PhotoStampUnit, knownBucks: KnownBuckSummary[]) {
   const unitLabel = unit === "C" ? "Celsius" : "Fahrenheit";
+  const matchProperties =
+    knownBucks.length > 0
+      ? {
+          matchedBuckId: {
+            type: "string",
+            enum: [...knownBucks.map((buck) => buck.id), ""],
+            description:
+              "The id of the known buck this animal matches, based on antler configuration and body characteristics genuinely aligning with that buck's description. Empty string when the animal is not a buck, no description fits, or the descriptions are too thin to compare.",
+          },
+          matchConfidence: {
+            type: "string",
+            enum: ["likely", "possible", ""],
+            description:
+              '"likely" when multiple distinguishing characteristics align, "possible" when it plausibly fits but key details are unclear. Empty when no match is reported.',
+          },
+        }
+      : {};
 
   return {
     name: STAMP_TOOL_NAME,
@@ -64,10 +92,16 @@ function buildTool(unit: PhotoStampUnit) {
           description:
             'The main animal visible in the photo. "Buck" is a deer with visible antlers, "Doe" an adult deer without antlers, "Fawn" a young deer. Use "Other" for any other animal or a person/vehicle. Empty string if no animal is clearly visible.',
         },
+        behavior: {
+          type: "string",
+          enum: [...BEHAVIOR_VALUES, ""],
+          description:
+            "What the main animal is doing in the frame. Empty string if no animal is visible or the behavior is unclear.",
+        },
         animalNotes: {
           type: "string",
           description:
-            'A short factual description of the animal(s) seen, e.g. "8-point buck at a scrape" or "two does feeding". Empty string if no animal is visible. Never speculate beyond what is visible.',
+            'One or two short sentences leading with the behavior and its hunting meaning, e.g. "Chasing — mature buck pushing a doe hard, rut movement" or "Traveling — buck on a steady walk along the trail; at this early-morning hour likely headed back to bedding". Empty string if no animal is visible.',
         },
         date: {
           type: "string",
@@ -88,17 +122,24 @@ function buildTool(unit: PhotoStampUnit) {
           description:
             'The moon phase printed or shown as an icon on the photo, in words (e.g. "Full", "Waning gibbous", "New"). Empty string if none is shown.',
         },
+        ...matchProperties,
       },
       required: ["found"],
     },
   };
 }
 
-const SYSTEM_PROMPT = `You analyze trail camera photos for a hunting app. Two jobs:
+const SYSTEM_PROMPT = `You analyze trail camera photos for a hunting app. Your jobs:
 
 1. Read the data overlay the camera printed onto the photo — usually a bar along the bottom edge showing the date, time, temperature, moon phase, and sometimes a camera name or barometric pressure. Extract ONLY values that are clearly legible. Do not infer or guess a value that is not printed. If there is no printed overlay, report found = false.
 
-2. Identify the main animal in the frame, if any. A whitetail deer with visible antlers is a "Buck"; an adult deer without visible antlers is a "Doe"; a young deer (small body, possibly spotted) is a "Fawn". Report "Other" for any animal outside the list (or a person/vehicle), and an empty species if nothing is clearly visible. Describe what you see briefly and factually in animalNotes (count, antler points if countable, behavior).
+2. Identify the main animal in the frame, if any. A whitetail deer with visible antlers is a "Buck"; an adult deer without visible antlers is a "Doe"; a young deer (small body, possibly spotted) is a "Fawn". Report "Other" for any animal outside the list (or a person/vehicle), and an empty species if nothing is clearly visible.
+
+3. Read the animal's BEHAVIOR — this is the intel a hunter patterns deer with. Classify it (Traveling / Feeding / Chasing / At scrape or rub / Bedded / Alert) from body language: head down grazing = Feeding; steady purposeful walk, head level = Traveling; neck extended low behind another deer, running posture = Chasing (rut); working an overhanging branch or pawing dirt = At scrape or rub; lying down = Bedded; head up, ears forward, staring = Alert.
+
+Write animalNotes as one or two short sentences that LEAD with the behavior and say what it means for hunting. Use the time printed on the info bar for movement context: deer photographed traveling in early morning are usually returning to bedding; in late afternoon or evening, heading out to feed; midday movement during the rut means cruising for does. Examples: "Chasing — mature buck pushing a doe hard, rut is on." / "Traveling — 8-point on a steady walk at 6:40 AM, likely returning to bedding." / "Feeding — two does relaxed in the plot at last light." Count animals and antler points when countable. Never invent details you cannot see.
+
+4. When the user message lists known bucks for this property, compare a photographed buck against each one's described characteristics — antler point count, rack shape (spread, tine length, drop tines, kickers, broken sides), and body marks (scars, ear notches, coloration). Report matchedBuckId ONLY when the visible characteristics genuinely align with one buck's description; use matchConfidence "likely" for a strong multi-feature match and "possible" for a plausible but partial one. When descriptions are too vague to distinguish, or the animal is not a buck, report no match. A wrong match pollutes a season of data — being unsure is the correct answer.
 
 Always respond by calling the ${STAMP_TOOL_NAME} tool.`;
 
@@ -106,6 +147,7 @@ export async function readPhotoStamp(
   imageBase64: string,
   mediaType: string,
   unit: PhotoStampUnit,
+  knownBucks: KnownBuckSummary[] = [],
 ): Promise<PhotoStamp | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -146,12 +188,12 @@ export async function readPhotoStamp(
               },
               {
                 type: "text",
-                text: "Read the printed info bar on this trail camera photo and identify the animal in the frame, then report both.",
+                text: buildUserText(knownBucks),
               },
             ],
           },
         ],
-        tools: [buildTool(unit)],
+        tools: [buildTool(unit, knownBucks)],
         tool_choice: { type: "tool", name: STAMP_TOOL_NAME },
       }),
     });
@@ -199,10 +241,29 @@ export async function readPhotoStamp(
 
   if (!toolUseBlock) return null;
 
-  return normalizeStamp(toolUseBlock.input);
+  return normalizeStamp(toolUseBlock.input, knownBucks);
 }
 
-function normalizeStamp(rawInput: unknown): PhotoStamp | null {
+function buildUserText(knownBucks: KnownBuckSummary[]): string {
+  const base =
+    "Read the printed info bar on this trail camera photo and identify the animal in the frame, then report both.";
+
+  if (knownBucks.length === 0) return base;
+
+  const buckLines = knownBucks
+    .map(
+      (buck) =>
+        `- id "${buck.id}" — ${buck.name}: ${buck.description || "no description saved"}`,
+    )
+    .join("\n");
+
+  return `${base}\n\nKnown bucks on this property (match only when characteristics genuinely align):\n${buckLines}`;
+}
+
+function normalizeStamp(
+  rawInput: unknown,
+  knownBucks: KnownBuckSummary[],
+): PhotoStamp | null {
   if (!rawInput || typeof rawInput !== "object") return null;
 
   const input = rawInput as {
@@ -212,7 +273,10 @@ function normalizeStamp(rawInput: unknown): PhotoStamp | null {
     temperature?: unknown;
     moonPhase?: unknown;
     species?: unknown;
+    behavior?: unknown;
     animalNotes?: unknown;
+    matchedBuckId?: unknown;
+    matchConfidence?: unknown;
   };
 
   // The stamp trio only counts when the model confirmed a printed overlay;
@@ -222,8 +286,23 @@ function normalizeStamp(rawInput: unknown): PhotoStamp | null {
   const time = hasOverlay ? cleanTime(asString(input.time)) : "";
   const temperature = hasOverlay ? cleanNumber(asString(input.temperature)) : "";
   const moonPhase = hasOverlay ? asString(input.moonPhase).trim() : "";
-  const species = cleanSpecies(asString(input.species));
-  const animalNotes = asString(input.animalNotes).trim().slice(0, 200);
+  const species = cleanListedValue(asString(input.species), SPECIES_VALUES);
+  const behavior = cleanListedValue(asString(input.behavior), BEHAVIOR_VALUES);
+  const animalNotes = asString(input.animalNotes).trim().slice(0, 300);
+
+  // A profile match only stands when the animal is a buck, the id is one we
+  // actually offered, and a confidence came with it.
+  const rawMatchId = asString(input.matchedBuckId).trim();
+  const rawConfidence = asString(input.matchConfidence).trim();
+  const matchIsValid =
+    species === "Buck" &&
+    rawMatchId !== "" &&
+    knownBucks.some((buck) => buck.id === rawMatchId) &&
+    (rawConfidence === "likely" || rawConfidence === "possible");
+  const matchedProfileId = matchIsValid ? rawMatchId : "";
+  const matchConfidence = matchIsValid
+    ? (rawConfidence as "likely" | "possible")
+    : "";
 
   const dateTime = date ? (time ? `${date}T${time}` : date) : "";
 
@@ -231,13 +310,25 @@ function normalizeStamp(rawInput: unknown): PhotoStamp | null {
     return null;
   }
 
-  return { dateTime, temperature, moonPhase, species, animalNotes };
+  return {
+    dateTime,
+    temperature,
+    moonPhase,
+    species,
+    behavior,
+    animalNotes,
+    matchedProfileId,
+    matchConfidence,
+  };
 }
 
-function cleanSpecies(value: string): string {
+function cleanListedValue(
+  value: string,
+  allowed: readonly string[],
+): string {
   const trimmed = value.trim();
 
-  return (SPECIES_VALUES as readonly string[]).includes(trimmed) ? trimmed : "";
+  return allowed.includes(trimmed) ? trimmed : "";
 }
 
 function asString(value: unknown): string {
