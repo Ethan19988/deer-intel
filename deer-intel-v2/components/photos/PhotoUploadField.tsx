@@ -21,6 +21,9 @@ export type SelectedPhotoImage = {
   // Temperature / moon read off the photo's printed info bar, or "" if none.
   stampedTemperature: string;
   stampedMoonPhase: string;
+  // Animal the AI identified in the frame, or "" if none / not configured.
+  detectedSpecies: string;
+  detectedNotes: string;
 };
 
 type PhotoUploadFieldProps = {
@@ -88,6 +91,8 @@ export default function PhotoUploadField({
         capturedAt: exifDate || stamp?.dateTime || "",
         stampedTemperature: stamp?.temperature ?? "",
         stampedMoonPhase: stamp?.moonPhase ?? "",
+        detectedSpecies: stamp?.species ?? "",
+        detectedNotes: stamp?.animalNotes ?? "",
       });
     } catch (caughtError) {
       setError(
@@ -162,7 +167,8 @@ export default function PhotoUploadField({
           </span>
           <span style={dropHintStyle}>
             Tap to choose from your library or take a photo. The date, temp, and
-            moon printed on the photo are read in automatically.
+            moon printed on the photo are read in automatically, and the animal
+            is identified for you to confirm.
           </span>
         </button>
       )}

@@ -5,14 +5,15 @@ import type {
   PhotoStampStatusResponse,
 } from "@/types/photoStamp";
 
-// Client side of the photo-stamp reader. It only ever uploads a small cropped
-// strip of the info bar (not the whole scene), and only when the deployment has
-// the AI key configured — checked once per session and cached.
+// Client side of the photo reader. It uploads a downscaled copy of the whole
+// photo — the AI reads the printed info bar AND identifies the animal in the
+// frame — and only when the deployment has the AI key configured, checked once
+// per session and cached.
 
-// Fraction of the image height (from the bottom) that holds the info bar.
-const INFO_BAR_FRACTION = 0.22;
-const MAX_STRIP_WIDTH = 1024;
-const REQUEST_TIMEOUT_MS = 20_000;
+// Longest edge sent to vision; enough to read stamp text and count points
+// without uploading multi-megabyte originals.
+const MAX_EDGE_PIXELS = 1568;
+const REQUEST_TIMEOUT_MS = 30_000;
 
 let configuredPromise: Promise<boolean> | null = null;
 
@@ -33,9 +34,10 @@ function isConfigured(): Promise<boolean> {
 }
 
 /**
- * Read the date/time/temp/moon printed on a trail-cam photo. Returns null when
- * reading is unavailable, the crop fails, or nothing legible was found — callers
- * fall back to EXIF and the weather lookup.
+ * Read a trail-cam photo: the date/time/temp/moon printed on its info bar plus
+ * an identification of the animal in the frame. Returns null when reading is
+ * unavailable or nothing was found — callers fall back to EXIF, the weather
+ * lookup, and manual species entry.
  */
 export async function requestPhotoStamp(
   file: File,
@@ -43,7 +45,7 @@ export async function requestPhotoStamp(
 ): Promise<PhotoStamp | null> {
   if (!(await isConfigured())) return null;
 
-  const cropped = await cropInfoBar(file).catch(() => null);
+  const cropped = await prepareVisionImage(file).catch(() => null);
 
   if (!cropped) return null;
 
@@ -74,9 +76,11 @@ export async function requestPhotoStamp(
   }
 }
 
-type CroppedStrip = { base64: string; mediaType: string };
+type VisionImage = { base64: string; mediaType: string };
 
-async function cropInfoBar(file: File): Promise<CroppedStrip | null> {
+// Downscale the whole photo for vision: the full frame is needed to identify
+// the animal, and the info bar stays legible at this size.
+async function prepareVisionImage(file: File): Promise<VisionImage | null> {
   if (!file.type.startsWith("image/")) return null;
 
   const objectUrl = URL.createObjectURL(file);
@@ -88,29 +92,21 @@ async function cropInfoBar(file: File): Promise<CroppedStrip | null> {
 
     if (!sourceWidth || !sourceHeight) return null;
 
-    const stripHeight = Math.max(1, Math.round(sourceHeight * INFO_BAR_FRACTION));
-    const scale = Math.min(1, MAX_STRIP_WIDTH / sourceWidth);
+    const scale = Math.min(
+      1,
+      MAX_EDGE_PIXELS / Math.max(sourceWidth, sourceHeight),
+    );
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(sourceWidth * scale));
-    canvas.height = Math.max(1, Math.round(stripHeight * scale));
+    canvas.height = Math.max(1, Math.round(sourceHeight * scale));
 
     const context = canvas.getContext("2d");
 
     if (!context) return null;
 
-    context.drawImage(
-      image,
-      0,
-      sourceHeight - stripHeight,
-      sourceWidth,
-      stripHeight,
-      0,
-      0,
-      canvas.width,
-      canvas.height,
-    );
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
     const base64 = dataUrl.split(",")[1] ?? "";
 
     return base64 ? { base64, mediaType: "image/jpeg" } : null;

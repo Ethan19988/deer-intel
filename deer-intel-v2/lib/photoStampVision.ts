@@ -4,8 +4,9 @@ import type { PhotoStamp } from "@/types/photoStamp";
 // only ever be imported from a Route Handler (app/api/**/route.ts), never from a
 // "use client" component or anything that ends up in the browser bundle.
 //
-// It sends a small cropped strip of a trail-camera photo (the printed info bar)
-// to Claude vision and extracts the stamped date, time, temperature, and moon.
+// It sends a downscaled trail-camera photo to Claude vision and extracts the
+// stamped date, time, temperature, and moon from the printed info bar, plus an
+// identification of the animal in the frame (buck, doe, bear, ...).
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -14,6 +15,17 @@ const ANTHROPIC_VERSION = "2023-06-01";
 const DEFAULT_MODEL = "claude-sonnet-4-5-20250929";
 
 const STAMP_TOOL_NAME = "submit_photo_stamp";
+
+// Must match the SPECIES_OPTIONS the photo forms offer.
+const SPECIES_VALUES = [
+  "Buck",
+  "Doe",
+  "Fawn",
+  "Turkey",
+  "Bear",
+  "Coyote",
+  "Other",
+] as const;
 
 export type PhotoStampUnit = "F" | "C";
 
@@ -37,7 +49,7 @@ function buildTool(unit: PhotoStampUnit) {
   return {
     name: STAMP_TOOL_NAME,
     description:
-      "Report the data printed on the trail camera photo's info bar. Only report values that are clearly printed on the image; never guess.",
+      "Report the data printed on the trail camera photo's info bar and the animal seen in the frame. Only report values that are clearly visible; never guess.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -45,6 +57,17 @@ function buildTool(unit: PhotoStampUnit) {
           type: "boolean",
           description:
             "True only if a printed data/info bar with any of these values is actually visible on the image.",
+        },
+        species: {
+          type: "string",
+          enum: [...SPECIES_VALUES, ""],
+          description:
+            'The main animal visible in the photo. "Buck" is a deer with visible antlers, "Doe" an adult deer without antlers, "Fawn" a young deer. Use "Other" for any other animal or a person/vehicle. Empty string if no animal is clearly visible.',
+        },
+        animalNotes: {
+          type: "string",
+          description:
+            'A short factual description of the animal(s) seen, e.g. "8-point buck at a scrape" or "two does feeding". Empty string if no animal is visible. Never speculate beyond what is visible.',
         },
         date: {
           type: "string",
@@ -71,7 +94,13 @@ function buildTool(unit: PhotoStampUnit) {
   };
 }
 
-const SYSTEM_PROMPT = `You read the data overlay that trail cameras print onto their photos — usually a bar along the bottom edge showing the date, time, temperature, moon phase, and sometimes a camera name or barometric pressure. Extract ONLY the values that are clearly legible on the image. Do not infer or guess any value that is not printed. If the image has no such printed overlay, report found = false. Always respond by calling the ${STAMP_TOOL_NAME} tool.`;
+const SYSTEM_PROMPT = `You analyze trail camera photos for a hunting app. Two jobs:
+
+1. Read the data overlay the camera printed onto the photo — usually a bar along the bottom edge showing the date, time, temperature, moon phase, and sometimes a camera name or barometric pressure. Extract ONLY values that are clearly legible. Do not infer or guess a value that is not printed. If there is no printed overlay, report found = false.
+
+2. Identify the main animal in the frame, if any. A whitetail deer with visible antlers is a "Buck"; an adult deer without visible antlers is a "Doe"; a young deer (small body, possibly spotted) is a "Fawn". Report "Other" for any animal outside the list (or a person/vehicle), and an empty species if nothing is clearly visible. Describe what you see briefly and factually in animalNotes (count, antler points if countable, behavior).
+
+Always respond by calling the ${STAMP_TOOL_NAME} tool.`;
 
 export async function readPhotoStamp(
   imageBase64: string,
@@ -117,7 +146,7 @@ export async function readPhotoStamp(
               },
               {
                 type: "text",
-                text: "Read the printed info bar on this trail camera photo and report its values.",
+                text: "Read the printed info bar on this trail camera photo and identify the animal in the frame, then report both.",
               },
             ],
           },
@@ -182,20 +211,33 @@ function normalizeStamp(rawInput: unknown): PhotoStamp | null {
     time?: unknown;
     temperature?: unknown;
     moonPhase?: unknown;
+    species?: unknown;
+    animalNotes?: unknown;
   };
 
-  if (input.found !== true) return null;
-
-  const date = cleanDate(asString(input.date));
-  const time = cleanTime(asString(input.time));
-  const temperature = cleanNumber(asString(input.temperature));
-  const moonPhase = asString(input.moonPhase).trim();
+  // The stamp trio only counts when the model confirmed a printed overlay;
+  // the animal identification stands on its own either way.
+  const hasOverlay = input.found === true;
+  const date = hasOverlay ? cleanDate(asString(input.date)) : "";
+  const time = hasOverlay ? cleanTime(asString(input.time)) : "";
+  const temperature = hasOverlay ? cleanNumber(asString(input.temperature)) : "";
+  const moonPhase = hasOverlay ? asString(input.moonPhase).trim() : "";
+  const species = cleanSpecies(asString(input.species));
+  const animalNotes = asString(input.animalNotes).trim().slice(0, 200);
 
   const dateTime = date ? (time ? `${date}T${time}` : date) : "";
 
-  if (!dateTime && !temperature && !moonPhase) return null;
+  if (!dateTime && !temperature && !moonPhase && !species && !animalNotes) {
+    return null;
+  }
 
-  return { dateTime, temperature, moonPhase };
+  return { dateTime, temperature, moonPhase, species, animalNotes };
+}
+
+function cleanSpecies(value: string): string {
+  const trimmed = value.trim();
+
+  return (SPECIES_VALUES as readonly string[]).includes(trimmed) ? trimmed : "";
 }
 
 function asString(value: unknown): string {

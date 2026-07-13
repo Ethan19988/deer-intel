@@ -59,6 +59,10 @@ type ImportDraft = {
   // Temp / moon read off the photo's printed info bar, "" when nothing was read.
   stampedTemperature: string;
   stampedMoonPhase: string;
+  // What the AI identified in the frame ("" when nothing / not configured).
+  // Kept separate from `species` so the badge still shows the AI's call after
+  // the hunter adjusts the dropdown.
+  aiSpecies: string;
   // The stored (resized) image blob's id and dimensions; "" / 0 when storing
   // the image failed and the record will be metadata-only.
   imageId: string;
@@ -179,12 +183,16 @@ export default function CameraImportPage() {
 
         return createImportDraft({
           file,
-          species: defaultSpecies,
+          // The AI's identification pre-fills the species; the hunter can
+          // change it on the draft card before creating records.
+          species: stamp?.species || defaultSpecies,
           deerProfileId: defaultDeerProfileId,
           exifDate,
           stampDate: stamp?.dateTime ?? "",
           stampedTemperature: stamp?.temperature ?? "",
           stampedMoonPhase: stamp?.moonPhase ?? "",
+          aiSpecies: stamp?.species ?? "",
+          animalNotes: stamp?.animalNotes ?? "",
           imageId: storedImage?.imageId ?? "",
           imageWidth: storedImage?.width ?? 0,
           imageHeight: storedImage?.height ?? 0,
@@ -506,9 +514,10 @@ export default function CameraImportPage() {
           <label style={uploadBoxStyle}>
             <span style={uploadTitleStyle}>Choose camera photos</span>
             <span style={mutedTextStyle}>
-              Select multiple JPG, PNG, or image files. Deer Intel reads the
-              capture time from each photo (EXIF), then fills in the temp, wind,
-              and moon phase for that moment when you create the records.
+              Select multiple JPG, PNG, or image files. Deer Intel reads each
+              photo&apos;s capture time, identifies the animal (buck, doe, bear,
+              …) for you to confirm, and fills in the temp, wind, and moon phase
+              for that moment when you create the records.
             </span>
             <input
               type="file"
@@ -599,7 +608,12 @@ export default function CameraImportPage() {
                       </span>
                     </span>
                   </label>
-                  <Badge>{draft.species || "Species needed"}</Badge>
+                  <div style={draftBadgeRowStyle}>
+                    {draft.aiSpecies ? (
+                      <Badge variant="success">AI saw: {draft.aiSpecies}</Badge>
+                    ) : null}
+                    <Badge>{draft.species || "Species needed"}</Badge>
+                  </div>
                 </div>
 
                 {draft.imageId ? (
@@ -759,6 +773,8 @@ function createImportDraft({
   stampDate,
   stampedTemperature,
   stampedMoonPhase,
+  aiSpecies,
+  animalNotes,
   imageId,
   imageWidth,
   imageHeight,
@@ -770,6 +786,8 @@ function createImportDraft({
   stampDate: string;
   stampedTemperature: string;
   stampedMoonPhase: string;
+  aiSpecies: string;
+  animalNotes: string;
   imageId: string;
   imageWidth: number;
   imageHeight: number;
@@ -785,10 +803,13 @@ function createImportDraft({
     species,
     deerProfileId,
     buckName: "",
-    notes: "Imported through Camera Import Inbox.",
+    // Seed the notes with what the AI saw so it lands on the record; the
+    // hunter can edit or clear it on the draft card.
+    notes: animalNotes || "Imported through Camera Import Inbox.",
     selected: true,
     stampedTemperature,
     stampedMoonPhase,
+    aiSpecies,
     imageId,
     imageWidth,
     imageHeight,
@@ -1069,6 +1090,13 @@ const draftMetaStyle: CSSProperties = {
 const draftThumbStyle: CSSProperties = {
   maxWidth: "260px",
   marginTop: "0.75rem",
+};
+
+const draftBadgeRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.4rem",
+  flexWrap: "wrap",
 };
 
 const draftFormGridStyle: CSSProperties = {
