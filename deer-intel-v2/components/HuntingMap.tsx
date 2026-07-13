@@ -382,16 +382,9 @@ function MapControlButtons({
   const map = useMap();
   const [heading, setHeading] = useState<number | null>(null);
   const [compassOn, setCompassOn] = useState(false);
-  const gpsTapTimerRef = useRef<number | null>(null);
   const lastHeadingAtRef = useRef(0);
 
-  function recenterAndFollow() {
-    // Tap once to lock onto your live location; tap again to release.
-    if (isFollowing) {
-      onToggleFollow(false);
-      return;
-    }
-
+  function startFollow() {
     if (!navigator.geolocation) {
       alert("GPS is not supported on this device.");
       return;
@@ -414,30 +407,27 @@ function MapControlButtons({
     onToggleFollow(true);
   }
 
-  // Single tap follows your location; a quick double tap toggles the live
-  // compass. A short timer tells the two apart so a double tap doesn't also
-  // trigger the follow.
+  // The GPS button steps through three states on plain single taps: the 1st tap
+  // follows your live location, the 2nd adds the heading beam + compass, and the
+  // 3rd turns both back off.
   function handleGpsTap() {
-    if (gpsTapTimerRef.current !== null) {
-      window.clearTimeout(gpsTapTimerRef.current);
-      gpsTapTimerRef.current = null;
-      void toggleCompass();
-      return;
-    }
-    gpsTapTimerRef.current = window.setTimeout(() => {
-      gpsTapTimerRef.current = null;
-      recenterAndFollow();
-    }, 280);
-  }
-
-  async function toggleCompass() {
     if (compassOn) {
+      onToggleFollow(false);
       setCompassOn(false);
       setHeading(null);
       onHeadingChange(null);
       return;
     }
 
+    if (isFollowing) {
+      void enableCompass();
+      return;
+    }
+
+    startFollow();
+  }
+
+  async function enableCompass() {
     // iOS 13+ only delivers compass data after an explicit grant, and the
     // request has to come straight from this tap gesture.
     const orientationApi = window.DeviceOrientationEvent as
@@ -560,7 +550,7 @@ function MapControlButtons({
               ? heading !== null
                 ? `Facing ${facingCardinal} · ${heading}°`
                 : "Reading compass…"
-              : "Double-tap GPS to point the compass the way you're facing"
+              : "Tap GPS again to show which way you're facing"
           }
         >
           {compassOn && heading !== null ? (
@@ -587,9 +577,13 @@ function MapControlButtons({
         <button
           type="button"
           aria-label={
-            isFollowing ? "Stop following my location" : "Follow my location"
+            compassOn
+              ? "Turn off location and compass"
+              : isFollowing
+                ? "Show which way I'm facing"
+                : "Follow my location"
           }
-          aria-pressed={isFollowing}
+          aria-pressed={isFollowing || compassOn}
           className="di-map-control-button di-map-gps-button"
           style={{
             ...mapControlButtonStyle,
