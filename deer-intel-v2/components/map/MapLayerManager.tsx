@@ -63,6 +63,9 @@ export default function MapLayerManager({
   const visibleCount = Object.values(visibleAssetLayers).filter(
     Boolean,
   ).length;
+  const hasFieldTools = Boolean(
+    pinBoxSection || trackingSection || offlineSection,
+  );
 
   useEffect(() => {
     if (!isOpen) return;
@@ -125,33 +128,42 @@ export default function MapLayerManager({
         </header>
 
         <div style={contentStyle}>
-          {pinBoxSection ? (
-            <section style={sectionStyle}>{pinBoxSection}</section>
+          {hasFieldTools ? (
+            <>
+              <GroupHeader icon={<TentIcon />} label="In the field" />
+
+              {pinBoxSection ? (
+                <section style={cardStyle}>{pinBoxSection}</section>
+              ) : null}
+
+              {trackingSection ? (
+                <section style={cardStyle}>
+                  <h4 style={cardTitleStyle}>Walk tracking</h4>
+                  {trackingSection}
+                </section>
+              ) : null}
+
+              {offlineSection ? (
+                <section style={cardStyle}>
+                  <h4 style={cardTitleStyle}>Offline maps</h4>
+                  {offlineSection}
+                </section>
+              ) : null}
+            </>
           ) : null}
 
-          {trackingSection ? (
-            <section style={sectionStyle}>
-              <h4 style={sectionTitleStyle}>Walk Tracking</h4>
-              {trackingSection}
-            </section>
-          ) : null}
-
-          {offlineSection ? (
-            <section style={sectionStyle}>
-              <h4 style={sectionTitleStyle}>Offline Maps</h4>
-              {offlineSection}
-            </section>
-          ) : null}
+          <GroupHeader icon={<LayersIcon />} label="On the map" />
 
           <CollapsibleSection
-            title="Visibility"
-            description={`${visibleCount} of ${ASSET_LAYERS.length} pin types shown`}
-            style={sectionStyle}
+            title="Pin visibility"
+            description={`${visibleCount} of ${ASSET_LAYERS.length} shown`}
+            style={collapsibleCardStyle}
           >
             <div style={toggleListStyle}>
-              {ASSET_LAYERS.map((layer) => (
+              {ASSET_LAYERS.map((layer, index) => (
                 <ToggleRow
                   key={layer.id}
+                  divider={index > 0}
                   checked={visibleAssetLayers[layer.id]}
                   label={VISIBILITY_LABELS[layer.id]}
                   onToggle={() => onToggleLayer(layer.id)}
@@ -160,57 +172,66 @@ export default function MapLayerManager({
             </div>
           </CollapsibleSection>
 
-          <LayerSection title="Map Tools">
-            {MAP_TOOL_LABELS.map((tool) => (
-              <ToggleRow
-                key={tool.id}
-                checked={mapTools[tool.id]}
-                label={tool.label}
-                onToggle={() => onToggleMapTool(tool.id)}
-              />
-            ))}
-          </LayerSection>
+          <section style={cardStyle}>
+            <h4 style={cardTitleStyle}>Map tools</h4>
+            <div style={toggleListStyle}>
+              {MAP_TOOL_LABELS.map((tool, index) => (
+                <ToggleRow
+                  key={tool.id}
+                  divider={index > 0}
+                  checked={mapTools[tool.id]}
+                  label={tool.label}
+                  onToggle={() => onToggleMapTool(tool.id)}
+                />
+              ))}
+            </div>
+          </section>
 
-          <LayerSection title="Future Layers">
-            {FUTURE_LAYER_LABELS.map((label) => (
-              <ToggleRow
-                key={label}
-                checked={false}
-                disabled
-                label={label}
-                onToggle={() => undefined}
-              />
-            ))}
-          </LayerSection>
+          <GroupHeader icon={<ClockIcon />} label="Coming soon" />
+
+          <section style={{ ...cardStyle, opacity: 0.72 }}>
+            <h4 style={cardTitleStyle}>Future layers</h4>
+            <div style={toggleListStyle}>
+              {FUTURE_LAYER_LABELS.map((label, index) => (
+                <ToggleRow
+                  key={label}
+                  divider={index > 0}
+                  checked={false}
+                  disabled
+                  label={label}
+                  onToggle={() => undefined}
+                />
+              ))}
+            </div>
+          </section>
         </div>
       </aside>
     </>
   );
 }
 
-function LayerSection({
-  children,
-  title,
-}: {
-  children: ReactNode;
-  title: string;
-}) {
+function GroupHeader({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <section style={sectionStyle}>
-      <h4 style={sectionTitleStyle}>{title}</h4>
-      <div style={toggleListStyle}>{children}</div>
-    </section>
+    <div style={groupHeaderStyle}>
+      <span style={groupIconStyle} aria-hidden="true">
+        {icon}
+      </span>
+      <span style={groupLabelStyle}>{label}</span>
+      <span style={groupLineStyle} aria-hidden="true" />
+    </div>
   );
 }
 
 function ToggleRow({
   checked,
   disabled = false,
+  divider = false,
   label,
   onToggle,
 }: {
   checked: boolean;
   disabled?: boolean;
+  divider?: boolean;
   label: string;
   onToggle: () => void;
 }) {
@@ -222,12 +243,19 @@ function ToggleRow({
       disabled={disabled}
       style={{
         ...toggleRowStyle,
-        ...(checked ? activeToggleRowStyle : null),
+        ...(divider ? dividerStyle : null),
         ...(disabled ? disabledToggleRowStyle : null),
       }}
       onClick={onToggle}
     >
-      <span style={toggleLabelStyle}>{label}</span>
+      <span
+        style={{
+          ...toggleLabelStyle,
+          ...(checked ? activeToggleLabelStyle : null),
+        }}
+      >
+        {label}
+      </span>
       <span
         aria-hidden="true"
         style={{
@@ -243,6 +271,60 @@ function ToggleRow({
         />
       </span>
     </button>
+  );
+}
+
+function TentIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3 3 20h18L12 3z" />
+      <path d="M12 9v11" />
+    </svg>
+  );
+}
+
+function LayersIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3 3 8l9 5 9-5-9-5z" />
+      <path d="m3 13 9 5 9-5" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 8v4l3 2" />
+    </svg>
   );
 }
 
@@ -331,63 +413,105 @@ const closeButtonStyle: CSSProperties = {
 const contentStyle: CSSProperties = {
   display: "grid",
   alignContent: "start",
-  gap: "0.85rem",
+  gap: "0.55rem",
   minHeight: 0,
   overflow: "auto",
   padding: "0.85rem",
 };
 
-const sectionStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.55rem",
+// Group divider: a small icon + green label + a rule that fills the row, with
+// extra top space so the three groups read as distinct bands, not one list.
+const groupHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.45rem",
+  marginTop: "0.6rem",
+  padding: "0 0.15rem",
 };
 
-const sectionTitleStyle: CSSProperties = {
-  margin: 0,
-  color: "#566157",
+const groupIconStyle: CSSProperties = {
+  display: "inline-flex",
+  color: "#2f6d3a",
+};
+
+const groupLabelStyle: CSSProperties = {
+  color: "#2f6d3a",
   fontSize: "0.78rem",
-  fontWeight: 900,
-  letterSpacing: 0,
-  textTransform: "uppercase",
+  fontWeight: 800,
+  letterSpacing: "0.01em",
+  whiteSpace: "nowrap",
+};
+
+const groupLineStyle: CSSProperties = {
+  flex: 1,
+  height: "1px",
+  background: "rgba(47, 109, 58, 0.2)",
+};
+
+// Each section is a white card so it reads as a distinct block on the panel.
+const cardStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.4rem",
+  padding: "0.75rem 0.8rem",
+  border: "1px solid rgba(17, 23, 17, 0.12)",
+  borderRadius: "12px",
+  background: "white",
+};
+
+// Round the collapsible to match the plain cards (its border/fill already do).
+const collapsibleCardStyle: CSSProperties = {
+  borderRadius: "12px",
+};
+
+const cardTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#1b241b",
+  fontSize: "0.92rem",
+  fontWeight: 800,
 };
 
 const toggleListStyle: CSSProperties = {
   display: "grid",
-  gap: "0.35rem",
+  gap: 0,
 };
 
+// Rows inside a card are borderless and separated by a hairline divider, so a
+// section reads as one grouped list instead of a stack of little boxes.
 const toggleRowStyle: CSSProperties = {
   display: "flex",
-  minHeight: "48px",
+  minHeight: "44px",
+  width: "100%",
   alignItems: "center",
   justifyContent: "space-between",
   gap: "0.75rem",
-  padding: "0.5rem 0.55rem 0.5rem 0.75rem",
-  border: "1px solid rgba(17, 23, 17, 0.1)",
-  borderRadius: "8px",
-  background: "white",
+  padding: "0.5rem 0.15rem",
+  border: 0,
+  background: "transparent",
   color: "#172017",
   cursor: "pointer",
   textAlign: "left",
 };
 
-const activeToggleRowStyle: CSSProperties = {
-  borderColor: "rgba(47, 109, 58, 0.42)",
-  background: "#f0f7ee",
+const dividerStyle: CSSProperties = {
+  borderTop: "1px solid rgba(17, 23, 17, 0.08)",
 };
 
 const disabledToggleRowStyle: CSSProperties = {
   cursor: "not-allowed",
-  opacity: 0.52,
+  opacity: 0.55,
 };
 
 const toggleLabelStyle: CSSProperties = {
   overflow: "hidden",
   fontSize: "0.94rem",
-  fontWeight: 850,
+  fontWeight: 750,
   lineHeight: 1.2,
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
+};
+
+const activeToggleLabelStyle: CSSProperties = {
+  color: "#1f5a2a",
 };
 
 const switchTrackStyle: CSSProperties = {
