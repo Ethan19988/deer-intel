@@ -20,10 +20,14 @@ type LiveLocation = {
 export default function UserLocationMarker({
   enabled,
   follow,
+  heading,
   onUserPan,
 }: {
   enabled: boolean;
   follow: boolean;
+  // Live device heading (degrees, 0 = N) while the compass is on, or null. When
+  // set, a translucent blue cone fans out from the dot in the facing direction.
+  heading: number | null;
   onUserPan: () => void;
 }) {
   const [location, setLocation] = useState<LiveLocation | null>(null);
@@ -81,6 +85,21 @@ export default function UserLocationMarker({
     [],
   );
 
+  // The facing cone is its own marker so re-rotating it (as the heading updates)
+  // never recreates the dot and restarts its pulse animation.
+  const beamIcon = useMemo(
+    () =>
+      heading === null
+        ? null
+        : divIcon({
+            className: "di-user-location-beam-icon",
+            html: `<span class="di-user-location-beam" style="transform: rotate(${heading}deg)"></span>`,
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+          }),
+    [heading],
+  );
+
   if (!enabled || !location) return null;
 
   return (
@@ -95,6 +114,15 @@ export default function UserLocationMarker({
           fillOpacity: 0.12,
         }}
       />
+      {beamIcon ? (
+        <Marker
+          position={[location.lat, location.lng]}
+          icon={beamIcon}
+          interactive={false}
+          keyboard={false}
+          zIndexOffset={900}
+        />
+      ) : null}
       <Marker
         position={[location.lat, location.lng]}
         icon={dotIcon}

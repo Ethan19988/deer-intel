@@ -371,11 +371,13 @@ function MapControlButtons({
   showGps,
   isFollowing,
   onToggleFollow,
+  onHeadingChange,
 }: {
   showCompass: boolean;
   showGps: boolean;
   isFollowing: boolean;
   onToggleFollow: (next: boolean) => void;
+  onHeadingChange: (heading: number | null) => void;
 }) {
   const map = useMap();
   const [heading, setHeading] = useState<number | null>(null);
@@ -432,6 +434,7 @@ function MapControlButtons({
     if (compassOn) {
       setCompassOn(false);
       setHeading(null);
+      onHeadingChange(null);
       return;
     }
 
@@ -485,7 +488,9 @@ function MapControlButtons({
 
       if (next === null) return;
       lastHeadingAtRef.current = now;
-      setHeading(Math.round(((next % 360) + 360) % 360));
+      const rounded = Math.round(((next % 360) + 360) % 360);
+      setHeading(rounded);
+      onHeadingChange(rounded);
     }
 
     window.addEventListener(
@@ -502,7 +507,7 @@ function MapControlButtons({
       );
       window.removeEventListener("deviceorientation", onOrientation, true);
     };
-  }, [compassOn]);
+  }, [compassOn, onHeadingChange]);
 
   const facingCardinal =
     heading === null
@@ -799,6 +804,9 @@ export default function HuntingMap() {
   // hunter moves. Off by default so scouting a property from home doesn't yank
   // the view to wherever the device is; the GPS button turns it on.
   const [followUser, setFollowUser] = useState(false);
+  // Live device heading (degrees, 0 = N) while the compass is on — drives both
+  // the compass control and the facing cone on the live-location dot.
+  const [liveHeading, setLiveHeading] = useState<number | null>(null);
   // Live walk recording: while `isTracking` is on, each GPS fix is appended to
   // `activeTrackPoints` to draw the trail as the hunter moves. On stop, the
   // finished trail is saved to the property; the id/start-time captured when
@@ -2455,10 +2463,12 @@ export default function HuntingMap() {
               showGps={mapTools.gps}
               isFollowing={mapTools.gps && followUser}
               onToggleFollow={setFollowUser}
+              onHeadingChange={setLiveHeading}
             />
             <UserLocationMarker
               enabled={mapTools.gps}
               follow={mapTools.gps && followUser}
+              heading={liveHeading}
               onUserPan={() => setFollowUser(false)}
             />
             <WalkTrackLayer

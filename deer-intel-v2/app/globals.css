@@ -1098,6 +1098,34 @@ textarea {
   border: none;
 }
 
+.leaflet-div-icon.di-user-location-beam-icon {
+  background: transparent;
+  border: none;
+  overflow: visible;
+}
+
+/* Facing cone: a translucent blue fan from the live-location dot toward the
+   heading. Its apex (transform-origin) sits on the dot, so it pivots around
+   your position — brightest at the dot, fading out along the beam. The inline
+   transform carries the live rotate() angle. */
+.di-user-location-beam {
+  position: absolute;
+  top: 11px;
+  left: 11px;
+  width: 46px;
+  height: 34px;
+  margin-top: -34px;
+  margin-left: -23px;
+  transform-origin: 50% 100%;
+  background: linear-gradient(
+    to top,
+    rgba(26, 115, 232, 0.55),
+    rgba(26, 115, 232, 0)
+  );
+  clip-path: polygon(50% 100%, 100% 0, 0 0);
+  pointer-events: none;
+}
+
 .di-user-location-dot {
   position: relative;
   display: block;
