@@ -58,7 +58,7 @@ export type AddressSearchPlace = {
   id: string;
   center: MapCenter;
   label: string;
-  provider: "GPS Coordinates" | "OpenStreetMap";
+  provider: "GPS Coordinates" | "OpenStreetMap" | "US Census";
   typeLabel: string;
   zoom: number;
 };
@@ -370,17 +370,6 @@ const OTHER_ASSET_STYLE = {
   background: "#2f230f",
 };
 
-type NominatimSearchResult = {
-  place_id?: number;
-  osm_type?: string;
-  osm_id?: number;
-  display_name?: string;
-  lat?: string;
-  lon?: string;
-  class?: string;
-  type?: string;
-};
-
 const addressSearchCache = new Map<string, AddressSearchResult>();
 
 export async function geocodeAddressOrPlace(
@@ -404,19 +393,15 @@ export async function geocodeAddressOrPlace(
 
   if (cachedResult) return cachedResult;
 
+  // Geocoding runs in our own /api/geocode route, which merges the US Census
+  // address geocoder (rural US street coverage) with OpenStreetMap (places and
+  // POIs). Doing it server-side also dodges the Census endpoint's missing CORS
+  // headers and lets Nominatim receive a proper User-Agent.
   try {
-    const searchUrl = new URL("https://nominatim.openstreetmap.org/search");
-
-    searchUrl.searchParams.set("format", "jsonv2");
-    searchUrl.searchParams.set("q", trimmedQuery);
-    searchUrl.searchParams.set("limit", "5");
-    searchUrl.searchParams.set("addressdetails", "1");
-
-    const response = await fetch(searchUrl.toString(), {
-      headers: {
-        Accept: "application/json",
-      },
-    });
+    const response = await fetch(
+      `/api/geocode?q=${encodeURIComponent(trimmedQuery)}`,
+      { headers: { Accept: "application/json" } },
+    );
 
     if (!response.ok) {
       return {
@@ -425,30 +410,11 @@ export async function geocodeAddressOrPlace(
       };
     }
 
-    const results: unknown = await response.json();
+    const searchResult = (await response.json()) as AddressSearchResult;
 
-    if (!Array.isArray(results)) {
-      return {
-        status: "error",
-        message: "Address search returned an unexpected response.",
-      };
+    if (searchResult.status === "found") {
+      addressSearchCache.set(cacheKey, searchResult);
     }
-
-    const places = results
-      .map(normalizeNominatimResult)
-      .filter((place): place is AddressSearchPlace => place !== null);
-    const searchResult: AddressSearchResult =
-      places.length > 0
-        ? {
-            status: "found",
-            results: places,
-          }
-        : {
-            status: "not-found",
-            message: "No address or place found.",
-          };
-
-    addressSearchCache.set(cacheKey, searchResult);
 
     return searchResult;
   } catch {
@@ -590,35 +556,3 @@ function parseCoordinateSearch(query: string): AddressSearchResult | null {
   };
 }
 
-function normalizeNominatimResult(result: unknown): AddressSearchPlace | null {
-  if (!isNominatimSearchResult(result)) return null;
-  if (!result.display_name || !result.lat || !result.lon) return null;
-
-  const latitude = Number(result.lat);
-  const longitude = Number(result.lon);
-
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-
-  const typeLabel = [result.class, result.type]
-    .filter((value): value is string => typeof value === "string" && !!value)
-    .map((value) => value.replaceAll("_", " "))
-    .join(" / ");
-
-  return {
-    id:
-      result.osm_type && result.osm_id
-        ? `${result.osm_type}-${result.osm_id}`
-        : `place-${result.place_id ?? `${latitude}-${longitude}`}`,
-    center: [latitude, longitude],
-    label: result.display_name,
-    provider: "OpenStreetMap",
-    typeLabel: typeLabel || "Place",
-    zoom: 16,
-  };
-}
-
-function isNominatimSearchResult(
-  value: unknown,
-): value is NominatimSearchResult {
-  return typeof value === "object" && value !== null;
-}
