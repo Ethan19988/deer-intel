@@ -19,6 +19,9 @@ import {
   EMPTY_CAMERA_CHECK_FORM_VALUES,
   createCameraCheckFromValues,
 } from "@/lib/cameraCheckFormValues";
+import PhotoImage from "@/components/photos/PhotoImage";
+import { processImageFile } from "@/lib/imageProcessing";
+import { deletePhotoImage, putPhotoImage } from "@/lib/imageStore";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { describeMoonPhase } from "@/lib/moonPhase";
 import { buildPhotoWeatherSnapshot } from "@/lib/photoWeather";
@@ -56,6 +59,11 @@ type ImportDraft = {
   // Temp / moon read off the photo's printed info bar, "" when nothing was read.
   stampedTemperature: string;
   stampedMoonPhase: string;
+  // The stored (resized) image blob's id and dimensions; "" / 0 when storing
+  // the image failed and the record will be metadata-only.
+  imageId: string;
+  imageWidth: number;
+  imageHeight: number;
 };
 
 export default function CameraImportPage() {
@@ -103,6 +111,7 @@ export default function CameraImportPage() {
   const [defaultDeerProfileId, setDefaultDeerProfileId] = useState("");
   const [drafts, setDrafts] = useState<ImportDraft[]>([]);
   const [message, setMessage] = useState("");
+  const [savedCameraId, setSavedCameraId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const units = useUnitPreferences();
   const selectedDrafts = drafts.filter((draft) => draft.selected);
@@ -155,16 +164,17 @@ export default function CameraImportPage() {
 
     if (files.length === 0) return;
 
-    setMessage("Reading photo dates and stamps…");
+    setMessage("Saving photos and reading their dates and stamps…");
 
-    // Read each photo's EXIF capture time plus the info bar the camera printed
-    // on the image (vision, when configured). This must happen now — the File
-    // objects are not kept once the drafts are staged.
+    // Store each image (resized, in IndexedDB) and read its EXIF capture time
+    // plus the info bar the camera printed on it (vision, when configured).
+    // This must all happen now — the File objects are not kept once staged.
     const nextDrafts = await Promise.all(
       files.map(async (file) => {
-        const [exifDate, stamp] = await Promise.all([
+        const [exifDate, stamp, storedImage] = await Promise.all([
           readPhotoDateTimeInput(file),
           requestPhotoStamp(file, units.temperature),
+          storeImportImage(file),
         ]);
 
         return createImportDraft({
@@ -175,6 +185,9 @@ export default function CameraImportPage() {
           stampDate: stamp?.dateTime ?? "",
           stampedTemperature: stamp?.temperature ?? "",
           stampedMoonPhase: stamp?.moonPhase ?? "",
+          imageId: storedImage?.imageId ?? "",
+          imageWidth: storedImage?.width ?? 0,
+          imageHeight: storedImage?.height ?? 0,
         });
       }),
     );
@@ -211,6 +224,13 @@ export default function CameraImportPage() {
   }
 
   function removeSelectedDrafts() {
+    // Also drop the stored image blobs so removed photos don't leak storage.
+    for (const draft of drafts) {
+      if (draft.selected && draft.imageId) {
+        void deletePhotoImage(draft.imageId);
+      }
+    }
+
     setDrafts((currentDrafts) =>
       currentDrafts.filter((draft) => !draft.selected),
     );
@@ -286,6 +306,13 @@ export default function CameraImportPage() {
           buckName: draft.buckName.trim() || undefined,
           notes: buildImportNotes(draft),
           createdAt: new Date().toISOString(),
+          imageId: draft.imageId || undefined,
+          imageWidth:
+            draft.imageId && draft.imageWidth > 0 ? draft.imageWidth : undefined,
+          imageHeight:
+            draft.imageId && draft.imageHeight > 0
+              ? draft.imageHeight
+              : undefined,
           weatherSnapshot,
         };
       }),
@@ -313,6 +340,7 @@ export default function CameraImportPage() {
       : " Moon phase saved (add a property/camera location for temp and wind).";
 
     setMessage(base + weatherNote);
+    setSavedCameraId(cameraId);
     setIsSaving(false);
   }
 
@@ -524,6 +552,15 @@ export default function CameraImportPage() {
           ) : null}
 
           {message ? <p style={messageStyle}>{message}</p> : null}
+
+          {savedCameraId && !isSaving ? (
+            <Link
+              href={`/properties/${propertyId}/assets/${savedCameraId}`}
+              style={{ ...primaryLinkStyle, marginTop: "0.75rem" }}
+            >
+              View Saved Photos
+            </Link>
+          ) : null}
         </Card>
       </Section>
 
@@ -564,6 +601,20 @@ export default function CameraImportPage() {
                   </label>
                   <Badge>{draft.species || "Species needed"}</Badge>
                 </div>
+
+                {draft.imageId ? (
+                  <div style={draftThumbStyle}>
+                    <PhotoImage
+                      imageId={draft.imageId}
+                      alt={`Staged photo — ${draft.fileName}`}
+                      aspectRatio={
+                        draft.imageWidth && draft.imageHeight
+                          ? draft.imageWidth / draft.imageHeight
+                          : 4 / 3
+                      }
+                    />
+                  </div>
+                ) : null}
 
                 <div className="di-form-grid" style={draftFormGridStyle}>
                   <label style={fieldStyle}>
@@ -681,6 +732,25 @@ function moonLabelForDate(photoDate: string): string {
     : describeMoonPhase(parsed.getTime());
 }
 
+// Resize and persist one imported file's image so the saved Photo Record shows
+// the actual picture. Returns null when the browser blocks storage — the record
+// then saves as metadata-only instead of failing the whole import.
+async function storeImportImage(
+  file: File,
+): Promise<{ imageId: string; width: number; height: number } | null> {
+  try {
+    const processed = await processImageFile(file);
+    const imageId = createDeerIntelId("image");
+    const stored = await putPhotoImage(imageId, processed.blob);
+
+    if (!stored) return null;
+
+    return { imageId, width: processed.width, height: processed.height };
+  } catch {
+    return null;
+  }
+}
+
 function createImportDraft({
   file,
   species,
@@ -689,6 +759,9 @@ function createImportDraft({
   stampDate,
   stampedTemperature,
   stampedMoonPhase,
+  imageId,
+  imageWidth,
+  imageHeight,
 }: {
   file: File;
   species: string;
@@ -697,6 +770,9 @@ function createImportDraft({
   stampDate: string;
   stampedTemperature: string;
   stampedMoonPhase: string;
+  imageId: string;
+  imageWidth: number;
+  imageHeight: number;
 }): ImportDraft {
   const metadata = extractPhotoMetadata(file, exifDate, stampDate);
 
@@ -713,6 +789,9 @@ function createImportDraft({
     selected: true,
     stampedTemperature,
     stampedMoonPhase,
+    imageId,
+    imageWidth,
+    imageHeight,
   };
 }
 
@@ -985,6 +1064,11 @@ const draftMetaStyle: CSSProperties = {
   color: "var(--text-faint)",
   fontSize: "0.9rem",
   lineHeight: 1.4,
+};
+
+const draftThumbStyle: CSSProperties = {
+  maxWidth: "260px",
+  marginTop: "0.75rem",
 };
 
 const draftFormGridStyle: CSSProperties = {
