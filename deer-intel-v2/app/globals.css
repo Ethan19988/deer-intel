@@ -1119,8 +1119,8 @@ textarea {
   transform-origin: 50% 100%;
   background: linear-gradient(
     to top,
-    rgba(26, 115, 232, 0.55),
-    rgba(26, 115, 232, 0)
+    rgba(51, 144, 255, 0.95),
+    rgba(90, 170, 255, 0.22)
   );
   clip-path: polygon(50% 100%, 100% 0, 0 0);
   pointer-events: none;
