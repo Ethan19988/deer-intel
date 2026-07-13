@@ -58,7 +58,7 @@ export type AddressSearchPlace = {
   id: string;
   center: MapCenter;
   label: string;
-  provider: "GPS Coordinates" | "OpenStreetMap" | "US Census";
+  provider: "GPS Coordinates" | "OpenStreetMap" | "US Census" | "Esri";
   typeLabel: string;
   zoom: number;
 };
