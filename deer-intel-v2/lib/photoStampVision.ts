@@ -111,7 +111,7 @@ function buildTool(unit: PhotoStampUnit, knownBucks: KnownBuckSummary[]) {
         time: {
           type: "string",
           description:
-            "The time printed on the photo, formatted strictly as 24-hour HH:mm. Empty string if no time is printed.",
+            'The time exactly as printed on the photo, including AM/PM when shown (e.g. "8:08 PM" or "20:08"). Do not convert it. Empty string if no time is printed.',
         },
         temperature: {
           type: "string",
@@ -122,6 +122,21 @@ function buildTool(unit: PhotoStampUnit, knownBucks: KnownBuckSummary[]) {
           description:
             'The moon phase printed or shown as an icon on the photo, in words (e.g. "Full", "Waning gibbous", "New"). Empty string if none is shown.',
         },
+        windDirection: {
+          type: "string",
+          description:
+            'The wind direction printed on the photo as a compass point (e.g. "NW", "SSE"). Empty string if none is printed.',
+        },
+        windSpeed: {
+          type: "string",
+          description:
+            'The wind speed printed on the photo, exactly as shown with its unit (e.g. "5 mph"). Empty string if none is printed.',
+        },
+        humidity: {
+          type: "string",
+          description:
+            'The humidity percentage printed on the photo as a plain number (e.g. "65"). Empty string if none is printed.',
+        },
         ...matchProperties,
       },
       required: ["found"],
@@ -131,7 +146,7 @@ function buildTool(unit: PhotoStampUnit, knownBucks: KnownBuckSummary[]) {
 
 const SYSTEM_PROMPT = `You analyze trail camera photos for a hunting app. Your jobs:
 
-1. Read the data overlay the camera printed onto the photo — usually a bar along the bottom edge showing the date, time, temperature, moon phase, and sometimes a camera name or barometric pressure. Extract ONLY values that are clearly legible. Do not infer or guess a value that is not printed. If there is no printed overlay, report found = false.
+1. Read the data overlay the camera printed onto the photo — usually a bar along the bottom edge showing the date, time, temperature, moon phase, and sometimes wind, humidity, camera name, or barometric pressure. Extract ONLY values that are clearly legible, and report the time exactly as printed (keep AM/PM; never convert it). Do not infer or guess a value that is not printed. If there is no printed overlay, report found = false.
 
 2. Identify the main animal in the frame, if any. A whitetail deer with visible antlers is a "Buck"; an adult deer without visible antlers is a "Doe"; a young deer (small body, possibly spotted) is a "Fawn". Report "Other" for any animal outside the list (or a person/vehicle), and an empty species if nothing is clearly visible.
 
@@ -272,6 +287,9 @@ function normalizeStamp(
     time?: unknown;
     temperature?: unknown;
     moonPhase?: unknown;
+    windDirection?: unknown;
+    windSpeed?: unknown;
+    humidity?: unknown;
     species?: unknown;
     behavior?: unknown;
     animalNotes?: unknown;
@@ -286,6 +304,11 @@ function normalizeStamp(
   const time = hasOverlay ? cleanTime(asString(input.time)) : "";
   const temperature = hasOverlay ? cleanNumber(asString(input.temperature)) : "";
   const moonPhase = hasOverlay ? asString(input.moonPhase).trim() : "";
+  const windDirection = hasOverlay
+    ? asString(input.windDirection).trim().toUpperCase().slice(0, 3)
+    : "";
+  const windSpeed = hasOverlay ? asString(input.windSpeed).trim().slice(0, 12) : "";
+  const humidity = hasOverlay ? cleanNumber(asString(input.humidity)) : "";
   const species = cleanListedValue(asString(input.species), SPECIES_VALUES);
   const behavior = cleanListedValue(asString(input.behavior), BEHAVIOR_VALUES);
   const animalNotes = asString(input.animalNotes).trim().slice(0, 300);
@@ -314,6 +337,9 @@ function normalizeStamp(
     dateTime,
     temperature,
     moonPhase,
+    windDirection,
+    windSpeed,
+    humidity,
     species,
     behavior,
     animalNotes,
@@ -341,10 +367,26 @@ function cleanDate(value: string): string {
   return match ? `${match[1]}-${match[2]}-${match[3]}` : "";
 }
 
+// Accepts the time as printed — "8:08 PM", "08:08pm", or 24-hour "20:08" —
+// and converts to 24-hour HH:mm. Trail cams print 12-hour time far more often
+// than not, so the AM/PM conversion happens here rather than trusting the
+// model to do arithmetic.
 function cleanTime(value: string): string {
-  const match = /([01]?\d|2[0-3]):([0-5]\d)/.exec(value.trim());
+  const match = /(\d{1,2}):([0-5]\d)(?:\s*([AaPp])\.?\s*[Mm]\.?)?/.exec(
+    value.trim(),
+  );
 
-  return match ? `${match[1].padStart(2, "0")}:${match[2]}` : "";
+  if (!match) return "";
+
+  let hour = Number(match[1]);
+  const minute = match[2];
+  const meridiem = match[3]?.toUpperCase();
+
+  if (meridiem === "P" && hour < 12) hour += 12;
+  if (meridiem === "A" && hour === 12) hour = 0;
+  if (hour > 23) return "";
+
+  return `${String(hour).padStart(2, "0")}:${minute}`;
 }
 
 function cleanNumber(value: string): string {

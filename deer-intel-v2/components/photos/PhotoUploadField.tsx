@@ -17,11 +17,15 @@ export type SelectedPhotoImage = {
   imageHeight: number;
   fileName: string;
   lastModified: number;
-  // Capture time from the photo's EXIF, or the printed stamp, or "" if none.
+  // Capture time from the printed stamp (preferred — EXIF is often written in
+  // UTC and shifts the clock), then EXIF, or "" if neither.
   capturedAt: string;
-  // Temperature / moon read off the photo's printed info bar, or "" if none.
+  // Values read off the photo's printed info bar, or "" if none.
   stampedTemperature: string;
   stampedMoonPhase: string;
+  stampedWindDirection: string;
+  stampedWindSpeed: string;
+  stampedHumidity: string;
   // Animal the AI identified in the frame, or "" if none / not configured.
   detectedSpecies: string;
   detectedNotes: string;
@@ -95,9 +99,12 @@ export default function PhotoUploadField({
         imageHeight: processed.height,
         fileName: file.name,
         lastModified: file.lastModified,
-        capturedAt: exifDate || stamp?.dateTime || "",
+        capturedAt: stamp?.dateTime || exifDate || "",
         stampedTemperature: stamp?.temperature ?? "",
         stampedMoonPhase: stamp?.moonPhase ?? "",
+        stampedWindDirection: stamp?.windDirection ?? "",
+        stampedWindSpeed: stamp?.windSpeed ?? "",
+        stampedHumidity: stamp?.humidity ?? "",
         detectedSpecies: stamp?.species ?? "",
         detectedNotes: stamp?.animalNotes ?? "",
         matchedProfileId: stamp?.matchedProfileId ?? "",

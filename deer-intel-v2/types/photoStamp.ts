@@ -7,6 +7,10 @@ export type PhotoStamp = {
   temperature: string;
   // Moon phase as printed (e.g. "Waning gibbous"), else "".
   moonPhase: string;
+  // Wind and humidity as printed on the bar (some cameras include them), else "".
+  windDirection: string;
+  windSpeed: string;
+  humidity: string;
   // Main animal in the photo as one of the app's species options, else "".
   species: string;
   // What the animal is doing (e.g. "Chasing", "Feeding", "Traveling"), else "".

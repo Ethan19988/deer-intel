@@ -76,6 +76,9 @@ export default function PhotoRecordForm({
       photoDate: imageDate || values.photoDate,
       stampedTemperature: image.stampedTemperature,
       stampedMoonPhase: image.stampedMoonPhase,
+      stampedWindDirection: image.stampedWindDirection,
+      stampedWindSpeed: image.stampedWindSpeed,
+      stampedHumidity: image.stampedHumidity,
       // Pre-select what the AI saw; anything the hunter already picked or
       // typed stays untouched, and everything stays editable before submitting.
       species: values.species || image.detectedSpecies,
@@ -98,6 +101,9 @@ export default function PhotoRecordForm({
       imageHeight: 0,
       stampedTemperature: "",
       stampedMoonPhase: "",
+      stampedWindDirection: "",
+      stampedWindSpeed: "",
+      stampedHumidity: "",
     });
   }
 

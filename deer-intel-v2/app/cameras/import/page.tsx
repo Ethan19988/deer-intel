@@ -56,9 +56,12 @@ type ImportDraft = {
   buckName: string;
   notes: string;
   selected: boolean;
-  // Temp / moon read off the photo's printed info bar, "" when nothing was read.
+  // Values read off the photo's printed info bar, "" when nothing was read.
   stampedTemperature: string;
   stampedMoonPhase: string;
+  stampedWindDirection: string;
+  stampedWindSpeed: string;
+  stampedHumidity: string;
   // What the AI identified in the frame ("" when nothing / not configured).
   // Kept separate from `species` so the badge still shows the AI's call after
   // the hunter adjusts the dropdown.
@@ -208,6 +211,9 @@ export default function CameraImportPage() {
           stampDate: stamp?.dateTime ?? "",
           stampedTemperature: stamp?.temperature ?? "",
           stampedMoonPhase: stamp?.moonPhase ?? "",
+          stampedWindDirection: stamp?.windDirection ?? "",
+          stampedWindSpeed: stamp?.windSpeed ?? "",
+          stampedHumidity: stamp?.humidity ?? "",
           aiSpecies: stamp?.species ?? "",
           aiBehavior: stamp?.behavior ?? "",
           aiMatchLabel: matchedProfile
@@ -316,6 +322,9 @@ export default function CameraImportPage() {
           {
             temperature: draft.stampedTemperature,
             moonPhase: draft.stampedMoonPhase,
+            windDirection: draft.stampedWindDirection,
+            windSpeed: draft.stampedWindSpeed,
+            humidity: draft.stampedHumidity,
           },
         );
 
@@ -803,6 +812,9 @@ function createImportDraft({
   stampDate,
   stampedTemperature,
   stampedMoonPhase,
+  stampedWindDirection,
+  stampedWindSpeed,
+  stampedHumidity,
   aiSpecies,
   aiBehavior,
   aiMatchLabel,
@@ -819,6 +831,9 @@ function createImportDraft({
   stampDate: string;
   stampedTemperature: string;
   stampedMoonPhase: string;
+  stampedWindDirection: string;
+  stampedWindSpeed: string;
+  stampedHumidity: string;
   aiSpecies: string;
   aiBehavior: string;
   aiMatchLabel: string;
@@ -844,6 +859,9 @@ function createImportDraft({
     selected: true,
     stampedTemperature,
     stampedMoonPhase,
+    stampedWindDirection,
+    stampedWindSpeed,
+    stampedHumidity,
     aiSpecies,
     aiBehavior,
     aiMatchLabel,
@@ -854,18 +872,9 @@ function createImportDraft({
 }
 
 function extractPhotoMetadata(file: File, exifDate: string, stampDate: string) {
-  // The camera's own capture time (EXIF) is the most trustworthy source, then
-  // the date printed on the image itself.
-  if (exifDate) {
-    const parsed = new Date(exifDate);
-
-    return {
-      photoDate: exifDate,
-      extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
-      metadataSource: "Date read from photo (EXIF)",
-    };
-  }
-
+  // The date/time PRINTED on the photo is what the camera recorded locally and
+  // what the hunter sees, so it outranks EXIF — camera apps often write EXIF
+  // in UTC, which shifts the clock (8:08 PM EDT becomes 12:08 AM).
   if (stampDate) {
     const parsed = new Date(
       stampDate.length <= 10 ? `${stampDate}T12:00` : stampDate,
@@ -875,6 +884,16 @@ function extractPhotoMetadata(file: File, exifDate: string, stampDate: string) {
       photoDate: stampDate.length <= 10 ? `${stampDate}T12:00` : stampDate,
       extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
       metadataSource: "Date read from photo stamp",
+    };
+  }
+
+  if (exifDate) {
+    const parsed = new Date(exifDate);
+
+    return {
+      photoDate: exifDate,
+      extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
+      metadataSource: "Date read from photo (EXIF)",
     };
   }
 

@@ -20,6 +20,9 @@ import type { WeatherSnapshot } from "@/types/weather";
 export type StampedWeather = {
   temperature?: string;
   moonPhase?: string;
+  windDirection?: string;
+  windSpeed?: string;
+  humidity?: string;
 };
 
 export async function buildPhotoWeatherSnapshot(
@@ -31,13 +34,25 @@ export async function buildPhotoWeatherSnapshot(
   const parsed = parsePhotoDate(photoDate);
   // Values the camera printed on the image outrank the history lookup, and the
   // snapshot's source records where the numbers actually came from.
-  const usedStamp = Boolean(stamped?.temperature || stamped?.moonPhase);
+  const usedStamp = Boolean(
+    stamped?.temperature ||
+      stamped?.moonPhase ||
+      stamped?.windDirection ||
+      stamped?.windSpeed ||
+      stamped?.humidity,
+  );
+  // WeatherSnapshot has no humidity field, so a stamped humidity rides along
+  // in the conditions text.
+  const humidityText = stamped?.humidity ? `${stamped.humidity}% humidity` : "";
 
   if (!parsed) {
-    // No usable date, but a readable stamp still gives us temp/moon to keep.
+    // No usable date, but a readable stamp still gives us its values to keep.
     if (usedStamp) {
       return createWeatherSnapshot({
         temperature: stamped?.temperature ?? "",
+        windDirection: stamped?.windDirection ?? "",
+        windSpeed: stamped?.windSpeed ?? "",
+        conditions: humidityText,
         moonPhase: stamped?.moonPhase ?? "",
         source: "photo",
       });
@@ -53,9 +68,11 @@ export async function buildPhotoWeatherSnapshot(
 
   return createWeatherSnapshot({
     temperature: stamped?.temperature || historical?.temperature || "",
-    windDirection: historical?.windDirection ?? "",
-    windSpeed: historical?.windSpeed ?? "",
-    conditions: historical?.weather ?? "",
+    windDirection: stamped?.windDirection || historical?.windDirection || "",
+    windSpeed: stamped?.windSpeed || historical?.windSpeed || "",
+    conditions: [historical?.weather ?? "", humidityText]
+      .filter(Boolean)
+      .join(" / "),
     moonPhase: stamped?.moonPhase || moonPhase,
     source: usedStamp ? "photo" : "historical",
   });

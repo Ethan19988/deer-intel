@@ -219,6 +219,9 @@ export default function PropertyAssetWorkspacePage() {
       {
         temperature: photoValues.stampedTemperature,
         moonPhase: photoValues.stampedMoonPhase,
+        windDirection: photoValues.stampedWindDirection,
+        windSpeed: photoValues.stampedWindSpeed,
+        humidity: photoValues.stampedHumidity,
       },
     );
 

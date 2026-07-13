@@ -12,10 +12,13 @@ export type PhotoFormValues = {
   imageId: string;
   imageWidth: number;
   imageHeight: number;
-  // Temp / moon read off the photo's printed info bar (carried to the weather
+  // Values read off the photo's printed info bar (carried to the weather
   // snapshot when the record is saved); "" when nothing was read.
   stampedTemperature: string;
   stampedMoonPhase: string;
+  stampedWindDirection: string;
+  stampedWindSpeed: string;
+  stampedHumidity: string;
 };
 
 export const EMPTY_PHOTO_FORM_VALUES: PhotoFormValues = {
@@ -31,6 +34,9 @@ export const EMPTY_PHOTO_FORM_VALUES: PhotoFormValues = {
   imageHeight: 0,
   stampedTemperature: "",
   stampedMoonPhase: "",
+  stampedWindDirection: "",
+  stampedWindSpeed: "",
+  stampedHumidity: "",
 };
 
 /** A fresh photo form that starts on today's date (adding a photo overrides it). */
