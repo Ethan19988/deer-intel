@@ -1,3 +1,5 @@
+import type { WeatherSnapshot } from "@/types/weather";
+
 export type PhotoRecord = {
   id: string;
   propertyId: string;
@@ -13,4 +15,7 @@ export type PhotoRecord = {
   imageId?: string;
   imageWidth?: number;
   imageHeight?: number;
+  // Temp / wind / sky at the capture time plus the moon phase, looked up from
+  // history when the photo is imported. Optional: older records predate it.
+  weatherSnapshot?: WeatherSnapshot;
 };

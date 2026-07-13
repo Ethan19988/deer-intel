@@ -10,12 +10,6 @@ export const EMPTY_CAMERA_FORM_VALUES: CameraFormValues = {
   latitude: "",
   longitude: "",
   locationNotes: "",
-  batteryPercent: "",
-  sdCardPercent: "",
-  signalStrength: "",
-  carrier: "",
-  lastChecked: "",
-  lastTransmission: "",
   notes: "",
 };
 
@@ -45,19 +39,6 @@ export function createCameraFromValues({
     latitude: parseOptionalNumber(values.latitude),
     longitude: parseOptionalNumber(values.longitude),
     locationNotes: values.locationNotes.trim(),
-    batteryPercent: values.batteryPercent.trim(),
-    sdCardPercent: values.sdCardPercent.trim(),
-    signalStrength:
-      cameraType === "Cellular"
-        ? optionalTrimmedValue(values.signalStrength)
-        : undefined,
-    carrier:
-      cameraType === "Cellular" ? optionalTrimmedValue(values.carrier) : undefined,
-    lastChecked: values.lastChecked,
-    lastTransmission:
-      cameraType === "Cellular"
-        ? optionalTrimmedValue(values.lastTransmission)
-        : undefined,
     notes: values.notes.trim(),
   };
 }
@@ -72,12 +53,6 @@ export function cameraToFormValues(camera: Camera): CameraFormValues {
     latitude: camera.latitude === undefined ? "" : String(camera.latitude),
     longitude: camera.longitude === undefined ? "" : String(camera.longitude),
     locationNotes: camera.locationNotes,
-    batteryPercent: camera.batteryPercent,
-    sdCardPercent: camera.sdCardPercent,
-    signalStrength: camera.signalStrength ?? "",
-    carrier: camera.carrier ?? "",
-    lastChecked: camera.lastChecked,
-    lastTransmission: camera.lastTransmission ?? "",
     notes: camera.notes,
   };
 }
@@ -89,10 +64,4 @@ function parseOptionalNumber(value: string): number | undefined {
   const parsedValue = Number(trimmedValue);
 
   return Number.isFinite(parsedValue) ? parsedValue : undefined;
-}
-
-function optionalTrimmedValue(value: string): string | undefined {
-  const trimmedValue = value.trim();
-
-  return trimmedValue ? trimmedValue : undefined;
 }

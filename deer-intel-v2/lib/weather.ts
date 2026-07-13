@@ -91,6 +91,8 @@ export function weatherSnapshotDescription(snapshot: WeatherSnapshot) {
 export function weatherSourceLabel(source: WeatherSource) {
   if (source === "live") return "Live weather";
   if (source === "live-placeholder") return "Future live weather";
+  if (source === "historical") return "Weather history";
+  if (source === "photo") return "Read from photo";
 
   return "Manual entry";
 }
@@ -210,6 +212,8 @@ function weatherSourceValue(
 ): WeatherSource {
   if (value === "live") return "live";
   if (value === "live-placeholder") return "live-placeholder";
+  if (value === "historical") return "historical";
+  if (value === "photo") return "photo";
   if (value === "manual") return "manual";
 
   return fallback ?? "manual";

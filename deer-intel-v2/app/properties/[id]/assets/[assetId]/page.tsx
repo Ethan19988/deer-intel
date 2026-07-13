@@ -30,10 +30,12 @@ import {
 } from "@/lib/deerIntelStore";
 import {
   createPhotoRecordFromValues,
-  EMPTY_PHOTO_FORM_VALUES,
+  emptyPhotoFormValues,
 } from "@/lib/photoFormValues";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import { buildPhotoWeatherSnapshot } from "@/lib/photoWeather";
 import { getPhotoSummary } from "@/lib/photos";
+import { useUnitPreferences } from "@/lib/units";
 import {
   cameraRelationshipDescription,
   getCameraRelationshipGroups,
@@ -61,7 +63,8 @@ export default function PropertyAssetWorkspacePage() {
   const [checkValues, setCheckValues] = useState(
     EMPTY_CAMERA_CHECK_FORM_VALUES,
   );
-  const [photoValues, setPhotoValues] = useState(EMPTY_PHOTO_FORM_VALUES);
+  const [photoValues, setPhotoValues] = useState(emptyPhotoFormValues);
+  const units = useUnitPreferences();
 
   if (!property) {
     return (
@@ -192,7 +195,7 @@ export default function PropertyAssetWorkspacePage() {
     setCheckValues(EMPTY_CAMERA_CHECK_FORM_VALUES);
   }
 
-  function addPhotoRecord() {
+  async function addPhotoRecord() {
     const newPhotoRecord = createPhotoRecordFromValues({
       id: createDeerIntelId("photo"),
       propertyId,
@@ -203,12 +206,31 @@ export default function PropertyAssetWorkspacePage() {
 
     if (!newPhotoRecord) return;
 
+    // Attach the temp/wind/moon this photo was taken in, from history.
+    const weatherPoint = resolvePropertyWeatherPoint(
+      property,
+      state.cameras.filter((item) => item.propertyId === propertyId),
+      state.pins.filter((pin) => pin.propertyId === propertyId),
+    );
+    const weatherSnapshot = await buildPhotoWeatherSnapshot(
+      newPhotoRecord.photoDate,
+      weatherPoint,
+      units,
+      {
+        temperature: photoValues.stampedTemperature,
+        moonPhase: photoValues.stampedMoonPhase,
+      },
+    );
+
     updateDeerIntelStore((currentState) => ({
       ...currentState,
-      photoRecords: [...currentState.photoRecords, newPhotoRecord],
+      photoRecords: [
+        ...currentState.photoRecords,
+        { ...newPhotoRecord, weatherSnapshot },
+      ],
     }));
     setPhotoValues({
-      ...EMPTY_PHOTO_FORM_VALUES,
+      ...emptyPhotoFormValues(),
       cameraCheckId: newPhotoRecord.cameraCheckId,
     });
   }
@@ -229,7 +251,7 @@ export default function PropertyAssetWorkspacePage() {
         <AssetFact label="Type" value={camera.cameraType} />
         <AssetFact
           label="Last Check"
-          value={formatCameraCheckDate(latestCheck?.date || camera.lastChecked)}
+          value={formatCameraCheckDate(latestCheck?.date)}
         />
         <AssetFact
           label="Checks"
@@ -237,13 +259,11 @@ export default function PropertyAssetWorkspacePage() {
         />
         <AssetFact
           label="Battery"
-          value={formatPercent(
-            latestCheck?.batteryPercent || camera.batteryPercent,
-          )}
+          value={formatPercent(latestCheck?.batteryPercent)}
         />
         <AssetFact
           label="SD Card"
-          value={formatPercent(latestCheck?.sdCardPercent || camera.sdCardPercent)}
+          value={formatPercent(latestCheck?.sdCardPercent)}
         />
       </AssetHeader>
 

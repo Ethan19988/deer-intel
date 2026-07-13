@@ -229,7 +229,6 @@ export default function PropertyWorkspacePage() {
   });
   const aiConfidence = getAiConfidence(knowledgeScore);
   const recentActivity = getRecentActivity({
-    cameras: propertyCameras,
     pins: propertyPins,
     hunts: propertyHunts,
   });

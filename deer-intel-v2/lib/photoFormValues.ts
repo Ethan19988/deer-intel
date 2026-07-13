@@ -12,6 +12,10 @@ export type PhotoFormValues = {
   imageId: string;
   imageWidth: number;
   imageHeight: number;
+  // Temp / moon read off the photo's printed info bar (carried to the weather
+  // snapshot when the record is saved); "" when nothing was read.
+  stampedTemperature: string;
+  stampedMoonPhase: string;
 };
 
 export const EMPTY_PHOTO_FORM_VALUES: PhotoFormValues = {
@@ -25,7 +29,23 @@ export const EMPTY_PHOTO_FORM_VALUES: PhotoFormValues = {
   imageId: "",
   imageWidth: 0,
   imageHeight: 0,
+  stampedTemperature: "",
+  stampedMoonPhase: "",
 };
+
+/** A fresh photo form that starts on today's date (adding a photo overrides it). */
+export function emptyPhotoFormValues(): PhotoFormValues {
+  return { ...EMPTY_PHOTO_FORM_VALUES, photoDate: todayDateInput() };
+}
+
+function todayDateInput(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
 
 type CreatePhotoRecordFromValuesInput = {
   id: string;
@@ -42,29 +62,26 @@ export function createPhotoRecordFromValues({
   values,
   cameraChecks,
 }: CreatePhotoRecordFromValuesInput): PhotoRecord | null {
-  const cameraCheckId = values.cameraCheckId.trim();
+  const rawCheckId = values.cameraCheckId.trim();
   const photoDate = values.photoDate.trim();
   const species = values.species.trim();
   const imageId = values.imageId.trim();
   // A label is optional once a real photo is attached; fall back to a sensible
   // default so every record still has something to show in lists.
   const fileName = values.fileName.trim() || (imageId ? "Uploaded photo" : "");
-  const checkBelongsToCamera = cameraChecks.some(
-    (check) =>
-      check.id === cameraCheckId &&
-      check.propertyId === propertyId &&
-      check.cameraId === cameraSiteId,
-  );
+  // The camera check is optional. Keep it only when a real check for this camera
+  // is chosen; otherwise the photo attaches directly to the camera site.
+  const checkBelongsToCamera =
+    rawCheckId !== "" &&
+    cameraChecks.some(
+      (check) =>
+        check.id === rawCheckId &&
+        check.propertyId === propertyId &&
+        check.cameraId === cameraSiteId,
+    );
+  const cameraCheckId = checkBelongsToCamera ? rawCheckId : "";
 
-  if (
-    !propertyId ||
-    !cameraSiteId ||
-    !cameraCheckId ||
-    !checkBelongsToCamera ||
-    !fileName ||
-    !photoDate ||
-    !species
-  ) {
+  if (!propertyId || !cameraSiteId || !fileName || !photoDate || !species) {
     return null;
   }
 

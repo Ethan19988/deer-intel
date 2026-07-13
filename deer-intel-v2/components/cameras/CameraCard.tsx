@@ -48,9 +48,6 @@ export default function CameraCard({ camera, onEdit }: CameraCardProps) {
       </div>
 
       <div style={detailsGridStyle}>
-        <CameraDetail label="Last Checked" value={camera.lastChecked} />
-        <CameraDetail label="Battery" value={formatPercent(camera.batteryPercent)} />
-        <CameraDetail label="SD Card" value={formatPercent(camera.sdCardPercent)} />
         <CameraDetail
           label="GPS"
           value={
@@ -60,20 +57,6 @@ export default function CameraCard({ camera, onEdit }: CameraCardProps) {
           }
         />
       </div>
-
-      {camera.cameraType === "Cellular" ? (
-        <div style={detailsGridStyle}>
-          <CameraDetail
-            label="Signal"
-            value={formatPercent(camera.signalStrength)}
-          />
-          <CameraDetail label="Carrier" value={camera.carrier} />
-          <CameraDetail
-            label="Last Transmission"
-            value={camera.lastTransmission}
-          />
-        </div>
-      ) : null}
 
       <div style={notesBlockStyle}>
         <p style={detailLabelStyle}>Location Notes</p>
@@ -103,16 +86,6 @@ function CameraDetail({
       <p style={detailValueStyle}>{value || "Not set"}</p>
     </div>
   );
-}
-
-function formatPercent(value: string | undefined) {
-  const trimmedValue = value?.trim();
-
-  if (!trimmedValue) return "";
-  if (trimmedValue.endsWith("%")) return trimmedValue;
-  if (!Number.isNaN(Number(trimmedValue))) return `${trimmedValue}%`;
-
-  return trimmedValue;
 }
 
 const cardStyle: CSSProperties = {

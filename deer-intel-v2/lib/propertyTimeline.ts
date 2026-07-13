@@ -52,7 +52,6 @@ export function getPropertyTimelineEvents({
       photoRecordEvent(photo, propertyCameras),
     ),
     ...propertyHunts.map(huntEvent),
-    ...propertyCameras.map(cameraAssetEvent),
     ...propertyStands.map(standAssetEvent),
   ].sort((left, right) => right.time - left.time);
 }
@@ -117,19 +116,6 @@ function huntEvent(hunt: HuntLogEntry): PropertyTimelineEvent {
     time: timelineTime(
       hunt.startTime ? `${hunt.date}T${hunt.startTime}` : hunt.date,
     ),
-  };
-}
-
-function cameraAssetEvent(camera: Camera): PropertyTimelineEvent {
-  const date = camera.lastTransmission || camera.lastChecked;
-
-  return {
-    id: `camera-asset-${camera.id}`,
-    icon: "asset",
-    title: "Camera site added",
-    dateLabel: formatTimelineDate(date),
-    description: `${camera.name} saved as a ${camera.cameraType.toLowerCase()} camera site.`,
-    time: timelineTime(date),
   };
 }
 

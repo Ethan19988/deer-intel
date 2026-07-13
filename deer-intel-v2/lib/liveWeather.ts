@@ -365,6 +365,158 @@ export async function fetchLiveForecast(
   }
 }
 
+/** The temp/wind/sky a photo was taken in — the moon phase is added locally. */
+export type HistoricalWeatherFields = Pick<
+  LiveWeatherFields,
+  "temperature" | "windDirection" | "windSpeed" | "weather"
+>;
+
+type OpenMeteoWeatherHourly = {
+  time?: string[];
+  temperature_2m?: number[];
+  wind_speed_10m?: number[];
+  wind_direction_10m?: number[];
+  weather_code?: number[];
+};
+
+// One fetched day of hourly history, cached so importing a whole card pull only
+// hits Open-Meteo once per unique (location, day) instead of once per photo.
+const historicalDayCache = new Map<string, OpenMeteoWeatherHourly | null>();
+
+/**
+ * Look up the actual temperature, wind, and sky at the hour a trail-cam photo
+ * was captured, using Open-Meteo's history. Recent dates (within ~90 days) come
+ * from the forecast endpoint — which has no reanalysis delay — and older dates
+ * from the archive endpoint. Returns null when history isn't available.
+ */
+export async function fetchHistoricalWeather(
+  point: WeatherPoint,
+  when: Date,
+  units: UnitPreferences = DEFAULT_UNITS,
+): Promise<HistoricalWeatherFields | null> {
+  if (
+    !Number.isFinite(point.lat) ||
+    !Number.isFinite(point.lng) ||
+    Number.isNaN(when.getTime())
+  ) {
+    return null;
+  }
+
+  const dateKey = toLocalDateKey(when);
+  const cacheKey = `${point.lat.toFixed(3)},${point.lng.toFixed(3)}|${dateKey}|${units.temperature}|${units.wind}`;
+
+  let hourly = historicalDayCache.get(cacheKey);
+
+  if (hourly === undefined) {
+    hourly = await fetchHistoricalDay(point, dateKey, when, units);
+    historicalDayCache.set(cacheKey, hourly);
+  }
+
+  if (!hourly) return null;
+
+  return pickHourFields(hourly, when, units);
+}
+
+async function fetchHistoricalDay(
+  point: WeatherPoint,
+  dateKey: string,
+  when: Date,
+  units: UnitPreferences,
+): Promise<OpenMeteoWeatherHourly | null> {
+  const daysAgo = (Date.now() - when.getTime()) / 86_400_000;
+  const base =
+    daysAgo <= 90
+      ? "https://api.open-meteo.com/v1/forecast"
+      : "https://archive-api.open-meteo.com/v1/archive";
+
+  try {
+    const requestUrl = new URL(base);
+
+    requestUrl.searchParams.set("latitude", point.lat.toFixed(4));
+    requestUrl.searchParams.set("longitude", point.lng.toFixed(4));
+    requestUrl.searchParams.set("start_date", dateKey);
+    requestUrl.searchParams.set("end_date", dateKey);
+    requestUrl.searchParams.set(
+      "hourly",
+      "temperature_2m,wind_speed_10m,wind_direction_10m,weather_code",
+    );
+    requestUrl.searchParams.set(
+      "temperature_unit",
+      openMeteoTemperatureUnit(units.temperature),
+    );
+    requestUrl.searchParams.set(
+      "wind_speed_unit",
+      openMeteoWindSpeedUnit(units.wind),
+    );
+    requestUrl.searchParams.set("timezone", "auto");
+
+    const response = await fetch(requestUrl.toString(), {
+      headers: { Accept: "application/json" },
+    });
+
+    if (!response.ok) return null;
+
+    const payload: unknown = await response.json();
+
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      !("hourly" in payload)
+    ) {
+      return null;
+    }
+
+    const hourly = (payload as { hourly?: OpenMeteoWeatherHourly }).hourly;
+
+    return hourly && Array.isArray(hourly.time) ? hourly : null;
+  } catch {
+    return null;
+  }
+}
+
+function pickHourFields(
+  hourly: OpenMeteoWeatherHourly,
+  when: Date,
+  units: UnitPreferences,
+): HistoricalWeatherFields | null {
+  const times = hourly.time ?? [];
+
+  if (times.length === 0) return null;
+
+  const targetHour = `${toLocalDateKey(when)}T${padTwo(when.getHours())}`;
+  let index = times.findIndex((entry) => entry.slice(0, 13) === targetHour);
+
+  if (index < 0) index = 0; // fall back to the first sample of the day
+
+  const temperature = numberToText(hourly.temperature_2m?.[index]);
+  const windDirection =
+    typeof hourly.wind_direction_10m?.[index] === "number"
+      ? degreesToCompass(hourly.wind_direction_10m[index])
+      : "";
+  const windSpeed =
+    typeof hourly.wind_speed_10m?.[index] === "number"
+      ? `${Math.round(hourly.wind_speed_10m[index])} ${WIND_UNIT_LABEL[units.wind]}`
+      : "";
+  const weather =
+    typeof hourly.weather_code?.[index] === "number"
+      ? describeWeatherCode(hourly.weather_code[index])
+      : "";
+
+  if (!temperature && !windDirection && !windSpeed && !weather) return null;
+
+  return { temperature, windDirection, windSpeed, weather };
+}
+
+function toLocalDateKey(date: Date): string {
+  return `${date.getFullYear()}-${padTwo(date.getMonth() + 1)}-${padTwo(
+    date.getDate(),
+  )}`;
+}
+
+function padTwo(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
 function numberToText(value: number | undefined): string {
   return typeof value === "number" ? `${Math.round(value)}` : "";
 }

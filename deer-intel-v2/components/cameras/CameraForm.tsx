@@ -12,12 +12,6 @@ export type CameraFormValues = {
   latitude: string;
   longitude: string;
   locationNotes: string;
-  batteryPercent: string;
-  sdCardPercent: string;
-  signalStrength: string;
-  carrier: string;
-  lastChecked: string;
-  lastTransmission: string;
   notes: string;
 };
 
@@ -36,8 +30,6 @@ export default function CameraForm({
   onSubmit,
   onCancel,
 }: CameraFormProps) {
-  const isCellular = values.cameraType === "Cellular";
-
   function updateField<Field extends keyof CameraFormValues>(
     field: Field,
     value: CameraFormValues[Field],
@@ -126,18 +118,6 @@ export default function CameraForm({
               style={inputStyle}
             />
           </label>
-
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Last Checked</span>
-            <input
-              type="date"
-              value={values.lastChecked}
-              onChange={(event) =>
-                updateField("lastChecked", event.target.value)
-              }
-              style={inputStyle}
-            />
-          </label>
         </div>
       </CollapsibleSection>
 
@@ -180,83 +160,6 @@ export default function CameraForm({
           />
         </label>
       </CollapsibleSection>
-
-      <CollapsibleSection title="Battery and Card">
-        <div className="di-form-grid" style={formGridStyle}>
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Battery %</span>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              placeholder="85"
-              value={values.batteryPercent}
-              onChange={(event) =>
-                updateField("batteryPercent", event.target.value)
-              }
-              style={inputStyle}
-            />
-          </label>
-
-          <label style={fieldStyle}>
-            <span style={labelStyle}>SD Card %</span>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              placeholder="40"
-              value={values.sdCardPercent}
-              onChange={(event) =>
-                updateField("sdCardPercent", event.target.value)
-              }
-              style={inputStyle}
-            />
-          </label>
-        </div>
-      </CollapsibleSection>
-
-      {isCellular ? (
-        <CollapsibleSection title="Cellular Details" defaultOpen>
-          <div className="di-form-grid" style={formGridStyle}>
-            <label style={fieldStyle}>
-              <span style={labelStyle}>Signal Strength</span>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                placeholder="70"
-                value={values.signalStrength}
-                onChange={(event) =>
-                  updateField("signalStrength", event.target.value)
-                }
-                style={inputStyle}
-              />
-            </label>
-
-            <label style={fieldStyle}>
-              <span style={labelStyle}>Carrier</span>
-              <input
-                placeholder="Verizon, AT&T, Spartan"
-                value={values.carrier}
-                onChange={(event) => updateField("carrier", event.target.value)}
-                style={inputStyle}
-              />
-            </label>
-
-            <label style={fieldStyle}>
-              <span style={labelStyle}>Last Transmission</span>
-              <input
-                type="datetime-local"
-                value={values.lastTransmission}
-                onChange={(event) =>
-                  updateField("lastTransmission", event.target.value)
-                }
-                style={inputStyle}
-              />
-            </label>
-          </div>
-        </CollapsibleSection>
-      ) : null}
 
       <CollapsibleSection title="Notes">
         <label style={fieldStyle}>

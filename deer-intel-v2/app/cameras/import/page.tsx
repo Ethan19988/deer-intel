@@ -15,7 +15,22 @@ import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { CAMERA_IMPORT_PROVIDERS } from "@/lib/cameraImportProviders";
+import {
+  EMPTY_CAMERA_CHECK_FORM_VALUES,
+  createCameraCheckFromValues,
+} from "@/lib/cameraCheckFormValues";
+import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import { describeMoonPhase } from "@/lib/moonPhase";
+import { buildPhotoWeatherSnapshot } from "@/lib/photoWeather";
+import { readPhotoDateTimeInput } from "@/lib/photoExif";
+import { requestPhotoStamp } from "@/lib/photoStampClient";
+import { useUnitPreferences } from "@/lib/units";
+import type { CameraCheck } from "@/types/cameraCheck";
 import type { PhotoRecord } from "@/types/photo";
+
+// Sentinel for the Camera Check dropdown: create a fresh check on import
+// instead of attaching photos to an existing one.
+const NEW_CHECK_OPTION = "new-check";
 
 const SPECIES_OPTIONS = [
   "Buck",
@@ -38,6 +53,9 @@ type ImportDraft = {
   buckName: string;
   notes: string;
   selected: boolean;
+  // Temp / moon read off the photo's printed info bar, "" when nothing was read.
+  stampedTemperature: string;
+  stampedMoonPhase: string;
 };
 
 export default function CameraImportPage() {
@@ -58,15 +76,26 @@ export default function CameraImportPage() {
     selectedCameraId && propertyCameras.some((camera) => camera.id === selectedCameraId)
       ? selectedCameraId
       : propertyCameras[0]?.id ?? "";
+  const activeCamera = propertyCameras.find((camera) => camera.id === cameraId);
+  // Cellular cameras transmit photos over service, so there is no card-pull
+  // check — those imports attach directly to the camera site.
+  const isCellularCamera = activeCamera?.cameraType === "Cellular";
   const cameraChecks = state.cameraChecks.filter(
     (check) => check.propertyId === propertyId && check.cameraId === cameraId,
   );
   const [selectedCameraCheckId, setSelectedCameraCheckId] = useState("");
-  const cameraCheckId =
-    selectedCameraCheckId &&
-    cameraChecks.some((check) => check.id === selectedCameraCheckId)
+  // For standard cameras the effective selection is either an existing check id
+  // or the sentinel NEW_CHECK_OPTION (a check is created on import). When a
+  // camera has no checks yet, default to creating one rather than blocking.
+  const standardCheckSelection =
+    selectedCameraCheckId === NEW_CHECK_OPTION ||
+    (selectedCameraCheckId &&
+      cameraChecks.some((check) => check.id === selectedCameraCheckId))
       ? selectedCameraCheckId
-      : cameraChecks[0]?.id ?? "";
+      : cameraChecks[0]?.id ?? NEW_CHECK_OPTION;
+  const cameraCheckSelection = isCellularCamera ? "" : standardCheckSelection;
+  const willCreateCheck =
+    !isCellularCamera && cameraCheckSelection === NEW_CHECK_OPTION;
   const deerProfiles = state.deerProfiles.filter(
     (profile) => profile.propertyId === propertyId,
   );
@@ -74,13 +103,22 @@ export default function CameraImportPage() {
   const [defaultDeerProfileId, setDefaultDeerProfileId] = useState("");
   const [drafts, setDrafts] = useState<ImportDraft[]>([]);
   const [message, setMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const units = useUnitPreferences();
   const selectedDrafts = drafts.filter((draft) => draft.selected);
-  const canCreateRecords =
-    Boolean(propertyId && cameraId && cameraCheckId) &&
-    selectedDrafts.length > 0 &&
-    selectedDrafts.every(
+  const missingRequirements: string[] = [];
+  if (!propertyId) missingRequirements.push("a property");
+  if (!cameraId) missingRequirements.push("a camera site");
+  if (selectedDrafts.length === 0) {
+    missingRequirements.push("at least one selected photo");
+  } else if (
+    !selectedDrafts.every(
       (draft) => draft.fileName.trim() && draft.photoDate.trim() && draft.species.trim(),
-    );
+    )
+  ) {
+    missingRequirements.push("a file name, date, and species on every selected photo");
+  }
+  const canCreateRecords = missingRequirements.length === 0;
   const activePropertyName =
     state.properties.find((property) => property.id === propertyId)?.name ??
     "No property selected";
@@ -88,10 +126,16 @@ export default function CameraImportPage() {
     propertyCameras.find((camera) => camera.id === cameraId)?.name ??
     "No camera site selected";
   const selectedCheckLabel = useMemo(() => {
-    const check = cameraChecks.find((item) => item.id === cameraCheckId);
+    if (isCellularCamera) return "Sent over service (no check)";
 
-    return check?.date || "No camera check selected";
-  }, [cameraCheckId, cameraChecks]);
+    if (cameraCheckSelection === NEW_CHECK_OPTION) {
+      return "New check (created on import)";
+    }
+
+    const check = cameraChecks.find((item) => item.id === cameraCheckSelection);
+
+    return check?.date || "New check (created on import)";
+  }, [isCellularCamera, cameraCheckSelection, cameraChecks]);
 
   function handlePropertyChange(nextPropertyId: string) {
     setSelectedPropertyId(nextPropertyId);
@@ -104,22 +148,39 @@ export default function CameraImportPage() {
     }));
   }
 
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
+
+    event.target.value = "";
 
     if (files.length === 0) return;
 
-    const nextDrafts = files.map((file) =>
-      createImportDraft({
-        file,
-        species: defaultSpecies,
-        deerProfileId: defaultDeerProfileId,
+    setMessage("Reading photo dates and stamps…");
+
+    // Read each photo's EXIF capture time plus the info bar the camera printed
+    // on the image (vision, when configured). This must happen now — the File
+    // objects are not kept once the drafts are staged.
+    const nextDrafts = await Promise.all(
+      files.map(async (file) => {
+        const [exifDate, stamp] = await Promise.all([
+          readPhotoDateTimeInput(file),
+          requestPhotoStamp(file, units.temperature),
+        ]);
+
+        return createImportDraft({
+          file,
+          species: defaultSpecies,
+          deerProfileId: defaultDeerProfileId,
+          exifDate,
+          stampDate: stamp?.dateTime ?? "",
+          stampedTemperature: stamp?.temperature ?? "",
+          stampedMoonPhase: stamp?.moonPhase ?? "",
+        });
       }),
     );
 
     setDrafts((currentDrafts) => [...currentDrafts, ...nextDrafts]);
     setMessage(`${files.length} photo ${files.length === 1 ? "file" : "files"} added to the inbox.`);
-    event.target.value = "";
   }
 
   function updateDraft<Field extends keyof ImportDraft>(
@@ -156,36 +217,103 @@ export default function CameraImportPage() {
     setMessage("Selected photos removed from the inbox.");
   }
 
-  function createPhotoRecords() {
-    if (!canCreateRecords) {
-      setMessage(
-        "Choose a property, camera site, camera check, and make sure selected photos have a date and species.",
-      );
+  async function createPhotoRecords() {
+    if (!canCreateRecords || isSaving) {
+      if (!canCreateRecords) {
+        setMessage(
+          "Choose a property and camera site, and make sure selected photos have a file name, date, and species.",
+        );
+      }
       return;
     }
 
-    const newPhotoRecords: PhotoRecord[] = selectedDrafts.map((draft) => ({
-      id: createDeerIntelId("photo"),
-      propertyId,
-      cameraSiteId: cameraId,
-      cameraCheckId,
-      fileName: draft.fileName.trim(),
-      photoDate: draft.photoDate.trim(),
-      species: draft.species.trim(),
-      deerProfileId: draft.deerProfileId.trim() || undefined,
-      buckName: draft.buckName.trim() || undefined,
-      notes: buildImportNotes(draft),
-      createdAt: new Date().toISOString(),
-    }));
+    setIsSaving(true);
+    setMessage("Looking up the weather each photo was taken in…");
+
+    // When importing to a site with no check selected, create one dated to the
+    // earliest photo — importing a batch of card photos is itself a card pull.
+    const newCheck: CameraCheck | null = willCreateCheck
+      ? createCameraCheckFromValues({
+          id: createDeerIntelId("camera-check"),
+          propertyId,
+          cameraId,
+          values: {
+            ...EMPTY_CAMERA_CHECK_FORM_VALUES,
+            date: deriveCheckDate(selectedDrafts),
+            notes: "Created automatically from a Camera Import.",
+          },
+        })
+      : null;
+    const targetCheckId = newCheck ? newCheck.id : cameraCheckSelection;
+
+    // The moon phase comes from the date alone (no network); temp/wind come from
+    // Open-Meteo history for the property's location at each photo's hour.
+    const property =
+      state.properties.find((item) => item.id === propertyId) ?? null;
+    const weatherPoint = resolvePropertyWeatherPoint(
+      property,
+      propertyCameras,
+      state.pins.filter((pin) => pin.propertyId === propertyId),
+    );
+
+    let historyCount = 0;
+
+    const newPhotoRecords: PhotoRecord[] = await Promise.all(
+      selectedDrafts.map(async (draft) => {
+        const weatherSnapshot = await buildPhotoWeatherSnapshot(
+          draft.photoDate,
+          weatherPoint,
+          units,
+          {
+            temperature: draft.stampedTemperature,
+            moonPhase: draft.stampedMoonPhase,
+          },
+        );
+
+        if (weatherSnapshot?.temperature || weatherSnapshot?.windDirection) {
+          historyCount += 1;
+        }
+
+        return {
+          id: createDeerIntelId("photo"),
+          propertyId,
+          cameraSiteId: cameraId,
+          cameraCheckId: targetCheckId,
+          fileName: draft.fileName.trim(),
+          photoDate: draft.photoDate.trim(),
+          species: draft.species.trim(),
+          deerProfileId: draft.deerProfileId.trim() || undefined,
+          buckName: draft.buckName.trim() || undefined,
+          notes: buildImportNotes(draft),
+          createdAt: new Date().toISOString(),
+          weatherSnapshot,
+        };
+      }),
+    );
 
     updateDeerIntelStore((currentState) => ({
       ...currentState,
+      cameraChecks: newCheck
+        ? [...currentState.cameraChecks, newCheck]
+        : currentState.cameraChecks,
       photoRecords: [...currentState.photoRecords, ...newPhotoRecords],
     }));
+    setSelectedCameraCheckId(targetCheckId);
     setDrafts((currentDrafts) =>
       currentDrafts.filter((draft) => !draft.selected),
     );
-    setMessage(`${newPhotoRecords.length} photo records created.`);
+
+    const base = newCheck
+      ? `${newPhotoRecords.length} photo records created under a new camera check (${newCheck.date}).`
+      : isCellularCamera
+        ? `${newPhotoRecords.length} photo records created for this cellular camera (no check needed).`
+        : `${newPhotoRecords.length} photo records created.`;
+    const weatherNote = historyCount
+      ? ` Temp, wind, and moon phase saved for ${historyCount} of them.`
+      : " Moon phase saved (add a property/camera location for temp and wind).";
+
+    setMessage(base + weatherNote);
+    setIsSaving(false);
   }
 
   return (
@@ -260,20 +388,26 @@ export default function CameraImportPage() {
 
               <label style={fieldStyle}>
                 <span style={labelStyle}>Camera Check</span>
-                <select
-                  value={cameraCheckId}
-                  onChange={(event) => setSelectedCameraCheckId(event.target.value)}
-                  style={inputStyle}
-                >
-                  {cameraChecks.length === 0 ? (
-                    <option value="">No camera checks yet</option>
-                  ) : null}
-                  {cameraChecks.map((check) => (
-                    <option key={check.id} value={check.id}>
-                      {check.date || "Camera check"}
+                {isCellularCamera ? (
+                  <span style={readonlyFieldStyle}>
+                    Not needed — cellular camera sends photos over service
+                  </span>
+                ) : (
+                  <select
+                    value={cameraCheckSelection}
+                    onChange={(event) => setSelectedCameraCheckId(event.target.value)}
+                    style={inputStyle}
+                  >
+                    <option value={NEW_CHECK_OPTION}>
+                      New check (created on import)
                     </option>
-                  ))}
-                </select>
+                    {cameraChecks.map((check) => (
+                      <option key={check.id} value={check.id}>
+                        {check.date || "Camera check"}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </label>
 
               <label style={fieldStyle}>
@@ -328,19 +462,12 @@ export default function CameraImportPage() {
               />
             ) : null}
 
-            {propertyCameras.length > 0 && cameraChecks.length === 0 ? (
-              <EmptyState
-                title="No camera checks for this camera"
-                description="The current Photo Record model attaches photos to a camera check. Open the camera site and save a check before creating imported photo records."
-                action={
-                  <Link
-                    href={cameraId ? `/properties/${propertyId}/assets/${cameraId}` : "/cameras"}
-                    style={primaryLinkStyle}
-                  >
-                    Open Camera Site
-                  </Link>
-                }
-              />
+            {propertyCameras.length > 0 && willCreateCheck ? (
+              <p style={assignmentTextStyle}>
+                This camera site has no matching check selected, so importing
+                will create a new camera check dated to your earliest photo. You
+                can review or edit it later from the camera site.
+              </p>
             ) : null}
           </Card>
         )}
@@ -352,7 +479,8 @@ export default function CameraImportPage() {
             <span style={uploadTitleStyle}>Choose camera photos</span>
             <span style={mutedTextStyle}>
               Select multiple JPG, PNG, or image files. Deer Intel reads the
-              filename and browser file date where available.
+              capture time from each photo (EXIF), then fills in the temp, wind,
+              and moon phase for that moment when you create the records.
             </span>
             <input
               type="file"
@@ -367,7 +495,7 @@ export default function CameraImportPage() {
             <Button
               type="button"
               variant="secondary"
-              disabled={selectedDrafts.length === 0}
+              disabled={selectedDrafts.length === 0 || isSaving}
               onClick={applyDefaultsToDrafts}
             >
               Apply Defaults
@@ -375,19 +503,25 @@ export default function CameraImportPage() {
             <Button
               type="button"
               variant="secondary"
-              disabled={selectedDrafts.length === 0}
+              disabled={selectedDrafts.length === 0 || isSaving}
               onClick={removeSelectedDrafts}
             >
               Remove Selected
             </Button>
             <Button
               type="button"
-              disabled={!canCreateRecords}
+              disabled={!canCreateRecords || isSaving}
               onClick={createPhotoRecords}
             >
-              Create Photo Records
+              {isSaving ? "Saving…" : "Create Photo Records"}
             </Button>
           </div>
+
+          {!canCreateRecords && drafts.length > 0 ? (
+            <p style={hintStyle}>
+              To create records you still need {formatRequirementList(missingRequirements)}.
+            </p>
+          ) : null}
 
           {message ? <p style={messageStyle}>{message}</p> : null}
         </Card>
@@ -417,6 +551,14 @@ export default function CameraImportPage() {
                       <span style={draftMetaStyle}>
                         {draft.metadataSource}
                         {draft.extractedTime ? ` / ${draft.extractedTime}` : ""}
+                        {draft.stampedTemperature
+                          ? ` / ${draft.stampedTemperature}° stamped`
+                          : ""}
+                        {draft.stampedMoonPhase
+                          ? ` / ${draft.stampedMoonPhase} moon (stamped)`
+                          : moonLabelForDate(draft.photoDate)
+                            ? ` / ${moonLabelForDate(draft.photoDate)} moon`
+                            : ""}
                       </span>
                     </span>
                   </label>
@@ -529,16 +671,34 @@ export default function CameraImportPage() {
   );
 }
 
+function moonLabelForDate(photoDate: string): string {
+  if (!photoDate) return "";
+
+  const parsed = new Date(photoDate);
+
+  return Number.isNaN(parsed.getTime())
+    ? ""
+    : describeMoonPhase(parsed.getTime());
+}
+
 function createImportDraft({
   file,
   species,
   deerProfileId,
+  exifDate,
+  stampDate,
+  stampedTemperature,
+  stampedMoonPhase,
 }: {
   file: File;
   species: string;
   deerProfileId: string;
+  exifDate: string;
+  stampDate: string;
+  stampedTemperature: string;
+  stampedMoonPhase: string;
 }): ImportDraft {
-  const metadata = extractPhotoMetadata(file);
+  const metadata = extractPhotoMetadata(file, exifDate, stampDate);
 
   return {
     id: createDeerIntelId("import-photo"),
@@ -551,10 +711,36 @@ function createImportDraft({
     buckName: "",
     notes: "Imported through Camera Import Inbox.",
     selected: true,
+    stampedTemperature,
+    stampedMoonPhase,
   };
 }
 
-function extractPhotoMetadata(file: File) {
+function extractPhotoMetadata(file: File, exifDate: string, stampDate: string) {
+  // The camera's own capture time (EXIF) is the most trustworthy source, then
+  // the date printed on the image itself.
+  if (exifDate) {
+    const parsed = new Date(exifDate);
+
+    return {
+      photoDate: exifDate,
+      extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
+      metadataSource: "Date read from photo (EXIF)",
+    };
+  }
+
+  if (stampDate) {
+    const parsed = new Date(
+      stampDate.length <= 10 ? `${stampDate}T12:00` : stampDate,
+    );
+
+    return {
+      photoDate: stampDate.length <= 10 ? `${stampDate}T12:00` : stampDate,
+      extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
+      metadataSource: "Date read from photo stamp",
+    };
+  }
+
   const filenameDate = dateTimeFromFileName(file.name);
 
   if (filenameDate) {
@@ -628,6 +814,33 @@ function padNumber(value: number) {
   return String(value).padStart(2, "0");
 }
 
+function deriveCheckDate(drafts: ImportDraft[]): string {
+  // Photo dates are datetime-local values (YYYY-MM-DDThh:mm); the check stores a
+  // plain date. Use the earliest photo's date, falling back to today.
+  const dates = drafts
+    .map((draft) => draft.photoDate.trim().slice(0, 10))
+    .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
+    .sort();
+
+  if (dates.length > 0) return dates[0];
+
+  const today = new Date();
+
+  return `${today.getFullYear()}-${padNumber(today.getMonth() + 1)}-${padNumber(
+    today.getDate(),
+  )}`;
+}
+
+function formatRequirementList(requirements: string[]) {
+  if (requirements.length === 0) return "";
+  if (requirements.length === 1) return requirements[0];
+  if (requirements.length === 2) return `${requirements[0]} and ${requirements[1]}`;
+
+  return `${requirements.slice(0, -1).join(", ")}, and ${
+    requirements[requirements.length - 1]
+  }`;
+}
+
 function buildImportNotes(draft: ImportDraft) {
   return [
     draft.notes.trim(),
@@ -684,6 +897,14 @@ const textAreaStyle: CSSProperties = {
   resize: "vertical",
 };
 
+const readonlyFieldStyle: CSSProperties = {
+  ...inputStyle,
+  display: "flex",
+  alignItems: "center",
+  color: "var(--text-muted)",
+  fontWeight: 700,
+};
+
 const assignmentTextStyle: CSSProperties = {
   margin: "1rem 0 0",
   color: "var(--text-muted)",
@@ -721,6 +942,13 @@ const messageStyle: CSSProperties = {
   margin: "1rem 0 0",
   color: "var(--accent-text)",
   fontWeight: 800,
+};
+
+const hintStyle: CSSProperties = {
+  margin: "1rem 0 0",
+  color: "var(--text-muted)",
+  fontWeight: 700,
+  lineHeight: 1.5,
 };
 
 const draftListStyle: CSSProperties = {

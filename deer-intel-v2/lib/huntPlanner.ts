@@ -124,26 +124,7 @@ function getRecentCameraActivity(
     },
   );
 
-  const cameraActivity = state.cameras
-    .map((camera) => {
-      const date = camera.lastTransmission || camera.lastChecked;
-      const property = findProperty(state.properties, camera.propertyId);
-
-      return {
-        id: camera.id,
-        cameraName: camera.name,
-        propertyName: property?.name ?? "Unknown property",
-        description:
-          camera.cameraType === "Cellular"
-            ? "Cellular camera details saved."
-            : "Camera site details saved.",
-        dateLabel: formatCameraCheckDate(date),
-        time: activityTime(date),
-      };
-    })
-    .filter((activity) => activity.time > 0);
-
-  return [...checkActivity, ...cameraActivity]
+  return [...checkActivity]
     .sort((left, right) => right.time - left.time)
     .slice(0, 4);
 }

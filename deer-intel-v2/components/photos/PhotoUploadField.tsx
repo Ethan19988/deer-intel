@@ -6,6 +6,9 @@ import Button from "@/components/ui/Button";
 import { createDeerIntelId } from "@/lib/deerIntelStore";
 import { isImageFile, processImageFile } from "@/lib/imageProcessing";
 import { deletePhotoImage, putPhotoImage } from "@/lib/imageStore";
+import { readPhotoDateTimeInput } from "@/lib/photoExif";
+import { requestPhotoStamp } from "@/lib/photoStampClient";
+import { useUnitPreferences } from "@/lib/units";
 
 export type SelectedPhotoImage = {
   imageId: string;
@@ -13,6 +16,11 @@ export type SelectedPhotoImage = {
   imageHeight: number;
   fileName: string;
   lastModified: number;
+  // Capture time from the photo's EXIF, or the printed stamp, or "" if none.
+  capturedAt: string;
+  // Temperature / moon read off the photo's printed info bar, or "" if none.
+  stampedTemperature: string;
+  stampedMoonPhase: string;
 };
 
 type PhotoUploadFieldProps = {
@@ -28,7 +36,9 @@ export default function PhotoUploadField({
 }: PhotoUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [statusText, setStatusText] = useState("");
   const [error, setError] = useState("");
+  const units = useUnitPreferences();
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -44,9 +54,15 @@ export default function PhotoUploadField({
 
     setError("");
     setIsProcessing(true);
+    setStatusText("Processing photo…");
 
     try {
-      const processed = await processImageFile(file);
+      // Read EXIF from the original file before it is resized — the canvas
+      // re-encode in processImageFile strips metadata.
+      const [processed, exifDate] = await Promise.all([
+        processImageFile(file),
+        readPhotoDateTimeInput(file),
+      ]);
       const newImageId = createDeerIntelId("image");
       const stored = await putPhotoImage(newImageId, processed.blob);
 
@@ -58,12 +74,20 @@ export default function PhotoUploadField({
         await deletePhotoImage(imageId);
       }
 
+      // Read the date/temp/moon printed on the photo (opt-in, when configured).
+      // Returns null and falls back to EXIF + weather lookup otherwise.
+      setStatusText("Reading photo info…");
+      const stamp = await requestPhotoStamp(file, units.temperature);
+
       onImageSelected({
         imageId: newImageId,
         imageWidth: processed.width,
         imageHeight: processed.height,
         fileName: file.name,
         lastModified: file.lastModified,
+        capturedAt: exifDate || stamp?.dateTime || "",
+        stampedTemperature: stamp?.temperature ?? "",
+        stampedMoonPhase: stamp?.moonPhase ?? "",
       });
     } catch (caughtError) {
       setError(
@@ -73,6 +97,7 @@ export default function PhotoUploadField({
       );
     } finally {
       setIsProcessing(false);
+      setStatusText("");
     }
   }
 
@@ -133,11 +158,11 @@ export default function PhotoUploadField({
           style={dropZoneStyle}
         >
           <span style={dropTitleStyle}>
-            {isProcessing ? "Processing photo…" : "Upload a photo"}
+            {isProcessing ? statusText || "Processing photo…" : "Upload a photo"}
           </span>
           <span style={dropHintStyle}>
-            Tap to choose from your library or take a photo. Large images are
-            resized automatically.
+            Tap to choose from your library or take a photo. The date, temp, and
+            moon printed on the photo are read in automatically.
           </span>
         </button>
       )}

@@ -34,11 +34,10 @@ export default function PhotoRecordForm({
   onChange,
   onSubmit,
 }: PhotoRecordFormProps) {
+  // A camera check is optional — cellular cams and quick single adds don't need
+  // a card-pull. The photo just needs an image (or label), a date, and species.
   const canSave = Boolean(
-    values.cameraCheckId &&
-      (values.fileName || values.imageId) &&
-      values.photoDate &&
-      values.species,
+    (values.fileName || values.imageId) && values.photoDate && values.species,
   );
 
   function updateField<Field extends keyof PhotoFormValues>(
@@ -52,15 +51,21 @@ export default function PhotoRecordForm({
   }
 
   function handleImageSelected(image: SelectedPhotoImage) {
+    // The photo's own capture date (EXIF) is the most trustworthy source, then
+    // the file's date; either wins over the default so the date matches the
+    // photo. The label only auto-fills when blank so a typed label is kept.
+    const imageDate =
+      image.capturedAt.slice(0, 10) || toDateInput(image.lastModified);
+
     onChange({
       ...values,
       imageId: image.imageId,
       imageWidth: image.imageWidth,
       imageHeight: image.imageHeight,
-      // Auto-fill the label and date from the file, but never clobber anything
-      // the user already typed.
       fileName: values.fileName.trim() || cleanFileLabel(image.fileName),
-      photoDate: values.photoDate.trim() || toDateInput(image.lastModified),
+      photoDate: imageDate || values.photoDate,
+      stampedTemperature: image.stampedTemperature,
+      stampedMoonPhase: image.stampedMoonPhase,
     });
   }
 
@@ -70,6 +75,8 @@ export default function PhotoRecordForm({
       imageId: "",
       imageWidth: 0,
       imageHeight: 0,
+      stampedTemperature: "",
+      stampedMoonPhase: "",
     });
   }
 
@@ -92,7 +99,7 @@ export default function PhotoRecordForm({
 
         <div className="di-form-grid" style={formGridStyle}>
           <label style={fieldStyle}>
-            <span style={labelStyle}>Camera Check</span>
+            <span style={labelStyle}>Camera Check (optional)</span>
             <select
               value={values.cameraCheckId}
               onChange={(event) =>
@@ -100,7 +107,7 @@ export default function PhotoRecordForm({
               }
               style={inputStyle}
             >
-              <option value="">Choose check</option>
+              <option value="">No camera check</option>
               {cameraChecks.map((check) => (
                 <option key={check.id} value={check.id}>
                   {formatCameraCheckDate(check.date)}

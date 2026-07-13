@@ -76,27 +76,12 @@ export function getAiConfidence(knowledgeScore: number): AiConfidence {
 }
 
 export function getRecentActivity({
-  cameras,
   pins,
   hunts,
 }: {
-  cameras: Camera[];
   pins: MapPin[];
   hunts: HuntLogEntry[];
 }): ActivityItem[] {
-  const cameraActivity = cameras.map((camera) => {
-    const date = camera.lastTransmission || camera.lastChecked;
-
-    return {
-      title: `${camera.name} camera saved`,
-      description:
-        camera.cameraType === "Cellular"
-          ? "Cellular camera details are available."
-          : "Standard camera details are available.",
-      dateLabel: formatActivityDate(date),
-      time: activityTime(date),
-    };
-  });
   const pinActivity = pins.map((pin) => ({
     title: `${pin.type} pin added`,
     description: pin.notes || "Map intelligence saved.",
@@ -115,7 +100,7 @@ export function getRecentActivity({
     time: activityTime(hunt.date),
   }));
 
-  return [...cameraActivity, ...pinActivity, ...huntActivity]
+  return [...pinActivity, ...huntActivity]
     .sort((left, right) => right.time - left.time)
     .slice(0, 5);
 }

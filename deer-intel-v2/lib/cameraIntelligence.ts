@@ -347,15 +347,9 @@ function getAttentionItems(
   );
   const conditionItems = cameras.flatMap((camera) => {
     const latestCheck = latestCameraCheck(camera.id, cameraChecks);
-    const batteryPercent = percentNumber(
-      latestCheck?.batteryPercent || camera.batteryPercent,
-    );
-    const sdCardPercent = percentNumber(
-      latestCheck?.sdCardPercent || camera.sdCardPercent,
-    );
-    const signalStrength = percentNumber(
-      latestCheck?.signalStrength || camera.signalStrength,
-    );
+    const batteryPercent = percentNumber(latestCheck?.batteryPercent);
+    const sdCardPercent = percentNumber(latestCheck?.sdCardPercent);
+    const signalStrength = percentNumber(latestCheck?.signalStrength);
     const items: CameraAttentionItem[] = [];
 
     if (camera.status === "Inactive") {
@@ -415,10 +409,6 @@ function latestCameraCheckDate(camera: Camera, cameraChecks: CameraCheck[]) {
   const latestCheckTime = dateInputTime(latestCheck?.date);
 
   if (latestCheckTime > 0) return new Date(latestCheckTime);
-
-  const cameraLastCheckedTime = dateInputTime(camera.lastChecked);
-
-  if (cameraLastCheckedTime > 0) return new Date(cameraLastCheckedTime);
 
   return null;
 }

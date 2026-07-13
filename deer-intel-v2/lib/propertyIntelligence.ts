@@ -116,8 +116,6 @@ function getActiveCameraCard({
       const latestActivityTime = Math.max(
         ...checks.map((check) => dateTime(check.date)),
         ...photos.map((photo) => dateTime(photo.photoDate)),
-        dateTime(camera.lastTransmission),
-        dateTime(camera.lastChecked),
         0,
       );
 

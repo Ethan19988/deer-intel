@@ -3,6 +3,11 @@ import PhotoImage from "@/components/photos/PhotoImage";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import { formatPhotoDate, sortPhotoRecordsChronologically } from "@/lib/photos";
+import {
+  hasWeatherSnapshot,
+  weatherSnapshotDescription,
+  weatherSourceLabel,
+} from "@/lib/weather";
 import type { DeerProfile } from "@/types/deerProfile";
 import type { PhotoRecord } from "@/types/photo";
 
@@ -29,6 +34,10 @@ export default function PhotoRecordList({
         const deerProfile = deerProfiles.find(
           (profile) => profile.id === photo.deerProfileId,
         );
+        const weather =
+          photo.weatherSnapshot && hasWeatherSnapshot(photo.weatherSnapshot)
+            ? weatherSnapshotDescription(photo.weatherSnapshot)
+            : "";
 
         return (
           <article key={photo.id} style={photoCardStyle}>
@@ -37,7 +46,20 @@ export default function PhotoRecordList({
                 <p style={eyebrowStyle}>{formatPhotoDate(photo.photoDate)}</p>
                 <h4 style={titleStyle}>{photo.fileName}</h4>
               </div>
-              <Badge>{photo.species}</Badge>
+              <div style={badgeRowStyle}>
+                {weather && photo.weatherSnapshot ? (
+                  <Badge
+                    variant={
+                      photo.weatherSnapshot.source === "photo"
+                        ? "success"
+                        : "default"
+                    }
+                  >
+                    {weatherSourceLabel(photo.weatherSnapshot.source)}
+                  </Badge>
+                ) : null}
+                <Badge>{photo.species}</Badge>
+              </div>
             </div>
 
             {photo.imageId ? (
@@ -54,8 +76,11 @@ export default function PhotoRecordList({
               </div>
             ) : null}
 
-            {deerProfile || photo.buckName || photo.notes ? (
+            {deerProfile || photo.buckName || photo.notes || weather ? (
               <div style={detailsStyle}>
+                {weather ? (
+                  <PhotoDetail label="Weather" value={weather} />
+                ) : null}
                 {deerProfile ? (
                   <PhotoDetail
                     label="Deer Profile"
@@ -103,6 +128,14 @@ const headerStyle: CSSProperties = {
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: "1rem",
+};
+
+const badgeRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: "0.4rem",
+  flexWrap: "wrap",
 };
 
 const imageWrapStyle: CSSProperties = {

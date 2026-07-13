@@ -13,11 +13,5 @@ export type Camera = {
   latitude?: number;
   longitude?: number;
   locationNotes: string;
-  batteryPercent: string;
-  sdCardPercent: string;
-  signalStrength?: string;
-  carrier?: string;
-  lastChecked: string;
-  lastTransmission?: string;
   notes: string;
 };

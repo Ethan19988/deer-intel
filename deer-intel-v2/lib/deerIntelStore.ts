@@ -243,25 +243,6 @@ function normalizeCamera(value: unknown): Camera | null {
     latitude: optionalNumberValue(value.latitude ?? value.lat),
     longitude: optionalNumberValue(value.longitude ?? value.lng),
     locationNotes: stringValue(value.locationNotes),
-    batteryPercent: stringValue(
-      value.batteryPercent,
-      stringValue(value.battery),
-    ),
-    sdCardPercent: stringValue(value.sdCardPercent, stringValue(value.sdCard)),
-    signalStrength:
-      cameraType === "Cellular"
-        ? optionalStringValue(value.signalStrength)
-        : undefined,
-    carrier:
-      cameraType === "Cellular" ? optionalStringValue(value.carrier) : undefined,
-    lastChecked: stringValue(
-      value.lastChecked,
-      stringValue(value.lastCheckedDate),
-    ),
-    lastTransmission:
-      cameraType === "Cellular"
-        ? optionalStringValue(value.lastTransmission)
-        : undefined,
     notes: stringValue(value.notes, "No notes yet."),
   };
 }
@@ -434,21 +415,18 @@ function normalizePhotoRecord(value: unknown): PhotoRecord | null {
   const photoDate = stringValue(value.photoDate).trim();
   const species = stringValue(value.species).trim();
 
-  if (
-    !id ||
-    !propertyId ||
-    !cameraSiteId ||
-    !cameraCheckId ||
-    !fileName ||
-    !photoDate ||
-    !species
-  ) {
+  // cameraCheckId is optional: cellular cameras transmit photos over service,
+  // so those records attach directly to the camera site with no card-pull check.
+  if (!id || !propertyId || !cameraSiteId || !fileName || !photoDate || !species) {
     return null;
   }
 
   const imageId = optionalStringValue(value.imageId);
   const imageWidth = optionalNumberValue(value.imageWidth);
   const imageHeight = optionalNumberValue(value.imageHeight);
+  const weatherSnapshot = isRecord(value.weatherSnapshot)
+    ? normalizeWeatherSnapshot(value.weatherSnapshot)
+    : undefined;
 
   return {
     id,
@@ -466,6 +444,7 @@ function normalizePhotoRecord(value: unknown): PhotoRecord | null {
     imageWidth: imageId && imageWidth && imageWidth > 0 ? imageWidth : undefined,
     imageHeight:
       imageId && imageHeight && imageHeight > 0 ? imageHeight : undefined,
+    weatherSnapshot,
   };
 }
 
