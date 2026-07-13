@@ -61,7 +61,12 @@ export type AiScoutDeerProfileContext = {
 export type AiScoutBuckPhotoContext = {
   date: string;
   cameraName: string;
+  species: string;
   buckName?: string;
+  // Conditions the photo was taken in, from its stored weather snapshot.
+  temperature?: string;
+  windDirection?: string;
+  moonPhase?: string;
   notes: string;
 };
 

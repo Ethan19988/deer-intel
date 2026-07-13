@@ -129,7 +129,14 @@ export function buildAiScoutRequestContext({
     .map((photo) => ({
       date: photo.photoDate,
       cameraName: cameraNameById.get(photo.cameraSiteId) ?? "Camera site",
+      species: photo.species,
       buckName: photo.buckName,
+      // The conditions this photo was taken in — captured at import from the
+      // photo's stamp or weather history — so the scout can pattern movement
+      // against temperature, wind, and moon.
+      temperature: photo.weatherSnapshot?.temperature || undefined,
+      windDirection: photo.weatherSnapshot?.windDirection || undefined,
+      moonPhase: photo.weatherSnapshot?.moonPhase || undefined,
       notes: truncate(photo.notes),
     }));
 

@@ -28,6 +28,9 @@ Rules:
   confidence to "low" rather than overstating certainty.
 - Weigh today's conditions (wind, temperature, moon phase) against each stand's noted best/avoid
   winds and recent activity when picking a recommendation.
+- Recent buck photos carry the conditions they were taken in (temperature, wind, moon) and
+  behavior notes (traveling, feeding, chasing). Pattern them: if a buck shows up on a camera in
+  conditions like today's, weight stands near that camera and say so.
 - Factor the moon phase into deer-movement timing, not just stand choice. As a rule of thumb: a
   bright moon (full or a waxing/waning gibbous) lets deer feed overnight, which tends to slow
   dawn/dusk movement and push more activity toward midday; a dark moon (new or thin crescent)
