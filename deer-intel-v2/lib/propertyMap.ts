@@ -425,6 +425,43 @@ export async function geocodeAddressOrPlace(
   }
 }
 
+// Typeahead suggestions from /api/geocode/suggest (Esri suggest, biased to the
+// current map center so nearby matches rank first). Best-effort — returns [] on
+// any failure so the search box still works without suggestions.
+export async function suggestAddresses(
+  query: string,
+  center?: MapCenter,
+): Promise<string[]> {
+  const trimmedQuery = query.trim();
+
+  if (trimmedQuery.length < 3) return [];
+
+  try {
+    const params = new URLSearchParams({ q: trimmedQuery });
+
+    if (center) {
+      params.set("lat", String(center[0]));
+      params.set("lng", String(center[1]));
+    }
+
+    const response = await fetch(`/api/geocode/suggest?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+    });
+
+    if (!response.ok) return [];
+
+    const data = (await response.json()) as { suggestions?: unknown };
+
+    return Array.isArray(data.suggestions)
+      ? data.suggestions.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 export function createVisibleAssetLayerState() {
   return ASSET_LAYERS.reduce<Record<AssetLayerId, boolean>>((layers, layer) => {
     layers[layer.id] = true;

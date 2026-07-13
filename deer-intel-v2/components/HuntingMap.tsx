@@ -2080,6 +2080,7 @@ export default function HuntingMap() {
             results={searchResults}
             selectedAssetType={pinType}
             selectedResultId={selectedSearchResult?.id ?? null}
+            biasCenter={mapCenter}
             onCreateAssetHere={createAssetFromSearchResult}
             onSearch={searchAddressOrPlace}
             onSelectResult={selectSearchResult}
