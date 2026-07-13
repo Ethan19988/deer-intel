@@ -596,7 +596,8 @@ textarea {
     top: calc(0.75rem + env(safe-area-inset-top)) !important;
   }
   .di-page-shell-bare .di-map-controls {
-    top: calc(3.9rem + env(safe-area-inset-top)) !important;
+    top: auto !important;
+    bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
   }
   .di-page-shell-bare .di-map-topbar {
     top: calc(4.75rem + env(safe-area-inset-top)) !important;
@@ -615,7 +616,8 @@ textarea {
     bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
   }
   .di-page-shell-bare .di-layer-manager-button {
-    bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
+    top: calc(3.9rem + env(safe-area-inset-top)) !important;
+    bottom: auto !important;
   }
   .di-page-shell-bare .di-area-pill {
     bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
@@ -858,9 +860,9 @@ textarea {
      instead of being crushed into the narrow desktop band between them. */
   .di-map-topbar {
     top: 4.75rem !important;
-    left: 0.5rem !important;
-    /* Leave room for the top-right zoom/GPS control column, which extends down
-       into this row. */
+    /* Line up with the search bar's left edge above it. */
+    left: 0.75rem !important;
+    /* Leave room for the top-right gear + Layers button column. */
     right: 5.5rem !important;
     justify-content: flex-start !important;
     touch-action: pan-x;
@@ -877,15 +879,16 @@ textarea {
   }
 
   .di-map-controls {
-    top: 0.75rem !important;
+    top: auto !important;
+    bottom: 0.85rem !important;
     right: 0.75rem !important;
     gap: 0.55rem !important;
   }
 
   .di-layer-manager-button {
-    top: auto !important;
+    top: 3.9rem !important;
     right: 0.75rem !important;
-    bottom: 0.85rem !important;
+    bottom: auto !important;
     min-height: 50px !important;
   }
 
