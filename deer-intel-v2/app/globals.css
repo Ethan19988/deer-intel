@@ -561,6 +561,13 @@ textarea {
     border: 0 !important;
     border-radius: 0 !important;
   }
+
+  /* Lift the distance scale above the bottom-left property panel so they don't
+     overlap. (Leaflet's own control CSS otherwise pins it to the very bottom.) */
+  .di-page-shell-bare .di-map-frame .leaflet-control-scale {
+    margin-bottom: 5rem !important;
+    margin-left: 1rem !important;
+  }
 }
 
 /* On mobile the bare map page fills the entire screen: no page padding, the
