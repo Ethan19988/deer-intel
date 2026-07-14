@@ -14,7 +14,6 @@ import {
   updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
-import { CAMERA_IMPORT_PROVIDERS } from "@/lib/cameraImportProviders";
 import {
   EMPTY_CAMERA_CHECK_FORM_VALUES,
   createCameraCheckFromValues,
@@ -117,8 +116,6 @@ export default function CameraImportPage() {
   const deerProfiles = state.deerProfiles.filter(
     (profile) => profile.propertyId === propertyId,
   );
-  const [defaultSpecies, setDefaultSpecies] = useState("Other");
-  const [defaultDeerProfileId, setDefaultDeerProfileId] = useState("");
   const [drafts, setDrafts] = useState<ImportDraft[]>([]);
   const [message, setMessage] = useState("");
   const [savedCameraId, setSavedCameraId] = useState("");
@@ -160,7 +157,6 @@ export default function CameraImportPage() {
     setSelectedPropertyId(nextPropertyId);
     setSelectedCameraId("");
     setSelectedCameraCheckId("");
-    setDefaultDeerProfileId("");
     updateDeerIntelStore((currentState) => ({
       ...currentState,
       selectedPropertyId: nextPropertyId,
@@ -202,10 +198,10 @@ export default function CameraImportPage() {
 
         return createImportDraft({
           file,
-          // The AI's identification pre-fills the species; the hunter can
-          // change it on the draft card before creating records.
-          species: stamp?.species || defaultSpecies,
-          deerProfileId: matchedProfile?.id || defaultDeerProfileId,
+          // The AI's identification pre-fills the species ("Other" when it
+          // couldn't tell); the hunter can change it on the card before saving.
+          species: stamp?.species || "Other",
+          deerProfileId: matchedProfile?.id ?? "",
           buckName: matchedProfile?.nickname ?? "",
           exifDate,
           stampDate: stamp?.dateTime ?? "",
@@ -228,7 +224,9 @@ export default function CameraImportPage() {
     );
 
     setDrafts((currentDrafts) => [...currentDrafts, ...nextDrafts]);
-    setMessage(`${files.length} photo ${files.length === 1 ? "file" : "files"} added to the inbox.`);
+    setMessage(
+      `${files.length} ${files.length === 1 ? "photo" : "photos"} ready below — check them and press Save Photos.`,
+    );
   }
 
   function updateDraft<Field extends keyof ImportDraft>(
@@ -241,21 +239,6 @@ export default function CameraImportPage() {
         draft.id === draftId ? { ...draft, [field]: value } : draft,
       ),
     );
-  }
-
-  function applyDefaultsToDrafts() {
-    setDrafts((currentDrafts) =>
-      currentDrafts.map((draft) =>
-        draft.selected
-          ? {
-              ...draft,
-              species: defaultSpecies,
-              deerProfileId: defaultDeerProfileId,
-            }
-          : draft,
-      ),
-    );
-    setMessage("Defaults applied to selected photos.");
   }
 
   function removeSelectedDrafts() {
@@ -369,10 +352,8 @@ export default function CameraImportPage() {
     );
 
     const base = newCheck
-      ? `${newPhotoRecords.length} photo records created under a new camera check (${newCheck.date}).`
-      : isCellularCamera
-        ? `${newPhotoRecords.length} photo records created for this cellular camera (no check needed).`
-        : `${newPhotoRecords.length} photo records created.`;
+      ? `${newPhotoRecords.length} ${newPhotoRecords.length === 1 ? "photo" : "photos"} saved (with a new camera check for ${newCheck.date}).`
+      : `${newPhotoRecords.length} ${newPhotoRecords.length === 1 ? "photo" : "photos"} saved.`;
     const weatherNote = historyCount
       ? ` Temp, wind, and moon phase saved for ${historyCount} of them.`
       : " Moon phase saved (add a property/camera location for temp and wind).";
@@ -391,18 +372,13 @@ export default function CameraImportPage() {
       <Card as="section" variant="elevated" style={heroCardStyle}>
         <PageHeader
           eyebrow="Camera Import"
-          title="Camera Import Inbox"
-          description="Bulk add camera photo records from local files, assign them to a property and camera site, and keep the actual camera-company integrations for a future phase."
-          meta={
-            <>
-              <Badge variant="success">Local Upload</Badge>
-              <Badge>{drafts.length} in inbox</Badge>
-            </>
-          }
+          title="Import Photos"
+          description="Pick your camera photos and Deer Intel fills in the rest — date, weather, and what animal it sees. Check the cards, fix anything, then press Save Photos."
+          meta={<Badge>{drafts.length} ready to save</Badge>}
         />
       </Card>
 
-      <Section eyebrow="Assign" title="Where These Photos Belong">
+      <Section eyebrow="Step 1" title="Where These Photos Belong">
         {state.properties.length === 0 ? (
           <EmptyState
             title="No properties yet"
@@ -476,41 +452,11 @@ export default function CameraImportPage() {
                 )}
               </label>
 
-              <label style={fieldStyle}>
-                <span style={labelStyle}>Default Deer Profile</span>
-                <select
-                  value={defaultDeerProfileId}
-                  onChange={(event) => setDefaultDeerProfileId(event.target.value)}
-                  style={inputStyle}
-                >
-                  <option value="">Unknown / not linked</option>
-                  {deerProfiles.map((profile) => (
-                    <option key={profile.id} value={profile.id}>
-                      {profile.nickname}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={fieldStyle}>
-                <span style={labelStyle}>Default Species</span>
-                <select
-                  value={defaultSpecies}
-                  onChange={(event) => setDefaultSpecies(event.target.value)}
-                  style={inputStyle}
-                >
-                  {SPECIES_OPTIONS.map((species) => (
-                    <option key={species} value={species}>
-                      {species}
-                    </option>
-                  ))}
-                </select>
-              </label>
             </div>
 
             <p style={assignmentTextStyle}>
               Importing to {activePropertyName} / {activeCameraName} /{" "}
-              {selectedCheckLabel}. Photo records stay local in this browser.
+              {selectedCheckLabel}.
             </p>
 
             {propertyCameras.length === 0 ? (
@@ -539,15 +485,14 @@ export default function CameraImportPage() {
         )}
       </Section>
 
-      <Section eyebrow="Upload" title="Add Photos to Inbox">
+      <Section eyebrow="Step 2" title="Add Your Photos">
         <Card as="div" variant="subtle">
           <label style={uploadBoxStyle}>
             <span style={uploadTitleStyle}>Choose camera photos</span>
             <span style={mutedTextStyle}>
-              Select multiple JPG, PNG, or image files. Deer Intel reads each
-              photo&apos;s capture time, identifies the animal (buck, doe, bear,
-              …) for you to confirm, and fills in the temp, wind, and moon phase
-              for that moment when you create the records.
+              Pick one or more photos. Deer Intel reads each one and fills in
+              the date, weather, and animal for you — just check the cards
+              below and press Save Photos.
             </span>
             <input
               type="file"
@@ -557,57 +502,14 @@ export default function CameraImportPage() {
               style={fileInputStyle}
             />
           </label>
-
-          <div style={buttonRowStyle}>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={selectedDrafts.length === 0 || isSaving}
-              onClick={applyDefaultsToDrafts}
-            >
-              Apply Defaults
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={selectedDrafts.length === 0 || isSaving}
-              onClick={removeSelectedDrafts}
-            >
-              Remove Selected
-            </Button>
-            <Button
-              type="button"
-              disabled={!canCreateRecords || isSaving}
-              onClick={createPhotoRecords}
-            >
-              {isSaving ? "Saving…" : "Create Photo Records"}
-            </Button>
-          </div>
-
-          {!canCreateRecords && drafts.length > 0 ? (
-            <p style={hintStyle}>
-              To create records you still need {formatRequirementList(missingRequirements)}.
-            </p>
-          ) : null}
-
-          {message ? <p style={messageStyle}>{message}</p> : null}
-
-          {savedCameraId && !isSaving ? (
-            <Link
-              href={`/properties/${propertyId}/assets/${savedCameraId}`}
-              style={{ ...primaryLinkStyle, marginTop: "0.75rem" }}
-            >
-              View Saved Photos
-            </Link>
-          ) : null}
         </Card>
       </Section>
 
-      <Section eyebrow="Inbox" title="Selected Photos">
+      <Section eyebrow="Step 3" title="Check Your Photos">
         {drafts.length === 0 ? (
           <EmptyState
-            title="No photos in the inbox"
-            description="Choose multiple photo files above to stage them before creating Photo Records."
+            title="No photos yet"
+            description="Choose your camera photos above and they will show up here, filled in and ready to save."
           />
         ) : (
           <div style={draftListStyle}>
@@ -757,18 +659,43 @@ export default function CameraImportPage() {
         )}
       </Section>
 
-      <Section eyebrow="Future Providers" title="Camera Company Imports">
-        <div style={providerGridStyle}>
-          {CAMERA_IMPORT_PROVIDERS.map((provider) => (
-            <Card key={provider.id} as="article" variant="subtle">
-              <div style={providerHeaderStyle}>
-                <h3 style={providerTitleStyle}>{provider.name}</h3>
-                <Badge variant="warning">Planned</Badge>
-              </div>
-              <p style={mutedTextStyle}>{provider.description}</p>
-            </Card>
-          ))}
-        </div>
+      <Section eyebrow="Step 4" title="Save">
+        <Card as="div" variant="subtle">
+          <div style={buttonRowStyle}>
+            <Button
+              type="button"
+              disabled={!canCreateRecords || isSaving}
+              onClick={createPhotoRecords}
+            >
+              {isSaving ? "Saving…" : "Save Photos"}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={selectedDrafts.length === 0 || isSaving}
+              onClick={removeSelectedDrafts}
+            >
+              Remove Selected
+            </Button>
+          </div>
+
+          {!canCreateRecords && drafts.length > 0 ? (
+            <p style={hintStyle}>
+              To save you still need {formatRequirementList(missingRequirements)}.
+            </p>
+          ) : null}
+
+          {message ? <p style={messageStyle}>{message}</p> : null}
+
+          {savedCameraId && !isSaving ? (
+            <Link
+              href={`/properties/${propertyId}/assets/${savedCameraId}`}
+              style={{ ...primaryLinkStyle, marginTop: "0.75rem" }}
+            >
+              View Saved Photos
+            </Link>
+          ) : null}
+        </Card>
       </Section>
     </PageShell>
   );
@@ -1162,25 +1089,6 @@ const draftFormGridStyle: CSSProperties = {
   marginTop: "1rem",
   paddingTop: "1rem",
   borderTop: "1px solid var(--border)",
-};
-
-const providerGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: "1rem",
-};
-
-const providerHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: "1rem",
-};
-
-const providerTitleStyle: CSSProperties = {
-  margin: 0,
-  fontSize: "1.1rem",
-  lineHeight: 1.25,
 };
 
 const mutedTextStyle: CSSProperties = {
