@@ -99,6 +99,43 @@ export function scentConePolygon(
   return points;
 }
 
+/**
+ * A filled arrow polygon pointing the way the wind blows (down-wind), apex tail
+ * at `origin`. Reuses the cone's length so the arrow grows with wind speed.
+ * Returns null when the wind direction is unknown.
+ */
+export function windArrowPolygon(
+  origin: LatLng,
+  windFromCompass: string,
+  options: ScentConeOptions,
+): Array<[number, number]> | null {
+  const from = compassToBearing(windFromCompass);
+  if (from === null) return null;
+
+  const downwind = (from + 180) % 360;
+  const length = options.lengthM;
+  const shaftHalf = length * 0.05;
+  const headHalf = length * 0.13;
+  const shaftEnd = length * 0.62;
+
+  // Map a local (forward along the wind, right across it) offset in metres to a
+  // lat/lng: step down-wind, then step across. Negative `right` goes left.
+  const local = (forward: number, right: number): [number, number] => {
+    const [lat, lng] = destination(origin, downwind, forward);
+    return destination({ lat, lng }, (downwind + 90) % 360, right);
+  };
+
+  return [
+    local(0, -shaftHalf),
+    local(shaftEnd, -shaftHalf),
+    local(shaftEnd, -headHalf),
+    local(length, 0),
+    local(shaftEnd, headHalf),
+    local(shaftEnd, shaftHalf),
+    local(0, shaftHalf),
+  ];
+}
+
 /** Cone reach + spread from wind speed: stronger wind carries scent farther and
  *  tighter; light/variable wind spreads wider. */
 export function scentConeOptionsForSpeed(speedMph: number | null): ScentConeOptions {

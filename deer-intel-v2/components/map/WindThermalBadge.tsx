@@ -100,10 +100,10 @@ export default function WindThermalBadge({
 
           <p style={coneNoteStyle}>
             {standCount === 0
-              ? "Drop stand pins to see their scent cones here."
+              ? "Drop stand pins to see a wind arrow at each."
               : matchedCount > 0
-                ? `${standCount} scent cone${standCount === 1 ? "" : "s"} · colored by each stand's saved winds.`
-                : `${standCount} scent cone${standCount === 1 ? "" : "s"} shown. Name a stand pin to match a saved stand for good/wrong-wind colors.`}
+                ? `${standCount} wind arrow${standCount === 1 ? "" : "s"} · colored by each stand's saved winds.`
+                : `${standCount} wind arrow${standCount === 1 ? "" : "s"} shown. Name a stand pin to match a saved stand for good/wrong-wind colors.`}
           </p>
         </>
       )}

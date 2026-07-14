@@ -5,7 +5,7 @@ import { Polygon } from "react-leaflet";
 import type { StandWindStatus } from "@/lib/standWind";
 import {
   scentConeOptionsForSpeed,
-  scentConePolygon,
+  windArrowPolygon,
 } from "@/lib/windViz";
 
 export type WindStandPoint = {
@@ -17,11 +17,11 @@ export type WindStandPoint = {
   status: StandWindStatus;
 };
 
-// Cone tint by how today's wind reads for the stand: green favors sitting it,
+// Arrow tint by how today's wind reads for the stand: green favors sitting it,
 // red is a wrong wind that carries scent to the deer, amber is off/marginal.
-// Neutral orange is the fallback when a cone can't be tied to a saved stand's
+// Neutral orange is the fallback when a stand pin isn't tied to a saved stand's
 // best/avoid winds.
-const CONE_COLORS: Record<StandWindStatus, string> = {
+const ARROW_COLORS: Record<StandWindStatus, string> = {
   good: "#3fb950",
   avoid: "#ef4444",
   marginal: "#f5b301",
@@ -34,53 +34,53 @@ type WindThermalLayerProps = {
   speedMph: number | null;
 };
 
-// A blaze-orange scent cone drifting down-wind from each stand — the ground a
-// deer would wind you from on today's wind. The apex sits on the stand so it
-// reads as "your scent, from here."
+// An arrow at each stand pointing the way the wind blows — the direction your
+// scent carries on today's wind. The tail sits on the stand, so it reads as
+// "your scent leaves here, headed that way."
 export default function WindThermalLayer({
   standPoints,
   windFromCompass,
   speedMph,
 }: WindThermalLayerProps) {
-  const cones = useMemo(() => {
+  const arrows = useMemo(() => {
     const options = scentConeOptionsForSpeed(speedMph);
 
     return standPoints
       .map((stand) => {
-        const positions = scentConePolygon(
+        const positions = windArrowPolygon(
           { lat: stand.lat, lng: stand.lng },
           windFromCompass,
           options,
         );
         return positions
-          ? { id: stand.id, positions, color: CONE_COLORS[stand.status] }
+          ? { id: stand.id, positions, color: ARROW_COLORS[stand.status] }
           : null;
       })
       .filter(
         (
-          cone,
-        ): cone is {
+          arrow,
+        ): arrow is {
           id: string;
           positions: Array<[number, number]>;
           color: string;
-        } => cone !== null,
+        } => arrow !== null,
       );
   }, [standPoints, windFromCompass, speedMph]);
 
-  if (cones.length === 0) return null;
+  if (arrows.length === 0) return null;
 
   return (
     <>
-      {cones.map((cone) => (
+      {arrows.map((arrow) => (
         <Polygon
-          key={`scent-${cone.id}`}
-          positions={cone.positions}
+          key={`wind-${arrow.id}`}
+          positions={arrow.positions}
           pathOptions={{
-            color: cone.color,
-            weight: 1,
-            opacity: 0.75,
-            fillColor: cone.color,
-            fillOpacity: 0.18,
+            color: arrow.color,
+            weight: 1.5,
+            opacity: 0.95,
+            fillColor: arrow.color,
+            fillOpacity: 0.55,
           }}
           interactive={false}
         />
