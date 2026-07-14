@@ -14,7 +14,11 @@ import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { getCameraIntelligenceSummary } from "@/lib/cameraIntelligence";
+import { getPhotoSummary, photoRecordTime } from "@/lib/photos";
 import type { Camera } from "@/types/camera";
+
+// Chasing behavior seen on a photo this recent flags the rut-watch banner.
+const RUT_WATCH_DAYS = 7;
 
 export default function CamerasPage() {
   const router = useRouter();
@@ -44,6 +48,17 @@ export default function CamerasPage() {
     cameraChecks: propertyChecks,
     photoRecords: propertyPhotos,
   });
+  const photoSummary = getPhotoSummary(propertyPhotos);
+  // Fresh chasing behavior on a photo means the rut is on — say so up top.
+  const rutPhoto = propertyPhotos.find(
+    (photo) =>
+      /chasing/i.test(photo.notes) &&
+      Date.now() - photoRecordTime(photo) <= RUT_WATCH_DAYS * 86_400_000,
+  );
+  const rutCameraName = rutPhoto
+    ? propertyCameras.find((camera) => camera.id === rutPhoto.cameraSiteId)
+        ?.name ?? "a camera site"
+    : "";
 
   function selectProperty(propertyId: string) {
     updateDeerIntelStore((currentState) => ({
@@ -98,9 +113,50 @@ export default function CamerasPage() {
           }
         />
       ) : (
-        propertyCameras.map((camera) => (
-          <CameraCard key={camera.id} camera={camera} onEdit={editCamera} />
-        ))
+        <>
+          <div style={statGridStyle}>
+            <StatCard
+              label="Camera Sites"
+              value={propertyCameras.length}
+              detail={`${activeCameraCount} active`}
+            />
+            <StatCard
+              label="Photos"
+              value={photoSummary.totalPhotoRecords}
+              detail="Saved on this property"
+            />
+            <StatCard
+              label="Buck Photos"
+              value={photoSummary.buckPhotoRecords}
+              detail="Antlered visitors"
+            />
+            <StatCard
+              label="Last Photo"
+              value={photoSummary.mostRecentPhotoDate}
+              detail="Most recent capture"
+            />
+          </div>
+
+          {rutPhoto ? (
+            <div style={rutBannerStyle}>
+              Rut watch: chasing caught on {rutCameraName} — bucks are on
+              their feet, get in a stand.
+            </div>
+          ) : null}
+
+          <div style={cardGridStyle}>
+            {propertyCameras.map((camera) => (
+              <CameraCard
+                key={camera.id}
+                camera={camera}
+                onEdit={editCamera}
+                photoRecords={propertyPhotos.filter(
+                  (photo) => photo.cameraSiteId === camera.id,
+                )}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
@@ -263,6 +319,22 @@ const activityStyle: CSSProperties = {
 const listStyle: CSSProperties = {
   display: "grid",
   gap: "1rem",
+};
+
+const cardGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+  gap: "1rem",
+};
+
+const rutBannerStyle: CSSProperties = {
+  padding: "0.8rem 1rem",
+  border: "1px solid var(--accent-2-tint-border)",
+  borderRadius: "10px",
+  background: "var(--accent-2-tint)",
+  color: "var(--accent-2-text)",
+  fontWeight: 700,
+  lineHeight: 1.5,
 };
 
 const primaryLinkStyle: CSSProperties = {

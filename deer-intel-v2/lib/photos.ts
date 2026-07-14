@@ -53,10 +53,15 @@ function isBuckPhoto(photo: PhotoRecord) {
   );
 }
 
-function photoTime(photo: PhotoRecord) {
+/** Epoch time of a photo's capture date, 0 when unparseable. */
+export function photoRecordTime(photo: PhotoRecord) {
   const time = dateInputTime(photo.photoDate);
 
   return Number.isNaN(time) ? 0 : time;
+}
+
+function photoTime(photo: PhotoRecord) {
+  return photoRecordTime(photo);
 }
 
 function dateInputTime(date: string | undefined) {
