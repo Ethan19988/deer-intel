@@ -113,6 +113,14 @@ export default function CameraCard({
             >
               Open Site
             </Link>
+            {photoSummary && photoSummary.totalPhotoRecords > 0 ? (
+              <Link
+                href={`/properties/${camera.propertyId}/assets/${camera.id}#photos`}
+                style={photosLinkStyle}
+              >
+                Photos ({photoSummary.totalPhotoRecords})
+              </Link>
+            ) : null}
             <Button
               type="button"
               variant="secondary"
@@ -323,6 +331,21 @@ const openSiteLinkStyle: CSSProperties = {
   borderRadius: "8px",
   background: "var(--accent)",
   color: "white",
+  fontSize: "0.85rem",
+  fontWeight: 700,
+  textDecoration: "none",
+};
+
+const photosLinkStyle: CSSProperties = {
+  display: "inline-flex",
+  minHeight: "36px",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0.5rem 0.65rem",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "8px",
+  background: "var(--surface-2)",
+  color: "var(--text)",
   fontSize: "0.85rem",
   fontWeight: 700,
   textDecoration: "none",

@@ -392,8 +392,8 @@ export default function PropertyAssetWorkspacePage() {
         <AssetPanel
           id="photos"
           title="Photos"
-          description="Upload trail camera photos and attach them to camera checks."
-          defaultOpen={false}
+          description="Every photo saved for this camera — select photos to move or delete them, or add a new one."
+          defaultOpen={cameraPhotoRecords.length > 0}
         >
           <div style={summaryGridStyle}>
             <AssetFact
