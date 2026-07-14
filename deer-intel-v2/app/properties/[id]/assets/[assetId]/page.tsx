@@ -12,7 +12,6 @@ import AssetHeader from "@/components/properties/assets/AssetHeader";
 import AssetPanel from "@/components/properties/assets/AssetPanel";
 import RelationshipGroup from "@/components/relationships/RelationshipGroup";
 import StandIntelligencePanel from "@/components/stands/StandIntelligencePanel";
-import ActionCard from "@/components/ui/ActionCard";
 import Card from "@/components/ui/Card";
 import PageShell from "@/components/ui/PageShell";
 import {
@@ -423,9 +422,17 @@ function StandWorkspace({
 }) {
   return (
     <PageShell>
-      <Link href={`/properties/${propertyId}`} style={backLinkStyle}>
-        Back to Property
-      </Link>
+      <div style={topBarStyle}>
+        <Link href={`/properties/${propertyId}`} style={backLinkStyle}>
+          Back to Property
+        </Link>
+        <Link
+          href={`/hunt-log?propertyId=${propertyId}&standId=${stand.id}`}
+          style={editLinkStyle}
+        >
+          Log hunt
+        </Link>
+      </div>
 
       <AssetHeader
         assetType="Stand"
@@ -439,66 +446,24 @@ function StandWorkspace({
         <AssetFact label="Avoid Winds" value={stand.avoidWinds} />
       </AssetHeader>
 
-      <section style={quickActionSectionStyle}>
-        <div style={sectionHeaderStyle}>
-          <p style={eyebrowStyle}>Next Steps</p>
-          <h2 style={sectionTitleStyle}>Quick Actions</h2>
-        </div>
-        <div style={quickActionGridStyle}>
-          <ActionCard
-            href={`/hunt-log?propertyId=${propertyId}&standId=${stand.id}`}
-            title="Log Hunt"
-            description="Add hunt history for this stand."
-            badge="Available"
-            size="large"
-            tone="primary"
-          />
-          <ActionCard
-            href="/map"
-            title="Open Map"
-            description="Review this property map and nearby sign."
-            badge="Available"
-            size="large"
-            tone="primary"
-          />
-          <ActionCard
-            href={`/properties/${propertyId}`}
-            title="Back to Property"
-            description="Return to the main property dashboard."
-            badge="Available"
-            size="large"
-            tone="primary"
-          />
-        </div>
-      </section>
-
       <div style={workspaceGridStyle}>
         <AssetPanel
           title="Stand Intelligence"
           description="Simple guidance from wind notes, hunt pressure, observations, and related camera activity."
+          defaultOpen
         >
           <StandIntelligencePanel propertyId={propertyId} summary={intelligence} />
         </AssetPanel>
 
         <AssetPanel
           title="Hunt History"
-          description="Hunts for this stand will appear here."
+          description="Hunts logged from this stand."
+          defaultOpen={false}
         >
           <HuntLogList
             hunts={hunts}
             emptyDescription="No hunts logged for this stand yet."
           />
-        </AssetPanel>
-
-        <AssetPanel
-          title="Wind Plan"
-          description="Keep the simple wind rules easy to see in the field."
-          defaultOpen={false}
-        >
-          <div style={summaryGridStyle}>
-            <AssetFact label="Best Winds" value={stand.bestWinds} />
-            <AssetFact label="Avoid Winds" value={stand.avoidWinds} />
-          </div>
         </AssetPanel>
 
         <AssetPanel
@@ -600,14 +565,6 @@ const backLinkStyle: CSSProperties = {
   textDecoration: "none",
 };
 
-const quickActionSectionStyle: CSSProperties = {
-  marginTop: "1.75rem",
-};
-
-const sectionHeaderStyle: CSSProperties = {
-  marginBottom: "1rem",
-};
-
 const eyebrowStyle: CSSProperties = {
   margin: 0,
   color: "var(--accent-text)",
@@ -615,18 +572,6 @@ const eyebrowStyle: CSSProperties = {
   fontWeight: 700,
   letterSpacing: 0,
   textTransform: "uppercase",
-};
-
-const sectionTitleStyle: CSSProperties = {
-  margin: "0.2rem 0 0",
-  fontSize: "1.45rem",
-  lineHeight: 1.2,
-};
-
-const quickActionGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-  gap: "1rem",
 };
 
 const workspaceGridStyle: CSSProperties = {
