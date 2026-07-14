@@ -1,6 +1,9 @@
-import type { CSSProperties } from "react";
+"use client";
+
+import { useState, type CSSProperties } from "react";
 import PhotoImage from "@/components/photos/PhotoImage";
 import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import { formatPhotoDate, sortPhotoRecordsChronologically } from "@/lib/photos";
 import {
@@ -11,18 +14,77 @@ import {
 import type { DeerProfile } from "@/types/deerProfile";
 import type { PhotoRecord } from "@/types/photo";
 
+type MoveTarget = {
+  id: string;
+  name: string;
+};
+
 type PhotoRecordListProps = {
   photoRecords: PhotoRecord[];
   deerProfiles?: DeerProfile[];
   emptyDescription?: string;
+  // When provided, each photo gets a checkbox and a bar appears with
+  // "Move to camera" / "Delete" actions for the selected photos.
+  moveTargets?: MoveTarget[];
+  onMovePhotos?: (photoIds: string[], targetCameraId: string) => void;
+  onDeletePhotos?: (photoIds: string[]) => void;
 };
 
 export default function PhotoRecordList({
   photoRecords,
   deerProfiles = [],
   emptyDescription = "No photo records yet.",
+  moveTargets = [],
+  onMovePhotos,
+  onDeletePhotos,
 }: PhotoRecordListProps) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [moveTargetId, setMoveTargetId] = useState("");
   const chronologicalPhotos = sortPhotoRecordsChronologically(photoRecords);
+  const manageable = Boolean(onMovePhotos || onDeletePhotos);
+  const canMove = Boolean(onMovePhotos) && moveTargets.length > 0;
+  // Drop selections that no longer exist (after a move/delete re-render).
+  const activeSelectedIds = selectedIds.filter((id) =>
+    chronologicalPhotos.some((photo) => photo.id === id),
+  );
+  const resolvedMoveTargetId =
+    moveTargetId && moveTargets.some((target) => target.id === moveTargetId)
+      ? moveTargetId
+      : moveTargets[0]?.id ?? "";
+
+  function toggleSelected(photoId: string, checked: boolean) {
+    setSelectedIds((currentIds) =>
+      checked
+        ? [...currentIds.filter((id) => id !== photoId), photoId]
+        : currentIds.filter((id) => id !== photoId),
+    );
+  }
+
+  function handleMove() {
+    if (!onMovePhotos || activeSelectedIds.length === 0 || !resolvedMoveTargetId) {
+      return;
+    }
+
+    onMovePhotos(activeSelectedIds, resolvedMoveTargetId);
+    setSelectedIds([]);
+  }
+
+  function handleDelete() {
+    if (!onDeletePhotos || activeSelectedIds.length === 0) return;
+
+    const count = activeSelectedIds.length;
+
+    if (
+      !window.confirm(
+        `Delete ${count} ${count === 1 ? "photo" : "photos"}? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    onDeletePhotos(activeSelectedIds);
+    setSelectedIds([]);
+  }
 
   if (chronologicalPhotos.length === 0) {
     return <EmptyState description={emptyDescription} />;
@@ -30,6 +92,67 @@ export default function PhotoRecordList({
 
   return (
     <div style={listStyle}>
+      {manageable ? (
+        <div style={manageBarStyle}>
+          <label style={selectAllStyle}>
+            <input
+              type="checkbox"
+              checked={
+                activeSelectedIds.length === chronologicalPhotos.length &&
+                chronologicalPhotos.length > 0
+              }
+              onChange={(event) =>
+                setSelectedIds(
+                  event.target.checked
+                    ? chronologicalPhotos.map((photo) => photo.id)
+                    : [],
+                )
+              }
+            />
+            <span>
+              {activeSelectedIds.length > 0
+                ? `${activeSelectedIds.length} selected`
+                : "Select all"}
+            </span>
+          </label>
+
+          {canMove ? (
+            <>
+              <select
+                value={resolvedMoveTargetId}
+                onChange={(event) => setMoveTargetId(event.target.value)}
+                style={moveSelectStyle}
+              >
+                {moveTargets.map((target) => (
+                  <option key={target.id} value={target.id}>
+                    {target.name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={activeSelectedIds.length === 0}
+                onClick={handleMove}
+              >
+                Move to This Camera
+              </Button>
+            </>
+          ) : null}
+
+          {onDeletePhotos ? (
+            <Button
+              type="button"
+              variant="danger"
+              disabled={activeSelectedIds.length === 0}
+              onClick={handleDelete}
+            >
+              Delete
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
       {chronologicalPhotos.map((photo) => {
         const deerProfile = deerProfiles.find(
           (profile) => profile.id === photo.deerProfileId,
@@ -42,9 +165,22 @@ export default function PhotoRecordList({
         return (
           <article key={photo.id} style={photoCardStyle}>
             <div style={headerStyle}>
-              <div>
-                <p style={eyebrowStyle}>{formatPhotoDate(photo.photoDate)}</p>
-                <h4 style={titleStyle}>{photo.fileName}</h4>
+              <div style={titleWrapStyle}>
+                {manageable ? (
+                  <input
+                    type="checkbox"
+                    checked={activeSelectedIds.includes(photo.id)}
+                    onChange={(event) =>
+                      toggleSelected(photo.id, event.target.checked)
+                    }
+                    style={photoCheckboxStyle}
+                    aria-label={`Select ${photo.fileName}`}
+                  />
+                ) : null}
+                <div>
+                  <p style={eyebrowStyle}>{formatPhotoDate(photo.photoDate)}</p>
+                  <h4 style={titleStyle}>{photo.fileName}</h4>
+                </div>
               </div>
               <div style={badgeRowStyle}>
                 {weather && photo.weatherSnapshot ? (
@@ -114,6 +250,52 @@ function PhotoDetail({ label, value }: { label: string; value: string }) {
 const listStyle: CSSProperties = {
   display: "grid",
   gap: "0.75rem",
+};
+
+const manageBarStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.6rem",
+  flexWrap: "wrap",
+  padding: "0.65rem 0.75rem",
+  border: "1px solid var(--border)",
+  borderRadius: "8px",
+  background: "var(--surface-2)",
+};
+
+const selectAllStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.5rem",
+  minHeight: "40px",
+  color: "var(--text-muted)",
+  fontSize: "0.9rem",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const moveSelectStyle: CSSProperties = {
+  minHeight: "40px",
+  minWidth: "150px",
+  padding: "0.45rem 0.6rem",
+  border: "1px solid var(--border)",
+  borderRadius: "8px",
+  background: "var(--surface)",
+  color: "var(--text)",
+};
+
+const titleWrapStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "0.65rem",
+  minWidth: 0,
+};
+
+const photoCheckboxStyle: CSSProperties = {
+  width: "1.15rem",
+  height: "1.15rem",
+  marginTop: "0.2rem",
+  flexShrink: 0,
 };
 
 const photoCardStyle: CSSProperties = {

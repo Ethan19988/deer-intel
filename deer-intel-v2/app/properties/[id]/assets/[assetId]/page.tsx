@@ -7,13 +7,13 @@ import CameraCheckForm from "@/components/cameras/CameraCheckForm";
 import CameraCheckList from "@/components/cameras/CameraCheckList";
 import HuntLogList from "@/components/hunts/HuntLogList";
 import PhotoRecordForm from "@/components/photos/PhotoRecordForm";
+import PhotoRecordList from "@/components/photos/PhotoRecordList";
 import AssetHeader from "@/components/properties/assets/AssetHeader";
 import AssetPanel from "@/components/properties/assets/AssetPanel";
 import RelationshipGroup from "@/components/relationships/RelationshipGroup";
 import StandIntelligencePanel from "@/components/stands/StandIntelligencePanel";
 import ActionCard from "@/components/ui/ActionCard";
 import Card from "@/components/ui/Card";
-import EmptyState from "@/components/ui/EmptyState";
 import PageShell from "@/components/ui/PageShell";
 import {
   createCameraCheckFromValues,
@@ -32,6 +32,7 @@ import {
   createPhotoRecordFromValues,
   emptyPhotoFormValues,
 } from "@/lib/photoFormValues";
+import { deletePhotoImage } from "@/lib/imageStore";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { buildPhotoWeatherSnapshot } from "@/lib/photoWeather";
 import { getPhotoSummary } from "@/lib/photos";
@@ -167,6 +168,10 @@ export default function PropertyAssetWorkspacePage() {
   const propertyDeerProfiles = state.deerProfiles.filter(
     (profile) => profile.propertyId === propertyId,
   );
+  // The property's other camera sites — move targets for misfiled photos.
+  const otherCameras = state.cameras.filter(
+    (item) => item.propertyId === propertyId && item.id !== cameraId,
+  );
   const checkSummary = getCameraCheckSummary(cameraChecks);
   const latestCheck = checkSummary.latestCheck;
   const photoSummary = getPhotoSummary(cameraPhotoRecords);
@@ -236,6 +241,41 @@ export default function PropertyAssetWorkspacePage() {
       ...emptyPhotoFormValues(),
       cameraCheckId: newPhotoRecord.cameraCheckId,
     });
+  }
+
+  function movePhotoRecords(photoIds: string[], targetCameraId: string) {
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      photoRecords: currentState.photoRecords.map((photo) =>
+        photoIds.includes(photo.id)
+          ? {
+              ...photo,
+              cameraSiteId: targetCameraId,
+              // A camera check belongs to one camera, so a moved photo detaches
+              // from its old check rather than pointing across cameras.
+              cameraCheckId: "",
+            }
+          : photo,
+      ),
+    }));
+  }
+
+  function deletePhotoRecords(photoIds: string[]) {
+    const imageIds = state.photoRecords
+      .filter((photo) => photoIds.includes(photo.id) && photo.imageId)
+      .map((photo) => photo.imageId as string);
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      photoRecords: currentState.photoRecords.filter(
+        (photo) => !photoIds.includes(photo.id),
+      ),
+    }));
+
+    // Also drop the stored image blobs so deleted photos free their storage.
+    for (const imageId of imageIds) {
+      void deletePhotoImage(imageId);
+    }
   }
 
   return (
@@ -371,17 +411,27 @@ export default function PropertyAssetWorkspacePage() {
           </div>
 
           <div style={photoFormWrapStyle}>
-            {cameraChecks.length === 0 ? (
-              <EmptyState description="Save a camera check first, then attach photo records to that check." />
-            ) : (
-              <PhotoRecordForm
-                values={photoValues}
-                cameraChecks={cameraChecks}
-                deerProfiles={propertyDeerProfiles}
-                onChange={setPhotoValues}
-                onSubmit={addPhotoRecord}
-              />
-            )}
+            <PhotoRecordList
+              photoRecords={cameraPhotoRecords}
+              deerProfiles={propertyDeerProfiles}
+              emptyDescription="No photos saved for this camera yet."
+              moveTargets={otherCameras.map((item) => ({
+                id: item.id,
+                name: item.name,
+              }))}
+              onMovePhotos={movePhotoRecords}
+              onDeletePhotos={deletePhotoRecords}
+            />
+          </div>
+
+          <div style={photoFormWrapStyle}>
+            <PhotoRecordForm
+              values={photoValues}
+              cameraChecks={cameraChecks}
+              deerProfiles={propertyDeerProfiles}
+              onChange={setPhotoValues}
+              onSubmit={addPhotoRecord}
+            />
           </div>
         </AssetPanel>
 
