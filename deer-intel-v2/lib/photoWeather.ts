@@ -41,11 +41,10 @@ export async function buildPhotoWeatherSnapshot(
       stamped?.windSpeed ||
       stamped?.humidity,
   );
-  // WeatherSnapshot has no humidity field, so a stamped humidity rides along
-  // in the conditions text.
-  const humidityText = stamped?.humidity ? `${stamped.humidity}% humidity` : "";
-
   if (!parsed) {
+    // WeatherSnapshot has no humidity field, so humidity rides along in the
+    // conditions text.
+    const humidityText = stamped?.humidity ? `${stamped.humidity}% humidity` : "";
     // No usable date, but a readable stamp still gives us its values to keep.
     if (usedStamp) {
       return createWeatherSnapshot({
@@ -65,6 +64,10 @@ export async function buildPhotoWeatherSnapshot(
   const historical = point
     ? await fetchHistoricalWeather(point, parsed, units)
     : null;
+  // Humidity rides in the conditions text (WeatherSnapshot has no field for
+  // it): the camera's printed value first, weather history as backup.
+  const humidity = stamped?.humidity || historical?.humidity || "";
+  const humidityText = humidity ? `${humidity}% humidity` : "";
 
   return createWeatherSnapshot({
     temperature: stamped?.temperature || historical?.temperature || "",

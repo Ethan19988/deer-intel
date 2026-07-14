@@ -365,15 +365,19 @@ export async function fetchLiveForecast(
   }
 }
 
-/** The temp/wind/sky a photo was taken in — the moon phase is added locally. */
+/** The conditions a photo was taken in — the moon phase is added locally. */
 export type HistoricalWeatherFields = Pick<
   LiveWeatherFields,
   "temperature" | "windDirection" | "windSpeed" | "weather"
->;
+> & {
+  /** Relative humidity percentage as a plain number string, "" if unknown. */
+  humidity: string;
+};
 
 type OpenMeteoWeatherHourly = {
   time?: string[];
   temperature_2m?: number[];
+  relative_humidity_2m?: number[];
   wind_speed_10m?: number[];
   wind_direction_10m?: number[];
   weather_code?: number[];
@@ -438,7 +442,7 @@ async function fetchHistoricalDay(
     requestUrl.searchParams.set("end_date", dateKey);
     requestUrl.searchParams.set(
       "hourly",
-      "temperature_2m,wind_speed_10m,wind_direction_10m,weather_code",
+      "temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code",
     );
     requestUrl.searchParams.set(
       "temperature_unit",
@@ -501,10 +505,13 @@ function pickHourFields(
     typeof hourly.weather_code?.[index] === "number"
       ? describeWeatherCode(hourly.weather_code[index])
       : "";
+  const humidity = numberToText(hourly.relative_humidity_2m?.[index]);
 
-  if (!temperature && !windDirection && !windSpeed && !weather) return null;
+  if (!temperature && !windDirection && !windSpeed && !weather && !humidity) {
+    return null;
+  }
 
-  return { temperature, windDirection, windSpeed, weather };
+  return { temperature, windDirection, windSpeed, weather, humidity };
 }
 
 function toLocalDateKey(date: Date): string {
