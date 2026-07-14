@@ -19,10 +19,7 @@ import {
   createCameraCheckFromValues,
   EMPTY_CAMERA_CHECK_FORM_VALUES,
 } from "@/lib/cameraCheckFormValues";
-import {
-  formatCameraCheckDate,
-  getCameraCheckSummary,
-} from "@/lib/cameraChecks";
+import { getCameraCheckSummary } from "@/lib/cameraChecks";
 import {
   createDeerIntelId,
   updateDeerIntelStore,
@@ -173,7 +170,6 @@ export default function PropertyAssetWorkspacePage() {
     (item) => item.propertyId === propertyId && item.id !== cameraId,
   );
   const checkSummary = getCameraCheckSummary(cameraChecks);
-  const latestCheck = checkSummary.latestCheck;
   const photoSummary = getPhotoSummary(cameraPhotoRecords);
   const relationshipGroups = getCameraRelationshipGroups({
     propertyId,
@@ -280,9 +276,19 @@ export default function PropertyAssetWorkspacePage() {
 
   return (
     <PageShell>
-      <Link href={`/properties/${property.id}`} style={backLinkStyle}>
-        Back to Property
-      </Link>
+      <div style={topBarStyle}>
+        <Link href={`/properties/${property.id}`} style={backLinkStyle}>
+          Back to Property
+        </Link>
+        <Link
+          href={`/properties/${property.id}?editCameraId=${encodeURIComponent(
+            camera.id,
+          )}#camera-sites`}
+          style={editLinkStyle}
+        >
+          Edit camera
+        </Link>
+      </div>
 
       <AssetHeader
         assetType="Camera Site"
@@ -293,62 +299,50 @@ export default function PropertyAssetWorkspacePage() {
       >
         <AssetFact label="Type" value={camera.cameraType} />
         <AssetFact
-          label="Last Check"
-          value={formatCameraCheckDate(latestCheck?.date)}
+          label="Photos"
+          value={String(photoSummary.totalPhotoRecords)}
         />
-        <AssetFact
-          label="Checks"
-          value={`${checkSummary.checkCount} saved`}
-        />
-        <AssetFact
-          label="Battery"
-          value={formatPercent(latestCheck?.batteryPercent)}
-        />
-        <AssetFact
-          label="SD Card"
-          value={formatPercent(latestCheck?.sdCardPercent)}
-        />
+        <AssetFact label="Last Photo" value={photoSummary.mostRecentPhotoDate} />
       </AssetHeader>
-
-      <section style={quickActionSectionStyle}>
-        <div style={sectionHeaderStyle}>
-          <p style={eyebrowStyle}>Next Steps</p>
-          <h2 style={sectionTitleStyle}>Quick Actions</h2>
-        </div>
-        <div style={quickActionGridStyle}>
-          <ActionCard
-            href={`/properties/${property.id}?editCameraId=${encodeURIComponent(
-              camera.id,
-            )}#camera-sites`}
-            title="Edit Camera Site"
-            description="Go back to the property camera list to update this site."
-            badge="Available"
-            size="large"
-            tone="primary"
-          />
-          <ActionCard
-            href="/map"
-            title="Open Map"
-            description="Review this property map and nearby sign."
-            badge="Available"
-            size="large"
-            tone="primary"
-          />
-          <ActionCard
-            href={`/properties/${property.id}`}
-            title="Back to Property"
-            description="Return to the main property dashboard."
-            badge="Available"
-            size="large"
-            tone="primary"
-          />
-        </div>
-      </section>
 
       <div style={workspaceGridStyle}>
         <AssetPanel
-          title="Check Summary"
-          description="A quick look at what this camera site has shown so far."
+          id="photos"
+          title="Photos"
+          description="Every photo saved for this camera. Tick photos to move or delete them."
+          defaultOpen
+        >
+          <PhotoRecordList
+            photoRecords={cameraPhotoRecords}
+            deerProfiles={propertyDeerProfiles}
+            emptyDescription="No photos saved for this camera yet. Add one below or use Import Photos."
+            moveTargets={otherCameras.map((item) => ({
+              id: item.id,
+              name: item.name,
+            }))}
+            onMovePhotos={movePhotoRecords}
+            onDeletePhotos={deletePhotoRecords}
+          />
+        </AssetPanel>
+
+        <AssetPanel
+          title="Add a Photo"
+          description="Attach one photo and let Deer Intel fill in the details."
+          defaultOpen={false}
+        >
+          <PhotoRecordForm
+            values={photoValues}
+            cameraChecks={cameraChecks}
+            deerProfiles={propertyDeerProfiles}
+            onChange={setPhotoValues}
+            onSubmit={addPhotoRecord}
+          />
+        </AssetPanel>
+
+        <AssetPanel
+          title="Camera Checks"
+          description="Log a card pull and browse this camera's check history."
+          defaultOpen={false}
         >
           <div style={summaryGridStyle}>
             <AssetFact label="Bucks" value={String(checkSummary.totalBucks)} />
@@ -358,86 +352,33 @@ export default function PropertyAssetWorkspacePage() {
             <AssetFact label="Bears" value={String(checkSummary.totalBears)} />
             <AssetFact label="Coyotes" value={String(checkSummary.totalCoyotes)} />
           </div>
-        </AssetPanel>
 
-        <AssetPanel
-          title="Add Camera Check"
-          description="Save what you found the last time this camera site was checked."
-        >
-          <CameraCheckForm
-            values={checkValues}
-            weatherLocation={
-              typeof camera.latitude === "number" &&
-              typeof camera.longitude === "number"
-                ? { lat: camera.latitude, lng: camera.longitude }
-                : resolvePropertyWeatherPoint(property, [], [])
-            }
-            onChange={setCheckValues}
-            onSubmit={addCameraCheck}
-          />
-        </AssetPanel>
-
-        <AssetPanel
-          title="Timeline"
-          description="Camera Checks belong to this Camera Site and are shown in date order."
-          defaultOpen={false}
-        >
-          <CameraCheckList
-            checks={cameraChecks}
-            photoRecords={cameraPhotoRecords}
-            deerProfiles={propertyDeerProfiles}
-          />
-        </AssetPanel>
-
-        <AssetPanel
-          id="photos"
-          title="Photos"
-          description="Every photo saved for this camera — select photos to move or delete them, or add a new one."
-          defaultOpen={cameraPhotoRecords.length > 0}
-        >
-          <div style={summaryGridStyle}>
-            <AssetFact
-              label="Total Photo Records"
-              value={String(photoSummary.totalPhotoRecords)}
-            />
-            <AssetFact
-              label="Buck Photo Records"
-              value={String(photoSummary.buckPhotoRecords)}
-            />
-            <AssetFact
-              label="Most Recent Photo"
-              value={photoSummary.mostRecentPhotoDate}
+          <div style={photoFormWrapStyle}>
+            <CameraCheckForm
+              values={checkValues}
+              weatherLocation={
+                typeof camera.latitude === "number" &&
+                typeof camera.longitude === "number"
+                  ? { lat: camera.latitude, lng: camera.longitude }
+                  : resolvePropertyWeatherPoint(property, [], [])
+              }
+              onChange={setCheckValues}
+              onSubmit={addCameraCheck}
             />
           </div>
 
           <div style={photoFormWrapStyle}>
-            <PhotoRecordList
+            <CameraCheckList
+              checks={cameraChecks}
               photoRecords={cameraPhotoRecords}
               deerProfiles={propertyDeerProfiles}
-              emptyDescription="No photos saved for this camera yet."
-              moveTargets={otherCameras.map((item) => ({
-                id: item.id,
-                name: item.name,
-              }))}
-              onMovePhotos={movePhotoRecords}
-              onDeletePhotos={deletePhotoRecords}
-            />
-          </div>
-
-          <div style={photoFormWrapStyle}>
-            <PhotoRecordForm
-              values={photoValues}
-              cameraChecks={cameraChecks}
-              deerProfiles={propertyDeerProfiles}
-              onChange={setPhotoValues}
-              onSubmit={addPhotoRecord}
             />
           </div>
         </AssetPanel>
 
         <AssetPanel
           title="Notes"
-          description="Keep the simple field notes for this asset easy to find."
+          description="Location and site notes for this camera."
           defaultOpen={false}
         >
           <div style={notesGridStyle}>
@@ -642,15 +583,13 @@ function NoteBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatPercent(value: string | undefined) {
-  const trimmedValue = value?.trim();
-
-  if (!trimmedValue) return "";
-  if (trimmedValue.endsWith("%")) return trimmedValue;
-  if (!Number.isNaN(Number(trimmedValue))) return `${trimmedValue}%`;
-
-  return trimmedValue;
-}
+const topBarStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "1rem",
+  flexWrap: "wrap",
+};
 
 const backLinkStyle: CSSProperties = {
   display: "inline-flex",
@@ -692,10 +631,21 @@ const quickActionGridStyle: CSSProperties = {
 
 const workspaceGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-  gap: "1.25rem",
-  marginTop: "1.75rem",
+  gridTemplateColumns: "minmax(0, 1fr)",
+  gap: "1rem",
+  marginTop: "1.5rem",
   alignItems: "start",
+};
+
+const editLinkStyle: CSSProperties = {
+  display: "inline-flex",
+  minHeight: "36px",
+  alignItems: "center",
+  gap: "0.35rem",
+  color: "var(--accent-text)",
+  fontWeight: 700,
+  fontSize: "0.9rem",
+  textDecoration: "none",
 };
 
 const notesGridStyle: CSSProperties = {
