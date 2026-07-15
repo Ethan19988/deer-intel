@@ -28,12 +28,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid coordinate." }, { status: 400 });
   }
 
-  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  // If the property has a drawn hunt area, its bounding box sizes the read so
+  // the whole outline is analyzed — not just a fixed square around the center.
+  const bbox = parseBbox(searchParams);
+  const geom = resolveGrid(lat, lng, bbox);
+
+  const key = bbox
+    ? `${geom.centerLat.toFixed(4)},${geom.centerLng.toFixed(4)}@${Math.round(geom.spacingM)}`
+    : `${lat.toFixed(4)},${lng.toFixed(4)}`;
   if (cache.has(key)) {
     return json(cache.get(key) ?? null);
   }
 
-  const points = buildGridPoints(lat, lng);
+  const points = buildGridPoints(geom.centerLat, geom.centerLng, geom.spacingM);
   const fetched = await fetchElevations(points);
 
   if (!fetched) {
@@ -49,10 +56,10 @@ export async function GET(request: Request) {
   }
 
   const grid: ElevationGrid = {
-    center: [lat, lng],
+    center: [geom.centerLat, geom.centerLng],
     rows: GRID_N,
     cols: GRID_N,
-    spacingM: SPACING_M,
+    spacingM: geom.spacingM,
     z,
   };
 
@@ -66,6 +73,36 @@ export async function GET(request: Request) {
   return json(set);
 }
 
+type Bbox = { minLat: number; minLng: number; maxLat: number; maxLng: number };
+
+function parseBbox(searchParams: URLSearchParams): Bbox | null {
+  const minLat = Number(searchParams.get("minLat"));
+  const minLng = Number(searchParams.get("minLng"));
+  const maxLat = Number(searchParams.get("maxLat"));
+  const maxLng = Number(searchParams.get("maxLng"));
+  if (![minLat, minLng, maxLat, maxLng].every(Number.isFinite)) return null;
+  if (maxLat <= minLat || maxLng <= minLng) return null;
+  return { minLat, minLng, maxLat, maxLng };
+}
+
+// A square sampling window: default fixed size around the point, or big enough
+// to enclose the hunt-area bbox (with a little margin). Kept square because the
+// analysis assumes uniform cell spacing.
+function resolveGrid(lat: number, lng: number, bbox: Bbox | null) {
+  if (!bbox) {
+    return { centerLat: lat, centerLng: lng, spacingM: SPACING_M };
+  }
+  const centerLat = (bbox.minLat + bbox.maxLat) / 2;
+  const centerLng = (bbox.minLng + bbox.maxLng) / 2;
+  const heightM = (bbox.maxLat - bbox.minLat) * 111_000;
+  const widthM =
+    (bbox.maxLng - bbox.minLng) * 111_000 * Math.cos((centerLat * Math.PI) / 180);
+  const sideM = Math.max(heightM, widthM) * 1.15;
+  // Floor the spacing so a tiny outline can't collapse below the data grain.
+  const spacingM = Math.max(sideM / (GRID_N - 1), 30);
+  return { centerLat, centerLng, spacingM };
+}
+
 function json(set: TerrainMovementSet | null) {
   return NextResponse.json(
     { set },
@@ -73,9 +110,13 @@ function json(set: TerrainMovementSet | null) {
   );
 }
 
-function buildGridPoints(lat: number, lng: number): Array<[number, number]> {
-  const dLat = SPACING_M / 111_000;
-  const dLng = SPACING_M / (111_000 * Math.cos((lat * Math.PI) / 180));
+function buildGridPoints(
+  lat: number,
+  lng: number,
+  spacingM: number,
+): Array<[number, number]> {
+  const dLat = spacingM / 111_000;
+  const dLng = spacingM / (111_000 * Math.cos((lat * Math.PI) / 180));
   const points: Array<[number, number]> = [];
   for (let i = 0; i < GRID_N; i += 1) {
     for (let j = 0; j < GRID_N; j += 1) {

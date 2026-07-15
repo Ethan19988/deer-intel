@@ -6,22 +6,20 @@
 // the right ground lights up without hardcoding a single import. As more sets
 // are generated they just get added to TERRAIN_SETS.
 
-import {
-  MOORE_HILL_SAMPLE,
-  type LatLng,
-  type TerrainKind,
-  type TerrainMovementFeature,
-  type TerrainMovementSet,
+import type {
+  LatLng,
+  TerrainKind,
+  TerrainMovementFeature,
+  TerrainMovementSet,
 } from "@/lib/terrainMovement";
 import { GENERATED_TERRAIN_SETS } from "@/lib/generated/terrainSets";
 
-// Pipeline-generated sets first so a real 1 m read supersedes the built-in
-// coarse sample when both cover the same ground (resolveTerrainSet keeps the
-// first of equally-near sets).
-export const TERRAIN_SETS: TerrainMovementSet[] = [
-  ...GENERATED_TERRAIN_SETS,
-  MOORE_HILL_SAMPLE,
-];
+// Only pipeline-generated 1 m sets are pre-registered. Each is generated for the
+// property's own drawn bbox, so it already covers the whole outline. Everything
+// else falls through to the live per-property read (which now sizes itself to
+// the hunt-area outline), instead of a hardcoded coarse sample that would pin
+// the map to one small spot.
+export const TERRAIN_SETS: TerrainMovementSet[] = [...GENERATED_TERRAIN_SETS];
 
 // How close (km) a property/map center must be to a set's center to count as
 // "this ground". Big-woods tracts are a mile or two across.

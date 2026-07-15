@@ -37,7 +37,7 @@ import TerrainMovementLayer from "@/components/map/TerrainMovementLayer";
 import TerrainLegend from "@/components/map/TerrainLegend";
 import ScoutPicksPanel from "@/components/map/ScoutPicksPanel";
 import type { LatLng } from "@/lib/terrainMovement";
-import { useTerrainSet } from "@/lib/useTerrainSet";
+import { boundsOfHuntArea, useTerrainSet } from "@/lib/useTerrainSet";
 import {
   buildCorridors,
   corridorDirection,
@@ -1092,7 +1092,17 @@ export default function HuntingMap() {
     () => resolvePropertyWeatherPoint(selectedProperty, propertyCameras, pins),
     [selectedProperty, propertyCameras, pins],
   );
-  const terrainSet = useTerrainSet(terrainPoint, selectedProperty?.name);
+  // Size the read to the drawn hunt-area outline when there is one, so the whole
+  // highlighted region is analyzed instead of a fixed square around the center.
+  const terrainBbox = useMemo(
+    () => boundsOfHuntArea(selectedProperty?.huntArea),
+    [selectedProperty?.huntArea],
+  );
+  const terrainSet = useTerrainSet(
+    terrainPoint,
+    selectedProperty?.name,
+    terrainBbox,
+  );
   const flyToTerrainPick = useCallback((point: LatLng) => {
     const map = mapInstanceRef.current;
     if (!map) return;
