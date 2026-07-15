@@ -138,11 +138,12 @@ export default function HuntLogForm({
       <CollapsibleSection title="Weather and Wind">
         <LiveWeatherFill
           location={weatherLocation}
-          onApply={(fields) =>
+          when={parseLocalDateTime(values.date, values.startTime)}
+          onApply={(fields, source) =>
             onChange({
               ...values,
               ...fields,
-              weatherSource: "live",
+              weatherSource: source,
             })
           }
         />
@@ -259,6 +260,27 @@ export default function HuntLogForm({
         Save Hunt
       </Button>
     </form>
+  );
+}
+
+// Build a local Date from the form's "YYYY-MM-DD" date and "HH:MM" time so the
+// weather fill can pull that day (and hour, if given) from history. Constructed
+// from parts to stay in local time — new Date("YYYY-MM-DD") would parse as UTC.
+function parseLocalDateTime(date: string, time: string): Date | null {
+  if (!date) return null;
+
+  const [year, month, day] = date.split("-").map(Number);
+
+  if (!year || !month || !day) return null;
+
+  const [hours, minutes] = (time || "").split(":").map(Number);
+
+  return new Date(
+    year,
+    month - 1,
+    day,
+    Number.isFinite(hours) ? hours : 0,
+    Number.isFinite(minutes) ? minutes : 0,
   );
 }
 

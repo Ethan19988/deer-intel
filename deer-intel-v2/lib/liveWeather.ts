@@ -369,6 +369,128 @@ export async function fetchLiveForecast(
   }
 }
 
+/** A backward-looking strip of recent daily conditions for a property. */
+export type WeatherHistoryResult =
+  | { status: "ok"; point: WeatherPoint; days: ForecastDay[] }
+  | { status: "error"; message: string };
+
+const weatherHistoryCache = new Map<string, WeatherHistoryResult>();
+
+// Recent past conditions — a backward look that complements the 3-day forecast.
+// Deer patterns are read from the days LEADING UP to a hunt (a cold front two
+// days ago, a warm spell all week), so this pulls the last `days` days of daily
+// highs/lows, wind, and barometric direction from the same free Open-Meteo layer
+// via its `past_days` parameter. Today is dropped because the live panel already
+// shows current conditions, leaving a clean oldest -> yesterday timeline that
+// sits continuously ahead of the forecast.
+export async function fetchWeatherHistory(
+  point: WeatherPoint,
+  units: UnitPreferences = DEFAULT_UNITS,
+  days = 7,
+): Promise<WeatherHistoryResult> {
+  if (
+    !Number.isFinite(point.lat) ||
+    !Number.isFinite(point.lng) ||
+    point.lat < -90 ||
+    point.lat > 90 ||
+    point.lng < -180 ||
+    point.lng > 180
+  ) {
+    return {
+      status: "error",
+      message: "That location isn't a valid coordinate for weather.",
+    };
+  }
+
+  // Open-Meteo's forecast endpoint serves recent history via past_days (max 92);
+  // a week keeps day labels unambiguous and the request light.
+  const span = Math.max(1, Math.min(Math.round(days), 14));
+  const cacheKey = `${point.lat.toFixed(3)},${point.lng.toFixed(3)}|${span}|${units.temperature}|${units.wind}`;
+  const cached = weatherHistoryCache.get(cacheKey);
+
+  if (cached) return cached;
+
+  try {
+    const requestUrl = new URL("https://api.open-meteo.com/v1/forecast");
+
+    requestUrl.searchParams.set("latitude", point.lat.toFixed(4));
+    requestUrl.searchParams.set("longitude", point.lng.toFixed(4));
+    requestUrl.searchParams.set("hourly", "pressure_msl");
+    requestUrl.searchParams.set(
+      "daily",
+      "weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_direction_10m_dominant",
+    );
+    requestUrl.searchParams.set(
+      "temperature_unit",
+      openMeteoTemperatureUnit(units.temperature),
+    );
+    requestUrl.searchParams.set(
+      "wind_speed_unit",
+      openMeteoWindSpeedUnit(units.wind),
+    );
+    requestUrl.searchParams.set("timezone", "auto");
+    requestUrl.searchParams.set("past_days", String(span));
+    requestUrl.searchParams.set("forecast_days", "1");
+
+    const response = await fetch(requestUrl.toString(), {
+      headers: { Accept: "application/json" },
+    });
+
+    if (!response.ok) {
+      return {
+        status: "error",
+        message: "Weather history is temporarily unavailable. Try again.",
+      };
+    }
+
+    const payload: unknown = await response.json();
+
+    if (!isOpenMeteoResponse(payload) || !payload.daily) {
+      return {
+        status: "error",
+        message: "Weather history returned an unexpected response.",
+      };
+    }
+
+    const daily = payload.daily;
+    const dates = daily.time ?? [];
+    const trends = buildDailyPressureTrends(dates, payload.hourly);
+    const entries: ForecastDay[] = dates.map((date, index) => ({
+      date,
+      label: historyDayLabel(date),
+      high: numberToText(daily.temperature_2m_max?.[index]),
+      low: numberToText(daily.temperature_2m_min?.[index]),
+      conditions:
+        typeof daily.weather_code?.[index] === "number"
+          ? describeWeatherCode(daily.weather_code[index])
+          : "",
+      wind: formatWind(
+        daily.wind_direction_10m_dominant?.[index],
+        daily.wind_speed_10m_max?.[index],
+        units,
+      ),
+      pressureTrend: trends[index],
+    }));
+
+    // Drop the final entry (today) so this stays a purely backward view; the
+    // remaining days read oldest -> yesterday.
+    const result: WeatherHistoryResult = {
+      status: "ok",
+      point,
+      days: entries.slice(0, -1),
+    };
+
+    weatherHistoryCache.set(cacheKey, result);
+
+    return result;
+  } catch {
+    return {
+      status: "error",
+      message: "Weather history is temporarily unavailable. Try again.",
+    };
+  }
+}
+
 /** The conditions a photo was taken in — the moon phase is added locally. */
 export type HistoricalWeatherFields = Pick<
   LiveWeatherFields,
@@ -659,6 +781,21 @@ function weekdayLabel(iso: string, index: number): string {
   const date = new Date(`${iso}T12:00:00`);
 
   if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleDateString(undefined, { weekday: "short" });
+}
+
+// Label for a past day in the weather-history strip: "Yesterday" for the most
+// recent, otherwise the weekday (unambiguous over a one-week window).
+function historyDayLabel(iso: string): string {
+  const date = new Date(`${iso}T12:00:00`);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (toLocalDateKey(date) === toLocalDateKey(yesterday)) return "Yesterday";
 
   return date.toLocaleDateString(undefined, { weekday: "short" });
 }

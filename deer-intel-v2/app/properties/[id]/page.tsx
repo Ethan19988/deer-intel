@@ -24,6 +24,7 @@ import Card from "@/components/ui/Card";
 import PageShell from "@/components/ui/PageShell";
 import Tabs from "@/components/ui/Tabs";
 import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
+import WeatherHistoryPanel from "@/components/weather/WeatherHistoryPanel";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import {
   createCameraFromValues,
@@ -563,6 +564,13 @@ export default function PropertyWorkspacePage() {
         <LiveWeatherPanel
           point={weatherPoint}
           emptyHint={`Add a saved location, map pins, or a camera to ${property.name} to load live weather.`}
+        />
+      </DashboardSection>
+
+      <DashboardSection eyebrow="Conditions" title="Recent Weather">
+        <WeatherHistoryPanel
+          point={weatherPoint}
+          emptyHint={`Add a saved location, map pins, or a camera to ${property.name} to load weather history.`}
         />
       </DashboardSection>
               </div>

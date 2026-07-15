@@ -97,11 +97,11 @@ export default function CameraCheckForm({
       <CollapsibleSection title="Weather During Check">
         <LiveWeatherFill
           location={weatherLocation}
-          onApply={(fields) =>
+          onApply={(fields, source) =>
             onChange({
               ...values,
               ...fields,
-              weatherSource: "live",
+              weatherSource: source,
             })
           }
         />
