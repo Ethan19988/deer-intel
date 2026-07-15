@@ -43,3 +43,6 @@ next-env.d.ts
 
 # Parcel-tile build workspace (intermediate GeoJSON)
 .parcel-build/
+
+# Terrain-pipeline workspace (downloaded LiDAR + intermediate rasters, ~GB)
+pipeline/terrain/work/

@@ -1,0 +1,455 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -78.3083,
+              41.46749
+            ],
+            [
+              -78.30861,
+              41.46719
+            ],
+            [
+              -78.30906,
+              41.4672
+            ],
+            [
+              -78.30911,
+              41.46699
+            ],
+            [
+              -78.30955,
+              41.46712
+            ],
+            [
+              -78.3101,
+              41.46706
+            ],
+            [
+              -78.30993,
+              41.46714
+            ],
+            [
+              -78.31056,
+              41.46693
+            ],
+            [
+              -78.31161,
+              41.46674
+            ],
+            [
+              -78.31141,
+              41.46656
+            ],
+            [
+              -78.31096,
+              41.46684
+            ],
+            [
+              -78.31032,
+              41.4668
+            ],
+            [
+              -78.31027,
+              41.46673
+            ],
+            [
+              -78.30997,
+              41.46688
+            ],
+            [
+              -78.30967,
+              41.4668
+            ],
+            [
+              -78.31008,
+              41.46666
+            ],
+            [
+              -78.31045,
+              41.46655
+            ],
+            [
+              -78.31011,
+              41.46665
+            ],
+            [
+              -78.30958,
+              41.46672
+            ],
+            [
+              -78.3095,
+              41.46688
+            ],
+            [
+              -78.30928,
+              41.46699
+            ],
+            [
+              -78.30919,
+              41.46691
+            ],
+            [
+              -78.30881,
+              41.46708
+            ],
+            [
+              -78.30867,
+              41.46708
+            ],
+            [
+              -78.30832,
+              41.46739
+            ],
+            [
+              -78.3083,
+              41.46749
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-bed-0",
+        "kind": "bedding",
+        "title": "South-face beds",
+        "detail": "SSE-facing bench near 2049 ft, ~20\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this.",
+        "windNote": "Beds hold a NNW wind. Approach from the ridge above."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -78.30649,
+              41.44875
+            ],
+            [
+              -78.30676,
+              41.44872
+            ],
+            [
+              -78.30694,
+              41.44862
+            ],
+            [
+              -78.30715,
+              41.44854
+            ],
+            [
+              -78.30732,
+              41.44851
+            ],
+            [
+              -78.30774,
+              41.44842
+            ],
+            [
+              -78.308,
+              41.44838
+            ],
+            [
+              -78.30827,
+              41.44829
+            ],
+            [
+              -78.30845,
+              41.4482
+            ],
+            [
+              -78.30859,
+              41.44807
+            ],
+            [
+              -78.30885,
+              41.44795
+            ],
+            [
+              -78.30844,
+              41.44788
+            ],
+            [
+              -78.30846,
+              41.44808
+            ],
+            [
+              -78.30825,
+              41.4482
+            ],
+            [
+              -78.30796,
+              41.44824
+            ],
+            [
+              -78.30763,
+              41.44823
+            ],
+            [
+              -78.30724,
+              41.44832
+            ],
+            [
+              -78.30698,
+              41.4484
+            ],
+            [
+              -78.30681,
+              41.4485
+            ],
+            [
+              -78.30662,
+              41.44865
+            ],
+            [
+              -78.30625,
+              41.44869
+            ],
+            [
+              -78.30599,
+              41.44868
+            ],
+            [
+              -78.30614,
+              41.44867
+            ],
+            [
+              -78.30624,
+              41.44872
+            ],
+            [
+              -78.30633,
+              41.44871
+            ],
+            [
+              -78.30649,
+              41.44875
+            ],
+            [
+              -78.30649,
+              41.44875
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-bed-1",
+        "kind": "bedding",
+        "title": "South-face beds",
+        "detail": "SSE-facing bench near 2051 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this.",
+        "windNote": "Beds hold a NNW wind. Approach from the ridge above."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -78.32664,
+              41.47136
+            ],
+            [
+              -78.32765,
+              41.47033
+            ],
+            [
+              -78.32865,
+              41.46919
+            ],
+            [
+              -78.32966,
+              41.46814
+            ],
+            [
+              -78.33071,
+              41.46739
+            ],
+            [
+              -78.33144,
+              41.46617
+            ],
+            [
+              -78.33055,
+              41.46744
+            ],
+            [
+              -78.32957,
+              41.46794
+            ],
+            [
+              -78.32888,
+              41.46868
+            ],
+            [
+              -78.32895,
+              41.46879
+            ],
+            [
+              -78.32875,
+              41.46869
+            ],
+            [
+              -78.32919,
+              41.46812
+            ],
+            [
+              -78.32895,
+              41.46831
+            ],
+            [
+              -78.32817,
+              41.46881
+            ],
+            [
+              -78.32776,
+              41.46916
+            ],
+            [
+              -78.32677,
+              41.47017
+            ],
+            [
+              -78.32735,
+              41.46983
+            ],
+            [
+              -78.32747,
+              41.46998
+            ],
+            [
+              -78.32807,
+              41.46933
+            ],
+            [
+              -78.32824,
+              41.46908
+            ],
+            [
+              -78.32848,
+              41.46921
+            ],
+            [
+              -78.32781,
+              41.46969
+            ],
+            [
+              -78.32834,
+              41.46942
+            ],
+            [
+              -78.32763,
+              41.47026
+            ],
+            [
+              -78.3267,
+              41.47123
+            ],
+            [
+              -78.32664,
+              41.47136
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-refuge-0",
+        "kind": "refuge",
+        "title": "Steep sanctuary",
+        "detail": "The steepest ground (~35\u00b0) \u2014 where deer ride out the season. Hunt its upper edge and the saddles leading out, don't push it."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.30439,
+          41.4524
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-pinch-0",
+        "kind": "pinch",
+        "title": "Saddle crossing",
+        "detail": "A ridge saddle near 2070 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+        "windNote": "Sit the downhill side on a crosswind."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.32343,
+          41.47098
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-pinch-1",
+        "kind": "pinch",
+        "title": "Saddle crossing",
+        "detail": "A ridge saddle near 1778 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+        "windNote": "Sit the downhill side on a crosswind."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.31236,
+            41.46672
+          ],
+          [
+            -78.31837,
+            41.46546
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-draw-0",
+        "kind": "travel",
+        "title": "Draw travel corridor",
+        "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+        "windNote": "Morning thermals fall downhill \u2014 hunt the lower end at dawn."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.31488,
+            41.46311
+          ],
+          [
+            -78.31505,
+            41.46427
+          ],
+          [
+            -78.31085,
+            41.46245
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-draw-1",
+        "kind": "travel",
+        "title": "Draw travel corridor",
+        "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+        "windNote": "Morning thermals fall downhill \u2014 hunt the lower end at dawn."
+      }
+    }
+  ]
+}

@@ -25,6 +25,7 @@ import subprocess
 
 import numpy as np
 import rasterio
+from affine import Affine
 from rasterio import features
 from scipy import ndimage
 from scipy.stats import circmean
@@ -42,7 +43,14 @@ REFUGE_SLOPE_MIN = 30.0                        # sanctuary is steep
 FAR_FROM_ROAD_M = 900.0                        # ~1,000 yd security threshold
 MIN_BED_AREA_M2 = 1500.0
 MIN_REFUGE_AREA_M2 = 8000.0
-SADDLE_CURV_MIN = 0.02                          # curvature magnitude (1/m) after smoothing
+# A saddle smaller than this is curvature noise, not a gap deer would funnel to.
+MIN_SADDLE_AREA_M2 = 150.0
+# Smooth the DEM at this GROUND scale before reading saddle curvature, so a 1 m
+# DEM is read at hill scale instead of micro-relief.
+SADDLE_SMOOTH_M = 40.0
+# Keep only the strongest curvature candidates (percentile, not an absolute
+# cutoff — curvature magnitude depends heavily on cell size).
+SADDLE_PERCENTILE = 92.0
 MAX_PER_KIND = {"bedding": 2, "travel": 2, "pinch": 2, "refuge": 1}
 
 DIRS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
@@ -68,37 +76,56 @@ def load(path):
         return arr, ds.transform, ds.crs
 
 
-def component_stats(mask, dem, slope, aspect, transform):
-    """Label connected True cells; return list of components with polygon (UTM)
-    + stats, largest first."""
+def component_stats(mask, dem, slope, aspect, transform, min_area_m2=0.0, max_keep=6):
+    """Label connected True cells; return the biggest components with polygon
+    (UTM) + stats, largest first.
+
+    At 1 m a mask can hold millions of cells and tens of thousands of blobs, so
+    areas are counted up-front with bincount and only the few winners are
+    vectorized — inside their own bounding box, not the whole raster.
+    """
     labels, n = ndimage.label(mask)
+    if n == 0:
+        return []
+
     px = abs(transform.a)
     py = abs(transform.e)
     cell_area = px * py
+
+    counts = np.bincount(labels.ravel())
+    counts[0] = 0  # background
+    order = [cid for cid in np.argsort(counts)[::-1] if counts[cid] > 0]
+    slices = ndimage.find_objects(labels)
+
     out = []
-    for cid in range(1, n + 1):
-        cells = labels == cid
-        area = int(cells.sum()) * cell_area
+    for cid in order:
+        area = float(counts[cid]) * cell_area
+        if area < min_area_m2 or len(out) >= max_keep:
+            break  # counts are sorted desc, so nothing later can qualify
+
+        sl = slices[cid - 1]
+        sub = labels[sl] == cid
+        sub_transform = transform * Affine.translation(sl[1].start, sl[0].start)
+
         polys = [
             shape(geom)
             for geom, val in features.shapes(
-                cells.astype("uint8"), mask=cells, transform=transform
+                sub.astype("uint8"), mask=sub, transform=sub_transform
             )
             if val == 1
         ]
         if not polys:
             continue
-        poly = max(polys, key=lambda p: p.area)
-        asp = aspect[cells]
+
+        asp = aspect[sl][sub]
         asp = asp[~np.isnan(asp)]
         out.append({
-            "geom": poly,
+            "geom": max(polys, key=lambda p: p.area),
             "area": area,
-            "slope": float(np.nanmean(slope[cells])),
-            "elev": float(np.nanmean(dem[cells])),
+            "slope": float(np.nanmean(slope[sl][sub])),
+            "elev": float(np.nanmean(dem[sl][sub])),
             "aspect": float(np.degrees(circmean(np.radians(asp)))) if asp.size else 0.0,
         })
-    out.sort(key=lambda c: c["area"], reverse=True)
     return out
 
 
@@ -165,22 +192,37 @@ def main():
 
     # Saddles: smooth the DEM, then find cells where curvature flips sign between
     # the two axes (convex one way, concave the other) while sitting on a crest.
-    sm = ndimage.gaussian_filter(np.nan_to_num(dem, nan=np.nanmean(dem)), sigma=6)
+    #
+    # Both the smoothing and the cutoff must be resolution-aware. Smoothing is
+    # done at a fixed GROUND scale (metres -> cells) so a 1 m DEM isn't read as
+    # micro-relief, and the cutoff is a percentile of the actual curvature rather
+    # than an absolute number — at 1 m the second derivatives are orders of
+    # magnitude smaller than at 10 m, so any fixed threshold rejects everything.
+    sigma_cells = max(SADDLE_SMOOTH_M / px, 1.0)
+    sm = ndimage.gaussian_filter(
+        np.nan_to_num(dem, nan=float(np.nanmean(dem))), sigma=sigma_cells
+    )
     gy, gx = np.gradient(sm, px, px)
     gxx = np.gradient(gx, px, axis=1)
     gyy = np.gradient(gy, px, axis=0)
-    saddle_mask = (
-        valid & (gxx * gyy < 0)
-        & (np.abs(gxx) > SADDLE_CURV_MIN) & (np.abs(gyy) > SADDLE_CURV_MIN)
-        & upper
-    )
+
+    prod = gxx * gyy
+    candidate = valid & (prod < 0) & upper  # opposite curvature, up on a crest
+    strength = np.abs(prod)
+    if candidate.any():
+        cutoff = np.percentile(strength[candidate], SADDLE_PERCENTILE)
+        saddle_mask = candidate & (strength >= cutoff)
+    else:
+        saddle_mask = candidate
 
     features_out = []
     picks = []
 
     # ---- Bedding (polygons) ----
-    beds = [c for c in component_stats(bedding_mask, dem, slope, aspect, transform)
-            if c["area"] >= MIN_BED_AREA_M2]
+    print("[rules] bedding components", flush=True)
+    beds = component_stats(
+        bedding_mask, dem, slope, aspect, transform, MIN_BED_AREA_M2, 6
+    )
     for k, c in enumerate(beds[: MAX_PER_KIND["bedding"]]):
         spur = SOUTH_MIN <= c["aspect"] <= SOUTH_MAX
         wind = reciprocal_wind(c["aspect"])
@@ -205,8 +247,10 @@ def main():
                       "score": c["area"] / 1000 + c["slope"]})
 
     # ---- Refuge (polygon, largest steep-far block) ----
-    refs = [c for c in component_stats(refuge_mask, dem, slope, aspect, transform)
-            if c["area"] >= MIN_REFUGE_AREA_M2]
+    print("[rules] refuge components", flush=True)
+    refs = component_stats(
+        refuge_mask, dem, slope, aspect, transform, MIN_REFUGE_AREA_M2, 3
+    )
     for k, c in enumerate(refs[: MAX_PER_KIND["refuge"]]):
         features_out.append({
             "id": f"{args.name}-refuge-{k}", "kind": "refuge",
@@ -220,17 +264,29 @@ def main():
         })
 
     # ---- Saddles (pinch points) ----
+    # Vectorized: at 1 m this mask holds thousands of clusters, so drop the
+    # noise-sized ones by count and let ndimage reduce the survivors in one pass
+    # rather than materializing a full-raster boolean per cluster.
+    print("[rules] saddle clusters", flush=True)
     labels, n = ndimage.label(saddle_mask)
     sad = []
-    for cid in range(1, n + 1):
-        cells = labels == cid
-        if cells.sum() < 3:
-            continue
-        yi, xi = ndimage.center_of_mass(cells)
-        x, y = transform * (xi, yi)
-        lng, lat = to_wgs.transform(x, y)
-        sad.append({"lat": lat, "lng": lng, "elev": float(np.nanmean(dem[cells])),
-                    "strength": float(np.nanmean(np.abs(gxx * gyy)[cells]))})
+    if n > 0:
+        cell_area = abs(transform.a) * abs(transform.e)
+        counts = np.bincount(labels.ravel())
+        counts[0] = 0
+        keep = [c for c in range(1, n + 1) if counts[c] * cell_area >= MIN_SADDLE_AREA_M2]
+        keep.sort(key=lambda c: counts[c], reverse=True)
+        keep = keep[:200]
+        if keep:
+            curv = np.abs(gxx * gyy)
+            demz = np.nan_to_num(dem, nan=float(np.nanmean(dem)))
+            coms = ndimage.center_of_mass(saddle_mask, labels, keep)
+            elevs = ndimage.mean(demz, labels, keep)
+            strengths = ndimage.mean(curv, labels, keep)
+            for (yi, xi), e, s in zip(coms, np.atleast_1d(elevs), np.atleast_1d(strengths)):
+                x, y = transform * (xi, yi)
+                lng, lat = to_wgs.transform(x, y)
+                sad.append({"lat": lat, "lng": lng, "elev": float(e), "strength": float(s)})
     sad.sort(key=lambda s: s["strength"], reverse=True)
     for k, s in enumerate(sad[: MAX_PER_KIND["pinch"]]):
         detail = (

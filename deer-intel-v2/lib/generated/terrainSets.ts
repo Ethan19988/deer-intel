@@ -4,5 +4,8 @@
 // terrain_movement.<name>.json file into lib/generated/ and rebuilding.
 import type { TerrainMovementSet } from "@/lib/terrainMovement";
 
+import set0 from "./terrain_movement.moore-hill.json";
+
 export const GENERATED_TERRAIN_SETS: TerrainMovementSet[] = [
+  set0 as unknown as TerrainMovementSet,
 ];

@@ -1,0 +1,45 @@
+{
+  "area": "Moore Hill",
+  "picks": [
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 41.4524,
+      "lng": -78.30439,
+      "elevationFt": 2070,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 2070 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand."
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 41.47098,
+      "lng": -78.32343,
+      "elevationFt": 1778,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1778 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand."
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 41.44833,
+      "lng": -78.30772,
+      "elevationFt": 2051,
+      "slopeDeg": 25,
+      "aspect": "SSE",
+      "bestWind": "NNW",
+      "reason": "SSE-facing bench near 2051 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this."
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 41.46701,
+      "lng": -78.30954,
+      "elevationFt": 2049,
+      "slopeDeg": 20,
+      "aspect": "SSE",
+      "bestWind": "NNW",
+      "reason": "SSE-facing bench near 2049 ft, ~20\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this."
+    }
+  ]
+}
