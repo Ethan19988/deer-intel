@@ -37,7 +37,7 @@ import TerrainMovementLayer from "@/components/map/TerrainMovementLayer";
 import TerrainLegend from "@/components/map/TerrainLegend";
 import ScoutPicksPanel from "@/components/map/ScoutPicksPanel";
 import type { LatLng } from "@/lib/terrainMovement";
-import { resolveTerrainSet } from "@/lib/terrainMovementData";
+import { useTerrainSet } from "@/lib/useTerrainSet";
 import {
   buildCorridors,
   corridorDirection,
@@ -1084,20 +1084,15 @@ export default function HuntingMap() {
     );
     return point ? point.lat : mapCenter[0];
   }, [selectedProperty, propertyCameras, pins, mapCenter]);
-  // Terrain-movement prediction set for the ground in view: the active
-  // property's location if it has one covered, otherwise wherever the map is
-  // centered — so panning to a covered tract lights it up without hardcoding.
-  const terrainSet = useMemo(() => {
-    const point = resolvePropertyWeatherPoint(
-      selectedProperty,
-      propertyCameras,
-      pins,
-    );
-    return (
-      resolveTerrainSet(point) ??
-      resolveTerrainSet({ lat: mapCenter[0], lng: mapCenter[1] })
-    );
-  }, [selectedProperty, propertyCameras, pins, mapCenter]);
+  // Terrain-movement prediction anchored on the ACTIVE PROPERTY's location:
+  // a pipeline-generated 1 m set if one covers it, otherwise a live terrain
+  // read fetched on demand — so every marked property gets analyzed, not just
+  // the pre-baked sample.
+  const terrainPoint = useMemo(
+    () => resolvePropertyWeatherPoint(selectedProperty, propertyCameras, pins),
+    [selectedProperty, propertyCameras, pins],
+  );
+  const terrainSet = useTerrainSet(terrainPoint, selectedProperty?.name);
   const flyToTerrainPick = useCallback((point: LatLng) => {
     const map = mapInstanceRef.current;
     if (!map) return;

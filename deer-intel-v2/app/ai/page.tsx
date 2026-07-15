@@ -24,7 +24,8 @@ import {
   type DeerHubItem,
 } from "@/lib/deerIntelligenceHub";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
-import { getScoutPicks, resolveTerrainSet } from "@/lib/terrainMovementData";
+import { getScoutPicks } from "@/lib/terrainMovementData";
+import { useTerrainSet } from "@/lib/useTerrainSet";
 import { TERRAIN_STYLE } from "@/lib/terrainMovement";
 import { useMoonPhase } from "@/lib/useMoonPhase";
 import type { AiScoutConditions, AiScoutReport } from "@/types/aiScout";
@@ -76,7 +77,7 @@ export default function AIPage() {
   const terrainPoint = selectedProperty
     ? resolvePropertyWeatherPoint(selectedProperty, propertyCameras, propertyPins)
     : null;
-  const terrainSet = resolveTerrainSet(terrainPoint);
+  const terrainSet = useTerrainSet(terrainPoint, selectedProperty?.name);
   const scoutPicks = terrainSet ? getScoutPicks(terrainSet) : [];
 
   function selectProperty(propertyId: string) {
