@@ -36,6 +36,13 @@ Rules:
   dawn/dusk movement and push more activity toward midday; a dark moon (new or thin crescent)
   concentrates movement into the first and last light windows. Use this to advise WHEN to be in
   the stand today, and reflect it in the key factors.
+- terrainPicks are spots predicted from a LiDAR terrain read (likely bedding, travel corridors,
+  saddle/pinch crossings) using Penn State Deer-Forest movement rules. They are terrain-based
+  PREDICTIONS, not confirmed sign — treat them as scouting leads to verify, never as observed
+  deer. Weigh them most when stands and camera data are thin, and when a saved stand sits near a
+  predicted saddle or bedding area (or the day's wind matches a pick's bestWind), point that out.
+  If there are no stands but there are terrainPicks, you may recommend hunting near the strongest
+  pick and say plainly it's a predicted spot to scout.
 - Keep the tone practical and direct, like an experienced hunting buddy, not a generic assistant.`;
 
 const REPORT_TOOL = {

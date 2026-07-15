@@ -10,6 +10,7 @@ import type {
   AiScoutRequestContext,
   AiScoutStandContext,
 } from "@/types/aiScout";
+import type { ScoutPick } from "@/lib/terrainMovementData";
 import type { DeerProfile } from "@/types/deerProfile";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { PhotoRecord } from "@/types/photo";
@@ -39,6 +40,8 @@ type BuildAiScoutContextInput = {
   photoRecords: PhotoRecord[];
   deerProfiles: DeerProfile[];
   conditions: AiScoutConditions;
+  /** Terrain-predicted spots for this property, if a LiDAR read covers it. */
+  scoutPicks?: ScoutPick[];
 };
 
 /**
@@ -55,6 +58,7 @@ export function buildAiScoutRequestContext({
   photoRecords,
   deerProfiles,
   conditions,
+  scoutPicks = [],
 }: BuildAiScoutContextInput): AiScoutRequestContext {
   const cameraNameById = new Map(cameras.map((camera) => [camera.id, camera.name]));
 
@@ -153,6 +157,12 @@ export function buildAiScoutRequestContext({
     recentCameraChecks,
     deerProfiles: deerProfileContexts,
     recentBuckPhotos,
+    terrainPicks: scoutPicks.map((pick) => ({
+      kind: pick.kind,
+      title: pick.title,
+      detail: truncate(pick.reason),
+      bestWind: pick.windNote,
+    })),
   };
 }
 

@@ -70,6 +70,14 @@ export type AiScoutBuckPhotoContext = {
   notes: string;
 };
 
+/** A terrain-predicted spot (bedding, travel, saddle) from the LiDAR read. */
+export type AiScoutTerrainPickContext = {
+  kind: string;
+  title: string;
+  detail: string;
+  bestWind?: string;
+};
+
 /** Compact, trimmed snapshot of one property's saved data sent to the LLM. */
 export type AiScoutRequestContext = {
   property: AiScoutPropertyContext;
@@ -79,6 +87,8 @@ export type AiScoutRequestContext = {
   recentCameraChecks: AiScoutCameraCheckContext[];
   deerProfiles: AiScoutDeerProfileContext[];
   recentBuckPhotos: AiScoutBuckPhotoContext[];
+  /** Predicted terrain spots (empty when no LiDAR read covers this property). */
+  terrainPicks: AiScoutTerrainPickContext[];
 };
 
 export type AiScoutConfidence = "low" | "medium" | "high";

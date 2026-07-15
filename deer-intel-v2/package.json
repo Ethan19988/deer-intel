@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "terrain:index": "node scripts/build-terrain-index.mjs",
+    "prebuild": "node scripts/build-terrain-index.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

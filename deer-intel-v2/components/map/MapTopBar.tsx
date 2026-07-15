@@ -11,12 +11,14 @@ type MapTopBarProps = {
   showPropertyOwners: boolean;
   showWind: boolean;
   showMovement: boolean;
+  showTerrain: boolean;
   onSelectLayer: (layerId: MapLayerId) => void;
   onToggleContours: () => void;
   onToggleSlope: () => void;
   onTogglePropertyOwners: () => void;
   onToggleWind: () => void;
   onToggleMovement: () => void;
+  onToggleTerrain: () => void;
 };
 
 // A curated, one-tap subset of the base maps kept short for the top bar; the
@@ -37,12 +39,14 @@ export default function MapTopBar({
   showPropertyOwners,
   showWind,
   showMovement,
+  showTerrain,
   onSelectLayer,
   onToggleContours,
   onToggleSlope,
   onTogglePropertyOwners,
   onToggleWind,
   onToggleMovement,
+  onToggleTerrain,
 }: MapTopBarProps) {
   return (
     <div
@@ -126,6 +130,16 @@ export default function MapTopBar({
         onClick={onToggleMovement}
       >
         Movement
+      </button>
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={showTerrain}
+        style={{ ...pillStyle, ...(showTerrain ? activeTerrainPillStyle : null) }}
+        onClick={onToggleTerrain}
+      >
+        Terrain
       </button>
     </div>
   );
@@ -215,6 +229,12 @@ const activeWindPillStyle: CSSProperties = {
 const activeMovementPillStyle: CSSProperties = {
   borderColor: "rgba(168, 85, 247, 0.6)",
   background: "#6d28d9",
+  color: "white",
+};
+
+const activeTerrainPillStyle: CSSProperties = {
+  borderColor: "rgba(224, 100, 42, 0.6)",
+  background: "#8a4b1e",
   color: "white",
 };
 

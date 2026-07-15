@@ -23,6 +23,9 @@ import {
   getDeerIntelligenceHubSummary,
   type DeerHubItem,
 } from "@/lib/deerIntelligenceHub";
+import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import { getScoutPicks, resolveTerrainSet } from "@/lib/terrainMovementData";
+import { TERRAIN_STYLE } from "@/lib/terrainMovement";
 import { useMoonPhase } from "@/lib/useMoonPhase";
 import type { AiScoutConditions, AiScoutReport } from "@/types/aiScout";
 
@@ -66,6 +69,15 @@ export default function AIPage() {
         pins: propertyPins,
       })
     : null;
+
+  // Terrain-predicted scouting spots for this property, if a LiDAR read covers
+  // its location. Surfaced as its own section and fed into the AI Scout context
+  // so the LLM can weigh terrain against the hunter's saved stands.
+  const terrainPoint = selectedProperty
+    ? resolvePropertyWeatherPoint(selectedProperty, propertyCameras, propertyPins)
+    : null;
+  const terrainSet = resolveTerrainSet(terrainPoint);
+  const scoutPicks = terrainSet ? getScoutPicks(terrainSet) : [];
 
   function selectProperty(propertyId: string) {
     updateDeerIntelStore((currentState) => ({
@@ -135,6 +147,7 @@ export default function AIPage() {
           ...conditions,
           moonPhase: conditions.moonPhase || moon?.phase || "",
         },
+        scoutPicks,
       });
       const report = await requestAiScoutReport(context);
 
@@ -295,6 +308,45 @@ export default function AIPage() {
               />
             </div>
           </Section>
+
+          {terrainSet ? (
+            <Section
+              eyebrow="Terrain"
+              title="Scout Picks"
+              action={<Badge variant="success">LiDAR read</Badge>}
+            >
+              <Card as="div" variant="subtle">
+                <p style={mutedTextStyle}>
+                  Predicted spots from the terrain read of {terrainSet.areaName} —
+                  where deer likely bed, travel, and cross, ranked as places to
+                  scout. Open the map&apos;s Terrain layer to see them on the ground.
+                </p>
+                <ol style={scoutPickListStyle}>
+                  {scoutPicks.slice(0, 5).map((pick) => (
+                    <li key={pick.id} style={scoutPickItemStyle}>
+                      <span
+                        style={{
+                          ...scoutPickDotStyle,
+                          background: TERRAIN_STYLE[pick.kind].color,
+                        }}
+                        aria-hidden="true"
+                      />
+                      <div>
+                        <p style={scoutPickTitleStyle}>{pick.title}</p>
+                        <p style={scoutPickReasonStyle}>{pick.reason}</p>
+                        {pick.windNote ? (
+                          <p style={scoutPickWindStyle}>🌬️ {pick.windNote}</p>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                <Link href="/map" style={primaryLinkStyle}>
+                  Open Terrain Map
+                </Link>
+              </Card>
+            </Section>
+          ) : null}
 
           <Section
             eyebrow="6"
@@ -700,4 +752,49 @@ const aiScoutReportStyle: CSSProperties = {
   marginTop: "1.25rem",
   paddingTop: "1.1rem",
   borderTop: "1px solid var(--border)",
+};
+
+const scoutPickListStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.85rem",
+  margin: "1.1rem 0 0",
+  padding: 0,
+  listStyle: "none",
+};
+
+const scoutPickItemStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "0.7rem",
+};
+
+const scoutPickDotStyle: CSSProperties = {
+  flex: "0 0 auto",
+  width: "14px",
+  height: "14px",
+  marginTop: "0.3rem",
+  borderRadius: "4px",
+  boxShadow: "inset 0 0 0 1px rgba(0, 0, 0, 0.2)",
+};
+
+const scoutPickTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text)",
+  fontSize: "1.05rem",
+  fontWeight: 850,
+  lineHeight: 1.25,
+};
+
+const scoutPickReasonStyle: CSSProperties = {
+  margin: "0.3rem 0 0",
+  color: "var(--text-muted)",
+  lineHeight: 1.5,
+};
+
+const scoutPickWindStyle: CSSProperties = {
+  margin: "0.35rem 0 0",
+  color: "var(--accent-text)",
+  fontSize: "0.92rem",
+  fontWeight: 700,
+  lineHeight: 1.4,
 };

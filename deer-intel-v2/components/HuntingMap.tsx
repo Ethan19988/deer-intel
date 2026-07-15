@@ -33,6 +33,11 @@ import WindThermalBadge, {
 } from "@/components/map/WindThermalBadge";
 import MovementLayer from "@/components/map/MovementLayer";
 import MovementBadge from "@/components/map/MovementBadge";
+import TerrainMovementLayer from "@/components/map/TerrainMovementLayer";
+import TerrainLegend from "@/components/map/TerrainLegend";
+import ScoutPicksPanel from "@/components/map/ScoutPicksPanel";
+import type { LatLng } from "@/lib/terrainMovement";
+import { resolveTerrainSet } from "@/lib/terrainMovementData";
 import {
   buildCorridors,
   corridorDirection,
@@ -756,6 +761,7 @@ export default function HuntingMap() {
   const [showSlope, setShowSlope] = useState(false);
   const [showWind, setShowWind] = useState(false);
   const [showMovement, setShowMovement] = useState(false);
+  const [showTerrain, setShowTerrain] = useState(false);
   // One live-weather fetch feeds both the wind and movement overlays.
   const [forecastStatus, setForecastStatus] =
     useState<WindBadgeStatus>("loading");
@@ -1078,6 +1084,25 @@ export default function HuntingMap() {
     );
     return point ? point.lat : mapCenter[0];
   }, [selectedProperty, propertyCameras, pins, mapCenter]);
+  // Terrain-movement prediction set for the ground in view: the active
+  // property's location if it has one covered, otherwise wherever the map is
+  // centered — so panning to a covered tract lights it up without hardcoding.
+  const terrainSet = useMemo(() => {
+    const point = resolvePropertyWeatherPoint(
+      selectedProperty,
+      propertyCameras,
+      pins,
+    );
+    return (
+      resolveTerrainSet(point) ??
+      resolveTerrainSet({ lat: mapCenter[0], lng: mapCenter[1] })
+    );
+  }, [selectedProperty, propertyCameras, pins, mapCenter]);
+  const flyToTerrainPick = useCallback((point: LatLng) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    map.flyTo(point, Math.max(map.getZoom(), 16), { duration: 0.8 });
+  }, []);
   // Bucket history by rut phase so early-season and rut patterns don't average
   // out. Falls back to all-season photos when the current phase is still thin.
   const currentMovementPhase = useMemo(
@@ -2229,12 +2254,14 @@ export default function HuntingMap() {
             showPropertyOwners={showPropertyLines}
             showWind={showWind}
             showMovement={showMovement}
+            showTerrain={showTerrain}
             onSelectLayer={setSelectedLayer}
             onToggleContours={() => setShowContours((current) => !current)}
             onToggleSlope={() => setShowSlope((current) => !current)}
             onTogglePropertyOwners={togglePropertyLines}
             onToggleWind={toggleWind}
             onToggleMovement={toggleMovement}
+            onToggleTerrain={() => setShowTerrain((current) => !current)}
           />
 
           {showWind ? (
@@ -2428,6 +2455,10 @@ export default function HuntingMap() {
               />
             ) : null}
 
+            {showTerrain && terrainSet ? (
+              <TerrainMovementLayer set={terrainSet} />
+            ) : null}
+
             <MapInstanceBridge
               onReady={(map) => {
                 mapInstanceRef.current = map;
@@ -2567,6 +2598,12 @@ export default function HuntingMap() {
                 <span>45°+</span>
               </div>
             </div>
+          ) : null}
+
+          {showTerrain && terrainSet ? <TerrainLegend /> : null}
+
+          {showTerrain ? (
+            <ScoutPicksPanel set={terrainSet} onSelect={flyToTerrainPick} />
           ) : null}
 
           <MapLayerManager
