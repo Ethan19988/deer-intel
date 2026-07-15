@@ -18,6 +18,8 @@ import {
   formatPropertyCoordinate,
   parsePropertyCoordinate,
 } from "@/lib/propertyLocation";
+import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import { buildPipelineManifest } from "@/lib/terrainPipeline";
 import type { Property } from "@/types/property";
 
 const EMPTY_PROPERTY_FORM_VALUES: PropertyFormValues = {
@@ -29,7 +31,9 @@ const EMPTY_PROPERTY_FORM_VALUES: PropertyFormValues = {
 };
 
 export default function PropertiesPage() {
-  const { properties } = useDeerIntelStore();
+  const { properties, cameras, pins } = useDeerIntelStore();
+
+  const [exportMessage, setExportMessage] = useState("");
 
   const [newPropertyValues, setNewPropertyValues] =
     useState<PropertyFormValues>(EMPTY_PROPERTY_FORM_VALUES);
@@ -173,6 +177,62 @@ export default function PropertiesPage() {
     }
   }
 
+  function exportPipelineManifest() {
+    const manifest = buildPipelineManifest(
+      properties.map((property) => {
+        const propertyPins = pins.filter(
+          (pin) => pin.propertyId === property.id,
+        );
+        const propertyCameras = cameras.filter(
+          (camera) => camera.propertyId === property.id,
+        );
+        return {
+          name: property.name,
+          center: resolvePropertyWeatherPoint(
+            property,
+            propertyCameras,
+            propertyPins,
+          ),
+          extraCoords: [
+            ...propertyPins.map((pin) => ({ lat: pin.lat, lng: pin.lng })),
+            ...propertyCameras
+              .filter(
+                (camera) =>
+                  typeof camera.latitude === "number" &&
+                  typeof camera.longitude === "number",
+              )
+              .map((camera) => ({
+                lat: camera.latitude as number,
+                lng: camera.longitude as number,
+              })),
+          ],
+        };
+      }),
+    );
+
+    if (manifest.length === 0) {
+      setExportMessage(
+        "No property has a location yet — add a coordinate or a map pin first.",
+      );
+      return;
+    }
+
+    const blob = new Blob([JSON.stringify(manifest, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "properties.json";
+    link.click();
+    URL.revokeObjectURL(url);
+    setExportMessage(
+      `Exported ${manifest.length} propert${
+        manifest.length === 1 ? "y" : "ies"
+      }. Run ./run_all.sh properties.json in pipeline/terrain/.`,
+    );
+  }
+
   const propertiesTab =
     properties.length === 0 ? (
       <EmptyState description="No properties yet. Add your first hunting property from the Add property tab." />
@@ -208,8 +268,23 @@ export default function PropertiesPage() {
   return (
     <PageShell maxWidth="980px">
       <header style={headerStyle}>
-        <p style={eyebrowStyle}>Properties</p>
-        <h1 style={titleStyle}>Properties</h1>
+        <div style={headerRowStyle}>
+          <div>
+            <p style={eyebrowStyle}>Properties</p>
+            <h1 style={titleStyle}>Properties</h1>
+          </div>
+          {properties.length > 0 ? (
+            <button
+              type="button"
+              style={exportButtonStyle}
+              onClick={exportPipelineManifest}
+              title="Download a manifest to run the terrain LiDAR pipeline for every located property"
+            >
+              Export for terrain pipeline
+            </button>
+          ) : null}
+        </div>
+        {exportMessage ? <p style={exportMessageStyle}>{exportMessage}</p> : null}
       </header>
 
       <Tabs
@@ -229,8 +304,34 @@ export default function PropertiesPage() {
 
 const headerStyle: CSSProperties = {
   display: "grid",
-  gap: "0.35rem",
+  gap: "0.55rem",
   marginBottom: "1.5rem",
+};
+
+const headerRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "space-between",
+  gap: "1rem",
+  flexWrap: "wrap",
+};
+
+const exportButtonStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0.6rem 0.95rem",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "8px",
+  background: "var(--surface-2)",
+  color: "var(--text)",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const exportMessageStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text-muted)",
+  fontSize: "0.88rem",
+  lineHeight: 1.5,
 };
 
 const eyebrowStyle: CSSProperties = {

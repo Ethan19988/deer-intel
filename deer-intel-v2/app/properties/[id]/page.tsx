@@ -25,6 +25,7 @@ import PageShell from "@/components/ui/PageShell";
 import Tabs from "@/components/ui/Tabs";
 import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
 import WeatherHistoryPanel from "@/components/weather/WeatherHistoryPanel";
+import PipelineCommandCard from "@/components/properties/PipelineCommandCard";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import {
   createCameraFromValues,
@@ -571,6 +572,26 @@ export default function PropertyWorkspacePage() {
         <WeatherHistoryPanel
           point={weatherPoint}
           emptyHint={`Add a saved location, map pins, or a camera to ${property.name} to load weather history.`}
+        />
+      </DashboardSection>
+
+      <DashboardSection eyebrow="Terrain" title="High-Res Terrain (LiDAR)">
+        <PipelineCommandCard
+          propertyName={property.name}
+          center={weatherPoint}
+          extraCoords={[
+            ...propertyPins.map((pin) => ({ lat: pin.lat, lng: pin.lng })),
+            ...propertyCameras
+              .filter(
+                (camera) =>
+                  typeof camera.latitude === "number" &&
+                  typeof camera.longitude === "number",
+              )
+              .map((camera) => ({
+                lat: camera.latitude as number,
+                lng: camera.longitude as number,
+              })),
+          ]}
         />
       </DashboardSection>
               </div>

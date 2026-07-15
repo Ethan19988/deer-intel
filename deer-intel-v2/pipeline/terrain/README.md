@@ -46,7 +46,19 @@ pip install -r requirements.txt          # rasterio, numpy, scipy, shapely, whit
 ./run.sh moore-hill -78.3322 41.4495 -78.3062 41.4695
 ```
 
-Or step by step:
+### All properties at once
+
+In the app: **Properties → "Export for terrain pipeline"** downloads a
+`properties.json` manifest (a bounding box per located property). Then:
+
+```bash
+./run_all.sh properties.json
+```
+
+which runs the pipeline for each property in turn. Commit the generated
+`lib/generated/terrain_movement.*.json` files afterward.
+
+### Step by step (one property)
 
 ```bash
 python3 fetch_dem.py         --name moore-hill --bbox -78.3322 41.4495 -78.3062 41.4695
