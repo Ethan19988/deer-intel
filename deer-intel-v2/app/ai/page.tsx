@@ -25,7 +25,11 @@ import {
 } from "@/lib/deerIntelligenceHub";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { getScoutPicks } from "@/lib/terrainMovementData";
-import { boundsOfHuntArea, useTerrainSet } from "@/lib/useTerrainSet";
+import {
+  boundsOfHuntArea,
+  centerOfBounds,
+  useTerrainSet,
+} from "@/lib/useTerrainSet";
 import { TERRAIN_STYLE } from "@/lib/terrainMovement";
 import { useMoonPhase } from "@/lib/useMoonPhase";
 import type { AiScoutConditions, AiScoutReport } from "@/types/aiScout";
@@ -74,13 +78,18 @@ export default function AIPage() {
   // Terrain-predicted scouting spots for this property, if a LiDAR read covers
   // its location. Surfaced as its own section and fed into the AI Scout context
   // so the LLM can weigh terrain against the hunter's saved stands.
+  // The drawn hunt area anchors the read when there is one — a property with
+  // only an outline (no saved coordinate or pins) otherwise resolved to no
+  // point and skipped the terrain read entirely.
+  const terrainBbox = boundsOfHuntArea(selectedProperty?.huntArea);
   const terrainPoint = selectedProperty
-    ? resolvePropertyWeatherPoint(selectedProperty, propertyCameras, propertyPins)
+    ? ((terrainBbox ? centerOfBounds(terrainBbox) : null) ??
+      resolvePropertyWeatherPoint(selectedProperty, propertyCameras, propertyPins))
     : null;
   const terrainSet = useTerrainSet(
     terrainPoint,
     selectedProperty?.name,
-    boundsOfHuntArea(selectedProperty?.huntArea),
+    terrainBbox,
   );
   const scoutPicks = terrainSet ? getScoutPicks(terrainSet) : [];
 

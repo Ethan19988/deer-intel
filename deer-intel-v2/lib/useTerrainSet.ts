@@ -83,6 +83,14 @@ export function useTerrainSet(
   return staticSet ?? (key ? live : null);
 }
 
+/** Center of a bounding box — the anchor for a drawn hunt area. */
+export function centerOfBounds(bbox: TerrainBbox): Point {
+  return {
+    lat: (bbox.minLat + bbox.maxLat) / 2,
+    lng: (bbox.minLng + bbox.maxLng) / 2,
+  };
+}
+
 /** Bounding box of a drawn hunt-area polygon, or null if it isn't a real area. */
 export function boundsOfHuntArea(
   points: Array<{ lat: number; lng: number }> | undefined | null,

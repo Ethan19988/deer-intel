@@ -37,7 +37,11 @@ import TerrainMovementLayer from "@/components/map/TerrainMovementLayer";
 import TerrainLegend from "@/components/map/TerrainLegend";
 import ScoutPicksPanel from "@/components/map/ScoutPicksPanel";
 import type { LatLng } from "@/lib/terrainMovement";
-import { boundsOfHuntArea, useTerrainSet } from "@/lib/useTerrainSet";
+import {
+  boundsOfHuntArea,
+  centerOfBounds,
+  useTerrainSet,
+} from "@/lib/useTerrainSet";
 import {
   buildCorridors,
   corridorDirection,
@@ -1084,19 +1088,22 @@ export default function HuntingMap() {
     );
     return point ? point.lat : mapCenter[0];
   }, [selectedProperty, propertyCameras, pins, mapCenter]);
-  // Terrain-movement prediction anchored on the ACTIVE PROPERTY's location:
-  // a pipeline-generated 1 m set if one covers it, otherwise a live terrain
-  // read fetched on demand — so every marked property gets analyzed, not just
-  // the pre-baked sample.
-  const terrainPoint = useMemo(
-    () => resolvePropertyWeatherPoint(selectedProperty, propertyCameras, pins),
-    [selectedProperty, propertyCameras, pins],
-  );
   // Size the read to the drawn hunt-area outline when there is one, so the whole
   // highlighted region is analyzed instead of a fixed square around the center.
   const terrainBbox = useMemo(
     () => boundsOfHuntArea(selectedProperty?.huntArea),
     [selectedProperty?.huntArea],
+  );
+  // Terrain-movement prediction anchored on the ground the hunter actually
+  // selected: the drawn hunt area wins, since that IS the answer to "analyze
+  // here". Only fall back to the saved coordinate / placed assets when nothing
+  // is drawn — a property with just an outline used to resolve to no point at
+  // all, which silently skipped the read entirely.
+  const terrainPoint = useMemo(
+    () =>
+      (terrainBbox ? centerOfBounds(terrainBbox) : null) ??
+      resolvePropertyWeatherPoint(selectedProperty, propertyCameras, pins),
+    [terrainBbox, selectedProperty, propertyCameras, pins],
   );
   const terrainSet = useTerrainSet(
     terrainPoint,
