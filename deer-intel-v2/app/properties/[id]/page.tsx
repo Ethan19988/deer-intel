@@ -19,6 +19,7 @@ import WalkTracksSection from "@/components/properties/dashboard/WalkTracksSecti
 import WorkspaceIcon, {
   type WorkspaceIconName,
 } from "@/components/properties/dashboard/WorkspaceIcon";
+import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import PageShell from "@/components/ui/PageShell";
 import Tabs from "@/components/ui/Tabs";
@@ -46,6 +47,7 @@ import {
 } from "@/lib/propertyDashboard";
 import { getPropertyTimelineEvents } from "@/lib/propertyTimeline";
 import { getPropertyIntelligenceCards } from "@/lib/propertyIntelligence";
+import { getPropertyInsights } from "@/lib/propertyInsights";
 import { getHuntPlannerIntelligence } from "@/lib/huntPlannerIntelligence";
 import { getPropertyWeatherSummary } from "@/lib/weather";
 import {
@@ -263,6 +265,16 @@ export default function PropertyWorkspacePage() {
     propertyCameraChecks,
     (check) => check.date,
   );
+  const keyInsights = getPropertyInsights({
+    activePropertyName: property.name,
+    cameraCheckCount: propertyCameraChecks.length,
+    cameraCount: propertyCameras.length,
+    deerProfileCount: deerProfileCount,
+    huntCount: propertyHunts.length,
+    lastHuntDate: latestHunt ? formatDateLabel(latestHunt.date) : null,
+    pinCount: propertyPins.length,
+    standCount: standCount,
+  });
   const firstCamera = propertyCameras[0];
   const addPhotoHref = firstCamera
     ? `/properties/${propertyId}/assets/${firstCamera.id}#photos`
@@ -512,6 +524,29 @@ export default function PropertyWorkspacePage() {
           <RecentActivityList activities={recentActivity} />
         </DashboardSection>
       </div>
+
+      <DashboardSection
+        id="key-insights"
+        eyebrow="Brief"
+        title="Key Insights"
+      >
+        <div style={insightListStyle}>
+          {keyInsights.map((insight) => (
+            <Card
+              key={insight.title}
+              as="article"
+              variant="subtle"
+              style={insightCardStyle}
+            >
+              <div>
+                <p style={insightTitleStyle}>{insight.title}</p>
+                <p style={insightDetailStyle}>{insight.detail}</p>
+              </div>
+              <Badge>{insight.badge}</Badge>
+            </Card>
+          ))}
+        </div>
+      </DashboardSection>
 
       <DashboardSection
         id="walks"
@@ -830,4 +865,30 @@ const moduleGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
   gap: "1rem",
+};
+
+const insightListStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
+};
+
+const insightCardStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "1rem",
+};
+
+const insightTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text)",
+  fontSize: "1rem",
+  fontWeight: 850,
+  lineHeight: 1.3,
+};
+
+const insightDetailStyle: CSSProperties = {
+  margin: "0.45rem 0 0",
+  color: "var(--text-muted)",
+  lineHeight: 1.45,
 };

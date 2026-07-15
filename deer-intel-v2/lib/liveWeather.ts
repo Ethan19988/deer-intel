@@ -53,6 +53,8 @@ export type ForecastDay = {
   low: string;
   conditions: string;
   wind: string;
+  /** Day-over-day barometric direction, for the movement outlook. */
+  pressureTrend?: PressureTrend;
 };
 
 export type PressureTrend = "rising" | "steady" | "falling";
@@ -326,6 +328,7 @@ export async function fetchLiveForecast(
     }
 
     const daily = payload.daily;
+    const dailyTrends = buildDailyPressureTrends(daily.time ?? [], payload.hourly);
     const days: ForecastDay[] = (daily.time ?? []).map((date, index) => ({
       date,
       label: weekdayLabel(date, index),
@@ -340,6 +343,7 @@ export async function fetchLiveForecast(
         daily.wind_speed_10m_max?.[index],
         units,
       ),
+      pressureTrend: dailyTrends[index],
     }));
 
     const result: LiveForecastResult = {
@@ -570,6 +574,56 @@ function buildPressureReading(
         : "Little pressure change";
 
   return { value, trend, hint };
+}
+
+// Day-over-day barometric direction for each forecast day, used by the movement
+// outlook. Deer move on a dropping barometer, so comparing each day's mean
+// pressure to the day before flags which day a front is pushing through. The
+// first day has no prior day in the window, so it is left undefined (the hero's
+// live reading covers "today").
+const DAILY_PRESSURE_THRESHOLD = 1.0;
+
+function buildDailyPressureTrends(
+  dailyTimes: string[],
+  hourly: OpenMeteoHourly | undefined,
+): Array<PressureTrend | undefined> {
+  const times = hourly?.time ?? [];
+  const readings = hourly?.pressure_msl ?? [];
+
+  const dayMean = dailyTimes.map((date) => {
+    let sum = 0;
+    let count = 0;
+
+    for (let index = 0; index < times.length; index += 1) {
+      const value = readings[index];
+      if (times[index].slice(0, 10) === date && typeof value === "number") {
+        sum += value;
+        count += 1;
+      }
+    }
+
+    return count > 0 ? sum / count : null;
+  });
+
+  return dayMean.map((mean, index) => {
+    const previous = dayMean[index - 1];
+
+    if (
+      index === 0 ||
+      mean === null ||
+      previous === null ||
+      previous === undefined
+    ) {
+      return undefined;
+    }
+
+    const delta = mean - previous;
+
+    if (delta <= -DAILY_PRESSURE_THRESHOLD) return "falling";
+    if (delta >= DAILY_PRESSURE_THRESHOLD) return "rising";
+
+    return "steady";
+  });
 }
 
 function formatWind(

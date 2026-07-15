@@ -8,6 +8,7 @@ import Card from "@/components/ui/Card";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
+import MovementScorePanel from "@/components/weather/MovementScorePanel";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import { fetchLiveWeather, resolvePropertyWeatherPoint } from "@/lib/liveWeather";
@@ -72,6 +73,24 @@ export default function Home() {
     ? `${weatherPoint.lat},${weatherPoint.lng}`
     : "";
   const [currentWind, setCurrentWind] = useState<string>();
+  const [now, setNow] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setNow(new Date());
+    const timer = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const greeting = now
+    ? getGreeting(now.getHours())
+    : { label: "Welcome back", emoji: "👋" };
+  const dateLabel = now
+    ? now.toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      })
+    : "";
 
   function selectProperty(propertyId: string) {
     updateDeerIntelStore((currentState) => ({
@@ -110,15 +129,11 @@ export default function Home() {
     (stand) => stand.bestWinds.trim() || stand.avoidWinds.trim(),
   );
 
-  const keyInsights = getHomeInsights({
-    activePropertyName: activeProperty?.name,
-    cameraCheckCount: propertyCameraChecks.length,
-    cameraCount: propertyCameras.length,
-    deerProfileCount: propertyDeerProfiles.length,
-    huntCount: propertyHunts.length,
-    lastHuntDate: lastHunt ? formatHuntDate(lastHunt.date) : null,
-    pinCount: propertyPins.length,
-    standCount: propertyStands.length,
+  const heroTagline = getHeroTagline({
+    hasProperty: Boolean(activeProperty),
+    goodWindStandCount: goodWindStands.length,
+    currentWind,
+    lastHuntLabel: lastHunt ? formatHuntDate(lastHunt.date) : null,
   });
 
   return (
@@ -130,17 +145,31 @@ export default function Home() {
       />
       <Card as="section" variant="elevated" style={briefStyle}>
         <div style={briefHeaderStyle}>
-          <div>
-            <p
-              style={{
-                ...eyebrowStyle,
-                color: "var(--accent-2-text)",
-                textShadow: "0 1px 0 rgba(255, 255, 255, 0.4)",
-              }}
-            >
-              Today
+          <div style={heroHeadingWrapStyle}>
+            <p style={heroEyebrowStyle}>
+              <span style={heroEmojiStyle} aria-hidden="true">
+                {greeting.emoji}
+              </span>
+              <span>{greeting.label}</span>
+              {dateLabel ? (
+                <>
+                  <span style={heroDotStyle} aria-hidden="true" />
+                  <span style={heroDateStyle}>{dateLabel}</span>
+                </>
+              ) : null}
             </p>
-            <h1 style={briefTitleStyle}>Today&apos;s Brief</h1>
+            <h1 style={briefTitleStyle}>
+              Today&apos;s Brief
+              <span style={heroSparkStyle} aria-hidden="true">
+                🍂
+              </span>
+            </h1>
+            {activeProperty ? (
+              <p style={heroPropertyLineStyle}>
+                for <span style={heroPropertyStyle}>{activeProperty.name}</span>
+              </p>
+            ) : null}
+            <p style={heroTaglineStyle}>{heroTagline}</p>
             {state.properties.length > 1 ? (
               <label style={pickerStyle}>
                 <span style={pickerLabelStyle}>Property</span>
@@ -172,8 +201,11 @@ export default function Home() {
           }
         />
 
+        <MovementScorePanel point={weatherPoint} />
+
         <div style={briefGridStyle}>
           <BriefItem
+            icon="🎯"
             label="Focus"
             value={
               activeProperty
@@ -183,11 +215,13 @@ export default function Home() {
             detail="Keep the plan simple before you head out."
           />
           <BriefItem
+            icon="🦌"
             label="Last Hunt"
             value={plannerHuntDate(lastHunt)}
             detail={lastHunt ? planner.lastHunt.detail : "No hunt logged yet."}
           />
           <BriefItem
+            icon="🧭"
             label="Next Step"
             value={activeProperty ? "Open the map" : "Add property"}
             detail={
@@ -298,36 +332,29 @@ export default function Home() {
           />
         ))}
       </section>
-
-      <Section eyebrow="Brief" title="Key Insights">
-        <div style={insightListStyle}>
-          {keyInsights.map((insight) => (
-            <Card key={insight.title} as="article" variant="subtle" style={insightCardStyle}>
-              <div>
-                <p style={insightTitleStyle}>{insight.title}</p>
-                <p style={mutedTextStyle}>{insight.detail}</p>
-              </div>
-              <Badge>{insight.badge}</Badge>
-            </Card>
-          ))}
-        </div>
-      </Section>
     </PageShell>
   );
 }
 
 function BriefItem({
   detail,
+  icon,
   label,
   value,
 }: {
   detail: string;
+  icon: string;
   label: string;
   value: string;
 }) {
   return (
     <div style={briefItemStyle}>
-      <p style={eyebrowStyle}>{label}</p>
+      <p style={briefItemLabelRowStyle}>
+        <span style={briefItemIconStyle} aria-hidden="true">
+          {icon}
+        </span>
+        <span style={eyebrowStyle}>{label}</span>
+      </p>
       <p style={briefValueStyle}>{value}</p>
       <p style={mutedTextStyle}>{detail}</p>
     </div>
@@ -358,85 +385,57 @@ function propertySubtitle(county?: string, acres?: string) {
     .join(" / ") || "Property workspace";
 }
 
-function getHomeInsights({
-  activePropertyName,
-  cameraCheckCount,
-  cameraCount,
-  deerProfileCount,
-  huntCount,
-  lastHuntDate,
-  pinCount,
-  standCount,
-}: {
-  activePropertyName?: string;
-  cameraCheckCount: number;
-  cameraCount: number;
-  deerProfileCount: number;
-  huntCount: number;
-  lastHuntDate: string | null;
-  pinCount: number;
-  standCount: number;
-}) {
-  const insights = [
-    activePropertyName
-      ? {
-          title: "Active property is set",
-          detail: `${activePropertyName} is ready for map work, assets, and hunt notes.`,
-          badge: "Property",
-        }
-      : {
-          title: "Add your first property",
-          detail: "Start with one hunting area so Deer Intel can keep tools organized.",
-          badge: "Start",
-        },
-    {
-      title: `${pinCount} mapped ${pinCount === 1 ? "location" : "locations"}`,
-      detail:
-        pinCount > 0
-          ? "Map pins are saved. Use the Map section for layers and placement."
-          : "Open Map when you are ready to mark sign, trails, access, or gates.",
-      badge: "Map",
-    },
-    {
-      title: `${cameraCount} ${cameraCount === 1 ? "camera" : "cameras"}`,
-      detail:
-        cameraCheckCount > 0
-          ? `${cameraCheckCount} camera checks are saved under Cameras.`
-          : "Camera intelligence will live under Cameras once checks are added.",
-      badge: "Cameras",
-    },
-    {
-      title: `${standCount} ${standCount === 1 ? "stand" : "stands"}`,
-      detail:
-        huntCount > 0
-          ? `${huntCount} hunts are logged for this property.`
-          : "Stand wind, access, and history stay under Stands and Hunts.",
-      badge: "Stands",
-    },
-    {
-      title: lastHuntDate ? `Last hunt: ${lastHuntDate}` : "No hunts logged yet",
-      detail:
-        deerProfileCount > 0
-          ? `${deerProfileCount} deer profiles are saved under the property workspace.`
-          : "Use Hunts and Deer Profiles when field history starts building.",
-      badge: "Hunts",
-    },
-  ];
+function getGreeting(hour: number): { label: string; emoji: string } {
+  if (hour < 5) return { label: "Late night", emoji: "🌙" };
+  if (hour < 12) return { label: "Good morning", emoji: "🌄" };
+  if (hour < 17) return { label: "Good afternoon", emoji: "🌤️" };
+  if (hour < 20) return { label: "Golden hour", emoji: "🌆" };
+  return { label: "Good evening", emoji: "🌙" };
+}
 
-  return insights.slice(0, 5);
+function getHeroTagline({
+  hasProperty,
+  goodWindStandCount,
+  currentWind,
+  lastHuntLabel,
+}: {
+  hasProperty: boolean;
+  goodWindStandCount: number;
+  currentWind?: string;
+  lastHuntLabel: string | null;
+}): string {
+  if (!hasProperty) {
+    return "Set up your first property to start building season-long intelligence.";
+  }
+  if (currentWind && goodWindStandCount > 0) {
+    return `${currentWind} wind today — ${goodWindStandCount} ${
+      goodWindStandCount === 1 ? "stand is" : "stands are"
+    } playing right. Here's your read on the day.`;
+  }
+  if (currentWind) {
+    return `${currentWind} wind today. Check your sit below before you head out.`;
+  }
+  if (lastHuntLabel) {
+    return `Last sit was ${lastHuntLabel}. Here's where the day stands.`;
+  }
+  return "Here's your read on the day before you head to the woods.";
 }
 
 const briefStyle: CSSProperties = {
   display: "grid",
-  gap: "1rem",
-  padding: "1.5rem",
+  gap: "1.1rem",
+  padding: "1.75rem",
   border: "1px solid var(--border-strong)",
+  borderTop: "5px solid var(--accent-2)",
   color: "var(--camo-fg)",
   backgroundColor: "var(--camo-ink)",
   backgroundImage:
+    "radial-gradient(120% 85% at 100% 0%, rgba(224, 100, 42, 0.22), transparent 55%), " +
+    "radial-gradient(95% 75% at 0% 100%, rgba(47, 125, 67, 0.18), transparent 55%), " +
     "linear-gradient(rgba(233, 226, 206, 0.5), rgba(233, 226, 206, 0.62)), var(--camo)",
   backgroundSize: "cover",
   backgroundPosition: "center",
+  boxShadow: "0 18px 40px -24px rgba(36, 29, 16, 0.55)",
 };
 
 const briefHeaderStyle: CSSProperties = {
@@ -456,12 +455,82 @@ const eyebrowStyle: CSSProperties = {
   textTransform: "uppercase",
 };
 
+const heroHeadingWrapStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.1rem",
+};
+
+const heroEyebrowStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.5rem",
+  margin: 0,
+  padding: "0.32rem 0.7rem 0.32rem 0.55rem",
+  width: "fit-content",
+  borderRadius: "999px",
+  border: "1px solid rgba(191, 80, 25, 0.28)",
+  background: "rgba(255, 255, 255, 0.55)",
+  color: "var(--accent-2-text)",
+  fontSize: "0.78rem",
+  fontWeight: 800,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+};
+
+const heroEmojiStyle: CSSProperties = {
+  fontSize: "1rem",
+  lineHeight: 1,
+};
+
+const heroDotStyle: CSSProperties = {
+  width: "5px",
+  height: "5px",
+  borderRadius: "50%",
+  background: "var(--accent-2)",
+};
+
+const heroDateStyle: CSSProperties = {
+  color: "var(--camo-fg-muted)",
+};
+
 const briefTitleStyle: CSSProperties = {
-  margin: "0.2rem 0 0",
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  gap: "0.5rem",
+  margin: "0.55rem 0 0",
   color: "var(--camo-fg)",
-  fontSize: "1.75rem",
-  lineHeight: 1.15,
-  textShadow: "0 1px 0 rgba(255, 255, 255, 0.4)",
+  fontSize: "2.6rem",
+  fontWeight: 900,
+  letterSpacing: "-0.02em",
+  lineHeight: 1.02,
+  textShadow: "0 1px 0 rgba(255, 255, 255, 0.45)",
+};
+
+const heroSparkStyle: CSSProperties = {
+  fontSize: "1.7rem",
+  transform: "rotate(8deg)",
+};
+
+const heroPropertyLineStyle: CSSProperties = {
+  margin: "0.3rem 0 0",
+  color: "var(--camo-fg-muted)",
+  fontSize: "1.05rem",
+  fontWeight: 600,
+};
+
+const heroPropertyStyle: CSSProperties = {
+  color: "var(--accent-text)",
+  fontWeight: 850,
+};
+
+const heroTaglineStyle: CSSProperties = {
+  maxWidth: "48ch",
+  margin: "0.7rem 0 0",
+  color: "var(--camo-fg-muted)",
+  fontSize: "1.02rem",
+  fontWeight: 600,
+  lineHeight: 1.5,
 };
 
 const pickerStyle: CSSProperties = {
@@ -495,10 +564,30 @@ const briefGridStyle: CSSProperties = {
 
 const briefItemStyle: CSSProperties = {
   minHeight: "128px",
-  padding: "0.9rem",
+  padding: "0.95rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
-  background: "var(--surface-2)",
+  borderRadius: "12px",
+  background: "var(--surface)",
+  boxShadow: "0 6px 16px -12px rgba(36, 29, 16, 0.5)",
+};
+
+const briefItemLabelRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.5rem",
+  margin: 0,
+};
+
+const briefItemIconStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "1.85rem",
+  height: "1.85rem",
+  borderRadius: "9px",
+  background: "var(--accent-2-tint)",
+  border: "1px solid var(--accent-2-tint-border)",
+  fontSize: "1rem",
 };
 
 const briefValueStyle: CSSProperties = {
@@ -583,11 +672,6 @@ const actionGridStyle: CSSProperties = {
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
   gap: "1rem",
   marginTop: "1.75rem",
-};
-
-const insightListStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.75rem",
 };
 
 const insightCardStyle: CSSProperties = {
