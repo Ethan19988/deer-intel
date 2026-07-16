@@ -25,8 +25,10 @@ import PageShell from "@/components/ui/PageShell";
 import Tabs from "@/components/ui/Tabs";
 import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
 import WeatherHistoryPanel from "@/components/weather/WeatherHistoryPanel";
+import SeasonRutCard from "@/components/season/SeasonRutCard";
 import PipelineCommandCard from "@/components/properties/PipelineCommandCard";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import { hasPropertyCoordinate } from "@/lib/propertyLocation";
 import {
   createCameraFromValues,
   cameraToFormValues,
@@ -558,6 +560,14 @@ export default function PropertyWorkspacePage() {
         <WalkTracksSection
           tracks={propertyWalkTracks}
           onDelete={deleteWalkTrack}
+        />
+      </DashboardSection>
+
+      <DashboardSection eyebrow="Season" title="Where the Season Stands">
+        <SeasonRutCard
+          latitude={
+            hasPropertyCoordinate(property) ? property.latitude : undefined
+          }
         />
       </DashboardSection>
 
