@@ -407,13 +407,6 @@ textarea {
   filter: brightness(0.82) contrast(1.55) saturate(0.85) sepia(0.05);
 }
 
-/* Stack a second 3DEP hillshade with a multiply blend so slopes and draws gain
-   real shadow depth instead of a flat grey wash. Falls back to plain alpha
-   blending anywhere multiply isn't supported. */
-.di-lidar-relief {
-  mix-blend-mode: multiply;
-}
-
 /* Slope map: plain alpha blend (NOT multiply). Multiply mixes the ramp's
    orange with the green satellite and collapses it to a dark muddy olive — the
    steep end becomes hard to see. Normal blending paints the actual orange/red

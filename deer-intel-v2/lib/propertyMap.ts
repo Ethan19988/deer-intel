@@ -126,13 +126,17 @@ const NAIP_ATTRIBUTION = "Aerial imagery &copy; USDA NAIP (US)";
 // a *multidirectional* hillshade (lit from several angles at once) built on the
 // USGS 3DEP LiDAR-derived elevation where it exists, so subtle micro-terrain the
 // satellite can't show — benches, saddles, draws, ditches, old logging grades,
-// and the fine ridgelines that funnel deer — pops in crisp 3D. A second 3DEP
-// hillshade is stacked at low opacity to deepen shadows for extra bite, and a
-// contrast/tone filter (di-lidar-tiles) gives it the punchy LiDAR look.
+// and the fine ridgelines that funnel deer — pops in crisp 3D. A contrast/tone
+// filter (di-lidar-tiles) gives it the punchy LiDAR look.
+//
+// This is deliberately a single hillshade source. A second USGS 3DEP relief pass
+// used to be stacked on top for extra shadow depth, but nationalmap.gov's relief
+// cache stops at zoom 13 — every tile request at the zooms hunters actually
+// scout at (14+) 404s, and Leaflet paints a broken-image icon in each tile slot.
+// Esri's hillshade is 3DEP-derived and serves all zooms, so it already carries
+// the relief on its own.
 const ESRI_HILLSHADE_URL =
   "https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}";
-const USGS_HILLSHADE_URL =
-  "https://basemap.nationalmap.gov/arcgis/rest/services/USGSHillshade/MapServer/tile/{z}/{y}/{x}";
 const LIDAR_ATTRIBUTION =
   "Shaded relief &copy; Esri, USGS 3DEP (LiDAR-derived multidirectional hillshade)";
 
@@ -184,16 +188,7 @@ export const MAP_LAYERS: MapLayer[] = [
     maxNativeZoom: 16,
     url: ESRI_HILLSHADE_URL,
     className: "di-lidar-tiles",
-    overlayLayers: [
-      {
-        attribution: "Relief &copy; USGS 3DEP",
-        label: "3DEP relief",
-        url: USGS_HILLSHADE_URL,
-        opacity: 0.65,
-        className: "di-lidar-relief",
-      },
-      ...SATELLITE_REFERENCE_OVERLAYS,
-    ],
+    overlayLayers: SATELLITE_REFERENCE_OVERLAYS,
   },
 ];
 
