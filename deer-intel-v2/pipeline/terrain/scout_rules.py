@@ -51,6 +51,21 @@ SADDLE_SMOOTH_M = 40.0
 # Keep only the strongest curvature candidates (percentile, not an absolute
 # cutoff — curvature magnitude depends heavily on cell size).
 SADDLE_PERCENTILE = 92.0
+
+# --- Bench (contour) travel corridors ---------------------------------------
+# Penn State collar deer bed high on steep slopes but TRAVEL the lower/mid
+# elevation bands "parallel to the ridges" — they skirt steep ground along
+# benches (near-level shelves that hold a constant elevation) to save energy,
+# rather than climbing over ridgetops. A bench reads as gentle ground sitting in
+# the middle of an otherwise-steep hillside.
+BENCH_SLOPE_MAX = 12.0        # gentle enough to walk along comfortably
+BENCH_NBHD_STEEP_MIN = 16.0   # the surrounding hillside is steep (it's a shelf)
+BENCH_NBHD_M = 60.0           # radius for "surrounding" slope
+TRAVEL_ELEV_PCTL = 70.0       # favor the lower/mid band deer travel, not ridgetops
+MIN_BENCH_AREA_M2 = 700.0
+BENCH_MIN_ELONGATION = 2.2    # a corridor is long and thin, not a blob
+BENCH_MAX = 4                 # top bench corridors to draw
+
 MAX_PER_KIND = {"bedding": 2, "travel": 2, "pinch": 2, "refuge": 1}
 
 DIRS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
@@ -130,6 +145,75 @@ def component_stats(mask, dem, slope, aspect, transform, min_area_m2=0.0, max_ke
             "aspect": float(np.degrees(circmean(np.radians(asp)))) if asp.size else 0.0,
         })
     return out
+
+
+def bench_centerlines(mask, dem, transform, to_wgs, min_area_m2, max_keep):
+    """Extract elongated benches as travel centerlines.
+
+    Each qualifying bench blob is reduced to a medial polyline: cells are
+    projected onto the blob's long axis (PCA), binned along it, and the mean
+    cross-position per bin traces the shelf's run. Blobby (non-linear) or tiny
+    blobs are dropped — a travel corridor is long and thin. Returns the longest
+    first, each with its polyline (lat/lng) and mean elevation.
+    """
+    labels, n = ndimage.label(mask)
+    if n == 0:
+        return []
+    px = abs(transform.a)
+    py = abs(transform.e)
+    cell_area = px * py
+    counts = np.bincount(labels.ravel())
+    counts[0] = 0
+    order = [c for c in np.argsort(counts)[::-1] if counts[c] > 0]
+    slices = ndimage.find_objects(labels)
+
+    out = []
+    for cid in order:
+        area = float(counts[cid]) * cell_area
+        if area < min_area_m2:
+            break  # counts sorted desc — nothing later is bigger
+        if len(out) >= max_keep * 4:
+            break  # scanned enough big blobs to fill the quota after filtering
+
+        sl = slices[cid - 1]
+        sub = labels[sl] == cid
+        ys, xs = np.nonzero(sub)
+        gx = (xs + sl[1].start).astype(np.float64)
+        gy = (ys + sl[0].start).astype(np.float64)
+        pts = np.column_stack([gx, gy])
+        center = pts.mean(axis=0)
+        cov = np.cov((pts - center).T)
+        evals, evecs = np.linalg.eigh(cov)
+        if evals[0] <= 1e-9:
+            continue
+        elongation = float(np.sqrt(evals[1] / evals[0]))
+        if elongation < BENCH_MIN_ELONGATION:
+            continue  # a blob, not a corridor
+
+        major = evecs[:, 1]
+        proj = (pts - center) @ major
+        length_m = float(proj.max() - proj.min()) * px
+        nbins = int(min(10, max(2, length_m / 80)))
+        edges = np.linspace(proj.min(), proj.max(), nbins + 1)
+        poly_px = []
+        for b in range(nbins):
+            in_bin = (proj >= edges[b]) & (proj <= edges[b + 1])
+            if in_bin.any():
+                poly_px.append(pts[in_bin].mean(axis=0))
+        if len(poly_px) < 2:
+            continue
+
+        coords = []
+        for cx, cy in poly_px:
+            x, y = transform * (cx, cy)
+            lng, lat = to_wgs.transform(x, y)
+            coords.append([round(lat, 5), round(lng, 5)])
+
+        elev = float(np.nanmean(dem[sl][sub]))
+        out.append({"coords": coords, "length": length_m, "elev": elev, "area": area})
+
+    out.sort(key=lambda c: c["length"], reverse=True)
+    return out[:max_keep]
 
 
 def road_distance(roads_geojson, ref_ds_path):
@@ -314,6 +398,39 @@ def main():
                       "lng": round(s["lng"], 5), "elevationFt": round(s["elev"] * 3.281),
                       "bestWind": "crosswind", "reason": detail,
                       "score": 1000 + s["strength"] * 1e6})
+
+    # ---- Bench travel corridors (contour trails on steep hillsides) ----
+    # Gentle shelves sitting in otherwise-steep ground, in the lower/mid
+    # elevation band — the sidehill trails Penn State collar deer travel along
+    # instead of climbing over the ridgetops.
+    print("[rules] bench corridors", flush=True)
+    nbhd = max(int(BENCH_NBHD_M / px), 1)
+    nbhd_slope = ndimage.uniform_filter(np.nan_to_num(slope, nan=0.0), size=nbhd)
+    elev_cut = float(np.percentile(dem[valid], TRAVEL_ELEV_PCTL))
+    bench_mask = (
+        valid
+        & (slope <= BENCH_SLOPE_MAX)
+        & (nbhd_slope >= BENCH_NBHD_STEEP_MIN)
+        & (dem <= elev_cut)
+        & ~np.isin(geom_r, [PEAK, RIDGE, VALLEY, PIT])
+    )
+    del nbhd_slope
+    benches = bench_centerlines(
+        bench_mask, dem, transform, to_wgs, MIN_BENCH_AREA_M2, BENCH_MAX
+    )
+    for k, b in enumerate(benches):
+        features_out.append({
+            "id": f"{args.name}-bench-{k}", "kind": "travel",
+            "title": f"Bench trail ({round(b['elev'] * 3.281)} ft)",
+            "detail": (
+                "A near-level shelf on a steep hillside — deer sidehill along "
+                "benches like this at a constant elevation to save energy, "
+                "traveling the lower slopes parallel to the ridge rather than "
+                "climbing over the top."
+            ),
+            "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail.",
+            "line": b["coords"],
+        })
 
     # ---- Travel (draw centerlines from the stream vector) ----
     shp = os.path.join(work, "streams.shp")

@@ -403,6 +403,102 @@
         "type": "LineString",
         "coordinates": [
           [
+            -78.16708,
+            39.94288
+          ],
+          [
+            -78.16807,
+            39.94321
+          ],
+          [
+            -78.16901,
+            39.94375
+          ]
+        ]
+      },
+      "properties": {
+        "id": "sideling-hill-bench-0",
+        "kind": "travel",
+        "title": "Bench trail (1388 ft)",
+        "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.1672,
+            39.94194
+          ],
+          [
+            -78.1682,
+            39.94257
+          ]
+        ]
+      },
+      "properties": {
+        "id": "sideling-hill-bench-1",
+        "kind": "travel",
+        "title": "Bench trail (1297 ft)",
+        "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.19084,
+            39.98609
+          ],
+          [
+            -78.19192,
+            39.98629
+          ]
+        ]
+      },
+      "properties": {
+        "id": "sideling-hill-bench-2",
+        "kind": "travel",
+        "title": "Bench trail (1250 ft)",
+        "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.18122,
+            39.96192
+          ],
+          [
+            -78.18147,
+            39.96112
+          ]
+        ]
+      },
+      "properties": {
+        "id": "sideling-hill-bench-3",
+        "kind": "travel",
+        "title": "Bench trail (1594 ft)",
+        "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
             -78.15816,
             39.99325
           ],

@@ -1,8 +1,8 @@
 {
   "areaName": "Moore Hill",
   "center": [
-    41.45692,
-    -78.31035
+    41.45733,
+    -78.30673
   ],
   "source": "1 m LiDAR terrain read \u00b7 Penn State Deer-Forest rules",
   "features": [
@@ -352,6 +352,142 @@
       "point": [
         41.47493,
         -78.33304
+      ]
+    },
+    {
+      "id": "moore-hill-bench-0",
+      "kind": "travel",
+      "title": "Bench trail (1528 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail.",
+      "line": [
+        [
+          41.47377,
+          -78.32534
+        ],
+        [
+          41.47269,
+          -78.32598
+        ],
+        [
+          41.47162,
+          -78.32658
+        ],
+        [
+          41.47064,
+          -78.32745
+        ],
+        [
+          41.46968,
+          -78.32828
+        ],
+        [
+          41.46869,
+          -78.32919
+        ],
+        [
+          41.46786,
+          -78.33015
+        ],
+        [
+          41.46695,
+          -78.33121
+        ],
+        [
+          41.46619,
+          -78.33229
+        ],
+        [
+          41.46563,
+          -78.33378
+        ]
+      ]
+    },
+    {
+      "id": "moore-hill-bench-1",
+      "kind": "travel",
+      "title": "Bench trail (1659 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail.",
+      "line": [
+        [
+          41.45378,
+          -78.27891
+        ],
+        [
+          41.45319,
+          -78.27816
+        ],
+        [
+          41.45248,
+          -78.27752
+        ],
+        [
+          41.45178,
+          -78.277
+        ],
+        [
+          41.45102,
+          -78.27658
+        ]
+      ]
+    },
+    {
+      "id": "moore-hill-bench-2",
+      "kind": "travel",
+      "title": "Bench trail (1434 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail.",
+      "line": [
+        [
+          41.43522,
+          -78.32435
+        ],
+        [
+          41.43461,
+          -78.32378
+        ],
+        [
+          41.434,
+          -78.32318
+        ],
+        [
+          41.43339,
+          -78.32255
+        ],
+        [
+          41.43276,
+          -78.32205
+        ]
+      ]
+    },
+    {
+      "id": "moore-hill-bench-3",
+      "kind": "travel",
+      "title": "Bench trail (1799 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail.",
+      "line": [
+        [
+          41.46936,
+          -78.27302
+        ],
+        [
+          41.46863,
+          -78.27292
+        ],
+        [
+          41.46789,
+          -78.27271
+        ],
+        [
+          41.46718,
+          -78.27234
+        ],
+        [
+          41.46656,
+          -78.27179
+        ]
       ]
     },
     {
