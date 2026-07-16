@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useRef, useState, type ChangeEvent, type CSSProperties } from "react";
-import ActionCard from "@/components/ui/ActionCard";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -11,6 +10,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
+import Tabs from "@/components/ui/Tabs";
 import AccountPanel from "@/components/auth/AccountPanel";
 import DataPrivacyManager from "@/components/settings/DataPrivacyManager";
 import NotificationsManager from "@/components/settings/NotificationsManager";
@@ -153,24 +153,11 @@ export default function SettingsPage() {
     setPendingImport(null);
   }
 
-  return (
-    <PageShell>
-      <Card as="section" variant="elevated" style={heroCardStyle}>
-        <PageHeader
-          eyebrow="Settings"
-          title="Deer Intel Settings"
-          description="Review how Deer Intel is storing data right now and jump to the sections that help keep the app organized."
-          meta={
-            <>
-              <Badge variant="success">
-                {cloudActive ? "Cloud Sync On" : "Local Persistence"}
-              </Badge>
-              <Badge>{totalRecords} saved records</Badge>
-            </>
-          }
-        />
-      </Card>
-
+  // Settings are grouped into tabs rather than one long scroll: each tab is a
+  // self-contained area (look, alerts, data, offline, account) so a setting is
+  // a click away instead of a hunt down the page.
+  const generalTab = (
+    <>
       <Section eyebrow="Appearance" title="Theme">
         <Card as="div" variant="subtle">
           <p style={mutedTextStyle}>
@@ -265,58 +252,19 @@ export default function SettingsPage() {
           </div>
         </Card>
       </Section>
+    </>
+  );
 
-      <Section eyebrow="Notifications" title="Field Alerts">
-        <Card as="div" variant="subtle">
-          <NotificationsManager />
-        </Card>
-      </Section>
+  const alertsTab = (
+    <Section eyebrow="Notifications" title="Field Alerts">
+      <Card as="div" variant="subtle">
+        <NotificationsManager />
+      </Card>
+    </Section>
+  );
 
-      <Section eyebrow="AI Scout" title="AI Recommendations">
-        <Card as="div" variant="subtle">
-          <p style={mutedTextStyle}>
-            AI Scout reads this property&apos;s saved stands, hunts, camera
-            checks, and buck photos to recommend where to hunt. It&apos;s
-            opt-in and pay-per-call: it only runs when you tap &ldquo;Ask AI
-            Scout,&rdquo; and only if an <code style={inlineCodeStyle}>ANTHROPIC_API_KEY</code>{" "}
-            is set on the server. When you ask, that property&apos;s data is
-            sent to Anthropic to generate the recommendation.
-          </p>
-          <p style={mutedTextStyle}>
-            Turn it off to keep AI Scout hidden and never send any data to
-            Anthropic — the rule-based insights on the Hunt Plan page keep
-            working either way. Saved on this device only.
-          </p>
-          <div style={aiScoutToggleRowStyle}>
-            <span style={unitLabelStyle}>AI Scout recommendations</span>
-            <div style={unitSegmentGroupStyle}>
-              <button
-                type="button"
-                aria-pressed={aiScoutEnabled}
-                onClick={() => setAiScoutEnabled(true)}
-                style={{
-                  ...unitSegmentStyle,
-                  ...(aiScoutEnabled ? unitSegmentActiveStyle : null),
-                }}
-              >
-                On
-              </button>
-              <button
-                type="button"
-                aria-pressed={!aiScoutEnabled}
-                onClick={() => setAiScoutEnabled(false)}
-                style={{
-                  ...unitSegmentStyle,
-                  ...(!aiScoutEnabled ? unitSegmentActiveStyle : null),
-                }}
-              >
-                Off
-              </button>
-            </div>
-          </div>
-        </Card>
-      </Section>
-
+  const dataTab = (
+    <>
       <Section eyebrow="Storage" title="Current Data Setup">
         <div style={settingsGridStyle}>
           <Card as="article" variant="subtle">
@@ -419,20 +367,6 @@ export default function SettingsPage() {
         </Card>
       </Section>
 
-      <ConfirmDialog
-        open={pendingImport !== null}
-        title="Replace all local data?"
-        description={
-          pendingImport
-            ? `"${pendingImport.fileName}" contains ${recordCount(pendingImport.state)} records. Importing it will permanently replace the ${totalRecords} records currently saved in this browser. This can't be undone unless you have another backup.`
-            : ""
-        }
-        confirmLabel="Replace Data"
-        confirmVariant="danger"
-        onConfirm={handleConfirmImport}
-        onCancel={handleCancelImport}
-      />
-
       <Section eyebrow="Import" title="Import Pins from Other Apps">
         <Card as="div" variant="subtle">
           <p style={mutedTextStyle}>
@@ -448,55 +382,66 @@ export default function SettingsPage() {
         </Card>
       </Section>
 
-      <Section eyebrow="Offline" title="Offline Maps">
-        <Card as="div" variant="subtle">
-          <OfflineMapsManager />
-        </Card>
-      </Section>
+    </>
+  );
 
-      <Section eyebrow="Navigation" title="Keep Building Your Data">
-        <div style={actionGridStyle}>
-          <ActionCard
-            href="/properties"
-            title="Properties"
-            description="Add or open a property command center."
-            badge="Available"
-            tone="primary"
-          />
-          <ActionCard
-            href="/cameras"
-            title="Cameras"
-            description="Review camera sites for the active property."
-            badge="Available"
-            tone="primary"
-          />
-          <ActionCard
-            href="/stands"
-            title="Stands"
-            description="Review stand sites and wind notes."
-            badge="Available"
-            tone="primary"
-          />
-          <ActionCard
-            href="/hunt-log"
-            title="Hunt Log"
-            description="Add field history tied to properties and stands."
-          />
-          <ActionCard
-            href="/ai"
-            title="Intelligence"
-            description="Review local recommendations and property patterns."
-          />
-          <ActionCard
-            href="/map"
-            title="Map"
-            description="Open the property map and saved assets."
-          />
-        </div>
-      </Section>
+  const offlineTab = (
+    <Section eyebrow="Offline" title="Offline Maps">
+      <Card as="div" variant="subtle">
+        <OfflineMapsManager />
+      </Card>
+    </Section>
+  );
 
+  const accountTab = (
+    <>
       <Section eyebrow="Account" title="Account & Cloud Sync">
         <AccountPanel />
+      </Section>
+
+      <Section eyebrow="AI Scout" title="AI Recommendations">
+        <Card as="div" variant="subtle">
+          <p style={mutedTextStyle}>
+            AI Scout reads this property&apos;s saved stands, hunts, camera
+            checks, and buck photos to recommend where to hunt. It&apos;s
+            opt-in and pay-per-call: it only runs when you tap &ldquo;Ask AI
+            Scout,&rdquo; and only if an <code style={inlineCodeStyle}>ANTHROPIC_API_KEY</code>{" "}
+            is set on the server. When you ask, that property&apos;s data is
+            sent to Anthropic to generate the recommendation.
+          </p>
+          <p style={mutedTextStyle}>
+            Turn it off to keep AI Scout hidden and never send any data to
+            Anthropic — the rule-based insights on the Hunt Plan page keep
+            working either way. Saved on this device only.
+          </p>
+          <div style={aiScoutToggleRowStyle}>
+            <span style={unitLabelStyle}>AI Scout recommendations</span>
+            <div style={unitSegmentGroupStyle}>
+              <button
+                type="button"
+                aria-pressed={aiScoutEnabled}
+                onClick={() => setAiScoutEnabled(true)}
+                style={{
+                  ...unitSegmentStyle,
+                  ...(aiScoutEnabled ? unitSegmentActiveStyle : null),
+                }}
+              >
+                On
+              </button>
+              <button
+                type="button"
+                aria-pressed={!aiScoutEnabled}
+                onClick={() => setAiScoutEnabled(false)}
+                style={{
+                  ...unitSegmentStyle,
+                  ...(!aiScoutEnabled ? unitSegmentActiveStyle : null),
+                }}
+              >
+                Off
+              </button>
+            </div>
+          </div>
+        </Card>
       </Section>
 
       <Section eyebrow="Data & Privacy" title="Your Data">
@@ -507,19 +452,51 @@ export default function SettingsPage() {
           />
         </Card>
       </Section>
+    </>
+  );
 
-      <Section eyebrow="Future Settings" title="Not Connected Yet">
-        <Card as="div" variant="subtle">
-          <p style={mutedTextStyle}>
-            Real AI calls and paid map layers are intentionally not connected
-            yet. Local JSON export/import above is always available as a manual
-            backup option, independent of cloud sync.
-          </p>
-          <Link href="/" style={primaryLinkStyle}>
-            Back to Dashboard
-          </Link>
-        </Card>
-      </Section>
+  return (
+    <PageShell>
+      <Card as="section" variant="elevated" style={heroCardStyle}>
+        <PageHeader
+          eyebrow="Settings"
+          title="Deer Intel Settings"
+          description="Choose how Deer Intel looks, what it alerts you to, and how it stores your data. Each area has its own tab."
+          meta={
+            <>
+              <Badge variant="success">
+                {cloudActive ? "Cloud Sync On" : "Local Persistence"}
+              </Badge>
+              <Badge>{totalRecords} saved records</Badge>
+            </>
+          }
+        />
+      </Card>
+
+      <Tabs
+        items={[
+          { id: "general", label: "General", content: generalTab },
+          { id: "alerts", label: "Alerts", content: alertsTab },
+          { id: "data", label: "Data", content: dataTab },
+          { id: "offline", label: "Offline", content: offlineTab },
+          { id: "account", label: "Account", content: accountTab },
+        ]}
+      />
+
+      {/* Page-level, so switching tabs mid-import can't unmount the confirm. */}
+      <ConfirmDialog
+        open={pendingImport !== null}
+        title="Replace all local data?"
+        description={
+          pendingImport
+            ? `"${pendingImport.fileName}" contains ${recordCount(pendingImport.state)} records. Importing it will permanently replace the ${totalRecords} records currently saved in this browser. This can't be undone unless you have another backup.`
+            : ""
+        }
+        confirmLabel="Replace Data"
+        confirmVariant="danger"
+        onConfirm={handleConfirmImport}
+        onCancel={handleCancelImport}
+      />
     </PageShell>
   );
 }
@@ -701,12 +678,6 @@ const themeOptionDescStyle: CSSProperties = {
 const statGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-  gap: "1rem",
-};
-
-const actionGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
   gap: "1rem",
 };
 
