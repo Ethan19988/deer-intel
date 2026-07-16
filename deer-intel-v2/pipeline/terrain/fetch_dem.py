@@ -65,18 +65,39 @@ def query_tnm(bbox: list[float]) -> list[str]:
 
 
 def download(urls: list[str], dest_dir: str) -> list[str]:
+    """Download tiles, caching by filename.
+
+    Downloads land in a .part file and are renamed only once complete, and the
+    byte count is checked against Content-Length. A LiDAR tile is ~300 MB, so an
+    interrupted run is common — without this, the partial file looks like a
+    valid cache entry on the next run, gets skipped, and silently corrupts the
+    mosaic with an unreadable tile.
+    """
     os.makedirs(dest_dir, exist_ok=True)
     paths = []
     for u in urls:
         name = u.split("/")[-1].split("?")[0]
         path = os.path.join(dest_dir, name)
-        if not os.path.exists(path):
-            print(f"[fetch] downloading {name}")
-            with requests.get(u, stream=True, timeout=600) as r:
-                r.raise_for_status()
-                with open(path, "wb") as f:
-                    for chunk in r.iter_content(chunk_size=1 << 20):
-                        f.write(chunk)
+        if os.path.exists(path):
+            paths.append(path)
+            continue
+
+        tmp = f"{path}.part"
+        print(f"[fetch] downloading {name}", flush=True)
+        with requests.get(u, stream=True, timeout=600) as r:
+            r.raise_for_status()
+            expected = int(r.headers.get("Content-Length") or 0)
+            with open(tmp, "wb") as f:
+                for chunk in r.iter_content(chunk_size=1 << 20):
+                    f.write(chunk)
+
+        got = os.path.getsize(tmp)
+        if expected and got != expected:
+            os.remove(tmp)
+            raise SystemExit(
+                f"{name}: truncated download ({got}/{expected} bytes) — re-run to retry"
+            )
+        os.replace(tmp, path)  # only a complete file ever appears at `path`
         paths.append(path)
     return paths
 
@@ -113,10 +134,12 @@ def main() -> None:
     dlng = args.buffer_m / (111_000 * math.cos(math.radians(center_lat)))
     te_wgs = [min_lng - dlng, min_lat - dlat, max_lng + dlng, max_lat + dlat]
 
-    vrt = os.path.join(work, "mosaic.vrt")
     dem = os.path.join(work, "dem.tif")
-    run(["gdalbuildvrt", vrt, *tiles])
-    # Reproject to UTM, clip to buffered bbox, resample to 1 m (or native if coarser).
+    # Feed the tiles straight to gdalwarp rather than mosaicking with
+    # gdalbuildvrt first: an area straddling a UTM zone boundary comes back as a
+    # mix of (e.g.) zone 17 and zone 18 tiles, and gdalbuildvrt refuses to
+    # combine differing projections. gdalwarp reprojects each source itself, so
+    # it mosaics + clips + reprojects to the target CRS in one pass.
     run([
         "gdalwarp", "-overwrite",
         "-t_srs", f"EPSG:{epsg}",
@@ -125,7 +148,7 @@ def main() -> None:
         "-tr", "1", "1",
         "-r", "bilinear",
         "-of", "GTiff", "-co", "COMPRESS=DEFLATE", "-co", "TILED=YES",
-        vrt, dem,
+        *tiles, dem,
     ])
     # Record the CRS so downstream stages don't have to re-derive it.
     with open(os.path.join(work, "crs.txt"), "w") as f:

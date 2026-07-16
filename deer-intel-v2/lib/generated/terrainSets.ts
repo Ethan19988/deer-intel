@@ -5,7 +5,9 @@
 import type { TerrainMovementSet } from "@/lib/terrainMovement";
 
 import set0 from "./terrain_movement.moore-hill.json";
+import set1 from "./terrain_movement.sideling-hill.json";
 
 export const GENERATED_TERRAIN_SETS: TerrainMovementSet[] = [
   set0 as unknown as TerrainMovementSet,
+  set1 as unknown as TerrainMovementSet,
 ];

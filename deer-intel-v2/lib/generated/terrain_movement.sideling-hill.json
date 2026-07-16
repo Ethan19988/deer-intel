@@ -1,0 +1,408 @@
+{
+  "areaName": "Sideling Hill",
+  "center": [
+    39.9761,
+    -78.1541
+  ],
+  "source": "1 m LiDAR terrain read \u00b7 Penn State Deer-Forest rules",
+  "features": [
+    {
+      "id": "sideling-hill-bed-0",
+      "kind": "bedding",
+      "title": "South-face beds",
+      "detail": "SSE-facing bench near 1892 ft, ~29\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this.",
+      "windNote": "Beds hold a NW wind. Approach from the ridge above.",
+      "polygon": [
+        [
+          39.98358,
+          -78.14329
+        ],
+        [
+          39.98299,
+          -78.14385
+        ],
+        [
+          39.9826,
+          -78.14397
+        ],
+        [
+          39.9819,
+          -78.14475
+        ],
+        [
+          39.98111,
+          -78.14541
+        ],
+        [
+          39.98016,
+          -78.14643
+        ],
+        [
+          39.98019,
+          -78.14656
+        ],
+        [
+          39.97972,
+          -78.14642
+        ],
+        [
+          39.97979,
+          -78.14543
+        ],
+        [
+          39.97967,
+          -78.14404
+        ],
+        [
+          39.98046,
+          -78.14345
+        ],
+        [
+          39.98093,
+          -78.14381
+        ],
+        [
+          39.98021,
+          -78.14407
+        ],
+        [
+          39.98047,
+          -78.14461
+        ],
+        [
+          39.98126,
+          -78.14409
+        ],
+        [
+          39.98208,
+          -78.14442
+        ],
+        [
+          39.98179,
+          -78.14388
+        ],
+        [
+          39.98127,
+          -78.14297
+        ],
+        [
+          39.98186,
+          -78.14264
+        ],
+        [
+          39.98234,
+          -78.14345
+        ],
+        [
+          39.98305,
+          -78.14354
+        ],
+        [
+          39.98262,
+          -78.14297
+        ],
+        [
+          39.98243,
+          -78.14197
+        ],
+        [
+          39.98311,
+          -78.14219
+        ],
+        [
+          39.98351,
+          -78.14332
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bed-1",
+      "kind": "bedding",
+      "title": "South-face beds",
+      "detail": "SSE-facing bench near 1869 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this.",
+      "windNote": "Beds hold a NW wind. Approach from the ridge above.",
+      "polygon": [
+        [
+          39.97937,
+          -78.14675
+        ],
+        [
+          39.97877,
+          -78.14709
+        ],
+        [
+          39.97854,
+          -78.14731
+        ],
+        [
+          39.97868,
+          -78.14784
+        ],
+        [
+          39.9784,
+          -78.14838
+        ],
+        [
+          39.97748,
+          -78.14909
+        ],
+        [
+          39.97728,
+          -78.14895
+        ],
+        [
+          39.97702,
+          -78.14799
+        ],
+        [
+          39.97662,
+          -78.14765
+        ],
+        [
+          39.97684,
+          -78.14704
+        ],
+        [
+          39.977,
+          -78.14737
+        ],
+        [
+          39.9774,
+          -78.14815
+        ],
+        [
+          39.97816,
+          -78.14846
+        ],
+        [
+          39.97806,
+          -78.14762
+        ],
+        [
+          39.97755,
+          -78.14708
+        ],
+        [
+          39.97742,
+          -78.1464
+        ],
+        [
+          39.97768,
+          -78.14647
+        ],
+        [
+          39.97851,
+          -78.14642
+        ],
+        [
+          39.9781,
+          -78.14577
+        ],
+        [
+          39.97795,
+          -78.14544
+        ],
+        [
+          39.97773,
+          -78.14491
+        ],
+        [
+          39.97813,
+          -78.14504
+        ],
+        [
+          39.97846,
+          -78.14553
+        ],
+        [
+          39.97894,
+          -78.14625
+        ],
+        [
+          39.9793,
+          -78.14665
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-refuge-0",
+      "kind": "refuge",
+      "title": "Steep sanctuary",
+      "detail": "The steepest ground (~33\u00b0) \u2014 where deer ride out the season. Hunt its upper edge and the saddles leading out, don't push it.",
+      "polygon": [
+        [
+          39.98833,
+          -78.13986
+        ],
+        [
+          39.98709,
+          -78.14075
+        ],
+        [
+          39.9868,
+          -78.14036
+        ],
+        [
+          39.98566,
+          -78.14046
+        ],
+        [
+          39.98502,
+          -78.1413
+        ],
+        [
+          39.98526,
+          -78.14182
+        ],
+        [
+          39.98472,
+          -78.14201
+        ],
+        [
+          39.98456,
+          -78.14242
+        ],
+        [
+          39.98382,
+          -78.14224
+        ],
+        [
+          39.98282,
+          -78.14278
+        ],
+        [
+          39.98359,
+          -78.14274
+        ],
+        [
+          39.98273,
+          -78.14347
+        ],
+        [
+          39.98239,
+          -78.14392
+        ],
+        [
+          39.98164,
+          -78.14443
+        ],
+        [
+          39.981,
+          -78.14513
+        ],
+        [
+          39.98101,
+          -78.14483
+        ],
+        [
+          39.9814,
+          -78.14394
+        ],
+        [
+          39.98151,
+          -78.14328
+        ],
+        [
+          39.98148,
+          -78.14259
+        ],
+        [
+          39.98325,
+          -78.14117
+        ],
+        [
+          39.98521,
+          -78.13961
+        ],
+        [
+          39.98657,
+          -78.13873
+        ],
+        [
+          39.98734,
+          -78.13838
+        ],
+        [
+          39.98726,
+          -78.1393
+        ],
+        [
+          39.9883,
+          -78.13985
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-pinch-0",
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "detail": "A ridge saddle near 1759 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+      "windNote": "Sit the downhill side on a crosswind.",
+      "point": [
+        39.99353,
+        -78.13299
+      ]
+    },
+    {
+      "id": "sideling-hill-pinch-1",
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "detail": "A ridge saddle near 2087 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+      "windNote": "Sit the downhill side on a crosswind.",
+      "point": [
+        39.93958,
+        -78.18332
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-0",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Morning thermals fall downhill \u2014 hunt the lower end at dawn.",
+      "line": [
+        [
+          39.99325,
+          -78.15816
+        ],
+        [
+          39.99197,
+          -78.16073
+        ],
+        [
+          39.99181,
+          -78.16537
+        ],
+        [
+          39.99106,
+          -78.16739
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-1",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Morning thermals fall downhill \u2014 hunt the lower end at dawn.",
+      "line": [
+        [
+          39.95504,
+          -78.17436
+        ],
+        [
+          39.95529,
+          -78.17584
+        ],
+        [
+          39.95721,
+          -78.17955
+        ],
+        [
+          39.95721,
+          -78.18361
+        ]
+      ]
+    }
+  ]
+}

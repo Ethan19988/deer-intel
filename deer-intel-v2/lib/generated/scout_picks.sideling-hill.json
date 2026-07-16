@@ -1,0 +1,45 @@
+{
+  "area": "Sideling Hill",
+  "picks": [
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.99353,
+      "lng": -78.13299,
+      "elevationFt": 1759,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1759 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand."
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.93958,
+      "lng": -78.18332,
+      "elevationFt": 2087,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 2087 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand."
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.9815,
+      "lng": -78.1447,
+      "elevationFt": 1892,
+      "slopeDeg": 29,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1892 ft, ~29\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this."
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.97781,
+      "lng": -78.14509,
+      "elevationFt": 1869,
+      "slopeDeg": 25,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1869 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this."
+    }
+  ]
+}
