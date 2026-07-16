@@ -88,6 +88,19 @@ const PHASE_META: Record<RutPhase, PhaseMeta> = {
   },
 };
 
+/**
+ * The saved rut peak as a plain month/day (1-based month), or null when unset.
+ * Lets the movement model re-center on the hunter's date without importing this
+ * client store — the caller passes the result down as a plain value.
+ */
+export function rutPeakMonthDay(
+  prefs: SeasonCalendarPrefs,
+): { month: number; day: number } | null {
+  const date = parseISODate(prefs.rutPeak);
+  if (!date) return null;
+  return { month: date.getMonth() + 1, day: date.getDate() };
+}
+
 export function rutPhaseLabel(phase: RutPhase): string {
   return PHASE_META[phase].label;
 }

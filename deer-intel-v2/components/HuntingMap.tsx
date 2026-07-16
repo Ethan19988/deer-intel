@@ -166,6 +166,7 @@ import {
   useDefaultMapLayer,
   useDefaultMapOverlays,
 } from "@/lib/mapPreferences";
+import { rutPeakMonthDay, useSeasonCalendar } from "@/lib/seasonCalendar";
 import Button from "./ui/Button";
 
 type ClickToAddPinProps = {
@@ -1125,11 +1126,18 @@ export default function HuntingMap() {
     if (!map) return;
     map.flyTo(point, Math.max(map.getZoom(), 16), { duration: 0.8 });
   }, []);
+  // A hunter's set rut peak (Settings) re-centers the phase calendar on their
+  // date instead of the coarse latitude estimate; null when unset.
+  const seasonCalendar = useSeasonCalendar();
+  const customRutPeak = useMemo(
+    () => rutPeakMonthDay(seasonCalendar),
+    [seasonCalendar],
+  );
   // Bucket history by rut phase so early-season and rut patterns don't average
   // out. Falls back to all-season photos when the current phase is still thin.
   const currentMovementPhase = useMemo(
-    () => movementPhaseForDate(new Date(), propertyLatitude),
-    [propertyLatitude],
+    () => movementPhaseForDate(new Date(), propertyLatitude, customRutPeak),
+    [propertyLatitude, customRutPeak],
   );
   const seasonalPhotos = useMemo(
     () =>
@@ -1137,8 +1145,9 @@ export default function HuntingMap() {
         propertyPhotoTimings,
         currentMovementPhase,
         propertyLatitude,
+        customRutPeak,
       ),
-    [propertyPhotoTimings, currentMovementPhase, propertyLatitude],
+    [propertyPhotoTimings, currentMovementPhase, propertyLatitude, customRutPeak],
   );
   const movementOutlook = useMemo<MovementForecast | null>(() => {
     if (!forecastMeta) return null;

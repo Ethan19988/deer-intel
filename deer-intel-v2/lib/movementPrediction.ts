@@ -345,16 +345,42 @@ export function rutRegionLabel(latitude: number): string {
   return "Gulf South";
 }
 
+/** A hunter's known local rut peak, as a season month/day. */
+export type RutPeakMonthDay = { month: number; day: number };
+
+// The northern baseline the phase bands are built around: the rut band runs
+// Nov 5–24, so a peak of Nov 15 is shift 0. rutShiftDays estimates how far a
+// latitude's peak sits from here; a known peak measures it exactly.
+const BASELINE_PEAK_INDEX = seasonIndex(11, 15) as number;
+
+/**
+ * The calendar shift (days) to classify a season date with. A hunter's known
+ * rut peak overrides the coarse latitude estimate: the shift becomes exactly how
+ * far their peak is from the northern baseline, re-centering every phase band on
+ * their date. Falls back to the latitude estimate when no peak is set (or the
+ * peak is outside the Sep–Feb season window), so unset behavior is unchanged.
+ */
+export function rutShiftFor(
+  latitude: number = DEFAULT_RUT_LATITUDE,
+  customPeak?: RutPeakMonthDay | null,
+): number {
+  if (customPeak) {
+    const index = seasonIndex(customPeak.month, customPeak.day);
+    if (index !== null) return index - BASELINE_PEAK_INDEX;
+  }
+  return rutShiftDays(latitude);
+}
+
 function phaseForSeasonDate(
   month: number,
   day: number,
-  latitude: number,
+  shift: number,
 ): MovementPhase {
   const index = seasonIndex(month, day);
   if (index === null) return "off-season";
 
   // Shift the date back into the northern baseline calendar, then classify.
-  const shifted = index - rutShiftDays(latitude);
+  const shifted = index - shift;
   if (shifted < 0) return "off-season"; // before this region's early season
   if (shifted <= 43) return "early"; // Sep 1 – Oct 14 (baseline)
   if (shifted <= 64) return "pre-rut"; // Oct 15 – Nov 4
@@ -367,15 +393,17 @@ function phaseForSeasonDate(
 export function movementPhaseForDate(
   date: Date,
   latitude: number = DEFAULT_RUT_LATITUDE,
+  customPeak?: RutPeakMonthDay | null,
 ): MovementPhase {
-  return phaseForSeasonDate(date.getMonth() + 1, date.getDate(), latitude);
+  const shift = rutShiftFor(latitude, customPeak);
+  return phaseForSeasonDate(date.getMonth() + 1, date.getDate(), shift);
 }
 
 /** Month/day off the leading YYYY-MM-DD, tz-safe for both date and datetime. */
-function photoPhase(dateISO: string, latitude: number): MovementPhase | null {
+function photoPhase(dateISO: string, shift: number): MovementPhase | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateISO);
   if (!match) return null;
-  return phaseForSeasonDate(Number(match[2]), Number(match[3]), latitude);
+  return phaseForSeasonDate(Number(match[2]), Number(match[3]), shift);
 }
 
 type SeasonalPhotoResult<T> = {
@@ -401,14 +429,18 @@ export function resolveSeasonalPhotos<T extends PhotoLike>(
   photos: T[],
   phase: MovementPhase,
   latitude: number = DEFAULT_RUT_LATITUDE,
+  customPeak?: RutPeakMonthDay | null,
   minPhaseSamples = 8,
 ): SeasonalPhotoResult<T> {
   if (phase === "off-season") {
     return { photos, scope: "all-season", inPhaseSamples: 0 };
   }
 
+  // Bucket each photo with the same shift as today's phase, so a custom peak
+  // moves both the current-phase read and the history it's matched against.
+  const shift = rutShiftFor(latitude, customPeak);
   const inPhase = photos.filter(
-    (photo) => photoPhase(photo.photoDate, latitude) === phase,
+    (photo) => photoPhase(photo.photoDate, shift) === phase,
   );
   const usable = inPhase.filter(
     (photo) => isDeerTiming(photo) && photoLocalMinutes(photo.photoDate) !== null,
