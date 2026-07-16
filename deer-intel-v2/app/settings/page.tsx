@@ -36,6 +36,13 @@ import {
   useDefaultMapOverlays,
 } from "@/lib/mapPreferences";
 import { setAiScoutEnabled, useAiScoutEnabled } from "@/lib/aiScoutPreferences";
+import {
+  setRutPeak,
+  setSeasonOpener,
+  useSeasonCalendar,
+} from "@/lib/seasonCalendar";
+import { hasPropertyCoordinate } from "@/lib/propertyLocation";
+import SeasonRutCard from "@/components/season/SeasonRutCard";
 import { MAP_LAYERS, MAP_OVERLAYS } from "@/lib/propertyMap";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 
@@ -58,6 +65,7 @@ export default function SettingsPage() {
   const units = useUnitPreferences();
   const defaultMapLayer = useDefaultMapLayer();
   const defaultMapOverlays = useDefaultMapOverlays();
+  const seasonCalendar = useSeasonCalendar();
   const aiScoutEnabled = useAiScoutEnabled();
   const { configured, status, user } = useAuth();
   const cloudActive = configured && status === "signed-in";
@@ -287,6 +295,49 @@ export default function SettingsPage() {
               );
             })}
           </div>
+        </Card>
+      </Section>
+
+      <Section eyebrow="Season" title="Season & Rut Calendar">
+        <Card as="div" variant="subtle">
+          <p style={mutedTextStyle}>
+            Set your season opener and local rut peak to see where you are in the
+            season — the phase, a countdown to the peak, and what deer are doing.
+            Leave the rut peak blank to use the estimate for your area
+            {selectedProperty && hasPropertyCoordinate(selectedProperty)
+              ? ` (based on ${selectedProperty.name})`
+              : ""}
+            . Saved on this device only.
+          </p>
+          <div style={seasonFieldRowStyle}>
+            <label style={seasonFieldStyle}>
+              <span style={unitLabelStyle}>Season opener</span>
+              <input
+                type="date"
+                value={seasonCalendar.seasonOpener ?? ""}
+                onChange={(event) =>
+                  setSeasonOpener(event.target.value || null)
+                }
+                style={seasonInputStyle}
+              />
+            </label>
+            <label style={seasonFieldStyle}>
+              <span style={unitLabelStyle}>Rut peak</span>
+              <input
+                type="date"
+                value={seasonCalendar.rutPeak ?? ""}
+                onChange={(event) => setRutPeak(event.target.value || null)}
+                style={seasonInputStyle}
+              />
+            </label>
+          </div>
+          <SeasonRutCard
+            latitude={
+              selectedProperty && hasPropertyCoordinate(selectedProperty)
+                ? selectedProperty.latitude
+                : undefined
+            }
+          />
         </Card>
       </Section>
     </>
@@ -647,6 +698,28 @@ const mapLayerGridStyle: CSSProperties = {
   gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
   gap: "0.6rem",
   marginTop: "1rem",
+};
+
+const seasonFieldRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: "0.75rem",
+  margin: "1rem 0",
+};
+
+const seasonFieldStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.4rem",
+};
+
+const seasonInputStyle: CSSProperties = {
+  minHeight: "46px",
+  padding: "0.6rem 0.7rem",
+  borderRadius: "8px",
+  border: "1px solid var(--border)",
+  background: "var(--surface-2)",
+  color: "var(--text)",
+  fontSize: "1rem",
 };
 
 const mapLayerOptionStyle: CSSProperties = {
