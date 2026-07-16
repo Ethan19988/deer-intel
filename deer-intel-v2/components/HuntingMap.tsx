@@ -162,7 +162,10 @@ import type {
   ParcelOwnerLabelLoadState,
 } from "@/types/parcel";
 import type { HuntAreaPoint } from "@/types/property";
-import { useDefaultMapLayer } from "@/lib/mapPreferences";
+import {
+  useDefaultMapLayer,
+  useDefaultMapOverlays,
+} from "@/lib/mapPreferences";
 import Button from "./ui/Button";
 
 type ClickToAddPinProps = {
@@ -760,12 +763,17 @@ export default function HuntingMap() {
   useEffect(() => {
     setSelectedLayer(requestedLayerId ?? defaultLayerRef.current);
   }, [requestedLayerId]);
-  // Data overlays from the top bar — independent of the base map, stacked on top.
-  const [showContours, setShowContours] = useState(false);
-  const [showSlope, setShowSlope] = useState(false);
-  const [showWind, setShowWind] = useState(false);
-  const [showMovement, setShowMovement] = useState(false);
-  const [showTerrain, setShowTerrain] = useState(false);
+  // Data overlays from the top bar — independent of the base map, stacked on
+  // top. Each opens in whatever state Settings saved, so a hunter who always
+  // scouts with contours and slope on doesn't re-toggle them every visit. Read
+  // once as the initial state: toggling on the map (or changing the default
+  // while the map is open) must not be overridden.
+  const defaultOverlays = useDefaultMapOverlays();
+  const [showContours, setShowContours] = useState(defaultOverlays.contours);
+  const [showSlope, setShowSlope] = useState(defaultOverlays.slope);
+  const [showWind, setShowWind] = useState(defaultOverlays.wind);
+  const [showMovement, setShowMovement] = useState(defaultOverlays.movement);
+  const [showTerrain, setShowTerrain] = useState(defaultOverlays.terrain);
   // One live-weather fetch feeds both the wind and movement overlays.
   const [forecastStatus, setForecastStatus] =
     useState<WindBadgeStatus>("loading");
@@ -825,7 +833,9 @@ export default function HuntingMap() {
   const trackStartedAtRef = useRef("");
   // One switch drives the whole ownership picture: the parcel-line overlay
   // plus the statewide land-owner tiles (names + tap-to-identify).
-  const [showPropertyLines, setShowPropertyLines] = useState(false);
+  const [showPropertyLines, setShowPropertyLines] = useState(
+    defaultOverlays.propertyLines,
+  );
   const [showOwnerNames, setShowOwnerNames] = useState(false);
   const [parcelLayerState, setParcelLayerState] =
     useState<ParcelBoundaryLoadState | null>(null);

@@ -21,6 +21,57 @@ export type AssetLayerId =
   | "parking"
   | "gates";
 
+/**
+ * The data overlays stacked on top of the base map (the top bar's toggles).
+ * Unlike the base map, these are not exclusive — any combination can be on.
+ */
+export type MapOverlayId =
+  | "contours"
+  | "slope"
+  | "propertyLines"
+  | "wind"
+  | "movement"
+  | "terrain";
+
+export type MapOverlayState = Record<MapOverlayId, boolean>;
+
+export const MAP_OVERLAYS: Array<{
+  id: MapOverlayId;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "contours",
+    label: "Contours",
+    description: "Elevation lines. Zooms in before it draws.",
+  },
+  {
+    id: "slope",
+    label: "Slope Angle",
+    description: "Shades steep ground so benches and draws stand out.",
+  },
+  {
+    id: "propertyLines",
+    label: "Property & Owners",
+    description: "Parcel boundaries and land-owner names.",
+  },
+  {
+    id: "wind",
+    label: "Wind",
+    description: "Today's wind direction and thermals.",
+  },
+  {
+    id: "movement",
+    label: "Movement",
+    description: "Predicted deer movement for today's conditions.",
+  },
+  {
+    id: "terrain",
+    label: "Terrain",
+    description: "Terrain-read scouting picks (bedding, travel, saddles).",
+  },
+];
+
 export type MapLayer = {
   id: MapLayerId;
   label: string;

@@ -29,9 +29,14 @@ import {
   setWindUnit,
   useUnitPreferences,
 } from "@/lib/units";
-import { setDefaultMapLayer, useDefaultMapLayer } from "@/lib/mapPreferences";
+import {
+  setDefaultMapLayer,
+  setDefaultMapOverlay,
+  useDefaultMapLayer,
+  useDefaultMapOverlays,
+} from "@/lib/mapPreferences";
 import { setAiScoutEnabled, useAiScoutEnabled } from "@/lib/aiScoutPreferences";
-import { MAP_LAYERS } from "@/lib/propertyMap";
+import { MAP_LAYERS, MAP_OVERLAYS } from "@/lib/propertyMap";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 
 function recordCount(candidate: DeerIntelState) {
@@ -52,6 +57,7 @@ export default function SettingsPage() {
   const themePreference = useThemePreference();
   const units = useUnitPreferences();
   const defaultMapLayer = useDefaultMapLayer();
+  const defaultMapOverlays = useDefaultMapOverlays();
   const aiScoutEnabled = useAiScoutEnabled();
   const { configured, status, user } = useAuth();
   const cloudActive = configured && status === "signed-in";
@@ -165,7 +171,7 @@ export default function SettingsPage() {
             your night vision on the walk in before first light. This is saved
             on this device only.
           </p>
-          <div style={themeGridStyle}>
+          <div style={optionGridStyle}>
             {THEME_PREFERENCES.map((preference) => {
               const active = preference === themePreference;
 
@@ -176,14 +182,14 @@ export default function SettingsPage() {
                   onClick={() => setThemePreference(preference)}
                   aria-pressed={active}
                   style={{
-                    ...themeOptionStyle,
-                    ...(active ? themeOptionActiveStyle : null),
+                    ...optionButtonStyle,
+                    ...(active ? optionButtonActiveStyle : null),
                   }}
                 >
-                  <span style={themeOptionLabelStyle}>
+                  <span style={optionLabelStyle}>
                     {THEME_LABELS[preference]}
                   </span>
-                  <span style={themeOptionDescStyle}>
+                  <span style={optionDescStyle}>
                     {THEME_DESCRIPTIONS[preference]}
                   </span>
                 </button>
@@ -246,6 +252,37 @@ export default function SettingsPage() {
                   }}
                 >
                   {layer.label}
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+      </Section>
+
+      <Section eyebrow="Map" title="Default Overlays">
+        <Card as="div" variant="subtle">
+          <p style={mutedTextStyle}>
+            Choose which data overlays the map opens with. These stack on top of
+            the base layer, so any combination can be on. You can still toggle
+            each one on the map itself. Saved on this device only.
+          </p>
+          <div style={optionGridStyle}>
+            {MAP_OVERLAYS.map((overlay) => {
+              const active = defaultMapOverlays[overlay.id];
+
+              return (
+                <button
+                  key={overlay.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setDefaultMapOverlay(overlay.id, !active)}
+                  style={{
+                    ...optionButtonStyle,
+                    ...(active ? optionButtonActiveStyle : null),
+                  }}
+                >
+                  <span style={optionLabelStyle}>{overlay.label}</span>
+                  <span style={optionDescStyle}>{overlay.description}</span>
                 </button>
               );
             })}
@@ -636,14 +673,14 @@ const settingsGridStyle: CSSProperties = {
   gap: "1rem",
 };
 
-const themeGridStyle: CSSProperties = {
+const optionGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
   gap: "0.75rem",
   marginTop: "1rem",
 };
 
-const themeOptionStyle: CSSProperties = {
+const optionButtonStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   alignItems: "flex-start",
@@ -658,18 +695,18 @@ const themeOptionStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-const themeOptionActiveStyle: CSSProperties = {
+const optionButtonActiveStyle: CSSProperties = {
   border: "1px solid var(--accent)",
   background: "var(--accent-tint)",
   boxShadow: "0 0 0 1px var(--accent)",
 };
 
-const themeOptionLabelStyle: CSSProperties = {
+const optionLabelStyle: CSSProperties = {
   fontWeight: 800,
   fontSize: "1rem",
 };
 
-const themeOptionDescStyle: CSSProperties = {
+const optionDescStyle: CSSProperties = {
   color: "var(--text-muted)",
   fontSize: "0.85rem",
   lineHeight: 1.4,
