@@ -119,7 +119,8 @@
         "kind": "bedding",
         "title": "South-face beds",
         "detail": "SSE-facing bench near 1799 ft, ~24\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this.",
-        "windNote": "Beds hold a NE wind. Approach from the ridge above."
+        "windNote": "Beds hold a NE wind. Approach from the ridge above. Thermals: at dawn scent drains SW (downhill); by midday it rises NE (upslope) \u2014 cross-check that against the wind.",
+        "roadDistM": 183
       }
     },
     {
@@ -240,7 +241,8 @@
         "kind": "bedding",
         "title": "South-face beds",
         "detail": "SSE-facing bench near 1939 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this.",
-        "windNote": "Beds hold a NE wind. Approach from the ridge above."
+        "windNote": "Beds hold a NE wind. Approach from the ridge above. Thermals: at dawn scent drains SW (downhill); by midday it rises NE (upslope) \u2014 cross-check that against the wind.",
+        "roadDistM": 290
       }
     },
     {
@@ -250,117 +252,485 @@
         "coordinates": [
           [
             [
-              -78.3175,
-              41.434
+              -78.33646,
+              41.47437
             ],
             [
-              -78.31713,
-              41.43307
+              -78.33614,
+              41.47397
             ],
             [
-              -78.31659,
-              41.43143
+              -78.33656,
+              41.4736
             ],
             [
-              -78.3159,
-              41.4307
+              -78.33605,
+              41.47344
             ],
             [
-              -78.31554,
-              41.42931
+              -78.33574,
+              41.47356
             ],
             [
-              -78.31476,
-              41.42817
+              -78.336,
+              41.47391
             ],
             [
-              -78.31423,
-              41.4274
+              -78.33538,
+              41.47373
             ],
             [
-              -78.31372,
-              41.42676
+              -78.33504,
+              41.47302
             ],
             [
-              -78.31289,
-              41.42599
+              -78.33543,
+              41.47233
             ],
             [
-              -78.31193,
-              41.42521
+              -78.33491,
+              41.47183
             ],
             [
-              -78.31013,
-              41.42494
+              -78.33537,
+              41.47147
             ],
             [
-              -78.3092,
-              41.42501
+              -78.33415,
+              41.47159
             ],
             [
-              -78.30877,
-              41.42598
+              -78.33305,
+              41.47209
             ],
             [
-              -78.30954,
-              41.42534
+              -78.3329,
+              41.47228
             ],
             [
-              -78.31122,
-              41.42518
+              -78.33285,
+              41.47271
             ],
             [
-              -78.31154,
-              41.4259
+              -78.33232,
+              41.47288
             ],
             [
-              -78.31243,
-              41.42623
+              -78.33307,
+              41.47319
             ],
             [
-              -78.31353,
-              41.42699
+              -78.33399,
+              41.47267
             ],
             [
-              -78.31413,
-              41.42767
+              -78.33325,
+              41.47326
             ],
             [
-              -78.31466,
-              41.42852
+              -78.33429,
+              41.47311
             ],
             [
-              -78.31538,
-              41.42955
+              -78.33388,
+              41.47347
             ],
             [
-              -78.31578,
-              41.43081
+              -78.33433,
+              41.47342
             ],
             [
-              -78.31653,
-              41.43168
+              -78.33476,
+              41.47353
             ],
             [
-              -78.31668,
-              41.43236
+              -78.33504,
+              41.4739
             ],
             [
-              -78.31738,
-              41.43382
+              -78.33634,
+              41.47431
             ],
             [
-              -78.3175,
-              41.434
+              -78.33646,
+              41.47437
             ]
           ]
         ]
       },
       "properties": {
-        "id": "moore-hill-refuge-0",
-        "kind": "refuge",
-        "title": "Steep sanctuary",
-        "detail": "The steepest ground (~32\u00b0) \u2014 where deer ride out the season. Hunt its upper edge and the saddles leading out, don't push it."
+        "id": "moore-hill-bed-2",
+        "kind": "bedding",
+        "title": "South-face beds",
+        "detail": "SSE-facing bench near 1399 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this.",
+        "windNote": "Beds hold a N wind. Approach from the ridge above. Thermals: at dawn scent drains S (downhill); by midday it rises N (upslope) \u2014 cross-check that against the wind.",
+        "roadDistM": 110
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -78.33369,
+              41.47511
+            ],
+            [
+              -78.33317,
+              41.47501
+            ],
+            [
+              -78.33264,
+              41.47493
+            ],
+            [
+              -78.33239,
+              41.47466
+            ],
+            [
+              -78.33285,
+              41.47495
+            ],
+            [
+              -78.33257,
+              41.47461
+            ],
+            [
+              -78.33244,
+              41.47448
+            ],
+            [
+              -78.33234,
+              41.4741
+            ],
+            [
+              -78.33205,
+              41.47376
+            ],
+            [
+              -78.33178,
+              41.47328
+            ],
+            [
+              -78.3315,
+              41.473
+            ],
+            [
+              -78.3316,
+              41.47285
+            ],
+            [
+              -78.33195,
+              41.47246
+            ],
+            [
+              -78.33182,
+              41.47248
+            ],
+            [
+              -78.3316,
+              41.47275
+            ],
+            [
+              -78.33125,
+              41.47299
+            ],
+            [
+              -78.33086,
+              41.47339
+            ],
+            [
+              -78.33047,
+              41.47376
+            ],
+            [
+              -78.3302,
+              41.474
+            ],
+            [
+              -78.32982,
+              41.47424
+            ],
+            [
+              -78.3294,
+              41.4747
+            ],
+            [
+              -78.3287,
+              41.4748
+            ],
+            [
+              -78.32855,
+              41.47496
+            ],
+            [
+              -78.33188,
+              41.47494
+            ],
+            [
+              -78.33321,
+              41.47504
+            ],
+            [
+              -78.33369,
+              41.47511
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-bed-3",
+        "kind": "bedding",
+        "title": "South-face beds",
+        "detail": "SSE-facing bench near 1364 ft, ~27\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this.",
+        "windNote": "Beds hold a NNW wind. Approach from the ridge above. Thermals: at dawn scent drains SSE (downhill); by midday it rises NNW (upslope) \u2014 cross-check that against the wind.",
+        "roadDistM": 51
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -78.337,
+              41.42264
+            ],
+            [
+              -78.33738,
+              41.42196
+            ],
+            [
+              -78.33748,
+              41.42196
+            ],
+            [
+              -78.33765,
+              41.42221
+            ],
+            [
+              -78.33895,
+              41.42216
+            ],
+            [
+              -78.33897,
+              41.42184
+            ],
+            [
+              -78.33912,
+              41.42131
+            ],
+            [
+              -78.33839,
+              41.42103
+            ],
+            [
+              -78.33825,
+              41.42042
+            ],
+            [
+              -78.33794,
+              41.41978
+            ],
+            [
+              -78.33627,
+              41.42023
+            ],
+            [
+              -78.33595,
+              41.4203
+            ],
+            [
+              -78.33582,
+              41.42067
+            ],
+            [
+              -78.33662,
+              41.42046
+            ],
+            [
+              -78.33701,
+              41.41999
+            ],
+            [
+              -78.33701,
+              41.42028
+            ],
+            [
+              -78.33758,
+              41.42062
+            ],
+            [
+              -78.33718,
+              41.42078
+            ],
+            [
+              -78.33694,
+              41.42058
+            ],
+            [
+              -78.33665,
+              41.42093
+            ],
+            [
+              -78.33606,
+              41.42111
+            ],
+            [
+              -78.33647,
+              41.4218
+            ],
+            [
+              -78.33684,
+              41.42202
+            ],
+            [
+              -78.3372,
+              41.4222
+            ],
+            [
+              -78.33698,
+              41.42253
+            ],
+            [
+              -78.337,
+              41.42264
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-bed-4",
+        "kind": "bedding",
+        "title": "South-face beds",
+        "detail": "SSE-facing bench near 1698 ft, ~24\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this.",
+        "windNote": "Beds hold a NE wind. Approach from the ridge above. Thermals: at dawn scent drains SW (downhill); by midday it rises NE (upslope) \u2014 cross-check that against the wind.",
+        "roadDistM": 268
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -78.31718,
+              41.43216
+            ],
+            [
+              -78.31789,
+              41.43184
+            ],
+            [
+              -78.31785,
+              41.43131
+            ],
+            [
+              -78.31749,
+              41.43056
+            ],
+            [
+              -78.31706,
+              41.4304
+            ],
+            [
+              -78.31764,
+              41.43063
+            ],
+            [
+              -78.31797,
+              41.43113
+            ],
+            [
+              -78.31837,
+              41.43177
+            ],
+            [
+              -78.31902,
+              41.43153
+            ],
+            [
+              -78.31912,
+              41.43115
+            ],
+            [
+              -78.31951,
+              41.43153
+            ],
+            [
+              -78.31956,
+              41.4317
+            ],
+            [
+              -78.32005,
+              41.43153
+            ],
+            [
+              -78.31966,
+              41.43112
+            ],
+            [
+              -78.31925,
+              41.43078
+            ],
+            [
+              -78.31903,
+              41.43023
+            ],
+            [
+              -78.3188,
+              41.43011
+            ],
+            [
+              -78.31865,
+              41.42973
+            ],
+            [
+              -78.31872,
+              41.42943
+            ],
+            [
+              -78.31805,
+              41.42972
+            ],
+            [
+              -78.3171,
+              41.43013
+            ],
+            [
+              -78.31638,
+              41.43055
+            ],
+            [
+              -78.31676,
+              41.43104
+            ],
+            [
+              -78.31714,
+              41.43146
+            ],
+            [
+              -78.31721,
+              41.43206
+            ],
+            [
+              -78.31718,
+              41.43216
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-bed-5",
+        "kind": "bedding",
+        "title": "South-face beds",
+        "detail": "SSE-facing bench near 1630 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this.",
+        "windNote": "Beds hold a NE wind. Approach from the ridge above. Thermals: at dawn scent drains SW (downhill); by midday it rises NE (upslope) \u2014 cross-check that against the wind.",
+        "roadDistM": 162
       }
     },
     {
@@ -377,7 +747,8 @@
         "kind": "pinch",
         "title": "Saddle crossing",
         "detail": "A ridge saddle near 1618 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
-        "windNote": "Sit the downhill side on a crosswind."
+        "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+        "roadDistM": 266
       }
     },
     {
@@ -394,7 +765,116 @@
         "kind": "pinch",
         "title": "Saddle crossing",
         "detail": "A ridge saddle near 1509 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
-        "windNote": "Sit the downhill side on a crosswind."
+        "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+        "roadDistM": 69
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.33863,
+          41.47424
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-pinch-2",
+        "kind": "pinch",
+        "title": "Saddle crossing",
+        "detail": "A ridge saddle near 1667 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+        "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+        "roadDistM": 401
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.31966,
+          41.47434
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-pinch-3",
+        "kind": "pinch",
+        "title": "Saddle crossing",
+        "detail": "A ridge saddle near 1651 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+        "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+        "roadDistM": 89
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.34008,
+          41.42853
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-pinch-4",
+        "kind": "pinch",
+        "title": "Saddle crossing",
+        "detail": "A ridge saddle near 2079 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+        "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+        "roadDistM": 896
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.32948,
+          41.47481
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-pinch-5",
+        "kind": "pinch",
+        "title": "Saddle crossing",
+        "detail": "A ridge saddle near 1259 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+        "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+        "roadDistM": 69
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.3375,
+          41.41996
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-pinch-6",
+        "kind": "pinch",
+        "title": "Saddle crossing",
+        "detail": "A ridge saddle near 1573 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+        "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+        "roadDistM": 162
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.30626,
+          41.41918
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-pinch-7",
+        "kind": "pinch",
+        "title": "Saddle crossing",
+        "detail": "A ridge saddle near 1485 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+        "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+        "roadDistM": 155
       }
     },
     {
@@ -403,53 +883,53 @@
         "type": "LineString",
         "coordinates": [
           [
-            -78.32534,
-            41.47377
+            -78.32524,
+            41.47404
           ],
           [
-            -78.32598,
-            41.47269
+            -78.32586,
+            41.4729
           ],
           [
-            -78.32658,
-            41.47162
+            -78.32649,
+            41.47179
           ],
           [
-            -78.32745,
-            41.47064
+            -78.32733,
+            41.47076
           ],
           [
-            -78.32828,
-            41.46968
+            -78.32821,
+            41.46975
           ],
           [
-            -78.32919,
-            41.46869
+            -78.32913,
+            41.46876
           ],
           [
-            -78.33015,
-            41.46786
+            -78.33013,
+            41.46787
           ],
           [
-            -78.33121,
-            41.46695
+            -78.33124,
+            41.46693
           ],
           [
-            -78.33229,
-            41.46619
+            -78.33234,
+            41.46617
           ],
           [
-            -78.33378,
-            41.46563
+            -78.33395,
+            41.46556
           ]
         ]
       },
       "properties": {
         "id": "moore-hill-bench-0",
         "kind": "travel",
-        "title": "Bench trail (1528 ft)",
+        "title": "Bench trail (1520 ft)",
         "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
-        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail."
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side."
       }
     },
     {
@@ -458,33 +938,53 @@
         "type": "LineString",
         "coordinates": [
           [
-            -78.27891,
-            41.45378
+            -78.27303,
+            41.46959
           ],
           [
-            -78.27816,
-            41.45319
+            -78.27294,
+            41.46881
           ],
           [
-            -78.27752,
-            41.45248
+            -78.27277,
+            41.46802
           ],
           [
-            -78.277,
-            41.45178
+            -78.27242,
+            41.46729
           ],
           [
-            -78.27658,
-            41.45102
+            -78.27189,
+            41.46666
+          ],
+          [
+            -78.2713,
+            41.46597
+          ],
+          [
+            -78.27092,
+            41.46547
+          ],
+          [
+            -78.27024,
+            41.4648
+          ],
+          [
+            -78.26957,
+            41.46422
+          ],
+          [
+            -78.2689,
+            41.46365
           ]
         ]
       },
       "properties": {
         "id": "moore-hill-bench-1",
         "kind": "travel",
-        "title": "Bench trail (1659 ft)",
+        "title": "Bench trail (1767 ft)",
         "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
-        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail."
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side."
       }
     },
     {
@@ -493,33 +993,37 @@
         "type": "LineString",
         "coordinates": [
           [
-            -78.32435,
-            41.43522
+            -78.27911,
+            41.45392
           ],
           [
-            -78.32378,
-            41.43461
+            -78.27841,
+            41.45341
           ],
           [
-            -78.32318,
-            41.434
+            -78.27782,
+            41.45284
           ],
           [
-            -78.32255,
-            41.43339
+            -78.27729,
+            41.45221
           ],
           [
-            -78.32205,
-            41.43276
+            -78.2769,
+            41.45158
+          ],
+          [
+            -78.2765,
+            41.4509
           ]
         ]
       },
       "properties": {
         "id": "moore-hill-bench-2",
         "kind": "travel",
-        "title": "Bench trail (1434 ft)",
+        "title": "Bench trail (1658 ft)",
         "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
-        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail."
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side."
       }
     },
     {
@@ -528,33 +1032,285 @@
         "type": "LineString",
         "coordinates": [
           [
-            -78.27302,
-            41.46936
+            -78.33399,
+            41.46961
           ],
           [
-            -78.27292,
-            41.46863
+            -78.335,
+            41.4695
           ],
           [
-            -78.27271,
-            41.46789
+            -78.3363,
+            41.46931
           ],
           [
-            -78.27234,
-            41.46718
+            -78.33745,
+            41.46917
           ],
           [
-            -78.27179,
-            41.46656
+            -78.33845,
+            41.46898
           ]
         ]
       },
       "properties": {
         "id": "moore-hill-bench-3",
         "kind": "travel",
-        "title": "Bench trail (1799 ft)",
+        "title": "Bench trail (1212 ft)",
         "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
-        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail."
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.32448,
+            41.43535
+          ],
+          [
+            -78.32384,
+            41.43467
+          ],
+          [
+            -78.32317,
+            41.43399
+          ],
+          [
+            -78.32248,
+            41.43331
+          ],
+          [
+            -78.32193,
+            41.43261
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-bench-4",
+        "kind": "travel",
+        "title": "Bench trail (1433 ft)",
+        "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.32112,
+            41.44596
+          ],
+          [
+            -78.32185,
+            41.44539
+          ],
+          [
+            -78.32249,
+            41.44482
+          ],
+          [
+            -78.32311,
+            41.44424
+          ],
+          [
+            -78.32391,
+            41.44375
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-bench-5",
+        "kind": "travel",
+        "title": "Bench trail (1548 ft)",
+        "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.28483,
+            41.45694
+          ],
+          [
+            -78.28408,
+            41.45635
+          ],
+          [
+            -78.28342,
+            41.45566
+          ],
+          [
+            -78.28304,
+            41.4549
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-bench-6",
+        "kind": "travel",
+        "title": "Bench trail (1742 ft)",
+        "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.28655,
+            41.46706
+          ],
+          [
+            -78.28612,
+            41.46627
+          ],
+          [
+            -78.28571,
+            41.46557
+          ],
+          [
+            -78.28524,
+            41.46479
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-bench-7",
+        "kind": "travel",
+        "title": "Bench trail (1813 ft)",
+        "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.31214,
+            41.4719
+          ],
+          [
+            -78.31291,
+            41.47209
+          ],
+          [
+            -78.31413,
+            41.47204
+          ],
+          [
+            -78.31518,
+            41.4722
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-bench-8",
+        "kind": "travel",
+        "title": "Bench trail (1800 ft)",
+        "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.31374,
+            41.47165
+          ],
+          [
+            -78.31486,
+            41.47175
+          ],
+          [
+            -78.31578,
+            41.4721
+          ],
+          [
+            -78.31663,
+            41.47259
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-bench-9",
+        "kind": "travel",
+        "title": "Bench trail (1843 ft)",
+        "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.28437,
+            41.42162
+          ],
+          [
+            -78.28444,
+            41.42092
+          ],
+          [
+            -78.28432,
+            41.42017
+          ],
+          [
+            -78.2843,
+            41.41949
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-bench-10",
+        "kind": "travel",
+        "title": "Bench trail (1363 ft)",
+        "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.32141,
+            41.47256
+          ],
+          [
+            -78.32216,
+            41.47201
+          ],
+          [
+            -78.32313,
+            41.47116
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-bench-11",
+        "kind": "travel",
+        "title": "Bench trail (1790 ft)",
+        "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+        "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side."
       }
     },
     {
@@ -589,7 +1345,7 @@
         "kind": "travel",
         "title": "Draw travel corridor",
         "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
-        "windNote": "Morning thermals fall downhill \u2014 hunt the lower end at dawn."
+        "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday."
       }
     },
     {
@@ -628,7 +1384,227 @@
         "kind": "travel",
         "title": "Draw travel corridor",
         "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
-        "windNote": "Morning thermals fall downhill \u2014 hunt the lower end at dawn."
+        "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.29227,
+            41.45808
+          ],
+          [
+            -78.294,
+            41.46168
+          ],
+          [
+            -78.29356,
+            41.46346
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-draw-2",
+        "kind": "travel",
+        "title": "Draw travel corridor",
+        "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+        "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.31236,
+            41.46673
+          ],
+          [
+            -78.31837,
+            41.46546
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-draw-3",
+        "kind": "travel",
+        "title": "Draw travel corridor",
+        "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+        "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.30072,
+            41.42621
+          ],
+          [
+            -78.29956,
+            41.42588
+          ],
+          [
+            -78.29514,
+            41.42621
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-draw-4",
+        "kind": "travel",
+        "title": "Draw travel corridor",
+        "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+        "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.31488,
+            41.46311
+          ],
+          [
+            -78.31505,
+            41.46428
+          ],
+          [
+            -78.31084,
+            41.46245
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-draw-5",
+        "kind": "travel",
+        "title": "Draw travel corridor",
+        "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+        "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.31289,
+            41.44789
+          ],
+          [
+            -78.31592,
+            41.45027
+          ],
+          [
+            -78.31689,
+            41.45023
+          ],
+          [
+            -78.31725,
+            41.44961
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-draw-6",
+        "kind": "travel",
+        "title": "Draw travel corridor",
+        "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+        "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.33633,
+            41.47032
+          ],
+          [
+            -78.33262,
+            41.47099
+          ],
+          [
+            -78.33156,
+            41.47172
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-draw-7",
+        "kind": "travel",
+        "title": "Draw travel corridor",
+        "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+        "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.31677,
+            41.43588
+          ],
+          [
+            -78.31696,
+            41.4342
+          ],
+          [
+            -78.32012,
+            41.4323
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-draw-8",
+        "kind": "travel",
+        "title": "Draw travel corridor",
+        "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+        "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -78.29127,
+            41.45918
+          ],
+          [
+            -78.29212,
+            41.46175
+          ],
+          [
+            -78.29146,
+            41.4629
+          ],
+          [
+            -78.29074,
+            41.46297
+          ]
+        ]
+      },
+      "properties": {
+        "id": "moore-hill-draw-9",
+        "kind": "travel",
+        "title": "Draw travel corridor",
+        "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+        "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday."
       }
     }
   ]

@@ -42,6 +42,16 @@ SOUTH_MIN, SOUTH_MAX = 112.5, 247.5           # SE..SW thermal aspect
 REFUGE_SLOPE_MIN = 30.0                        # sanctuary is steep
 FAR_FROM_ROAD_M = 900.0                        # ~1,000 yd security threshold
 MIN_BED_AREA_M2 = 1500.0
+
+# --- S1 "Goldilocks" security band ------------------------------------------
+# Penn State: hunters kill mature bucks on ground roughly 450-900 m from a road.
+# Closer than that, deer treat the ground as unsafe and move mostly after dark;
+# farther, it becomes a refuge they rarely leave in daylight (and that costs the
+# hunter access + scent). Applied as a score modifier on the scored picks, so it
+# re-ranks bedding/saddle leads toward the huntable band. Needs --roads; a no-
+# roads run is unaffected (bonus is 0).
+SECURITY_BAND_M = (450.0, 900.0)
+SECURITY_BONUS = 20.0
 MIN_REFUGE_AREA_M2 = 8000.0
 # A saddle smaller than this is curvature noise, not a gap deer would funnel to.
 MIN_SADDLE_AREA_M2 = 150.0
@@ -58,15 +68,17 @@ SADDLE_PERCENTILE = 92.0
 # benches (near-level shelves that hold a constant elevation) to save energy,
 # rather than climbing over ridgetops. A bench reads as gentle ground sitting in
 # the middle of an otherwise-steep hillside.
-BENCH_SLOPE_MAX = 12.0        # gentle enough to walk along comfortably
-BENCH_NBHD_STEEP_MIN = 16.0   # the surrounding hillside is steep (it's a shelf)
+BENCH_SLOPE_MAX = 13.0        # gentle enough to walk along comfortably
+BENCH_NBHD_STEEP_MIN = 15.0   # the surrounding hillside is steep (it's a shelf)
 BENCH_NBHD_M = 60.0           # radius for "surrounding" slope
-TRAVEL_ELEV_PCTL = 70.0       # favor the lower/mid band deer travel, not ridgetops
-MIN_BENCH_AREA_M2 = 700.0
-BENCH_MIN_ELONGATION = 2.2    # a corridor is long and thin, not a blob
-BENCH_MAX = 4                 # top bench corridors to draw
+TRAVEL_ELEV_PCTL = 75.0       # favor the lower/mid band deer travel, not ridgetops
+MIN_BENCH_AREA_M2 = 500.0
+BENCH_MIN_ELONGATION = 1.8    # a corridor is long and thin, not a blob
+BENCH_MAX = 12                # top bench corridors to draw
 
-MAX_PER_KIND = {"bedding": 2, "travel": 2, "pinch": 2, "refuge": 1}
+# A big-woods tract is a network, not a handful of spots — surface the whole
+# travel web (many benches + draws + saddles), not just the single best of each.
+MAX_PER_KIND = {"bedding": 6, "travel": 10, "pinch": 8, "refuge": 2}
 
 DIRS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
         "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
@@ -80,6 +92,51 @@ def reciprocal_wind(aspect_deg: float) -> str:
     """Best wind to hunt ground that FACES aspect_deg: wind from the opposite
     side carries scent up and over, away from bedded/approaching deer."""
     return compass(aspect_deg + 180)
+
+
+def thermal_note(aspect_deg: float | None = None) -> str:
+    """W2 — thermals override the prevailing wind at the ends of the day. Cool
+    air drains DOWNHILL at dawn/dusk; sun-warmed air rises UPSLOPE by midday. On
+    a slope, aspect points downhill, so downhill == aspect and upslope ==
+    aspect+180. With a known aspect we name the directions; without one (draws,
+    benches) we give the generic rule."""
+    if aspect_deg is None:
+        return ("Thermals: scent sinks downhill at dawn/dusk, rises upslope by "
+                "midday — let the active thermal, not just the wind, pick your side.")
+    down = compass(aspect_deg)
+    up = compass(aspect_deg + 180)
+    return (f"Thermals: at dawn scent drains {down} (downhill); by midday it "
+            f"rises {up} (upslope) — cross-check that against the wind.")
+
+
+def sample_road_dist(dist_road, transform, x, y):
+    """Distance-to-road (m) at projected (x, y), or None if unavailable/off-grid."""
+    if dist_road is None:
+        return None
+    col, row = ~transform * (x, y)
+    r, c = int(round(row)), int(round(col))
+    if 0 <= r < dist_road.shape[0] and 0 <= c < dist_road.shape[1]:
+        v = dist_road[r, c]
+        return None if np.isnan(v) else float(v)
+    return None
+
+
+def security_bonus(dist_m):
+    """S1 — score bump peaking inside the huntable security band, tapering to 0
+    on either side. Returns (bonus, human-readable tag). No roads -> (0, "")."""
+    if dist_m is None:
+        return 0.0, ""
+    lo, hi = SECURITY_BAND_M
+    if dist_m < lo:
+        bonus = SECURITY_BONUS * (dist_m / lo)
+        tag = f"{round(dist_m)} m from a road — a touch close; deer stay edgy in daylight."
+    elif dist_m <= hi:
+        bonus = SECURITY_BONUS
+        tag = f"{round(dist_m)} m from the nearest road — squarely in the huntable security band."
+    else:
+        bonus = max(0.0, SECURITY_BONUS * (1 - (dist_m - hi) / hi))
+        tag = f"{round(dist_m)} m from a road — deep sanctuary; a quiet approach costs you."
+    return bonus, tag
 
 
 def load(path):
@@ -327,19 +384,28 @@ def main():
             f"{round(c['elev'] * 3.281)} ft, ~{c['slope']:.0f}° — thermal sun and a "
             "downhill escape; Penn State collar deer bed exactly this."
         )
-        note = f"Beds hold a {wind} wind. Approach from the ridge above."
-        features_out.append({
+        note = (f"Beds hold a {wind} wind. Approach from the ridge above. "
+                + thermal_note(c["aspect"]))
+        cx, cy = c["geom"].representative_point().coords[0]
+        lng, lat = to_wgs.transform(cx, cy)
+        road_d = sample_road_dist(dist_road, transform, cx, cy)
+        sec, sec_tag = security_bonus(road_d)
+        feature = {
             "id": f"{args.name}-bed-{k}", "kind": "bedding",
             "title": title, "detail": detail, "windNote": note,
             "polygon": to_latlng_ring(c["geom"], to_wgs),
-        })
-        cx, cy = c["geom"].representative_point().coords[0]
-        lng, lat = to_wgs.transform(cx, cy)
-        picks.append({"kind": "bedding", "title": title, "lat": round(lat, 5),
-                      "lng": round(lng, 5), "elevationFt": round(c["elev"] * 3.281),
-                      "slopeDeg": round(c["slope"]), "aspect": compass(c["aspect"]),
-                      "bestWind": wind, "reason": detail,
-                      "score": c["area"] / 1000 + c["slope"]})
+        }
+        if road_d is not None:
+            feature["roadDistM"] = round(road_d)
+        features_out.append(feature)
+        pick = {"kind": "bedding", "title": title, "lat": round(lat, 5),
+                "lng": round(lng, 5), "elevationFt": round(c["elev"] * 3.281),
+                "slopeDeg": round(c["slope"]), "aspect": compass(c["aspect"]),
+                "bestWind": wind, "reason": detail + (f" {sec_tag}" if sec_tag else ""),
+                "score": c["area"] / 1000 + c["slope"] + sec}
+        if road_d is not None:
+            pick["roadDistM"] = round(road_d)
+        picks.append(pick)
 
     # ---- Refuge (polygon, largest steep-far block) ----
     print("[rules] refuge components", flush=True)
@@ -381,23 +447,32 @@ def main():
             for (yi, xi), e, s in zip(coms, np.atleast_1d(elevs), np.atleast_1d(strengths)):
                 x, y = transform * (xi, yi)
                 lng, lat = to_wgs.transform(x, y)
-                sad.append({"lat": lat, "lng": lng, "elev": float(e), "strength": float(s)})
+                sad.append({"lat": lat, "lng": lng, "x": x, "y": y,
+                            "elev": float(e), "strength": float(s)})
     sad.sort(key=lambda s: s["strength"], reverse=True)
     for k, s in enumerate(sad[: MAX_PER_KIND["pinch"]]):
         detail = (
             f"A ridge saddle near {round(s['elev'] * 3.281)} ft — deer cross ridges "
             "at their low gaps, funneling travel between bedding areas. Prime stand."
         )
-        features_out.append({
+        road_d = sample_road_dist(dist_road, transform, s["x"], s["y"])
+        sec, sec_tag = security_bonus(road_d)
+        feature = {
             "id": f"{args.name}-pinch-{k}", "kind": "pinch",
             "title": "Saddle crossing", "detail": detail,
-            "windNote": "Sit the downhill side on a crosswind.",
+            "windNote": "Sit the downhill side on a crosswind. " + thermal_note(),
             "point": [round(s["lat"], 5), round(s["lng"], 5)],
-        })
-        picks.append({"kind": "pinch", "title": "Saddle crossing", "lat": round(s["lat"], 5),
-                      "lng": round(s["lng"], 5), "elevationFt": round(s["elev"] * 3.281),
-                      "bestWind": "crosswind", "reason": detail,
-                      "score": 1000 + s["strength"] * 1e6})
+        }
+        if road_d is not None:
+            feature["roadDistM"] = round(road_d)
+        features_out.append(feature)
+        pick = {"kind": "pinch", "title": "Saddle crossing", "lat": round(s["lat"], 5),
+                "lng": round(s["lng"], 5), "elevationFt": round(s["elev"] * 3.281),
+                "bestWind": "crosswind", "reason": detail + (f" {sec_tag}" if sec_tag else ""),
+                "score": 1000 + s["strength"] * 1e6 + sec}
+        if road_d is not None:
+            pick["roadDistM"] = round(road_d)
+        picks.append(pick)
 
     # ---- Bench travel corridors (contour trails on steep hillsides) ----
     # Gentle shelves sitting in otherwise-steep ground, in the lower/mid
@@ -428,7 +503,8 @@ def main():
                 "traveling the lower slopes parallel to the ridge rather than "
                 "climbing over the top."
             ),
-            "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail.",
+            "windNote": ("Deer walk it into the wind; sit the downwind end, above or "
+                         "below the trail. " + thermal_note()),
             "line": b["coords"],
         })
 
@@ -458,7 +534,7 @@ def main():
                 "title": "Draw travel corridor",
                 "detail": ("A drainage carrying bed-to-feed travel and your quietest, "
                            "lowest-scent way in."),
-                "windNote": "Morning thermals fall downhill — hunt the lower end at dawn.",
+                "windNote": thermal_note() + " Hunt the lower end at dawn, the upper end midday.",
                 "line": coords,
             })
 
