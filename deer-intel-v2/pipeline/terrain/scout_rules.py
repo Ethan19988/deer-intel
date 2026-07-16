@@ -68,8 +68,11 @@ def reciprocal_wind(aspect_deg: float) -> str:
 
 
 def load(path):
+    # float32, not float64: a multi-tile 1 m read is tens of millions of cells,
+    # and five rasters plus the gradient intermediates blow past a typical WSL
+    # memory budget at 8 bytes/cell. Terrain math doesn't need the extra digits.
     with rasterio.open(path) as ds:
-        arr = ds.read(1).astype("float64")
+        arr = ds.read(1).astype("float32")
         nod = ds.nodata
         if nod is not None:
             arr[arr == nod] = np.nan
@@ -198,22 +201,30 @@ def main():
     # micro-relief, and the cutoff is a percentile of the actual curvature rather
     # than an absolute number — at 1 m the second derivatives are orders of
     # magnitude smaller than at 10 m, so any fixed threshold rejects everything.
+    # Each intermediate is a full-size raster, so free them as we go — at 1 m
+    # over several tiles, holding them all at once is what OOMs the run.
     sigma_cells = max(SADDLE_SMOOTH_M / px, 1.0)
     sm = ndimage.gaussian_filter(
         np.nan_to_num(dem, nan=float(np.nanmean(dem))), sigma=sigma_cells
     )
     gy, gx = np.gradient(sm, px, px)
+    del sm
     gxx = np.gradient(gx, px, axis=1)
+    del gx
     gyy = np.gradient(gy, px, axis=0)
+    del gy
 
     prod = gxx * gyy
+    del gxx, gyy
     candidate = valid & (prod < 0) & upper  # opposite curvature, up on a crest
     strength = np.abs(prod)
+    del prod
     if candidate.any():
         cutoff = np.percentile(strength[candidate], SADDLE_PERCENTILE)
         saddle_mask = candidate & (strength >= cutoff)
     else:
         saddle_mask = candidate
+    del candidate
 
     features_out = []
     picks = []
@@ -278,11 +289,11 @@ def main():
         keep.sort(key=lambda c: counts[c], reverse=True)
         keep = keep[:200]
         if keep:
-            curv = np.abs(gxx * gyy)
             demz = np.nan_to_num(dem, nan=float(np.nanmean(dem)))
             coms = ndimage.center_of_mass(saddle_mask, labels, keep)
             elevs = ndimage.mean(demz, labels, keep)
-            strengths = ndimage.mean(curv, labels, keep)
+            strengths = ndimage.mean(strength, labels, keep)
+            del demz
             for (yi, xi), e, s in zip(coms, np.atleast_1d(elevs), np.atleast_1d(strengths)):
                 x, y = transform * (xi, yi)
                 lng, lat = to_wgs.transform(x, y)

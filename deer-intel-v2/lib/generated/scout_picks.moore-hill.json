@@ -4,42 +4,42 @@
     {
       "kind": "pinch",
       "title": "Saddle crossing",
-      "lat": 41.4524,
-      "lng": -78.30439,
-      "elevationFt": 2070,
+      "lat": 41.47499,
+      "lng": -78.33706,
+      "elevationFt": 1618,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 2070 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand."
+      "reason": "A ridge saddle near 1618 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand."
     },
     {
       "kind": "pinch",
       "title": "Saddle crossing",
-      "lat": 41.47098,
-      "lng": -78.32343,
-      "elevationFt": 1778,
+      "lat": 41.47493,
+      "lng": -78.33304,
+      "elevationFt": 1509,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 1778 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand."
+      "reason": "A ridge saddle near 1509 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand."
     },
     {
       "kind": "bedding",
       "title": "South-face beds",
-      "lat": 41.44833,
-      "lng": -78.30772,
-      "elevationFt": 2051,
+      "lat": 41.45962,
+      "lng": -78.28155,
+      "elevationFt": 1799,
+      "slopeDeg": 24,
+      "aspect": "SW",
+      "bestWind": "NE",
+      "reason": "SSE-facing bench near 1799 ft, ~24\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this."
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 41.4374,
+      "lng": -78.32211,
+      "elevationFt": 1939,
       "slopeDeg": 25,
-      "aspect": "SSE",
-      "bestWind": "NNW",
-      "reason": "SSE-facing bench near 2051 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this."
-    },
-    {
-      "kind": "bedding",
-      "title": "South-face beds",
-      "lat": 41.46701,
-      "lng": -78.30954,
-      "elevationFt": 2049,
-      "slopeDeg": 20,
-      "aspect": "SSE",
-      "bestWind": "NNW",
-      "reason": "SSE-facing bench near 2049 ft, ~20\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this."
+      "aspect": "SW",
+      "bestWind": "NE",
+      "reason": "SSE-facing bench near 1939 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this."
     }
   ]
 }
