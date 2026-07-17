@@ -141,8 +141,12 @@ def process(job: dict) -> None:
 
     stage(jid, "reading terrain")
     out_dir = tempfile.mkdtemp(prefix="terrain-out-")
-    rules = ["python3", "scout_rules.py", "--name", name, "--out", out_dir,
-             "--focus-geojson", outline_path, "--area-name", job.get("property_name") or name]
+    # tile_rules is a drop-in for scout_rules that auto-tiles tracts too big to
+    # run in one pass, so an 8 GB worker never swaps. WORKER_MAX_CELLS tunes the
+    # per-tile size to the host's RAM (default 35M ≈ a few GB per tile).
+    rules = ["python3", "tile_rules.py", "--name", name, "--out", out_dir,
+             "--focus-geojson", outline_path, "--area-name", job.get("property_name") or name,
+             "--max-cells", os.environ.get("WORKER_MAX_CELLS", "35000000")]
     if os.path.exists(roads):
         rules += ["--roads", roads]
     for pt in (job.get("food") or []):

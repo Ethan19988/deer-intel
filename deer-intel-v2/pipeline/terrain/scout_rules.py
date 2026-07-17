@@ -94,6 +94,16 @@ ROUTE_SLOPE_REF = 12.0        # slope (deg) at which effort has roughly doubled
 ROUTE_MAX_SLOPE = 42.0        # steeper than this is treated as near-impassable
 ROUTE_MAX = 24                # a bed-to-feed route from every worthwhile bed
 
+# When the tiler runs scout_rules on a slice of a big tract, it sets CAP_SCALE so
+# each tile gets its SHARE of the whole-property caps (e.g. a quarter of the 60
+# bedding slots). Without it, every tile independently fills the full caps and
+# the merged feature count is multiplied by the tile count.
+_CAP_SCALE = float(os.environ.get("CAP_SCALE", "1") or "1")
+if _CAP_SCALE != 1.0:
+    MAX_PER_KIND = {k: max(1, round(v * _CAP_SCALE)) for k, v in MAX_PER_KIND.items()}
+    BENCH_MAX = max(1, round(BENCH_MAX * _CAP_SCALE))
+    ROUTE_MAX = max(1, round(ROUTE_MAX * _CAP_SCALE))
+
 DIRS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
         "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
 

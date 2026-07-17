@@ -46,10 +46,13 @@ tracts (and re-reads) reuse tiles instead of re-downloading ~300 MB apiece. On a
 scale-to-zero host, back it with a persistent volume so the cache survives
 between wake-ups.
 
-**Size it at 8–16 GB RAM.** A whole-tract read (e.g. Moore Hill, 130M cells at
-1 m) peaks near 5 GB in `scout_rules` and more in the WhiteboxTools step; give it
-headroom so it never has to swap. Disk: a few GB per property for LiDAR tiles +
-derivatives (cached under `work/prop-<id>/` and reused on regenerate).
+**8 GB RAM is enough.** The rule pass auto-tiles tracts bigger than
+`WORKER_MAX_CELLS` (default 35M cells ≈ a few GB per tile), so even a 130M-cell
+tract like Moore Hill runs a tile at a time and never swaps — verified peak
+~2.2 GB per tile. Lower `WORKER_MAX_CELLS` for a smaller box, raise it (or set it
+huge) to force single-pass on a 16 GB host. The WhiteboxTools derivative step is
+streaming and fits 8 GB on its own. Disk: a few GB per property for derivatives
+(under `work/prop-<id>/`), plus the shared tile cache.
 
 ### Fly.io (recommended: scale-to-zero)
 
@@ -105,8 +108,12 @@ needed.
 - **Shared LiDAR cache** — `TILE_CACHE_DIR` above; neighboring tracts reuse tiles.
 - **Progress** — the worker writes a `stage` label on the job (fetching
   elevation → derivatives → reading terrain) that the button shows.
+- **Auto-tiling** — `tile_rules.py` splits tracts over `WORKER_MAX_CELLS` into
+  core tiles (with a halo for the filters that recompute from the DEM) and runs
+  `scout_rules` on each, scaling the per-tile caps so the merged network matches
+  a single whole-tract run. Keeps an 8 GB worker off swap.
 
 ## Still ahead
 
-Auto-tiling huge tracts (so an 8 GB worker never swaps), and the learning layer
-(re-ranking predictions against trail-cam hits) — see the architecture sketch.
+The learning layer — re-ranking predictions against trail-cam hits so the app
+sharpens each season (see the architecture sketch).
