@@ -1562,6 +1562,10 @@ export default function HuntingMap() {
       ),
     }));
     cancelAreaDraw();
+    // Finishing an area is a request to know that ground — turn the terrain
+    // read on so the deer-movement review appears the moment the outline lands,
+    // no extra toggle.
+    setShowTerrain(true);
   }
 
   function clearHuntArea() {
