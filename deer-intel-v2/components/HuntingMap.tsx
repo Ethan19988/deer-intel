@@ -35,6 +35,7 @@ import MovementLayer from "@/components/map/MovementLayer";
 import MovementBadge from "@/components/map/MovementBadge";
 import TerrainMovementLayer from "@/components/map/TerrainMovementLayer";
 import TerrainLegend from "@/components/map/TerrainLegend";
+import LandCoverLegend from "@/components/map/LandCoverLegend";
 import ScoutPicksPanel from "@/components/map/ScoutPicksPanel";
 import type { LatLng } from "@/lib/terrainMovement";
 import {
@@ -154,6 +155,9 @@ import {
   SLOPE_ATTRIBUTION,
   WATER_TILE_URL,
   WATER_ATTRIBUTION,
+  LANDCOVER_WMS_URL,
+  LANDCOVER_WMS_LAYER,
+  LANDCOVER_ATTRIBUTION,
   type AddressSearchPlace,
   type MapAsset,
   type AssetLayerId,
@@ -795,6 +799,7 @@ export default function HuntingMap() {
   const [showContours, setShowContours] = useState(defaultOverlays.contours);
   const [showSlope, setShowSlope] = useState(defaultOverlays.slope);
   const [showWaterways, setShowWaterways] = useState(defaultOverlays.waterways);
+  const [showLandcover, setShowLandcover] = useState(defaultOverlays.landcover);
   const [showWind, setShowWind] = useState(defaultOverlays.wind);
   const [showMovement, setShowMovement] = useState(defaultOverlays.movement);
   const [showTerrain, setShowTerrain] = useState(defaultOverlays.terrain);
@@ -2412,6 +2417,7 @@ export default function HuntingMap() {
             contourNeedsZoomIn={showContours && mapZoom < CONTOUR_MIN_ZOOM}
             showSlope={showSlope}
             showWaterways={showWaterways}
+            showLandcover={showLandcover}
             showPropertyOwners={showPropertyLines}
             showWind={showWind}
             showMovement={showMovement}
@@ -2420,6 +2426,7 @@ export default function HuntingMap() {
             onToggleContours={() => setShowContours((current) => !current)}
             onToggleSlope={() => setShowSlope((current) => !current)}
             onToggleWaterways={() => setShowWaterways((current) => !current)}
+            onToggleLandcover={() => setShowLandcover((current) => !current)}
             onTogglePropertyOwners={togglePropertyLines}
             onToggleWind={toggleWind}
             onToggleMovement={toggleMovement}
@@ -2523,6 +2530,21 @@ export default function HuntingMap() {
                 zIndex={650 + index}
               />
             ))}
+
+            {showLandcover ? (
+              <WMSTileLayer
+                key="landcover-overlay"
+                className="di-landcover-overlay"
+                attribution={LANDCOVER_ATTRIBUTION}
+                url={LANDCOVER_WMS_URL}
+                layers={LANDCOVER_WMS_LAYER}
+                format="image/png"
+                transparent
+                version="1.1.1"
+                opacity={0.55}
+                zIndex={660}
+              />
+            ) : null}
 
             {showWaterways ? (
               <CachedTileLayer
@@ -2785,6 +2807,10 @@ export default function HuntingMap() {
           ) : null}
 
           {showTerrain && terrainReview ? <TerrainLegend /> : null}
+
+          {showLandcover ? (
+            <LandCoverLegend raised={showTerrain && !!terrainReview} />
+          ) : null}
 
           {showTerrain ? (
             <ScoutPicksPanel set={terrainReview} onSelect={flyToTerrainPick} />

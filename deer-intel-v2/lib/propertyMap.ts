@@ -29,10 +29,26 @@ export type MapOverlayId =
   | "contours"
   | "slope"
   | "waterways"
+  | "landcover"
   | "propertyLines"
   | "wind"
   | "movement"
   | "terrain";
+
+// The hunting-relevant NLCD classes, in the standard NLCD colours, with a
+// hunter-friendly read. Drives the Food & Cover legend.
+export const LAND_COVER_LEGEND: Array<{ color: string; label: string }> = [
+  { color: "#ab6c28", label: "Row crops (corn / soy / grain)" },
+  { color: "#dcd939", label: "Pasture / hay" },
+  { color: "#dfdfc2", label: "Grass / opening" },
+  { color: "#68ab5f", label: "Hardwoods (mast)" },
+  { color: "#1c5f2c", label: "Evergreen (thermal bedding)" },
+  { color: "#b5c58f", label: "Mixed forest" },
+  { color: "#ccb879", label: "Brush / browse" },
+  { color: "#b8d9eb", label: "Wooded wetland" },
+  { color: "#466b9f", label: "Water" },
+  { color: "#eb0000", label: "Developed" },
+];
 
 export type MapOverlayState = Record<MapOverlayId, boolean>;
 
@@ -55,6 +71,11 @@ export const MAP_OVERLAYS: Array<{
     id: "waterways",
     label: "Creeks & Rivers",
     description: "USGS streams, rivers and ponds — where deer water.",
+  },
+  {
+    id: "landcover",
+    label: "Food & Cover",
+    description: "Crop fields, pasture, grass and forest type (NLCD).",
   },
   {
     id: "propertyLines",
@@ -309,6 +330,15 @@ export const SLOPE_ATTRIBUTION = "Slope &copy; USGS 3DEP";
 export const WATER_TILE_URL =
   "https://basemap.nationalmap.gov/arcgis/rest/services/USGSHydroCached/MapServer/tile/{z}/{y}/{x}";
 export const WATER_ATTRIBUTION = "Hydrography &copy; USGS NHD";
+
+// USGS/MRLC National Land Cover Database — crop fields, pasture, grass openings
+// and forest TYPE (deciduous mast vs. evergreen thermal bedding cover), the food
+// + cover map for any property. A WMS overlay drawn in the standard NLCD colour
+// ramp (see LAND_COVER_LEGEND). Not crop-specific (all row crops read as one
+// class); that's the trade for a free, Web-Mercator-native service.
+export const LANDCOVER_WMS_URL = "https://www.mrlc.gov/geoserver/mrlc_display/wms";
+export const LANDCOVER_WMS_LAYER = "mrlc_display:NLCD_2021_Land_Cover_L48";
+export const LANDCOVER_ATTRIBUTION = "Land cover &copy; MRLC · USGS NLCD 2021";
 
 // BLM Surface Management Agency — federal + state/local public land colored by
 // its managing agency (BLM, USFS, NPS, USFWS, state, …). It's a cached XYZ

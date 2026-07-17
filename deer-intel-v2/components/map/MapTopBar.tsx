@@ -9,6 +9,7 @@ type MapTopBarProps = {
   contourNeedsZoomIn: boolean;
   showSlope: boolean;
   showWaterways: boolean;
+  showLandcover: boolean;
   showPropertyOwners: boolean;
   showWind: boolean;
   showMovement: boolean;
@@ -17,6 +18,7 @@ type MapTopBarProps = {
   onToggleContours: () => void;
   onToggleSlope: () => void;
   onToggleWaterways: () => void;
+  onToggleLandcover: () => void;
   onTogglePropertyOwners: () => void;
   onToggleWind: () => void;
   onToggleMovement: () => void;
@@ -39,6 +41,7 @@ export default function MapTopBar({
   contourNeedsZoomIn,
   showSlope,
   showWaterways,
+  showLandcover,
   showPropertyOwners,
   showWind,
   showMovement,
@@ -47,6 +50,7 @@ export default function MapTopBar({
   onToggleContours,
   onToggleSlope,
   onToggleWaterways,
+  onToggleLandcover,
   onTogglePropertyOwners,
   onToggleWind,
   onToggleMovement,
@@ -111,6 +115,16 @@ export default function MapTopBar({
         onClick={onToggleWaterways}
       >
         Creeks &amp; Rivers
+      </button>
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={showLandcover}
+        style={{ ...pillStyle, ...(showLandcover ? activeLandcoverPillStyle : null) }}
+        onClick={onToggleLandcover}
+      >
+        Food &amp; Cover
       </button>
 
       <button
@@ -237,6 +251,12 @@ const activePropertyOwnersPillStyle: CSSProperties = {
 const activeWaterwaysPillStyle: CSSProperties = {
   borderColor: "rgba(96, 165, 250, 0.7)",
   background: "#1e5f8a",
+  color: "white",
+};
+
+const activeLandcoverPillStyle: CSSProperties = {
+  borderColor: "rgba(220, 217, 57, 0.65)",
+  background: "#5c6d1e",
   color: "white",
 };
 
