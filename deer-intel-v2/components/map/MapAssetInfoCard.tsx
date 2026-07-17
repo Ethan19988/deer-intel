@@ -5,6 +5,7 @@ import type { MapAsset, MapAssetRoute } from "@/lib/propertyMap";
 import { PROPERTY_ASSET_PIN_TYPES, type MapPin, type PinType } from "@/types/mapPin";
 
 type PinUpdates = {
+  name: string;
   type: PinType;
   notes: string;
   lat: number;
@@ -39,6 +40,7 @@ export default function MapAssetInfoCard({
 }: MapAssetInfoCardProps) {
   const [actionMessage, setActionMessage] = useState("");
   const [isEditingPin, setIsEditingPin] = useState(false);
+  const [draftName, setDraftName] = useState(pin?.name ?? "");
   const [draftType, setDraftType] = useState<PinType>(pin?.type ?? "Stand");
   const [draftNotes, setDraftNotes] = useState(pin?.notes ?? "");
   const [draftLat, setDraftLat] = useState("");
@@ -53,6 +55,7 @@ export default function MapAssetInfoCard({
   function startPinEdit() {
     if (!pin) return;
 
+    setDraftName(pin.name);
     setDraftType(pin.type);
     setDraftNotes(pin.notes);
     setDraftLat(String(pin.lat));
@@ -75,7 +78,13 @@ export default function MapAssetInfoCard({
       return;
     }
 
-    onSavePin?.({ type: draftType, notes: draftNotes.trim(), lat, lng });
+    onSavePin?.({
+      name: draftName.trim(),
+      type: draftType,
+      notes: draftNotes.trim(),
+      lat,
+      lng,
+    });
     setIsEditingPin(false);
     setActionMessage("Pin updated.");
   }
@@ -115,6 +124,17 @@ export default function MapAssetInfoCard({
 
       {isEditingPin && pin ? (
         <div style={detailsStyle}>
+          <label style={editFieldStyle}>
+            <span style={infoLabelStyle}>Name</span>
+            <input
+              aria-label="Pin name"
+              type="text"
+              value={draftName}
+              placeholder={pin.type}
+              style={editInputStyle}
+              onChange={(event) => setDraftName(event.target.value)}
+            />
+          </label>
           <label style={editFieldStyle}>
             <span style={infoLabelStyle}>Pin Type</span>
             <select

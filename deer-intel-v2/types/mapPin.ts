@@ -43,5 +43,7 @@ export type MapPin = {
   lat: number;
   lng: number;
   createdAt: string;
+  /** Display name shown as the pin's title; falls back to notes, then type. */
+  name: string;
   notes: string;
 };

@@ -156,6 +156,7 @@ export default function PinImportPage() {
       lat: draft.lat,
       lng: draft.lng,
       createdAt,
+      name: draft.name.trim(),
       notes: buildPinNotes(draft),
     }));
 
@@ -400,14 +401,10 @@ function draftFromWaypoint(
   };
 }
 
+// The waypoint's name lives in the pin's name field now, so notes carry just
+// the description and provenance.
 function buildPinNotes(draft: PinDraft) {
-  return [
-    draft.name.trim() && draft.name.trim() !== draft.type
-      ? draft.name.trim()
-      : "",
-    draft.description.trim(),
-    `Imported from ${draft.fileName}.`,
-  ]
+  return [draft.description.trim(), `Imported from ${draft.fileName}.`]
     .filter(Boolean)
     .join(" — ");
 }

@@ -1777,15 +1777,15 @@ export default function HuntingMap() {
   }
 
   function createPinAtLocation(type: PinType, lat: number, lng: number) {
-    const notes = window.prompt(`Name or notes for this ${type}`, "");
+    const name = window.prompt(`Name or notes for this ${type}`, "");
 
-    if (notes === null) {
+    if (name === null) {
       setIsPlacingPin(false);
       setPinBoxMessage("Pin placement canceled.");
       return null;
     }
 
-    const pinId = addPin(type, lat, lng, notes.trim());
+    const pinId = addPin(type, lat, lng, name.trim());
 
     if (!pinId) return null;
 
@@ -1850,7 +1850,7 @@ export default function HuntingMap() {
     if (selectedAsset.pinId) deletePin(selectedAsset.pinId);
   }
 
-  function addPin(type: PinType, lat: number, lng: number, notes = "") {
+  function addPin(type: PinType, lat: number, lng: number, name = "") {
     if (!selectedPropertyId) return null;
 
     const pinId = createDeerIntelId("pin");
@@ -1866,7 +1866,8 @@ export default function HuntingMap() {
           lat,
           lng,
           createdAt: new Date().toISOString(),
-          notes,
+          name,
+          notes: "",
         },
       ],
     }));
@@ -1876,7 +1877,13 @@ export default function HuntingMap() {
 
   function updatePin(
     pinId: string,
-    updates: { type: PinType; notes: string; lat: number; lng: number },
+    updates: {
+      name: string;
+      type: PinType;
+      notes: string;
+      lat: number;
+      lng: number;
+    },
   ) {
     updateDeerIntelStore((currentState) => ({
       ...currentState,
@@ -1884,6 +1891,7 @@ export default function HuntingMap() {
         pin.id === pinId
           ? {
               ...pin,
+              name: updates.name,
               type: updates.type,
               notes: updates.notes,
               lat: updates.lat,

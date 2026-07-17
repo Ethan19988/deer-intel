@@ -209,6 +209,7 @@ function normalizePin(value: unknown): MapPin | null {
     lat: value.lat,
     lng: value.lng,
     createdAt: stringValue(value.createdAt),
+    name: stringValue(value.name),
     notes: stringValue(value.notes),
   };
 }
