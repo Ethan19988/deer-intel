@@ -92,6 +92,9 @@ MAX_PER_KIND = {"bedding": 60, "travel": 70, "pinch": 50, "refuge": 10}
 ROUTE_DS_FACTOR = 10          # metres per pathfinding cell (10x the 1 m DEM)
 ROUTE_SLOPE_REF = 12.0        # slope (deg) at which effort has roughly doubled
 ROUTE_MAX_SLOPE = 42.0        # steeper than this is treated as near-impassable
+ROUTE_ROUGH_W = 0.25          # weight of "avoid generally steep ground" vs. the
+                              # dominant per-step climb term (keeps deer off nasty
+                              # faces even when they'd contour across them)
 ROUTE_MAX = 24                # a bed-to-feed route from every worthwhile bed
 
 # When the tiler runs scout_rules on a slice of a big tract, it sets CAP_SCALE so
@@ -297,21 +300,37 @@ def bench_centerlines(mask, dem, transform, to_wgs, min_area_m2, max_keep):
     return out[:max_keep]
 
 
-def _grid_graph(cost, cell_m):
-    """8-connected grid graph; edge weight = mean cell cost * segment length."""
-    hh, ww = cost.shape
+def _grid_graph(slope_ds, elev_ds, cell_m):
+    """8-connected least-effort graph.
+
+    The dominant edge term is the GRADE of the step — the rise/run between the
+    two cells — squared. Squaring is what makes a deer's path realistic: the
+    cheapest way to lose (or gain) a fixed amount of elevation is to spread it
+    over distance, so the path contours, sidehills, and eases down draws instead
+    of running straight up a face or plunging straight down to the food. A
+    smaller roughness term keeps it off generally steep ground even where it
+    could contour across, and cells past ROUTE_MAX_SLOPE are near-impassable.
+    """
+    hh, ww = slope_ds.shape
     idx = np.arange(hh * ww).reshape(hh, ww)
+    rough = (slope_ds / ROUTE_SLOPE_REF) ** 2
+    blocked = slope_ds > ROUTE_MAX_SLOPE
     rows, cols, data = [], [], []
     steps = [(-1, 0, 1.0), (1, 0, 1.0), (0, -1, 1.0), (0, 1, 1.0),
              (-1, -1, 1.41421), (-1, 1, 1.41421), (1, -1, 1.41421), (1, 1, 1.41421)]
     for dy, dx, dd in steps:
         ys0, ys1 = max(0, -dy), hh - max(0, dy)
         xs0, xs1 = max(0, -dx), ww - max(0, dx)
-        src = idx[ys0:ys1, xs0:xs1]
-        tgt = idx[ys0 + dy:ys1 + dy, xs0 + dx:xs1 + dx]
-        w = (cost[ys0:ys1, xs0:xs1] + cost[ys0 + dy:ys1 + dy, xs0 + dx:xs1 + dx]) * 0.5 * dd * cell_m
-        rows.append(src.ravel())
-        cols.append(tgt.ravel())
+        a = (slice(ys0, ys1), slice(xs0, xs1))
+        b = (slice(ys0 + dy, ys1 + dy), slice(xs0 + dx, xs1 + dx))
+        horiz = dd * cell_m
+        climb_deg = np.degrees(np.arctan2(np.abs(elev_ds[b] - elev_ds[a]), horiz))
+        climb = (climb_deg / ROUTE_SLOPE_REF) ** 2
+        edge_rough = 0.5 * (rough[a] + rough[b])
+        w = horiz * (1.0 + climb + ROUTE_ROUGH_W * edge_rough)
+        w = np.where(blocked[a] | blocked[b], horiz * 1e4, w)
+        rows.append(idx[a].ravel())
+        cols.append(idx[b].ravel())
         data.append(w.ravel())
     return csr_matrix(
         (np.concatenate(data), (np.concatenate(rows), np.concatenate(cols))),
@@ -319,11 +338,29 @@ def _grid_graph(cost, cell_m):
     )
 
 
-def bed_to_feed_routes(slope, transform, crs, to_wgs, food_lonlat, beds, max_routes):
-    """Least-cost paths from the top beds to a food source over a slope-cost
-    surface — where deer actually travel bed<->feed, not just where terrain
-    allows it. Runs on a ROUTE_DS_FACTOR-metre downsampling (a route needs no
-    1 m precision, and 36 M cells won't fit a graph)."""
+def _chaikin(coords, iters=2):
+    """Round the 8-direction staircase into a natural trail (corner-cutting).
+    Deer don't turn in 45 degree steps; this eases the polyline the way a game
+    trail actually curves."""
+    for _ in range(iters):
+        if len(coords) < 3:
+            break
+        out = [coords[0]]
+        for p, q in zip(coords[:-1], coords[1:]):
+            out.append([p[0] * 0.75 + q[0] * 0.25, p[1] * 0.75 + q[1] * 0.25])
+            out.append([p[0] * 0.25 + q[0] * 0.75, p[1] * 0.25 + q[1] * 0.75])
+        out.append(coords[-1])
+        coords = out
+    return coords
+
+
+def bed_to_feed_routes(slope, dem, transform, crs, to_wgs, food_lonlat, beds, max_routes):
+    """Least-effort paths from the top beds to a food source — where deer
+    actually travel bed<->feed, not just where terrain allows it. The cost is
+    driven by the GRADE of each step (see _grid_graph), so the path follows the
+    line of least resistance: it contours and eases down draws instead of running
+    straight. Runs on a ROUTE_DS_FACTOR-metre downsampling (a route needs no 1 m
+    precision, and 36 M cells won't fit a graph)."""
     if not beds or not food_lonlat:
         return []
     F = ROUTE_DS_FACTOR
@@ -332,11 +369,11 @@ def bed_to_feed_routes(slope, transform, crs, to_wgs, food_lonlat, beds, max_rou
     if hh0 == 0 or ww0 == 0:
         return []
     s = np.nan_to_num(slope[:hh0, :ww0], nan=90.0).reshape(hh0 // F, F, ww0 // F, F).mean(axis=(1, 3))
+    e = np.nan_to_num(dem[:hh0, :ww0], nan=float(np.nanmean(dem))).reshape(
+        hh0 // F, F, ww0 // F, F).mean(axis=(1, 3))
     hh, ww = s.shape
     cell_m = F * abs(transform.a)
-    cost = 1.0 + (s / ROUTE_SLOPE_REF) ** 2
-    cost[s > ROUTE_MAX_SLOPE] = 1e4  # near-impassable, never a hard wall
-    graph = _grid_graph(cost, cell_m)
+    graph = _grid_graph(s, e, cell_m)
 
     to_crs = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
 
@@ -371,7 +408,7 @@ def bed_to_feed_routes(slope, transform, crs, to_wgs, food_lonlat, beds, max_rou
             x, y = transform * ((c + 0.5) * F, (r + 0.5) * F)
             lng, lat = to_wgs.transform(x, y)
             coords.append([lng, lat])
-        line = LineString(coords).simplify(0.0004)
+        line = LineString(_chaikin(coords, 2)).simplify(0.00006)
         latlng = [[round(la, 5), round(lo, 5)] for lo, la in line.coords]
         if len(latlng) >= 2:
             routes.append({"coords": latlng})
@@ -696,7 +733,7 @@ def main():
         print("[rules] bed-to-feed routes", flush=True)
         for pk, food in enumerate(food_pts):
             routes = bed_to_feed_routes(
-                slope, transform, crs, to_wgs, food, beds, ROUTE_MAX
+                slope, dem, transform, crs, to_wgs, food, beds, ROUTE_MAX
             )
             for k, rt in enumerate(routes):
                 features_out.append({
