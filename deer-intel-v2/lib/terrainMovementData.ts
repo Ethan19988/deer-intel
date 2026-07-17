@@ -15,6 +15,11 @@ import type {
 import { GENERATED_TERRAIN_SETS } from "@/lib/generated/terrainSets";
 import { huntAreaContains } from "@/lib/huntArea";
 import type { HuntAreaPoint } from "@/types/property";
+import {
+  confirmFeature,
+  type CameraObservation,
+  type FeatureConfirmation,
+} from "@/lib/terrainLearning";
 
 // Only pipeline-generated 1 m sets are pre-registered. Each is generated for the
 // property's own drawn bbox, so it already covers the whole outline. Everything
@@ -53,6 +58,8 @@ export type ScoutPick = {
   roadDistM?: number;
   point: LatLng;
   rank: number;
+  /** Trail-camera evidence backing this spot, when cameras confirm it (Phase 3). */
+  confirmation?: FeatureConfirmation;
 };
 
 // Rank order for "where do I go?": saddle stands first (the payoff), then the
@@ -86,23 +93,50 @@ function pickPriority(feature: TerrainMovementFeature): number {
   return isBedToFeedRoute(feature) ? ROUTE_PRIORITY : KIND_PRIORITY[feature.kind];
 }
 
-/** Ranked, tappable scouting picks derived from a terrain set's features. */
-export function getScoutPicks(set: TerrainMovementSet): ScoutPick[] {
-  // Copy before sorting — set.features belongs to the imported set and must not
-  // be reordered in place. Array.sort is stable, so equal-priority features keep
-  // their emitted order.
-  return [...set.features]
-    .sort((a, b) => pickPriority(a) - pickPriority(b))
-    .map((feature, index) => ({
-      id: feature.id,
-      kind: feature.kind,
-      title: feature.title,
-      reason: feature.detail,
-      windNote: feature.windNote,
-      roadDistM: feature.roadDistM,
-      point: featureAnchor(feature),
-      rank: index + 1,
-    }));
+/** Ranked, tappable scouting picks derived from a terrain set's features.
+ *  With camera observations (Phase 3), spots confirmed by nearby recorded deer
+ *  activity rank first — strongest evidence first — and carry that evidence; the
+ *  rest keep their terrain-logic order. Without observations it's unchanged. */
+export function getScoutPicks(
+  set: TerrainMovementSet,
+  observations?: CameraObservation[],
+): ScoutPick[] {
+  // Copy before mapping — set.features belongs to the imported set and must not
+  // be reordered in place. The inline length check narrows `observations` so
+  // confirmAt always gets a defined array.
+  const enriched = set.features.map((feature) => {
+    const anchor = featureAnchor(feature);
+    return {
+      feature,
+      anchor,
+      confirmation:
+        observations && observations.length > 0 ? confirmFeature(feature, observations) : null,
+    };
+  });
+
+  // Confirmed spots first (by evidence strength), then the terrain-logic order.
+  // Array.sort is stable, so equal keys keep the emitted order.
+  enriched.sort((a, b) => {
+    const sa = a.confirmation?.score ?? 0;
+    const sb = b.confirmation?.score ?? 0;
+    const ca = sa > 0 ? 1 : 0;
+    const cb = sb > 0 ? 1 : 0;
+    if (ca !== cb) return cb - ca;
+    if (ca && sb !== sa) return sb - sa;
+    return pickPriority(a.feature) - pickPriority(b.feature);
+  });
+
+  return enriched.map(({ feature, anchor, confirmation }, index) => ({
+    id: feature.id,
+    kind: feature.kind,
+    title: feature.title,
+    reason: feature.detail,
+    windNote: feature.windNote,
+    roadDistM: feature.roadDistM,
+    point: anchor,
+    rank: index + 1,
+    confirmation: confirmation ?? undefined,
+  }));
 }
 
 /**

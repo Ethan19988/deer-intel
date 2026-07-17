@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { TERRAIN_STYLE, type LatLng, type TerrainMovementSet } from "@/lib/terrainMovement";
 import { getScoutPicks } from "@/lib/terrainMovementData";
+import { aggregateCameraActivity } from "@/lib/terrainLearning";
+import { useDeerIntelStore } from "@/lib/deerIntelStore";
 import { terrainPlaybook, type PlaybookTone } from "@/lib/terrainPlaybook";
 
 type ScoutPicksPanelProps = {
@@ -11,6 +13,15 @@ type ScoutPicksPanelProps = {
 };
 
 const metersToYards = (m: number): number => Math.round(m * 1.0936);
+
+// The strongest nearby camera's counts, zeros omitted — the confirmation detail.
+function confirmCounts(c: { bucks: number; does: number; fawns: number }): string {
+  const parts: string[] = [];
+  if (c.bucks) parts.push(`${c.bucks} bucks`);
+  if (c.does) parts.push(`${c.does} does`);
+  if (c.fawns) parts.push(`${c.fawns} fawns`);
+  return parts.length ? ` · ${parts.join(", ")}` : "";
+}
 
 // S1 "Goldilocks" band, mirroring the pipeline's SECURITY_BAND_M = (450, 900) m:
 // too close and deer stay nocturnal; in-band is where hunters kill mature bucks;
@@ -36,6 +47,13 @@ export default function ScoutPicksPanel({ set, onSelect }: ScoutPicksPanelProps)
   const [open, setOpen] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Grade the picks against the hunter's own trail-camera activity (local data).
+  const state = useDeerIntelStore();
+  const observations = useMemo(
+    () => aggregateCameraActivity(state.cameras, state.cameraChecks),
+    [state.cameras, state.cameraChecks],
+  );
+
   if (!set) {
     return (
       <div style={wrapStyle}>
@@ -46,7 +64,8 @@ export default function ScoutPicksPanel({ set, onSelect }: ScoutPicksPanelProps)
     );
   }
 
-  const picks = getScoutPicks(set);
+  const picks = getScoutPicks(set, observations);
+  const confirmedCount = picks.filter((pick) => pick.confirmation).length;
 
   return (
     <div style={wrapStyle} onDoubleClick={(event) => event.stopPropagation()}>
@@ -88,6 +107,13 @@ export default function ScoutPicksPanel({ set, onSelect }: ScoutPicksPanelProps)
                         {securityBand(pick.roadDistM).label}
                       </span>
                     ) : null}
+                    {pick.confirmation ? (
+                      <span style={confirmStyle}>
+                        ✓ Confirmed · {pick.confirmation.cameraName}{" "}
+                        {metersToYards(pick.confirmation.distanceM)} yd
+                        {confirmCounts(pick.confirmation)}
+                      </span>
+                    ) : null}
                   </span>
                 </button>
 
@@ -121,7 +147,12 @@ export default function ScoutPicksPanel({ set, onSelect }: ScoutPicksPanelProps)
               </div>
             );
           })}
-          <p style={footStyle}>{set.source}</p>
+          <p style={footStyle}>
+            {confirmedCount > 0
+              ? `✓ ${confirmedCount} confirmed by your cameras · `
+              : ""}
+            {set.source}
+          </p>
         </div>
       ) : null}
     </div>
@@ -304,6 +335,13 @@ const rowMetaStyle: CSSProperties = {
   fontSize: "0.72rem",
   fontWeight: 700,
   lineHeight: 1.3,
+};
+
+const confirmStyle: CSSProperties = {
+  fontSize: "0.72rem",
+  fontWeight: 800,
+  lineHeight: 1.3,
+  color: "#8fd68a",
 };
 
 const footStyle: CSSProperties = {

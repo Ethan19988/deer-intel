@@ -25,6 +25,7 @@ import {
 } from "@/lib/deerIntelligenceHub";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { clipTerrainSetToArea, getScoutPicks } from "@/lib/terrainMovementData";
+import { aggregateCameraActivity } from "@/lib/terrainLearning";
 import {
   boundsOfHuntArea,
   centerOfBounds,
@@ -91,9 +92,11 @@ export default function AIPage() {
     selectedProperty?.name,
     terrainBbox,
   );
-  // Keep the AI's terrain picks to the drawn hunt area, same as the map.
+  // Keep the AI's terrain picks to the drawn hunt area, same as the map, and
+  // grade them against this property's trail-camera activity (Phase 3 learning).
   const terrainReview = clipTerrainSetToArea(terrainSet, selectedProperty?.huntArea);
-  const scoutPicks = terrainReview ? getScoutPicks(terrainReview) : [];
+  const observations = aggregateCameraActivity(propertyCameras, propertyCameraChecks);
+  const scoutPicks = terrainReview ? getScoutPicks(terrainReview, observations) : [];
 
   function selectProperty(propertyId: string) {
     updateDeerIntelStore((currentState) => ({
@@ -352,6 +355,13 @@ export default function AIPage() {
                         <p style={scoutPickReasonStyle}>{pick.reason}</p>
                         {pick.windNote ? (
                           <p style={scoutPickWindStyle}>🌬️ {pick.windNote}</p>
+                        ) : null}
+                        {pick.confirmation ? (
+                          <p style={scoutPickConfirmStyle}>
+                            ✓ Confirmed by {pick.confirmation.cameraName} (
+                            {Math.round(pick.confirmation.distanceM * 1.0936)} yd) —{" "}
+                            {pick.confirmation.bucks} bucks, {pick.confirmation.does} does
+                          </p>
                         ) : null}
                       </div>
                     </li>
@@ -812,5 +822,13 @@ const scoutPickWindStyle: CSSProperties = {
   color: "var(--accent-text)",
   fontSize: "0.92rem",
   fontWeight: 700,
+  lineHeight: 1.4,
+};
+
+const scoutPickConfirmStyle: CSSProperties = {
+  margin: "0.3rem 0 0",
+  color: "var(--accent)",
+  fontSize: "0.9rem",
+  fontWeight: 800,
   lineHeight: 1.4,
 };
