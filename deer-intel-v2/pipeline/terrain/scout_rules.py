@@ -32,7 +32,7 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import dijkstra
 from scipy.stats import circmean
 from shapely.geometry import LineString, box, mapping, shape
-from shapely.ops import transform as shp_transform
+from shapely.ops import transform as shp_transform, unary_union, linemerge
 from pyproj import Transformer
 
 # WhiteboxTools geomorphon "forms" coding (Jasiewicz & Stepinski 10-class).
@@ -96,6 +96,10 @@ ROUTE_ROUGH_W = 0.25          # weight of "avoid generally steep ground" vs. the
                               # dominant per-step climb term (keeps deer off nasty
                               # faces even when they'd contour across them)
 ROUTE_MAX = 24                # a bed-to-feed route from every worthwhile bed
+XING_MAX = 18                 # water-crossing funnels (travel corridor x drainage)
+XING_DRAINAGES = 30           # only the N longest drainages count as real water,
+                              # not every 1 m micro-gully in the DEM stream net
+XING_DEDUP_DEG = 0.0018       # ~200 m: don't stack crossings on top of each other
 
 # When the tiler runs scout_rules on a slice of a big tract, it sets CAP_SCALE so
 # each tile gets its SHARE of the whole-property caps (e.g. a quarter of the 60
@@ -106,6 +110,7 @@ if _CAP_SCALE != 1.0:
     MAX_PER_KIND = {k: max(1, round(v * _CAP_SCALE)) for k, v in MAX_PER_KIND.items()}
     BENCH_MAX = max(1, round(BENCH_MAX * _CAP_SCALE))
     ROUTE_MAX = max(1, round(ROUTE_MAX * _CAP_SCALE))
+    XING_MAX = max(1, round(XING_MAX * _CAP_SCALE))
 
 DIRS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
         "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
@@ -352,6 +357,25 @@ def _chaikin(coords, iters=2):
         out.append(coords[-1])
         coords = out
     return coords
+
+
+def _crossing_points(geom):
+    """Representative points where two lines meet: the point(s), or the midpoint
+    of any stretch where they run together."""
+    out = []
+    if geom.is_empty:
+        return out
+    gt = geom.geom_type
+    if gt == "Point":
+        out.append(geom)
+    elif gt == "MultiPoint":
+        out.extend(geom.geoms)
+    elif gt == "LineString":
+        out.append(geom.interpolate(0.5, normalized=True))
+    elif gt in ("MultiLineString", "GeometryCollection"):
+        for g in geom.geoms:
+            out.extend(_crossing_points(g))
+    return out
 
 
 def bed_to_feed_routes(slope, dem, transform, crs, to_wgs, food_lonlat, beds, max_routes):
@@ -786,6 +810,55 @@ def main():
                 "windNote": thermal_note() + " Hunt the lower end at dawn, the upper end midday.",
                 "line": coords,
             })
+
+        # ---- Water-crossing funnels: where a travel corridor meets a real
+        # drainage. A deer sidehilling a bench, or routing bed<->feed, dips
+        # through the draw to get across — that crossing pinches movement AND
+        # sits on water, one of the highest-odds stands. Only the longest
+        # drainages count (creeks + major draws), not every 1 m micro-gully.
+        merged = linemerge(unary_union(lines)) if lines else None
+        drains = []
+        if merged is not None and not merged.is_empty:
+            drains = list(merged.geoms) if merged.geom_type == "MultiLineString" else [merged]
+            drains.sort(key=lambda ln: ln.length, reverse=True)
+        major = unary_union(drains[:XING_DRAINAGES]) if drains else None
+        if major is not None and not major.is_empty:
+            existing = [tuple(f["point"]) for f in features_out if f.get("kind") == "pinch"]
+            cand = []  # (lat, lng, on_route)
+            for feat in features_out:
+                if feat.get("kind") != "travel":
+                    continue
+                fid = feat.get("id", "")
+                is_route = "-route-" in fid
+                if not is_route and "-bench-" not in fid:
+                    continue
+                trav = LineString([(c[1], c[0]) for c in feat["line"]])
+                for p in _crossing_points(trav.intersection(major)):
+                    cand.append((round(p.y, 5), round(p.x, 5), is_route))
+            cand.sort(key=lambda c: 0 if c[2] else 1)  # route crossings first
+            kept = []
+            for lat, lng, is_route in cand:
+                if any(abs(lat - a) + abs(lng - b) < XING_DEDUP_DEG for a, b, _ in kept):
+                    continue
+                if any(abs(lat - a) + abs(lng - b) < XING_DEDUP_DEG for a, b in existing):
+                    continue
+                kept.append((lat, lng, is_route))
+                if len(kept) >= XING_MAX:
+                    break
+            for k, (lat, lng, is_route) in enumerate(kept):
+                via = "bed-to-feed route" if is_route else "travel corridor"
+                features_out.append({
+                    "id": f"{args.name}-xing-{k}", "kind": "pinch",
+                    "title": "Water crossing",
+                    "detail": (f"Where a {via} crosses a drainage — deer funnel through the "
+                               "low gap to get across, with reliable water right there. One of "
+                               "the highest-odds stands on the property."),
+                    "windNote": ("Sit the downwind bank. Morning thermals sink into the "
+                                 "drainage, so hunt the low end at first light. " + thermal_note()),
+                    "point": [lat, lng],
+                })
+            if kept:
+                print(f"[rules] {len(kept)} water crossings", flush=True)
 
     # Center = mean of all feature anchor points (for the app map focus).
     all_pts = []

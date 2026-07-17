@@ -1,8 +1,8 @@
 {
   "areaName": "Moore Hill",
   "center": [
-    41.43465,
-    -78.33699
+    41.43467,
+    -78.33632
   ],
   "source": "1 m LiDAR terrain read \u00b7 Penn State Deer-Forest rules",
   "features": [
@@ -20076,6 +20076,138 @@
           41.46484,
           -78.4055
         ]
+      ]
+    },
+    {
+      "id": "moore-hill-xing-0",
+      "kind": "pinch",
+      "title": "Water crossing",
+      "detail": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property.",
+      "windNote": "Sit the downwind bank. Morning thermals sink into the drainage, so hunt the low end at first light. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        41.44918,
+        -78.31745
+      ]
+    },
+    {
+      "id": "moore-hill-xing-1",
+      "kind": "pinch",
+      "title": "Water crossing",
+      "detail": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property.",
+      "windNote": "Sit the downwind bank. Morning thermals sink into the drainage, so hunt the low end at first light. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        41.45367,
+        -78.31494
+      ]
+    },
+    {
+      "id": "moore-hill-xing-2",
+      "kind": "pinch",
+      "title": "Water crossing",
+      "detail": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property.",
+      "windNote": "Sit the downwind bank. Morning thermals sink into the drainage, so hunt the low end at first light. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        41.44044,
+        -78.33126
+      ]
+    },
+    {
+      "id": "moore-hill-xing-3",
+      "kind": "pinch",
+      "title": "Water crossing",
+      "detail": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property.",
+      "windNote": "Sit the downwind bank. Morning thermals sink into the drainage, so hunt the low end at first light. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        41.45128,
+        -78.28641
+      ]
+    },
+    {
+      "id": "moore-hill-xing-4",
+      "kind": "pinch",
+      "title": "Water crossing",
+      "detail": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property.",
+      "windNote": "Sit the downwind bank. Morning thermals sink into the drainage, so hunt the low end at first light. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        41.42209,
+        -78.31937
+      ]
+    },
+    {
+      "id": "moore-hill-xing-5",
+      "kind": "pinch",
+      "title": "Water crossing",
+      "detail": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property.",
+      "windNote": "Sit the downwind bank. Morning thermals sink into the drainage, so hunt the low end at first light. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        41.42239,
+        -78.31639
+      ]
+    },
+    {
+      "id": "moore-hill-xing-6",
+      "kind": "pinch",
+      "title": "Water crossing",
+      "detail": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property.",
+      "windNote": "Sit the downwind bank. Morning thermals sink into the drainage, so hunt the low end at first light. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        41.42017,
+        -78.33125
+      ]
+    },
+    {
+      "id": "moore-hill-xing-7",
+      "kind": "pinch",
+      "title": "Water crossing",
+      "detail": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property.",
+      "windNote": "Sit the downwind bank. Morning thermals sink into the drainage, so hunt the low end at first light. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        41.43598,
+        -78.35986
+      ]
+    },
+    {
+      "id": "moore-hill-xing-8",
+      "kind": "pinch",
+      "title": "Water crossing",
+      "detail": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property.",
+      "windNote": "Sit the downwind bank. Morning thermals sink into the drainage, so hunt the low end at first light. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        41.43297,
+        -78.31871
+      ]
+    },
+    {
+      "id": "moore-hill-xing-9",
+      "kind": "pinch",
+      "title": "Water crossing",
+      "detail": "Where a travel corridor crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property.",
+      "windNote": "Sit the downwind bank. Morning thermals sink into the drainage, so hunt the low end at first light. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        41.43337,
+        -78.36151
+      ]
+    },
+    {
+      "id": "moore-hill-xing-10",
+      "kind": "pinch",
+      "title": "Water crossing",
+      "detail": "Where a travel corridor crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property.",
+      "windNote": "Sit the downwind bank. Morning thermals sink into the drainage, so hunt the low end at first light. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        41.44882,
+        -78.31381
+      ]
+    },
+    {
+      "id": "moore-hill-xing-11",
+      "kind": "pinch",
+      "title": "Water crossing",
+      "detail": "Where a travel corridor crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property.",
+      "windNote": "Sit the downwind bank. Morning thermals sink into the drainage, so hunt the low end at first light. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        41.41041,
+        -78.27793
       ]
     }
   ]

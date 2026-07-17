@@ -11848,6 +11848,23 @@
         "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
         "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday."
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.16482,
+          40.0098
+        ]
+      },
+      "properties": {
+        "id": "sideling-hill-xing-0",
+        "kind": "pinch",
+        "title": "Water crossing",
+        "detail": "Where a travel corridor crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property.",
+        "windNote": "Sit the downwind bank. Morning thermals sink into the drainage, so hunt the low end at first light. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side."
+      }
     }
   ]
 }

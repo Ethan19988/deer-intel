@@ -1,8 +1,8 @@
 {
   "areaName": "Sideling Hill",
   "center": [
-    39.97742,
-    -78.15754
+    39.97755,
+    -78.15757
   ],
   "source": "1 m LiDAR terrain read \u00b7 Penn State Deer-Forest rules",
   "features": [
@@ -9992,6 +9992,17 @@
           39.99489,
           -78.16829
         ]
+      ]
+    },
+    {
+      "id": "sideling-hill-xing-0",
+      "kind": "pinch",
+      "title": "Water crossing",
+      "detail": "Where a travel corridor crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property.",
+      "windNote": "Sit the downwind bank. Morning thermals sink into the drainage, so hunt the low end at first light. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        40.0098,
+        -78.16482
       ]
     }
   ]
