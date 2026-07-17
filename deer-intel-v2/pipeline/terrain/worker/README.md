@@ -35,8 +35,16 @@ docker run --rm \
   -e SUPABASE_URL="https://YOURPROJECT.supabase.co" \
   -e SUPABASE_SERVICE_ROLE_KEY="eyJ...service-role..." \
   -e WORKER_ID="worker-1" \
+  -e TILE_CACHE_DIR="/cache" \
+  -v deer-tiles:/cache \
   deer-intel-terrain-worker
 ```
+
+**Mount `TILE_CACHE_DIR` on a persistent volume.** USGS tile filenames are
+globally unique, so this one cache is shared across every property — overlapping
+tracts (and re-reads) reuse tiles instead of re-downloading ~300 MB apiece. On a
+scale-to-zero host, back it with a persistent volume so the cache survives
+between wake-ups.
 
 **Size it at 8–16 GB RAM.** A whole-tract read (e.g. Moore Hill, 130M cells at
 1 m) peaks near 5 GB in `scout_rules` and more in the WhiteboxTools step; give it
@@ -89,8 +97,16 @@ needed.
 - **Isolation**: RLS scopes every job/set to its owner; the worker is the only
   writer of results, via the service-role key.
 
-## Not in Phase 1
+## Phase 2 (now in)
 
-Auto-enqueue on area-draw, LiDAR/derivative caching across neighboring
-properties, auto-tiling huge tracts, and the learning layer (re-ranking
-predictions against trail-cam hits) — see the architecture sketch.
+- **Auto-enqueue on area-draw** — finishing a hunt area on the map queues a read
+  automatically (no button click needed); the button remains for status +
+  manual re-run.
+- **Shared LiDAR cache** — `TILE_CACHE_DIR` above; neighboring tracts reuse tiles.
+- **Progress** — the worker writes a `stage` label on the job (fetching
+  elevation → derivatives → reading terrain) that the button shows.
+
+## Still ahead
+
+Auto-tiling huge tracts (so an 8 GB worker never swaps), and the learning layer
+(re-ranking predictions against trail-cam hits) — see the architecture sketch.

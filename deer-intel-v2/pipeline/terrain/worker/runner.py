@@ -97,10 +97,19 @@ def run(cmd: list[str]) -> str:
     return p.stdout or ""
 
 
+def stage(job_id: str, label: str) -> None:
+    """Best-effort progress label for the UI; never fail the job over it."""
+    try:
+        update_job(job_id, {"stage": label})
+    except Exception as e:  # noqa: BLE001
+        print(f"[worker] stage update failed: {e}", flush=True)
+
+
 def process(job: dict) -> None:
     name = safe_name(job["property_id"])
     work = os.path.join(PIPELINE_DIR, "work", name)
     os.makedirs(work, exist_ok=True)
+    jid = job["id"]
 
     # 1. The drawn outline (clip target) as a FeatureCollection.
     outline_path = os.path.join(work, "outline.geojson")
@@ -111,12 +120,15 @@ def process(job: dict) -> None:
             f,
         )
 
-    # 2. DEM for the outline's bbox [minLng, minLat, maxLng, maxLat].
+    # 2. DEM for the outline's bbox [minLng, minLat, maxLng, maxLat]. Tiles land
+    #    in the shared cache (TILE_CACHE_DIR), so overlapping tracts reuse them.
+    stage(jid, "fetching elevation")
     bbox = [str(v) for v in job["bbox"]]
     run(["python3", "fetch_dem.py", "--name", name, "--bbox", *bbox])
 
     # 3. Roads (best-effort — Overpass sometimes 504s; the read still works
     #    without the security band).
+    stage(jid, "fetching roads")
     roads = os.path.join(work, "roads.geojson")
     try:
         run(["python3", "fetch_roads.py", "--name", name])
@@ -124,8 +136,10 @@ def process(job: dict) -> None:
         print(f"[worker] roads unavailable, continuing: {e}", flush=True)
 
     # 4. Derivatives (WhiteboxTools) and rules, clipped to the outline.
+    stage(jid, "terrain derivatives")
     run(["python3", "terrain_derivatives.py", "--name", name])
 
+    stage(jid, "reading terrain")
     out_dir = tempfile.mkdtemp(prefix="terrain-out-")
     rules = ["python3", "scout_rules.py", "--name", name, "--out", out_dir,
              "--focus-geojson", outline_path, "--area-name", job.get("property_name") or name]
@@ -152,7 +166,7 @@ def process(job: dict) -> None:
         "cell_count": cell_count,
         "generated_at": now_iso(),
     })
-    update_job(job["id"], {"status": "done", "finished_at": now_iso(), "error": None})
+    update_job(job["id"], {"status": "done", "finished_at": now_iso(), "error": None, "stage": None})
     print(f"[worker] done {job['property_id']}: {len(movement.get('features', []))} features", flush=True)
 
 

@@ -65,7 +65,12 @@ def query_tnm(bbox: list[float]) -> list[str]:
 
 
 def download(urls: list[str], dest_dir: str) -> list[str]:
-    """Download tiles, caching by filename.
+    """Download tiles, caching by filename in a SHARED cache dir.
+
+    USGS tile filenames are globally unique (e.g. USGS_1M_17_x73y443_...tif), so
+    a single cache shared across every property means neighboring tracts reuse
+    each other's tiles instead of re-downloading ~300 MB apiece. Set
+    TILE_CACHE_DIR to point it at persistent storage on the worker.
 
     Downloads land in a .part file and are renamed only once complete, and the
     byte count is checked against Content-Length. A LiDAR tile is ~300 MB, so an
@@ -120,9 +125,10 @@ def main() -> None:
 
     work = os.path.join("work", args.name)
     os.makedirs(work, exist_ok=True)
-    src_dir = os.path.join(work, "source")
+    # Shared across properties so overlapping tracts don't re-download tiles.
+    cache_dir = os.environ.get("TILE_CACHE_DIR") or os.path.join("work", "_tilecache")
 
-    tiles = download(query_tnm(args.bbox), src_dir)
+    tiles = download(query_tnm(args.bbox), cache_dir)
 
     min_lng, min_lat, max_lng, max_lat = args.bbox
     center_lng = (min_lng + max_lng) / 2

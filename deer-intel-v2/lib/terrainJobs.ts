@@ -101,27 +101,30 @@ export async function requestHighResRead(input: HighResRequest): Promise<Request
   return { state: "queued" };
 }
 
-/** Current backend state for a property (for the button / status chip). */
-export async function getHighResState(propertyId: string): Promise<TerrainJobState> {
+export type HighResStatus = { state: TerrainJobState; stage?: string | null };
+
+/** Current backend state (+ progress stage) for a property, for the button. */
+export async function getHighResStatus(propertyId: string): Promise<HighResStatus> {
   const supabase = getSupabaseClient();
-  if (!supabase) return "off";
+  if (!supabase) return { state: "off" };
 
   const { data: set } = await supabase
     .from("terrain_sets")
     .select("property_id")
     .eq("property_id", propertyId)
     .maybeSingle();
-  if (set) return "ready";
+  if (set) return { state: "ready" };
 
   const { data: job } = await supabase
     .from("terrain_jobs")
-    .select("status")
+    .select("status, stage")
     .eq("property_id", propertyId)
     .in("status", ["queued", "running", "error"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  return (job?.status as TerrainJobState) ?? "none";
+  if (!job) return { state: "none" };
+  return { state: job.status as TerrainJobState, stage: job.stage as string | null };
 }
 
 // The signed-in user's stored 1 m sets, cached briefly so panning the map

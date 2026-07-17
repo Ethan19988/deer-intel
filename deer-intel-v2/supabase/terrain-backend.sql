@@ -20,6 +20,7 @@ create table if not exists public.terrain_jobs (
   food          jsonb,                        -- optional [[lat,lng], ...]
   status        text not null default 'queued'
                   check (status in ('queued', 'running', 'done', 'error')),
+  stage         text,                         -- worker progress label (UI hint)
   error         text,
   worker_id     text,
   created_at    timestamptz not null default now(),

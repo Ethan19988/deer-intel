@@ -16,7 +16,7 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import type { HuntAreaPoint } from "@/types/property";
 import {
-  getHighResState,
+  getHighResStatus,
   requestHighResRead,
   type TerrainJobState,
 } from "@/lib/terrainJobs";
@@ -47,6 +47,7 @@ const BADGE: Partial<Record<TerrainJobState, "default" | "success" | "warning" |
 
 export default function GenerateHighResButton({ property }: Props) {
   const [state, setState] = useState<TerrainJobState>("off");
+  const [stage, setStage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -59,8 +60,9 @@ export default function GenerateHighResButton({ property }: Props) {
   }, []);
 
   const refresh = useCallback(async () => {
-    const next = await getHighResState(property.id);
+    const { state: next, stage: s } = await getHighResStatus(property.id);
     setState(next);
+    setStage(s ?? null);
     if (next === "ready") {
       clearTerrainSetCache(); // so the map swaps 10 m → 1 m
       stopPolling();
@@ -73,9 +75,10 @@ export default function GenerateHighResButton({ property }: Props) {
   useEffect(() => {
     let active = true;
     (async () => {
-      const next = await getHighResState(property.id);
+      const { state: next, stage: s } = await getHighResStatus(property.id);
       if (!active) return;
       setState(next);
+      setStage(s ?? null);
       if (next === "queued" || next === "running") {
         timer.current = setInterval(refresh, POLL_MS);
       }
@@ -123,7 +126,11 @@ export default function GenerateHighResButton({ property }: Props) {
       >
         {inFlight ? "Generating…" : state === "ready" ? "Regenerate 1 m read" : "Generate high-res read"}
       </Button>
-      {BADGE[state] ? <Badge variant={BADGE[state]}>{LABEL[state]}</Badge> : null}
+      {BADGE[state] ? (
+        <Badge variant={BADGE[state]}>
+          {state === "running" && stage ? stage : LABEL[state]}
+        </Badge>
+      ) : null}
       {!canDraw ? (
         <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Draw a hunt area first.</span>
       ) : null}

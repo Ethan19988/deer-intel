@@ -43,6 +43,7 @@ import {
   useTerrainSet,
 } from "@/lib/useTerrainSet";
 import { clipTerrainSetToArea } from "@/lib/terrainMovementData";
+import { requestHighResRead } from "@/lib/terrainJobs";
 import {
   buildCorridors,
   corridorDirection,
@@ -1614,6 +1615,14 @@ export default function HuntingMap() {
     // and saddles the deer-movement rules are reading are visible underneath.
     setShowTerrain(true);
     setShowContours(true);
+    // Auto-enqueue a high-res (1 m) read for the ground just outlined. No-op
+    // unless cloud sync is configured and the user is signed in; dedup by
+    // outline hash means re-drawing the same shape won't re-run it.
+    void requestHighResRead({
+      id: selectedPropertyId,
+      name: selectedProperty?.name,
+      huntArea: nextArea,
+    });
   }
 
   function clearHuntArea() {
