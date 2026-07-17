@@ -28,6 +28,8 @@ import rasterio
 from affine import Affine
 from rasterio import features
 from scipy import ndimage
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import dijkstra
 from scipy.stats import circmean
 from shapely.geometry import LineString, mapping, shape
 from shapely.ops import transform as shp_transform
@@ -79,6 +81,18 @@ BENCH_MAX = 12                # top bench corridors to draw
 # A big-woods tract is a network, not a handful of spots — surface the whole
 # travel web (many benches + draws + saddles), not just the single best of each.
 MAX_PER_KIND = {"bedding": 6, "travel": 10, "pinch": 8, "refuge": 2}
+
+# --- Bed-to-feed routing (needs --food) -------------------------------------
+# The straight terrain travel above is where deer CAN move; with a food source
+# marked, we can also draw where they DO — the least-effort route from each bed
+# to the food. Deer follow the path of least resistance (gentle grades, benches,
+# saddles; they avoid climbing steep faces), so the corridor is the cheapest
+# path across a slope-cost surface. Pathfinding runs on a downsampled grid — a
+# route doesn't need 1 m precision, and 36 M cells won't fit a graph.
+ROUTE_DS_FACTOR = 10          # metres per pathfinding cell (10x the 1 m DEM)
+ROUTE_SLOPE_REF = 12.0        # slope (deg) at which effort has roughly doubled
+ROUTE_MAX_SLOPE = 42.0        # steeper than this is treated as near-impassable
+ROUTE_MAX = 5                 # one route per bed, top few beds
 
 DIRS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
         "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
@@ -273,6 +287,87 @@ def bench_centerlines(mask, dem, transform, to_wgs, min_area_m2, max_keep):
     return out[:max_keep]
 
 
+def _grid_graph(cost, cell_m):
+    """8-connected grid graph; edge weight = mean cell cost * segment length."""
+    hh, ww = cost.shape
+    idx = np.arange(hh * ww).reshape(hh, ww)
+    rows, cols, data = [], [], []
+    steps = [(-1, 0, 1.0), (1, 0, 1.0), (0, -1, 1.0), (0, 1, 1.0),
+             (-1, -1, 1.41421), (-1, 1, 1.41421), (1, -1, 1.41421), (1, 1, 1.41421)]
+    for dy, dx, dd in steps:
+        ys0, ys1 = max(0, -dy), hh - max(0, dy)
+        xs0, xs1 = max(0, -dx), ww - max(0, dx)
+        src = idx[ys0:ys1, xs0:xs1]
+        tgt = idx[ys0 + dy:ys1 + dy, xs0 + dx:xs1 + dx]
+        w = (cost[ys0:ys1, xs0:xs1] + cost[ys0 + dy:ys1 + dy, xs0 + dx:xs1 + dx]) * 0.5 * dd * cell_m
+        rows.append(src.ravel())
+        cols.append(tgt.ravel())
+        data.append(w.ravel())
+    return csr_matrix(
+        (np.concatenate(data), (np.concatenate(rows), np.concatenate(cols))),
+        shape=(hh * ww, hh * ww),
+    )
+
+
+def bed_to_feed_routes(slope, transform, crs, to_wgs, food_lonlat, beds, max_routes):
+    """Least-cost paths from the top beds to a food source over a slope-cost
+    surface — where deer actually travel bed<->feed, not just where terrain
+    allows it. Runs on a ROUTE_DS_FACTOR-metre downsampling (a route needs no
+    1 m precision, and 36 M cells won't fit a graph)."""
+    if not beds or not food_lonlat:
+        return []
+    F = ROUTE_DS_FACTOR
+    hh0, ww0 = slope.shape
+    hh0, ww0 = (hh0 // F) * F, (ww0 // F) * F
+    if hh0 == 0 or ww0 == 0:
+        return []
+    s = np.nan_to_num(slope[:hh0, :ww0], nan=90.0).reshape(hh0 // F, F, ww0 // F, F).mean(axis=(1, 3))
+    hh, ww = s.shape
+    cell_m = F * abs(transform.a)
+    cost = 1.0 + (s / ROUTE_SLOPE_REF) ** 2
+    cost[s > ROUTE_MAX_SLOPE] = 1e4  # near-impassable, never a hard wall
+    graph = _grid_graph(cost, cell_m)
+
+    to_crs = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
+
+    def cell_of_xy(x, y):
+        col, row = ~transform * (x, y)
+        r, c = int(row // F), int(col // F)
+        return r * ww + c if (0 <= r < hh and 0 <= c < ww) else None
+
+    fx, fy = to_crs.transform(food_lonlat[0], food_lonlat[1])
+    food_node = cell_of_xy(fx, fy)
+    if food_node is None:
+        return []
+    dist, pred = dijkstra(graph, directed=False, indices=food_node, return_predecessors=True)
+
+    routes = []
+    for b in beds[:max_routes]:
+        bx, by = b["geom"].representative_point().coords[0]
+        node = cell_of_xy(bx, by)
+        if node is None or not np.isfinite(dist[node]):
+            continue
+        path, cur, guard = [], node, 0
+        while cur != food_node and cur >= 0 and guard < hh * ww:
+            path.append(cur)
+            cur = int(pred[cur])
+            guard += 1
+        if cur != food_node:
+            continue
+        path.append(food_node)
+        coords = []
+        for nd in path:
+            r, c = divmod(nd, ww)
+            x, y = transform * ((c + 0.5) * F, (r + 0.5) * F)
+            lng, lat = to_wgs.transform(x, y)
+            coords.append([lng, lat])
+        line = LineString(coords).simplify(0.0004)
+        latlng = [[round(la, 5), round(lo, 5)] for lo, la in line.coords]
+        if len(latlng) >= 2:
+            routes.append({"coords": latlng})
+    return routes
+
+
 def road_distance(roads_geojson, ref_ds_path):
     """Rasterize roads onto the DEM grid and return a distance-to-road array (m)."""
     with rasterio.open(ref_ds_path) as ds:
@@ -306,8 +401,15 @@ def main():
     ap.add_argument("--name", required=True)
     ap.add_argument("--out", default=".")
     ap.add_argument("--roads", help="Optional roads GeoJSON (WGS84) for security scoring")
+    ap.add_argument("--food", action="append", default=[],
+                    help="Food source 'lat,lng' (repeatable) for bed-to-feed routes")
     ap.add_argument("--area-name", default=None)
     args = ap.parse_args()
+
+    food_pts = []
+    for spec in args.food:
+        la, lo = (float(v) for v in spec.split(","))
+        food_pts.append((lo, la))  # (lng, lat) for the always_xy transformer
 
     work = os.path.abspath(os.path.join("work", args.name))
     dem_path = os.path.join(work, "dem.tif")
@@ -507,6 +609,29 @@ def main():
                          "below the trail. " + thermal_note()),
             "line": b["coords"],
         })
+
+    # ---- Bed-to-feed routes (least-cost paths bed -> marked food) ----
+    if food_pts and beds:
+        print("[rules] bed-to-feed routes", flush=True)
+        for pk, food in enumerate(food_pts):
+            routes = bed_to_feed_routes(
+                slope, transform, crs, to_wgs, food, beds, ROUTE_MAX
+            )
+            for k, rt in enumerate(routes):
+                features_out.append({
+                    "id": f"{args.name}-route-{pk}-{k}", "kind": "travel",
+                    "title": "Bed-to-feed route",
+                    "detail": (
+                        "The least-effort path from bedding to your marked food — the "
+                        "route deer actually take between bed and feed, following gentle "
+                        "grades and benches and skirting the steep faces."
+                    ),
+                    "windNote": (
+                        "Deer move it toward feed in the evening, back to bed at dawn — "
+                        "hunt it downwind of the trail. " + thermal_note()
+                    ),
+                    "line": rt["coords"],
+                })
 
     # ---- Travel (draw centerlines from the stream vector) ----
     shp = os.path.join(work, "streams.shp")

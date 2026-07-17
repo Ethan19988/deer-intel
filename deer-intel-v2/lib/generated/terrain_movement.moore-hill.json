@@ -1,8 +1,8 @@
 {
   "areaName": "Moore Hill",
   "center": [
-    41.45548,
-    -78.31357
+    41.45517,
+    -78.31452
   ],
   "source": "1 m LiDAR terrain read \u00b7 Penn State Deer-Forest rules",
   "features": [
@@ -1123,6 +1123,295 @@
         [
           41.47116,
           -78.32313
+        ]
+      ]
+    },
+    {
+      "id": "moore-hill-route-0-0",
+      "kind": "travel",
+      "title": "Bed-to-feed route",
+      "detail": "The least-effort path from bedding to your marked food \u2014 the route deer actually take between bed and feed, following gentle grades and benches and skirting the steep faces.",
+      "windNote": "Deer move it toward feed in the evening, back to bed at dawn \u2014 hunt it downwind of the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          41.45962,
+          -78.28149
+        ],
+        [
+          41.46162,
+          -78.27446
+        ],
+        [
+          41.46266,
+          -78.27286
+        ],
+        [
+          41.46591,
+          -78.26961
+        ],
+        [
+          41.46797,
+          -78.26904
+        ]
+      ]
+    },
+    {
+      "id": "moore-hill-route-0-1",
+      "kind": "travel",
+      "title": "Bed-to-feed route",
+      "detail": "The least-effort path from bedding to your marked food \u2014 the route deer actually take between bed and feed, following gentle grades and benches and skirting the steep faces.",
+      "windNote": "Deer move it toward feed in the evening, back to bed at dawn \u2014 hunt it downwind of the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          41.43743,
+          -78.32215
+        ],
+        [
+          41.44258,
+          -78.31499
+        ],
+        [
+          41.44401,
+          -78.3147
+        ],
+        [
+          41.44647,
+          -78.31196
+        ],
+        [
+          41.45079,
+          -78.30412
+        ],
+        [
+          41.45124,
+          -78.27753
+        ],
+        [
+          41.45507,
+          -78.27198
+        ],
+        [
+          41.45736,
+          -78.26985
+        ],
+        [
+          41.4606,
+          -78.26971
+        ],
+        [
+          41.46291,
+          -78.2683
+        ],
+        [
+          41.46797,
+          -78.26904
+        ]
+      ]
+    },
+    {
+      "id": "moore-hill-route-0-2",
+      "kind": "travel",
+      "title": "Bed-to-feed route",
+      "detail": "The least-effort path from bedding to your marked food \u2014 the route deer actually take between bed and feed, following gentle grades and benches and skirting the steep faces.",
+      "windNote": "Deer move it toward feed in the evening, back to bed at dawn \u2014 hunt it downwind of the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          41.47284,
+          -78.33446
+        ],
+        [
+          41.47163,
+          -78.33271
+        ],
+        [
+          41.4738,
+          -78.32927
+        ],
+        [
+          41.47411,
+          -78.32698
+        ],
+        [
+          41.4714,
+          -78.3229
+        ],
+        [
+          41.471,
+          -78.31334
+        ],
+        [
+          41.46996,
+          -78.31135
+        ],
+        [
+          41.47144,
+          -78.30518
+        ],
+        [
+          41.4711,
+          -78.29837
+        ],
+        [
+          41.4716,
+          -78.29284
+        ],
+        [
+          41.47038,
+          -78.29086
+        ],
+        [
+          41.47004,
+          -78.28416
+        ],
+        [
+          41.46845,
+          -78.27777
+        ],
+        [
+          41.46797,
+          -78.26904
+        ]
+      ]
+    },
+    {
+      "id": "moore-hill-route-0-3",
+      "kind": "travel",
+      "title": "Bed-to-feed route",
+      "detail": "The least-effort path from bedding to your marked food \u2014 the route deer actually take between bed and feed, following gentle grades and benches and skirting the steep faces.",
+      "windNote": "Deer move it toward feed in the evening, back to bed at dawn \u2014 hunt it downwind of the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          41.47367,
+          -78.33167
+        ],
+        [
+          41.47285,
+          -78.33087
+        ],
+        [
+          41.4738,
+          -78.32927
+        ],
+        [
+          41.47411,
+          -78.32698
+        ],
+        [
+          41.4714,
+          -78.3229
+        ],
+        [
+          41.471,
+          -78.31334
+        ],
+        [
+          41.46996,
+          -78.31135
+        ],
+        [
+          41.47144,
+          -78.30518
+        ],
+        [
+          41.4711,
+          -78.29837
+        ],
+        [
+          41.4716,
+          -78.29284
+        ],
+        [
+          41.47038,
+          -78.29086
+        ],
+        [
+          41.47004,
+          -78.28416
+        ],
+        [
+          41.46845,
+          -78.27777
+        ],
+        [
+          41.46797,
+          -78.26904
+        ]
+      ]
+    },
+    {
+      "id": "moore-hill-route-0-4",
+      "kind": "travel",
+      "title": "Bed-to-feed route",
+      "detail": "The least-effort path from bedding to your marked food \u2014 the route deer actually take between bed and feed, following gentle grades and benches and skirting the steep faces.",
+      "windNote": "Deer move it toward feed in the evening, back to bed at dawn \u2014 hunt it downwind of the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          41.4212,
+          -78.33705
+        ],
+        [
+          41.42251,
+          -78.33521
+        ],
+        [
+          41.42178,
+          -78.32291
+        ],
+        [
+          41.42242,
+          -78.31594
+        ],
+        [
+          41.42381,
+          -78.31373
+        ],
+        [
+          41.4234,
+          -78.31148
+        ],
+        [
+          41.42697,
+          -78.30236
+        ],
+        [
+          41.43002,
+          -78.29792
+        ],
+        [
+          41.43919,
+          -78.28569
+        ],
+        [
+          41.44062,
+          -78.28551
+        ],
+        [
+          41.44141,
+          -78.28464
+        ],
+        [
+          41.44475,
+          -78.28474
+        ],
+        [
+          41.45639,
+          -78.27049
+        ],
+        [
+          41.45736,
+          -78.26985
+        ],
+        [
+          41.46105,
+          -78.26957
+        ],
+        [
+          41.46291,
+          -78.2683
+        ],
+        [
+          41.46797,
+          -78.26904
         ]
       ]
     },
