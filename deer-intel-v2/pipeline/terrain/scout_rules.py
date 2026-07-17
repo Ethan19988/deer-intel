@@ -411,6 +411,12 @@ def main():
              "The DEM can cover a whole tract; this keeps predictions (and the "
              "feature caps) to the hunter's area instead of distant terrain.",
     )
+    ap.add_argument(
+        "--focus-geojson", default=None,
+        help="Path to a WGS84 GeoJSON polygon (the hunter's drawn outline). Like "
+             "--focus but clips to the exact shape, not just its bounding box. "
+             "Takes precedence over --focus.",
+    )
     args = ap.parse_args()
 
     food_pts = []
@@ -432,13 +438,26 @@ def main():
 
     valid = ~np.isnan(dem) & ~np.isnan(slope)
 
-    # Optional focus box: the DEM may cover a whole tract, but the hunter only
-    # hunts part of it. Restrict the master valid mask to their bbox so every
-    # detector (and its cap) fills from that ground, not distant mountains. The
-    # lat/lng box becomes a pixel rectangle via the corners in the raster CRS
-    # (UTM is near-axis-aligned locally, so a corner bbox is exact to a few m).
+    # Optional focus area: the DEM may cover a whole tract, but the hunter only
+    # hunts part of it. Restrict the master valid mask to their ground so every
+    # detector (and its cap) fills from it, not distant mountains. --focus-geojson
+    # clips to the exact drawn polygon; --focus is its bounding box.
     focus_poly = None
-    if args.focus:
+    if args.focus_geojson:
+        with open(args.focus_geojson) as f:
+            gj = json.load(f)
+        geom = gj["features"][0]["geometry"] if gj.get("type") == "FeatureCollection" \
+            else gj.get("geometry", gj)
+        focus_poly = shape(geom)  # WGS84 (used to clip the draws too)
+        from_wgs = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
+        poly_crs = shp_transform(from_wgs.transform, focus_poly)
+        focus_mask = features.geometry_mask(
+            [mapping(poly_crs)], out_shape=dem.shape, transform=transform, invert=True
+        )
+        valid &= focus_mask
+        print(f"[rules] focus polygon -> {int(focus_mask.sum())} cells in outline "
+              f"({int((~np.isnan(dem)).sum())} in DEM)", flush=True)
+    elif args.focus:
         fminlng, fminlat, fmaxlng, fmaxlat = args.focus
         focus_poly = box(fminlng, fminlat, fmaxlng, fmaxlat)
         from_wgs = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
