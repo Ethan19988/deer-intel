@@ -54,18 +54,41 @@ export type ScoutPick = {
 };
 
 // Rank order for "where do I go?": saddle stands first (the payoff), then the
-// beds and travel you scout to confirm them, then the refuge you work around.
+// bed-to-feed routes (where deer actually move bed<->feed), then the beds and
+// the remaining travel web you scout to confirm them, then the refuge you work
+// around. Bed-to-feed routes are emitted as `travel` features but carry the
+// strongest signal, so they're pulled ahead of the generic benches/draws
+// instead of being buried among them.
 const KIND_PRIORITY: Record<TerrainKind, number> = {
   pinch: 0,
-  bedding: 1,
-  travel: 2,
-  refuge: 3,
+  bedding: 2,
+  travel: 3,
+  refuge: 4,
 };
+const ROUTE_PRIORITY = 1;
+
+/**
+ * A bed-to-feed least-cost route: a `travel` feature the pipeline keys
+ * `<name>-route-<n>-<m>`. It reads as generic travel to the map, but ranks
+ * higher because it's the "where deer DO move" corridor, not just terrain they
+ * could use.
+ */
+export function isBedToFeedRoute(feature: TerrainMovementFeature): boolean {
+  return feature.kind === "travel" && feature.id.includes("-route-");
+}
+
+function pickPriority(feature: TerrainMovementFeature): number {
+  return isBedToFeedRoute(feature) ? ROUTE_PRIORITY : KIND_PRIORITY[feature.kind];
+}
 
 /** Ranked, tappable scouting picks derived from a terrain set's features. */
 export function getScoutPicks(set: TerrainMovementSet): ScoutPick[] {
-  return set.features
-    .map((feature) => ({
+  // Copy before sorting — set.features belongs to the imported set and must not
+  // be reordered in place. Array.sort is stable, so equal-priority features keep
+  // their emitted order.
+  return [...set.features]
+    .sort((a, b) => pickPriority(a) - pickPriority(b))
+    .map((feature, index) => ({
       id: feature.id,
       kind: feature.kind,
       title: feature.title,
@@ -73,9 +96,8 @@ export function getScoutPicks(set: TerrainMovementSet): ScoutPick[] {
       windNote: feature.windNote,
       roadDistM: feature.roadDistM,
       point: featureAnchor(feature),
-    }))
-    .sort((a, b) => KIND_PRIORITY[a.kind] - KIND_PRIORITY[b.kind])
-    .map((pick, index) => ({ ...pick, rank: index + 1 }));
+      rank: index + 1,
+    }));
 }
 
 /** A single representative [lat,lng] to fly the map to for a feature. */
