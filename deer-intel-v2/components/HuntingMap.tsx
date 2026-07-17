@@ -42,6 +42,7 @@ import {
   centerOfBounds,
   useTerrainSet,
 } from "@/lib/useTerrainSet";
+import { clipTerrainSetToArea } from "@/lib/terrainMovementData";
 import {
   buildCorridors,
   corridorDirection,
@@ -1120,6 +1121,13 @@ export default function HuntingMap() {
     terrainPoint,
     selectedProperty?.name,
     terrainBbox,
+  );
+  // Only show the ground the hunter outlined: clip the terrain review to the
+  // drawn hunt area so no beds/travel/saddles land in sections they don't hunt.
+  // With no drawn area there's nothing to clip to, so the full read shows.
+  const terrainReview = useMemo(
+    () => clipTerrainSetToArea(terrainSet, selectedProperty?.huntArea),
+    [terrainSet, selectedProperty?.huntArea],
   );
   const flyToTerrainPick = useCallback((point: LatLng) => {
     const map = mapInstanceRef.current;
@@ -2503,8 +2511,8 @@ export default function HuntingMap() {
               />
             ) : null}
 
-            {showTerrain && terrainSet ? (
-              <TerrainMovementLayer set={terrainSet} />
+            {showTerrain && terrainReview ? (
+              <TerrainMovementLayer set={terrainReview} />
             ) : null}
 
             <MapInstanceBridge
@@ -2648,10 +2656,10 @@ export default function HuntingMap() {
             </div>
           ) : null}
 
-          {showTerrain && terrainSet ? <TerrainLegend /> : null}
+          {showTerrain && terrainReview ? <TerrainLegend /> : null}
 
           {showTerrain ? (
-            <ScoutPicksPanel set={terrainSet} onSelect={flyToTerrainPick} />
+            <ScoutPicksPanel set={terrainReview} onSelect={flyToTerrainPick} />
           ) : null}
 
           <MapLayerManager

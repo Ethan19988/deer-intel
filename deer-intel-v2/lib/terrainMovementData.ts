@@ -13,6 +13,8 @@ import type {
   TerrainMovementSet,
 } from "@/lib/terrainMovement";
 import { GENERATED_TERRAIN_SETS } from "@/lib/generated/terrainSets";
+import { huntAreaContains } from "@/lib/huntArea";
+import type { HuntAreaPoint } from "@/types/property";
 
 // Only pipeline-generated 1 m sets are pre-registered. Each is generated for the
 // property's own drawn bbox, so it already covers the whole outline. Everything
@@ -98,6 +100,26 @@ export function getScoutPicks(set: TerrainMovementSet): ScoutPick[] {
       point: featureAnchor(feature),
       rank: index + 1,
     }));
+}
+
+/**
+ * Keep only the features whose anchor falls inside the drawn hunt area, so the
+ * review never marks spots in sections the hunter didn't outline (and doesn't
+ * hunt). The live read samples a square window around the area's bbox and the
+ * 1 m pipeline covers a whole tract, so both can surface ground outside the
+ * outline; this trims them to it. With no valid area there's nothing to clip
+ * to, so the set is returned unchanged.
+ */
+export function clipTerrainSetToArea(
+  set: TerrainMovementSet | null,
+  area: HuntAreaPoint[] | undefined,
+): TerrainMovementSet | null {
+  if (!set || !area || area.length < 3) return set;
+  const features = set.features.filter((feature) => {
+    const [lat, lng] = featureAnchor(feature);
+    return huntAreaContains(area, lat, lng);
+  });
+  return { ...set, features };
 }
 
 /** A single representative [lat,lng] to fly the map to for a feature. */

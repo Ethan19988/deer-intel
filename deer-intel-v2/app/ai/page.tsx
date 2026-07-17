@@ -24,7 +24,7 @@ import {
   type DeerHubItem,
 } from "@/lib/deerIntelligenceHub";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
-import { getScoutPicks } from "@/lib/terrainMovementData";
+import { clipTerrainSetToArea, getScoutPicks } from "@/lib/terrainMovementData";
 import {
   boundsOfHuntArea,
   centerOfBounds,
@@ -91,7 +91,9 @@ export default function AIPage() {
     selectedProperty?.name,
     terrainBbox,
   );
-  const scoutPicks = terrainSet ? getScoutPicks(terrainSet) : [];
+  // Keep the AI's terrain picks to the drawn hunt area, same as the map.
+  const terrainReview = clipTerrainSetToArea(terrainSet, selectedProperty?.huntArea);
+  const scoutPicks = terrainReview ? getScoutPicks(terrainReview) : [];
 
   function selectProperty(propertyId: string) {
     updateDeerIntelStore((currentState) => ({
@@ -323,7 +325,7 @@ export default function AIPage() {
             </div>
           </Section>
 
-          {terrainSet ? (
+          {terrainReview && scoutPicks.length > 0 ? (
             <Section
               eyebrow="Terrain"
               title="Scout Picks"
@@ -331,7 +333,7 @@ export default function AIPage() {
             >
               <Card as="div" variant="subtle">
                 <p style={mutedTextStyle}>
-                  Predicted spots from the terrain read of {terrainSet.areaName} —
+                  Predicted spots from the terrain read of {terrainReview.areaName} —
                   where deer likely bed, travel, and cross, ranked as places to
                   scout. Open the map&apos;s Terrain layer to see them on the ground.
                 </p>

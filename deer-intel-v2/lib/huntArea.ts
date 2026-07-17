@@ -46,6 +46,32 @@ export function formatHuntAreaAcres(
   return `${Math.round(acres)} acres`;
 }
 
+/**
+ * Is (lat, lng) inside the drawn hunt area? Ray-casting point-in-polygon on the
+ * lat/lng ring (treating lng as x, lat as y). Used to keep terrain predictions
+ * to the ground the hunter actually marked. Returns false for an invalid area.
+ */
+export function huntAreaContains(
+  points: HuntAreaPoint[] | undefined,
+  lat: number,
+  lng: number,
+): boolean {
+  if (!huntAreaIsValid(points)) return false;
+
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i, i += 1) {
+    const yi = points[i].lat;
+    const xi = points[i].lng;
+    const yj = points[j].lat;
+    const xj = points[j].lng;
+    const crosses =
+      yi > lat !== yj > lat &&
+      lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
+
 export function huntAreaCentroid(
   points: HuntAreaPoint[] | undefined,
 ): HuntAreaPoint | null {
