@@ -3,6 +3,7 @@
 import { useState, type CSSProperties } from "react";
 import { TERRAIN_STYLE, type LatLng, type TerrainMovementSet } from "@/lib/terrainMovement";
 import { getScoutPicks } from "@/lib/terrainMovementData";
+import { terrainPlaybook, type PlaybookTone } from "@/lib/terrainPlaybook";
 
 type ScoutPicksPanelProps = {
   set: TerrainMovementSet | null;
@@ -20,12 +21,20 @@ function securityBand(m: number): { label: string; color: string } {
   return { label: "deep sanctuary", color: "#d19a94" };
 }
 
+// Verdict chip tone -> color, on the dark map-overlay palette.
+const TONE_COLOR: Record<PlaybookTone, string> = {
+  prime: "#8fd68a",
+  confirm: "#e8c37a",
+  careful: "#e6a279",
+};
+
 // A ranked "go scout these" list for the terrain overlay. Reads the same
 // TerrainMovementSet the map draws, so the list and the map never disagree.
 // Tapping a pick flies the map to that spot. Dark card for legibility over the
 // satellite imagery; collapsible so it stays out of the way on a phone.
 export default function ScoutPicksPanel({ set, onSelect }: ScoutPicksPanelProps) {
   const [open, setOpen] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (!set) {
     return (
@@ -53,32 +62,65 @@ export default function ScoutPicksPanel({ set, onSelect }: ScoutPicksPanelProps)
 
       {open ? (
         <div style={listStyle}>
-          {picks.map((pick) => (
-            <button
-              key={pick.id}
-              type="button"
-              style={rowStyle}
-              onClick={() => onSelect(pick.point)}
-            >
-              <span style={rankStyle}>{pick.rank}</span>
-              <span
-                style={{ ...dotStyle, background: TERRAIN_STYLE[pick.kind].color }}
-                aria-hidden="true"
-              />
-              <span style={rowBodyStyle}>
-                <span style={rowTitleStyle}>{pick.title}</span>
-                {pick.windNote ? (
-                  <span style={rowWindStyle}>🌬️ {pick.windNote}</span>
-                ) : null}
-                {typeof pick.roadDistM === "number" ? (
-                  <span style={{ ...rowMetaStyle, color: securityBand(pick.roadDistM).color }}>
-                    📍 {metersToYards(pick.roadDistM)} yd from road ·{" "}
-                    {securityBand(pick.roadDistM).label}
+          {picks.map((pick) => {
+            const play = terrainPlaybook(pick);
+            const expanded = expandedId === pick.id;
+            return (
+              <div key={pick.id} style={itemStyle}>
+                <button
+                  type="button"
+                  style={rowStyle}
+                  onClick={() => onSelect(pick.point)}
+                >
+                  <span style={rankStyle}>{pick.rank}</span>
+                  <span
+                    style={{ ...dotStyle, background: TERRAIN_STYLE[pick.kind].color }}
+                    aria-hidden="true"
+                  />
+                  <span style={rowBodyStyle}>
+                    <span style={rowTitleStyle}>{pick.title}</span>
+                    {pick.windNote ? (
+                      <span style={rowWindStyle}>🌬️ {pick.windNote}</span>
+                    ) : null}
+                    {typeof pick.roadDistM === "number" ? (
+                      <span style={{ ...rowMetaStyle, color: securityBand(pick.roadDistM).color }}>
+                        📍 {metersToYards(pick.roadDistM)} yd from road ·{" "}
+                        {securityBand(pick.roadDistM).label}
+                      </span>
+                    ) : null}
                   </span>
+                </button>
+
+                <button
+                  type="button"
+                  style={verdictRowStyle}
+                  onClick={() => setExpandedId(expanded ? null : pick.id)}
+                  aria-expanded={expanded}
+                >
+                  <span style={{ ...verdictChipStyle, color: TONE_COLOR[play.tone], borderColor: TONE_COLOR[play.tone] }}>
+                    {play.verdict}
+                  </span>
+                  <span style={verdictCaretStyle}>{expanded ? "▾ hide" : "▸ playbook"}</span>
+                </button>
+
+                {expanded ? (
+                  <div style={playBodyStyle}>
+                    <p style={readStyle}>{play.read}</p>
+                    {play.moves.map((move) => (
+                      <p key={move.label} style={moveStyle}>
+                        <span aria-hidden="true">{move.icon}</span>{" "}
+                        <span>
+                          <strong style={moveLabelStyle}>{move.label}:</strong> {move.text}
+                        </span>
+                      </p>
+                    ))}
+                    {play.access ? <p style={accessStyle}>📍 {play.access}</p> : null}
+                    <p style={windowStyle}>🗓️ {play.window}</p>
+                  </div>
                 ) : null}
-              </span>
-            </button>
-          ))}
+              </div>
+            );
+          })}
           <p style={footStyle}>{set.source}</p>
         </div>
       ) : null}
@@ -134,18 +176,94 @@ const listStyle: CSSProperties = {
   padding: "0 0.5rem 0.5rem",
 };
 
+const itemStyle: CSSProperties = {
+  border: "1px solid rgba(255, 255, 255, 0.12)",
+  borderRadius: "8px",
+  background: "rgba(255, 255, 255, 0.04)",
+  overflow: "hidden",
+};
+
 const rowStyle: CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
   gap: "0.5rem",
   width: "100%",
-  padding: "0.5rem 0.5rem",
-  border: "1px solid rgba(255, 255, 255, 0.12)",
-  borderRadius: "8px",
-  background: "rgba(255, 255, 255, 0.04)",
+  padding: "0.5rem 0.5rem 0.35rem",
+  border: "none",
+  background: "transparent",
   color: "#eaf0e6",
   cursor: "pointer",
   textAlign: "left",
+};
+
+const verdictRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.5rem",
+  width: "100%",
+  padding: "0 0.5rem 0.45rem",
+  border: "none",
+  background: "transparent",
+  cursor: "pointer",
+};
+
+const verdictChipStyle: CSSProperties = {
+  padding: "0.08rem 0.4rem",
+  borderRadius: "999px",
+  border: "1px solid",
+  fontSize: "0.66rem",
+  fontWeight: 800,
+  letterSpacing: "0.02em",
+  textTransform: "uppercase",
+  whiteSpace: "nowrap",
+};
+
+const verdictCaretStyle: CSSProperties = {
+  flex: "0 0 auto",
+  color: "#c6d5c5",
+  fontSize: "0.68rem",
+  fontWeight: 700,
+};
+
+const playBodyStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.28rem",
+  padding: "0.4rem 0.6rem 0.55rem",
+  borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+};
+
+const readStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "0.75rem",
+  lineHeight: 1.35,
+  color: "#dbe6d7",
+};
+
+const moveStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "0.74rem",
+  lineHeight: 1.35,
+  color: "#c9d6c6",
+};
+
+const moveLabelStyle: CSSProperties = {
+  color: "#f1f5ef",
+  fontWeight: 800,
+};
+
+const accessStyle: CSSProperties = {
+  margin: "0.05rem 0 0",
+  fontSize: "0.72rem",
+  lineHeight: 1.3,
+  color: "#b9c8b6",
+};
+
+const windowStyle: CSSProperties = {
+  margin: "0.05rem 0 0",
+  fontSize: "0.72rem",
+  fontWeight: 700,
+  color: "#a9bda6",
 };
 
 const rankStyle: CSSProperties = {

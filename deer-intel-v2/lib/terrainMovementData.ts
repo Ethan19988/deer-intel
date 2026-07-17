@@ -73,7 +73,10 @@ const ROUTE_PRIORITY = 1;
  * higher because it's the "where deer DO move" corridor, not just terrain they
  * could use.
  */
-export function isBedToFeedRoute(feature: TerrainMovementFeature): boolean {
+export function isBedToFeedRoute(feature: {
+  kind: TerrainKind;
+  id: string;
+}): boolean {
   return feature.kind === "travel" && feature.id.includes("-route-");
 }
 
