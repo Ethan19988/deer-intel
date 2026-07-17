@@ -1,30 +1,57 @@
 import Link from "next/link";
 import { useState, type CSSProperties } from "react";
+import { formatCoordinate } from "@/lib/propertyMap";
 import type { MapAsset, MapAssetRoute } from "@/lib/propertyMap";
+import { PROPERTY_ASSET_PIN_TYPES, type MapPin, type PinType } from "@/types/mapPin";
 
 type MapAssetInfoCardProps = {
   asset: MapAsset;
   detailRoute: MapAssetRoute;
   editRoute: MapAssetRoute;
+  /** The backing pin when the asset is a map pin — enables inline editing. */
+  pin?: MapPin;
   propertyName: string;
   onCenter: () => void;
   onClose: () => void;
   onDelete: () => void;
+  onSavePin?: (updates: { type: PinType; notes: string }) => void;
 };
 
 export default function MapAssetInfoCard({
   asset,
   detailRoute,
   editRoute,
+  pin,
   propertyName,
   onCenter,
   onClose,
   onDelete,
+  onSavePin,
 }: MapAssetInfoCardProps) {
   const [actionMessage, setActionMessage] = useState("");
+  const [isEditingPin, setIsEditingPin] = useState(false);
+  const [draftType, setDraftType] = useState<PinType>(pin?.type ?? "Stand");
+  const [draftNotes, setDraftNotes] = useState(pin?.notes ?? "");
+
+  const canEditPin = Boolean(pin && onSavePin);
 
   function showUnavailableMessage(message: string | undefined) {
     setActionMessage(message ?? "This action is not available yet");
+  }
+
+  function startPinEdit() {
+    if (!pin) return;
+
+    setDraftType(pin.type);
+    setDraftNotes(pin.notes);
+    setActionMessage("");
+    setIsEditingPin(true);
+  }
+
+  function savePinEdit() {
+    onSavePin?.({ type: draftType, notes: draftNotes.trim() });
+    setIsEditingPin(false);
+    setActionMessage("Pin updated.");
   }
 
   return (
@@ -60,49 +87,109 @@ export default function MapAssetInfoCard({
         </button>
       </div>
 
-      <div style={detailsStyle}>
-        <InfoLine label="Property" value={propertyName} />
-        <InfoLine label="Notes" value={asset.description || "No notes yet."} />
-      </div>
+      {isEditingPin && pin ? (
+        <div style={detailsStyle}>
+          <label style={editFieldStyle}>
+            <span style={infoLabelStyle}>Pin Type</span>
+            <select
+              aria-label="Pin type"
+              value={draftType}
+              style={editInputStyle}
+              onChange={(event) => setDraftType(event.target.value as PinType)}
+            >
+              {getPinTypeOptions(pin.type).map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={editFieldStyle}>
+            <span style={infoLabelStyle}>Notes</span>
+            <textarea
+              aria-label="Pin notes"
+              value={draftNotes}
+              rows={3}
+              placeholder="What did you find here?"
+              style={{ ...editInputStyle, resize: "vertical" }}
+              onChange={(event) => setDraftNotes(event.target.value)}
+            />
+          </label>
+          <div className="di-map-card-actions" style={actionsStyle}>
+            <button type="button" style={primaryActionButtonStyle} onClick={savePinEdit}>
+              Save
+            </button>
+            <button
+              type="button"
+              style={secondaryActionStyle}
+              onClick={() => setIsEditingPin(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={detailsStyle}>
+            <InfoLine label="Property" value={propertyName} />
+            <InfoLine label="Notes" value={asset.description || "No notes yet."} />
+            <InfoLine
+              label="GPS"
+              value={`${formatCoordinate(asset.lat)}, ${formatCoordinate(asset.lng)}`}
+            />
+            {pin ? (
+              <InfoLine label="Placed" value={formatPlacedDate(pin.createdAt)} />
+            ) : null}
+          </div>
 
-      <div className="di-map-card-actions" style={actionsStyle}>
-        {detailRoute.href ? (
-          <Link href={detailRoute.href} style={primaryActionStyle}>
-            View Details
-          </Link>
-        ) : (
-          <button
-            type="button"
-            style={placeholderActionStyle}
-            onClick={() =>
-              showUnavailableMessage(detailRoute.unavailableMessage)
-            }
-          >
-            View Details
-          </button>
-        )}
+          <div className="di-map-card-actions" style={actionsStyle}>
+            {detailRoute.href ? (
+              <Link href={detailRoute.href} style={primaryActionStyle}>
+                View Details
+              </Link>
+            ) : canEditPin ? null : (
+              <button
+                type="button"
+                style={placeholderActionStyle}
+                onClick={() =>
+                  showUnavailableMessage(detailRoute.unavailableMessage)
+                }
+              >
+                View Details
+              </button>
+            )}
 
-        {editRoute.href ? (
-          <Link href={editRoute.href} style={secondaryActionStyle}>
-            Edit
-          </Link>
-        ) : (
-          <button
-            type="button"
-            style={placeholderActionStyle}
-            onClick={() => showUnavailableMessage(editRoute.unavailableMessage)}
-          >
-            Edit
-          </button>
-        )}
+            {canEditPin ? (
+              <button
+                type="button"
+                style={primaryActionButtonStyle}
+                onClick={startPinEdit}
+              >
+                Edit
+              </button>
+            ) : editRoute.href ? (
+              <Link href={editRoute.href} style={secondaryActionStyle}>
+                Edit
+              </Link>
+            ) : (
+              <button
+                type="button"
+                style={placeholderActionStyle}
+                onClick={() => showUnavailableMessage(editRoute.unavailableMessage)}
+              >
+                Edit
+              </button>
+            )}
 
-        <button type="button" style={secondaryActionStyle} onClick={onCenter}>
-          Center on Map
-        </button>
-        <button type="button" style={dangerActionStyle} onClick={onDelete}>
-          Delete
-        </button>
-      </div>
+            <button type="button" style={secondaryActionStyle} onClick={onCenter}>
+              Center on Map
+            </button>
+            <button type="button" style={dangerActionStyle} onClick={onDelete}>
+              Delete
+            </button>
+          </div>
+        </>
+      )}
 
       {actionMessage ? <p style={actionMessageStyle}>{actionMessage}</p> : null}
     </aside>
@@ -116,6 +203,29 @@ function InfoLine({ label, value }: { label: string; value: string }) {
       <p style={infoValueStyle}>{value}</p>
     </div>
   );
+}
+
+// The Pin Box only places the property-asset types, but older pins (and
+// search-saved ones) can carry other types — keep the pin's current type
+// selectable so editing never silently changes it.
+function getPinTypeOptions(currentType: PinType): PinType[] {
+  const options: PinType[] = [...PROPERTY_ASSET_PIN_TYPES];
+
+  if (!options.includes(currentType)) options.unshift(currentType);
+
+  return options;
+}
+
+function formatPlacedDate(createdAt: string) {
+  const timestamp = Date.parse(createdAt);
+
+  if (Number.isNaN(timestamp)) return "Unknown";
+
+  return new Date(timestamp).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 const cardStyle: CSSProperties = {
@@ -213,6 +323,22 @@ const infoValueStyle: CSSProperties = {
   lineHeight: 1.45,
 };
 
+const editFieldStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.35rem",
+};
+
+const editInputStyle: CSSProperties = {
+  width: "100%",
+  minHeight: "44px",
+  padding: "0.6rem 0.7rem",
+  border: "1px solid rgba(255, 255, 255, 0.24)",
+  borderRadius: "8px",
+  background: "rgba(255, 255, 255, 0.08)",
+  color: "#f1f5ef",
+  fontSize: "0.94rem",
+};
+
 const actionsStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
@@ -238,6 +364,11 @@ const primaryActionStyle: CSSProperties = {
   ...baseActionStyle,
   border: "1px solid #3b6843",
   background: "#18351d",
+};
+
+const primaryActionButtonStyle: CSSProperties = {
+  ...primaryActionStyle,
+  cursor: "pointer",
 };
 
 const secondaryActionStyle: CSSProperties = {

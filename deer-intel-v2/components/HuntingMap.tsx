@@ -1205,6 +1205,9 @@ export default function HuntingMap() {
   );
 
   const selectedAsset = mapAssets.find((asset) => asset.id === selectedAssetId);
+  const selectedPin = selectedAsset?.pinId
+    ? pins.find((pin) => pin.id === selectedAsset.pinId)
+    : undefined;
   const ownerNamesEnabled = showOwnerNames && !isMobileMapPerformanceMode;
   const pinBoxDisabled =
     !selectedPropertyId || ownerNamesEnabled || isDrawingArea;
@@ -1840,6 +1843,20 @@ export default function HuntingMap() {
     }));
 
     return pinId;
+  }
+
+  function updatePin(
+    pinId: string,
+    updates: { type: PinType; notes: string },
+  ) {
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      pins: currentState.pins.map((pin) =>
+        pin.id === pinId
+          ? { ...pin, type: updates.type, notes: updates.notes }
+          : pin,
+      ),
+    }));
   }
 
   function deletePin(pinId: string) {
@@ -2803,10 +2820,16 @@ export default function HuntingMap() {
                 selectedPropertyId,
               )}
               editRoute={getAssetEditHref(selectedAsset, selectedPropertyId)}
+              pin={selectedPin}
               propertyName={selectedProperty.name}
               onCenter={centerOnAsset}
               onClose={() => setSelectedAssetId(null)}
               onDelete={deleteSelectedAsset}
+              onSavePin={
+                selectedPin
+                  ? (updates) => updatePin(selectedPin.id, updates)
+                  : undefined
+              }
             />
           ) : null}
 
