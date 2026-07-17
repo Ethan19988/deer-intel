@@ -8,7 +8,6 @@ type MapTopBarProps = {
   showContours: boolean;
   contourNeedsZoomIn: boolean;
   showSlope: boolean;
-  showWaterways: boolean;
   showLandcover: boolean;
   showPropertyOwners: boolean;
   showWind: boolean;
@@ -17,7 +16,6 @@ type MapTopBarProps = {
   onSelectLayer: (layerId: MapLayerId) => void;
   onToggleContours: () => void;
   onToggleSlope: () => void;
-  onToggleWaterways: () => void;
   onToggleLandcover: () => void;
   onTogglePropertyOwners: () => void;
   onToggleWind: () => void;
@@ -40,7 +38,6 @@ export default function MapTopBar({
   showContours,
   contourNeedsZoomIn,
   showSlope,
-  showWaterways,
   showLandcover,
   showPropertyOwners,
   showWind,
@@ -49,7 +46,6 @@ export default function MapTopBar({
   onSelectLayer,
   onToggleContours,
   onToggleSlope,
-  onToggleWaterways,
   onToggleLandcover,
   onTogglePropertyOwners,
   onToggleWind,
@@ -105,16 +101,6 @@ export default function MapTopBar({
         onClick={onToggleSlope}
       >
         Slope Angle
-      </button>
-
-      <button
-        type="button"
-        role="switch"
-        aria-checked={showWaterways}
-        style={{ ...pillStyle, ...(showWaterways ? activeWaterwaysPillStyle : null) }}
-        onClick={onToggleWaterways}
-      >
-        Creeks &amp; Rivers
       </button>
 
       <button
@@ -245,12 +231,6 @@ const activePillStyle: CSSProperties = {
 const activePropertyOwnersPillStyle: CSSProperties = {
   borderColor: "rgba(116, 199, 255, 0.6)",
   background: "#1d4e6b",
-  color: "white",
-};
-
-const activeWaterwaysPillStyle: CSSProperties = {
-  borderColor: "rgba(96, 165, 250, 0.7)",
-  background: "#1e5f8a",
   color: "white",
 };
 

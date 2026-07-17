@@ -798,7 +798,6 @@ export default function HuntingMap() {
   const defaultOverlays = useDefaultMapOverlays();
   const [showContours, setShowContours] = useState(defaultOverlays.contours);
   const [showSlope, setShowSlope] = useState(defaultOverlays.slope);
-  const [showWaterways, setShowWaterways] = useState(defaultOverlays.waterways);
   const [showLandcover, setShowLandcover] = useState(defaultOverlays.landcover);
   const [showWind, setShowWind] = useState(defaultOverlays.wind);
   const [showMovement, setShowMovement] = useState(defaultOverlays.movement);
@@ -2416,7 +2415,6 @@ export default function HuntingMap() {
             showContours={showContours}
             contourNeedsZoomIn={showContours && mapZoom < CONTOUR_MIN_ZOOM}
             showSlope={showSlope}
-            showWaterways={showWaterways}
             showLandcover={showLandcover}
             showPropertyOwners={showPropertyLines}
             showWind={showWind}
@@ -2425,7 +2423,6 @@ export default function HuntingMap() {
             onSelectLayer={setSelectedLayer}
             onToggleContours={() => setShowContours((current) => !current)}
             onToggleSlope={() => setShowSlope((current) => !current)}
-            onToggleWaterways={() => setShowWaterways((current) => !current)}
             onToggleLandcover={() => setShowLandcover((current) => !current)}
             onTogglePropertyOwners={togglePropertyLines}
             onToggleWind={toggleWind}
@@ -2546,18 +2543,18 @@ export default function HuntingMap() {
               />
             ) : null}
 
-            {showWaterways ? (
-              <CachedTileLayer
-                key="waterways-overlay"
-                className="di-waterways-overlay"
-                attribution={WATER_ATTRIBUTION}
-                url={WATER_TILE_URL}
-                maxZoom={19}
-                maxNativeZoom={16}
-                opacity={0.9}
-                zIndex={670}
-              />
-            ) : null}
+            {/* Water is a permanent reference layer on every base map — always
+                on, no toggle: creeks, rivers and ponds are core deer terrain. */}
+            <CachedTileLayer
+              key="waterways-overlay"
+              className="di-waterways-overlay"
+              attribution={WATER_ATTRIBUTION}
+              url={WATER_TILE_URL}
+              maxZoom={19}
+              maxNativeZoom={16}
+              opacity={0.9}
+              zIndex={670}
+            />
 
             {showSlope ? (
               <WMSTileLayer

@@ -28,7 +28,6 @@ export type AssetLayerId =
 export type MapOverlayId =
   | "contours"
   | "slope"
-  | "waterways"
   | "landcover"
   | "propertyLines"
   | "wind"
@@ -66,11 +65,6 @@ export const MAP_OVERLAYS: Array<{
     id: "slope",
     label: "Slope Angle",
     description: "Shades steep ground so benches and draws stand out.",
-  },
-  {
-    id: "waterways",
-    label: "Creeks & Rivers",
-    description: "USGS streams, rivers and ponds — where deer water.",
   },
   {
     id: "landcover",
