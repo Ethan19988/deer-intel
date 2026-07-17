@@ -27,6 +27,7 @@ import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
 import WeatherHistoryPanel from "@/components/weather/WeatherHistoryPanel";
 import SeasonRutCard from "@/components/season/SeasonRutCard";
 import PipelineCommandCard from "@/components/properties/PipelineCommandCard";
+import GenerateHighResButton from "@/components/terrain/GenerateHighResButton";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { hasPropertyCoordinate } from "@/lib/propertyLocation";
 import {
@@ -603,6 +604,11 @@ export default function PropertyWorkspacePage() {
               })),
           ]}
         />
+        <div style={{ marginTop: 12 }}>
+          <GenerateHighResButton
+            property={{ id: property.id, name: property.name, huntArea: property.huntArea }}
+          />
+        </div>
       </DashboardSection>
               </div>
             ),

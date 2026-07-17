@@ -1,0 +1,11 @@
+# Python deps for the terrain worker. GDAL CLI tools (gdalwarp, gdal_contour,
+# ogr2ogr) come from the base image's system GDAL; these wheels bundle their own
+# GEOS/PROJ so they don't conflict with it.
+numpy
+scipy
+rasterio
+shapely
+pyproj
+affine
+whitebox
+requests
