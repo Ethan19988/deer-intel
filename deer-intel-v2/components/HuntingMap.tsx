@@ -310,6 +310,24 @@ function ClickToDrawArea({
   return null;
 }
 
+function ClickToMovePin({
+  enabled,
+  onMovePin,
+}: {
+  enabled: boolean;
+  onMovePin: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click(event: MapClickEvent) {
+      if (!enabled) return;
+
+      onMovePin(event.latlng.lat, event.latlng.lng);
+    },
+  });
+
+  return null;
+}
+
 function isSupportedPropertyPinType(value: string): value is PinType {
   return PROPERTY_ASSET_PIN_TYPES.includes(
     value as (typeof PROPERTY_ASSET_PIN_TYPES)[number],
@@ -852,6 +870,11 @@ export default function HuntingMap() {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [isMobileAssetSheetOpen, setIsMobileAssetSheetOpen] = useState(false);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
+  // Pin being relocated via "Move Pin" — the next map tap becomes its new spot.
+  const [movingPin, setMovingPin] = useState<{
+    id: string;
+    label: string;
+  } | null>(null);
   const [layersOpen, setLayersOpen] = useState(false);
   const [scoutOpen, setScoutOpen] = useState(false);
   const [isDrawingArea, setIsDrawingArea] = useState(false);
@@ -1492,6 +1515,7 @@ export default function HuntingMap() {
     if (!selectedPropertyId) return;
 
     setIsPlacingPin(false);
+    setMovingPin(null);
     setIsDrawingArea(true);
     setDraftAreaPoints(huntArea ? [...huntArea] : []);
     setAreaCoordInput("");
@@ -1739,6 +1763,7 @@ export default function HuntingMap() {
   function startPinPlacement() {
     if (pinBoxDisabled) return;
 
+    setMovingPin(null);
     setIsPlacingPin(true);
     setPinBoxMessage(`Tap map to place ${pinType}`);
     // The Pin Box lives in the Layers drawer now — close it so the map is
@@ -1772,6 +1797,10 @@ export default function HuntingMap() {
   }
 
   function selectAsset(assetId: string) {
+    // Mid-move, a marker tap must not hijack the "tap map for the new spot"
+    // flow by popping an asset card over it.
+    if (movingPin) return;
+
     setSelectedAssetId(assetId);
   }
 
@@ -1847,16 +1876,54 @@ export default function HuntingMap() {
 
   function updatePin(
     pinId: string,
-    updates: { type: PinType; notes: string },
+    updates: { type: PinType; notes: string; lat: number; lng: number },
   ) {
     updateDeerIntelStore((currentState) => ({
       ...currentState,
       pins: currentState.pins.map((pin) =>
         pin.id === pinId
-          ? { ...pin, type: updates.type, notes: updates.notes }
+          ? {
+              ...pin,
+              type: updates.type,
+              notes: updates.notes,
+              lat: updates.lat,
+              lng: updates.lng,
+            }
           : pin,
       ),
     }));
+  }
+
+  function startPinMove() {
+    if (!selectedPin) return;
+
+    setIsPlacingPin(false);
+    setMovingPin({
+      id: selectedPin.id,
+      label: selectedAsset?.label ?? selectedPin.type,
+    });
+    // Close the card so the map underneath is tappable for the new spot.
+    setSelectedAssetId(null);
+  }
+
+  function cancelPinMove() {
+    setMovingPin(null);
+  }
+
+  function movePinToLocation(lat: number, lng: number) {
+    if (!movingPin) return;
+
+    const pinId = movingPin.id;
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      pins: currentState.pins.map((pin) =>
+        pin.id === pinId ? { ...pin, lat, lng } : pin,
+      ),
+    }));
+    setMovingPin(null);
+    // Reopen the card so the new GPS reading is right there to check/adjust.
+    setSelectedAssetId(`pin-${pinId}`);
   }
 
   function deletePin(pinId: string) {
@@ -2550,7 +2617,7 @@ export default function HuntingMap() {
             />
             <ParcelTilesLayer
               enabled={showPropertyLines}
-              pickEnabled={!isPlacingPin && !isDrawingArea}
+              pickEnabled={!isPlacingPin && !isDrawingArea && !movingPin}
               onOwnerPick={handleTileOwnerPick}
             />
 
@@ -2589,8 +2656,17 @@ export default function HuntingMap() {
               onAddPin={createPinAtLocation}
             />
             <ClickToLookupParcelOwner
-              enabled={showPropertyLines && ownerNamesEnabled && !isDrawingArea}
+              enabled={
+                showPropertyLines &&
+                ownerNamesEnabled &&
+                !isDrawingArea &&
+                !movingPin
+              }
               onLookup={lookupParcelOwner}
+            />
+            <ClickToMovePin
+              enabled={Boolean(movingPin)}
+              onMovePin={movePinToLocation}
             />
             <ClickToDrawArea
               enabled={isDrawingArea}
@@ -2725,6 +2801,23 @@ export default function HuntingMap() {
             </div>
           ) : null}
 
+          {movingPin && !isDrawingArea ? (
+            <div className="di-area-pill" style={drawActionBarStyle}>
+              <span style={drawActionStatusStyle}>
+                Tap map to move {movingPin.label}
+              </span>
+              <div style={drawActionButtonRowStyle}>
+                <button
+                  type="button"
+                  style={drawSecondaryButtonStyle}
+                  onClick={cancelPinMove}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {isPlacingPin && !isDrawingArea ? (
             <div className="di-area-pill" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
@@ -2830,6 +2923,7 @@ export default function HuntingMap() {
                   ? (updates) => updatePin(selectedPin.id, updates)
                   : undefined
               }
+              onStartMove={selectedPin ? startPinMove : undefined}
             />
           ) : null}
 

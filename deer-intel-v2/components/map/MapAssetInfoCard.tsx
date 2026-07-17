@@ -4,6 +4,13 @@ import { formatCoordinate } from "@/lib/propertyMap";
 import type { MapAsset, MapAssetRoute } from "@/lib/propertyMap";
 import { PROPERTY_ASSET_PIN_TYPES, type MapPin, type PinType } from "@/types/mapPin";
 
+type PinUpdates = {
+  type: PinType;
+  notes: string;
+  lat: number;
+  lng: number;
+};
+
 type MapAssetInfoCardProps = {
   asset: MapAsset;
   detailRoute: MapAssetRoute;
@@ -14,7 +21,8 @@ type MapAssetInfoCardProps = {
   onCenter: () => void;
   onClose: () => void;
   onDelete: () => void;
-  onSavePin?: (updates: { type: PinType; notes: string }) => void;
+  onSavePin?: (updates: PinUpdates) => void;
+  onStartMove?: () => void;
 };
 
 export default function MapAssetInfoCard({
@@ -27,11 +35,14 @@ export default function MapAssetInfoCard({
   onClose,
   onDelete,
   onSavePin,
+  onStartMove,
 }: MapAssetInfoCardProps) {
   const [actionMessage, setActionMessage] = useState("");
   const [isEditingPin, setIsEditingPin] = useState(false);
   const [draftType, setDraftType] = useState<PinType>(pin?.type ?? "Stand");
   const [draftNotes, setDraftNotes] = useState(pin?.notes ?? "");
+  const [draftLat, setDraftLat] = useState("");
+  const [draftLng, setDraftLng] = useState("");
 
   const canEditPin = Boolean(pin && onSavePin);
 
@@ -44,12 +55,27 @@ export default function MapAssetInfoCard({
 
     setDraftType(pin.type);
     setDraftNotes(pin.notes);
+    setDraftLat(String(pin.lat));
+    setDraftLng(String(pin.lng));
     setActionMessage("");
     setIsEditingPin(true);
   }
 
   function savePinEdit() {
-    onSavePin?.({ type: draftType, notes: draftNotes.trim() });
+    const lat = Number(draftLat.trim());
+    const lng = Number(draftLng.trim());
+
+    if (!draftLat.trim() || !Number.isFinite(lat) || lat < -90 || lat > 90) {
+      setActionMessage("Latitude must be a number between -90 and 90.");
+      return;
+    }
+
+    if (!draftLng.trim() || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+      setActionMessage("Longitude must be a number between -180 and 180.");
+      return;
+    }
+
+    onSavePin?.({ type: draftType, notes: draftNotes.trim(), lat, lng });
     setIsEditingPin(false);
     setActionMessage("Pin updated.");
   }
@@ -115,6 +141,32 @@ export default function MapAssetInfoCard({
               onChange={(event) => setDraftNotes(event.target.value)}
             />
           </label>
+          <div style={coordinateRowStyle}>
+            <label style={editFieldStyle}>
+              <span style={infoLabelStyle}>Latitude</span>
+              <input
+                aria-label="Pin latitude"
+                type="text"
+                inputMode="decimal"
+                value={draftLat}
+                placeholder="41.45980"
+                style={editInputStyle}
+                onChange={(event) => setDraftLat(event.target.value)}
+              />
+            </label>
+            <label style={editFieldStyle}>
+              <span style={infoLabelStyle}>Longitude</span>
+              <input
+                aria-label="Pin longitude"
+                type="text"
+                inputMode="decimal"
+                value={draftLng}
+                placeholder="-78.31810"
+                style={editInputStyle}
+                onChange={(event) => setDraftLng(event.target.value)}
+              />
+            </label>
+          </div>
           <div className="di-map-card-actions" style={actionsStyle}>
             <button type="button" style={primaryActionButtonStyle} onClick={savePinEdit}>
               Save
@@ -160,13 +212,24 @@ export default function MapAssetInfoCard({
             )}
 
             {canEditPin ? (
-              <button
-                type="button"
-                style={primaryActionButtonStyle}
-                onClick={startPinEdit}
-              >
-                Edit
-              </button>
+              <>
+                <button
+                  type="button"
+                  style={primaryActionButtonStyle}
+                  onClick={startPinEdit}
+                >
+                  Edit
+                </button>
+                {onStartMove ? (
+                  <button
+                    type="button"
+                    style={secondaryActionStyle}
+                    onClick={onStartMove}
+                  >
+                    Move Pin
+                  </button>
+                ) : null}
+              </>
             ) : editRoute.href ? (
               <Link href={editRoute.href} style={secondaryActionStyle}>
                 Edit
@@ -326,6 +389,12 @@ const infoValueStyle: CSSProperties = {
 const editFieldStyle: CSSProperties = {
   display: "grid",
   gap: "0.35rem",
+};
+
+const coordinateRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "0.55rem",
 };
 
 const editInputStyle: CSSProperties = {
