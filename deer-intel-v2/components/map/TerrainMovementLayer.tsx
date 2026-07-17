@@ -7,6 +7,14 @@ import {
   type TerrainMovementFeature,
   type TerrainMovementSet,
 } from "@/lib/terrainMovement";
+import { terrainPlaybook, type PlaybookTone } from "@/lib/terrainPlaybook";
+
+// Verdict tone -> color on the light popup surface.
+const TONE_COLOR: Record<PlaybookTone, string> = {
+  prime: "#1c5b2e",
+  confirm: "#8a6d1c",
+  careful: "#9a3b2f",
+};
 
 type TerrainMovementLayerProps = {
   set: TerrainMovementSet;
@@ -111,10 +119,11 @@ function FeaturePopup({
   source: string;
 }) {
   const { color, label } = TERRAIN_STYLE[feature.kind];
+  const play = terrainPlaybook(feature);
 
   return (
     <Popup>
-      <div style={{ maxWidth: "230px" }}>
+      <div style={{ maxWidth: "245px" }}>
         <span
           style={{
             display: "inline-block",
@@ -149,6 +158,48 @@ function FeaturePopup({
             🌬️ {feature.windNote}
           </p>
         ) : null}
+
+        <div
+          style={{
+            marginTop: "0.5rem",
+            paddingTop: "0.45rem",
+            borderTop: "1px solid #e5e7eb",
+          }}
+        >
+          <span
+            style={{
+              display: "inline-block",
+              padding: "0.06rem 0.4rem",
+              borderRadius: "999px",
+              border: `1px solid ${TONE_COLOR[play.tone]}`,
+              color: TONE_COLOR[play.tone],
+              fontSize: "0.66rem",
+              fontWeight: 800,
+              textTransform: "uppercase",
+              letterSpacing: "0.02em",
+            }}
+          >
+            {play.verdict}
+          </span>
+          {play.moves.map((move) => (
+            <p
+              key={move.label}
+              style={{ margin: "0.32rem 0 0", fontSize: "0.78rem", lineHeight: 1.35 }}
+            >
+              <span aria-hidden="true">{move.icon}</span>{" "}
+              <strong>{move.label}:</strong> {move.text}
+            </p>
+          ))}
+          {play.access ? (
+            <p style={{ margin: "0.3rem 0 0", fontSize: "0.76rem", lineHeight: 1.3, color: "#4b5563" }}>
+              📍 {play.access}
+            </p>
+          ) : null}
+          <p style={{ margin: "0.3rem 0 0", fontSize: "0.76rem", fontWeight: 700, color: "#4b5563" }}>
+            🗓️ {play.window}
+          </p>
+        </div>
+
         <p
           style={{
             margin: "0.45rem 0 0",
