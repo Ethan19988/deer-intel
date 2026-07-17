@@ -47,6 +47,8 @@ export type ScoutPick = {
   title: string;
   reason: string;
   windNote?: string;
+  /** Metres to the nearest road (S1 security band), when the set carries it. */
+  roadDistM?: number;
   point: LatLng;
   rank: number;
 };
@@ -69,6 +71,7 @@ export function getScoutPicks(set: TerrainMovementSet): ScoutPick[] {
       title: feature.title,
       reason: feature.detail,
       windNote: feature.windNote,
+      roadDistM: feature.roadDistM,
       point: featureAnchor(feature),
     }))
     .sort((a, b) => KIND_PRIORITY[a.kind] - KIND_PRIORITY[b.kind])

@@ -9,6 +9,17 @@ type ScoutPicksPanelProps = {
   onSelect: (point: LatLng) => void;
 };
 
+const metersToYards = (m: number): number => Math.round(m * 1.0936);
+
+// S1 "Goldilocks" band, mirroring the pipeline's SECURITY_BAND_M = (450, 900) m:
+// too close and deer stay nocturnal; in-band is where hunters kill mature bucks;
+// beyond it becomes a sanctuary that costs a long, low-scent approach.
+function securityBand(m: number): { label: string; color: string } {
+  if (m < 450) return { label: "close — deer stay edgy", color: "#e0a86a" };
+  if (m <= 900) return { label: "huntable security band", color: "#9fd59b" };
+  return { label: "deep sanctuary", color: "#d19a94" };
+}
+
 // A ranked "go scout these" list for the terrain overlay. Reads the same
 // TerrainMovementSet the map draws, so the list and the map never disagree.
 // Tapping a pick flies the map to that spot. Dark card for legibility over the
@@ -58,6 +69,12 @@ export default function ScoutPicksPanel({ set, onSelect }: ScoutPicksPanelProps)
                 <span style={rowTitleStyle}>{pick.title}</span>
                 {pick.windNote ? (
                   <span style={rowWindStyle}>🌬️ {pick.windNote}</span>
+                ) : null}
+                {typeof pick.roadDistM === "number" ? (
+                  <span style={{ ...rowMetaStyle, color: securityBand(pick.roadDistM).color }}>
+                    📍 {metersToYards(pick.roadDistM)} yd from road ·{" "}
+                    {securityBand(pick.roadDistM).label}
+                  </span>
                 ) : null}
               </span>
             </button>
@@ -162,6 +179,12 @@ const rowTitleStyle: CSSProperties = {
 const rowWindStyle: CSSProperties = {
   fontSize: "0.74rem",
   color: "#b9c8b6",
+  lineHeight: 1.3,
+};
+
+const rowMetaStyle: CSSProperties = {
+  fontSize: "0.72rem",
+  fontWeight: 700,
   lineHeight: 1.3,
 };
 

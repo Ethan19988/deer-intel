@@ -36,6 +36,12 @@ type TerrainFeatureBase = {
   detail: string;
   /** How to play the wind / approach, or empty for refuge zones. */
   windNote?: string;
+  /**
+   * Metres to the nearest road at this spot (S1 "Goldilocks" security band).
+   * Set by the pipeline only on scored spots (beds, saddles) and only when a
+   * roads layer was supplied — absent on hand-built sets and no-roads runs.
+   */
+  roadDistM?: number;
 };
 
 export type TerrainBeddingFeature = TerrainFeatureBase & {
