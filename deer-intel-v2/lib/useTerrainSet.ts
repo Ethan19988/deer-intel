@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { resolveTerrainSet } from "@/lib/terrainMovementData";
 import { clearStoredSetsCache, resolveStoredTerrainSet } from "@/lib/terrainJobs";
+import { useShowSampleTerrain } from "@/lib/mapPreferences";
 import type { TerrainMovementSet } from "@/lib/terrainMovement";
 
 // Resolve the terrain-prediction set for a property location:
@@ -36,7 +37,11 @@ export function useTerrainSet(
   areaName?: string,
   bbox?: TerrainBbox | null,
 ): TerrainMovementSet | null {
-  const staticSet = point ? resolveTerrainSet(point) : null;
+  // The two built-in sample sets (Moore Hill, Sideling) can be switched off so a
+  // property only ever shows its OWN read — see Settings. When off, we skip the
+  // static tier and fall through to the stored 1 m / live 10 m read below.
+  const showSamples = useShowSampleTerrain();
+  const staticSet = point && showSamples ? resolveTerrainSet(point) : null;
   // Only fetch live when no built-in/generated set already covers the point.
   const bboxKey = bbox
     ? `|${bbox.minLat.toFixed(4)},${bbox.minLng.toFixed(4)},${bbox.maxLat.toFixed(4)},${bbox.maxLng.toFixed(4)}`

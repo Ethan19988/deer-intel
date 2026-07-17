@@ -145,6 +145,52 @@ export function setDefaultMapLayer(layer: MapLayerId): void {
   notifyListeners();
 }
 
+// Whether the two built-in SAMPLE terrain reads (Moore Hill, Sideling) may show
+// for a nearby property. Off => a property only ever shows its OWN read (the
+// live 10 m read, or a 1 m set generated for it), so on a shared deployment
+// every account is scoped strictly to its own ground. Device-local, but the
+// deployment-wide default comes from NEXT_PUBLIC_SHOW_SAMPLE_TERRAIN so the
+// operator can turn the samples off for all accounts and still let an individual
+// re-enable them.
+const SAMPLE_TERRAIN_STORAGE_KEY = "deer-intel:show-sample-terrain";
+
+export const DEFAULT_SHOW_SAMPLE_TERRAIN =
+  (process.env.NEXT_PUBLIC_SHOW_SAMPLE_TERRAIN ?? "true").trim() !== "false";
+
+let cachedSampleRaw: string | null = null;
+let cachedShowSample: boolean = DEFAULT_SHOW_SAMPLE_TERRAIN;
+
+export function readShowSampleTerrain(): boolean {
+  if (typeof window === "undefined") return DEFAULT_SHOW_SAMPLE_TERRAIN;
+
+  let raw: string | null;
+  try {
+    raw = window.localStorage.getItem(SAMPLE_TERRAIN_STORAGE_KEY);
+  } catch {
+    return DEFAULT_SHOW_SAMPLE_TERRAIN;
+  }
+
+  if (raw === cachedSampleRaw) return cachedShowSample;
+
+  cachedSampleRaw = raw;
+  cachedShowSample = raw === null ? DEFAULT_SHOW_SAMPLE_TERRAIN : raw !== "false";
+  return cachedShowSample;
+}
+
+export function setShowSampleTerrain(enabled: boolean): void {
+  const raw = enabled ? "true" : "false";
+  cachedSampleRaw = raw;
+  cachedShowSample = enabled;
+
+  try {
+    window.localStorage.setItem(SAMPLE_TERRAIN_STORAGE_KEY, raw);
+  } catch {
+    // Ignore write failures; the cached value still applies for this session.
+  }
+
+  notifyListeners();
+}
+
 // Both map preferences share one listener set and one storage handler: a change
 // to either key notifies every hook, and the ones whose snapshot didn't change
 // bail out on the === check for free.
@@ -152,14 +198,17 @@ function subscribe(listener: () => void) {
   listeners.add(listener);
 
   function handleStorage(event: StorageEvent) {
-    // key === null means the whole store was cleared, so drop both caches.
+    // key === null means the whole store was cleared, so drop every cache.
     if (event.key === null) {
       cachedRaw = null;
       cachedOverlayRaw = null;
+      cachedSampleRaw = null;
     } else if (event.key === MAP_LAYER_STORAGE_KEY) {
       cachedRaw = null;
     } else if (event.key === MAP_OVERLAYS_STORAGE_KEY) {
       cachedOverlayRaw = null;
+    } else if (event.key === SAMPLE_TERRAIN_STORAGE_KEY) {
+      cachedSampleRaw = null;
     } else {
       return;
     }
@@ -201,4 +250,16 @@ export function useDefaultMapOverlays(): MapOverlayState {
     getOverlaysSnapshot,
     getOverlaysServerSnapshot,
   );
+}
+
+function getSampleSnapshot(): boolean {
+  return readShowSampleTerrain();
+}
+
+function getSampleServerSnapshot(): boolean {
+  return DEFAULT_SHOW_SAMPLE_TERRAIN;
+}
+
+export function useShowSampleTerrain(): boolean {
+  return useSyncExternalStore(subscribe, getSampleSnapshot, getSampleServerSnapshot);
 }

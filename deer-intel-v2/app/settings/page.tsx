@@ -32,8 +32,10 @@ import {
 import {
   setDefaultMapLayer,
   setDefaultMapOverlay,
+  setShowSampleTerrain,
   useDefaultMapLayer,
   useDefaultMapOverlays,
+  useShowSampleTerrain,
 } from "@/lib/mapPreferences";
 import { setAiScoutEnabled, useAiScoutEnabled } from "@/lib/aiScoutPreferences";
 import {
@@ -65,6 +67,7 @@ export default function SettingsPage() {
   const units = useUnitPreferences();
   const defaultMapLayer = useDefaultMapLayer();
   const defaultMapOverlays = useDefaultMapOverlays();
+  const showSampleTerrain = useShowSampleTerrain();
   const seasonCalendar = useSeasonCalendar();
   const aiScoutEnabled = useAiScoutEnabled();
   const { configured, status, user } = useAuth();
@@ -294,6 +297,36 @@ export default function SettingsPage() {
                 </button>
               );
             })}
+          </div>
+        </Card>
+      </Section>
+
+      <Section eyebrow="Terrain" title="Sample Terrain Reads">
+        <Card as="div" variant="subtle">
+          <p style={mutedTextStyle}>
+            Two example properties (Moore Hill, Sideling Hill) ship with a built-in
+            high-res terrain read. Leave this on to see them near those spots. Turn
+            it off and every property — including yours — only ever shows its own
+            read: the live read, or a 1 m set generated for it. Saved on this
+            device only.
+          </p>
+          <div style={optionGridStyle}>
+            <button
+              type="button"
+              aria-pressed={showSampleTerrain}
+              onClick={() => setShowSampleTerrain(!showSampleTerrain)}
+              style={{
+                ...optionButtonStyle,
+                ...(showSampleTerrain ? optionButtonActiveStyle : null),
+              }}
+            >
+              <span style={optionLabelStyle}>Show built-in sample terrain</span>
+              <span style={optionDescStyle}>
+                {showSampleTerrain
+                  ? "On — the Moore Hill & Sideling samples can appear near those spots"
+                  : "Off — only this property's own read is shown"}
+              </span>
+            </button>
           </div>
         </Card>
       </Section>
