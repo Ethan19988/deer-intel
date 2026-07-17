@@ -182,10 +182,12 @@ export function analyzeTerrain(
 
   const kindCount = (k: string) => features.filter((f) => f.kind === k).length;
 
-  // Bedding (up to 6): south-facing benches first, then spur noses.
+  // Bedding: south-facing benches first, then spur noses. Caps are generous so
+  // the whole network shows, not just a few spots (Penn State: deer use many
+  // beds across a hillside, not one).
   const bedCandidates = [...beds.map((b) => b.c), ...spurs.map((s) => s.c)];
   for (const c of bedCandidates) {
-    if (kindCount("bedding") >= 6) break;
+    if (kindCount("bedding") >= 16) break;
     if (!farEnough(c)) continue;
     used.push(c);
     const south = isSouth(c.aspect);
@@ -201,9 +203,9 @@ export function analyzeTerrain(
     });
   }
 
-  // Saddle crossings (up to 6).
+  // Saddle crossings (every gap deer would use to cross the ridge).
   for (const { c } of saddles) {
-    if (kindCount("pinch") >= 6) break;
+    if (kindCount("pinch") >= 14) break;
     if (!farEnough(c)) continue;
     used.push(c);
     features.push({
@@ -216,9 +218,10 @@ export function analyzeTerrain(
     });
   }
 
-  // Travel network (up to 10): bench contour trails first, then draws.
+  // Travel network: bench contour trails first, then draws. This is the web
+  // deer actually walk, so draw the whole thing rather than a token few.
   for (const { c } of benches) {
-    if (kindCount("travel") >= 6) break;
+    if (kindCount("travel") >= 14) break;
     if (!farEnough(c)) continue;
     used.push(c);
     features.push({
@@ -231,7 +234,7 @@ export function analyzeTerrain(
     });
   }
   for (const { c } of draws) {
-    if (kindCount("travel") >= 10) break;
+    if (kindCount("travel") >= 28) break;
     if (!farEnough(c)) continue;
     used.push(c);
     features.push({
@@ -244,9 +247,9 @@ export function analyzeTerrain(
     });
   }
 
-  // Refuge (up to 2): the steepest blocks.
+  // Refuge (up to 4): the steepest blocks.
   for (const c of [...cells].sort((a, b) => b.slope - a.slope)) {
-    if (kindCount("refuge") >= 2) break;
+    if (kindCount("refuge") >= 4) break;
     if (c.slope < 18 || !farEnough(c)) continue;
     used.push(c);
     features.push({

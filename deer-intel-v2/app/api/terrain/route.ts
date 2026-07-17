@@ -9,7 +9,7 @@ import type { TerrainMovementSet } from "@/lib/terrainMovement";
 // outside the US or if NED is briefly down. The 1 m LiDAR pipeline supersedes
 // this when a generated set exists for the property.
 
-const GRID_N = 16; // GRID_N x GRID_N samples; chunked into <=100-point requests
+const GRID_N = 20; // GRID_N x GRID_N samples; chunked into <=100-point requests
 const SPACING_M = 70;
 const CHUNK = 100; // elevation APIs cap at 100 coordinates per request
 

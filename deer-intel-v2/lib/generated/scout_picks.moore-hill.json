@@ -34,12 +34,62 @@
     {
       "kind": "pinch",
       "title": "Saddle crossing",
+      "lat": 41.41991,
+      "lng": -78.33316,
+      "elevationFt": 1905,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1905 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 521 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 521
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 41.47366,
+      "lng": -78.27554,
+      "elevationFt": 1761,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1761 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 419 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 419
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 41.43942,
+      "lng": -78.32236,
+      "elevationFt": 1923,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1923 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 371 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 371
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 41.41861,
+      "lng": -78.28572,
+      "elevationFt": 1447,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1447 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 311 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 311
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
       "lat": 41.47493,
       "lng": -78.33304,
       "elevationFt": 1509,
       "bestWind": "crosswind",
       "reason": "A ridge saddle near 1509 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 69 m from a road \u2014 a touch close; deer stay edgy in daylight.",
       "roadDistM": 69
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 41.42207,
+      "lng": -78.34011,
+      "elevationFt": 1513,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1513 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 190 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 190
     },
     {
       "kind": "pinch",
@@ -74,12 +124,82 @@
     {
       "kind": "pinch",
       "title": "Saddle crossing",
+      "lat": 41.47338,
+      "lng": -78.26972,
+      "elevationFt": 1931,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1931 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 163 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 163
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 41.47212,
+      "lng": -78.33654,
+      "elevationFt": 1365,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1365 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 174 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 174
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 41.4579,
+      "lng": -78.33931,
+      "elevationFt": 1741,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1741 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 136 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 136
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
       "lat": 41.47481,
       "lng": -78.32948,
       "elevationFt": 1259,
       "bestWind": "crosswind",
       "reason": "A ridge saddle near 1259 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 69 m from a road \u2014 a touch close; deer stay edgy in daylight.",
       "roadDistM": 69
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 41.42438,
+      "lng": -78.31138,
+      "elevationFt": 1496,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1496 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 121 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 121
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 41.42565,
+      "lng": -78.30898,
+      "elevationFt": 1671,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1671 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 114 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 114
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 41.4644,
+      "lng": -78.33762,
+      "elevationFt": 1807,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1807 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 68 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 68
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 41.47337,
+      "lng": -78.26791,
+      "elevationFt": 1882,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1882 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 20 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 20
     },
     {
       "kind": "bedding",

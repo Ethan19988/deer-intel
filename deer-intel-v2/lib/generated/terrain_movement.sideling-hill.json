@@ -1,8 +1,8 @@
 {
   "areaName": "Sideling Hill",
   "center": [
-    39.95979,
-    -78.17138
+    39.96102,
+    -78.16663
   ],
   "source": "1 m LiDAR terrain read \u00b7 Penn State Deer-Forest rules",
   "features": [
@@ -763,6 +763,150 @@
       "roadDistM": 573
     },
     {
+      "id": "sideling-hill-pinch-8",
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "detail": "A ridge saddle near 2001 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+      "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        39.94525,
+        -78.18042
+      ],
+      "roadDistM": 78
+    },
+    {
+      "id": "sideling-hill-pinch-9",
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "detail": "A ridge saddle near 1284 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+      "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        39.99139,
+        -78.20399
+      ],
+      "roadDistM": 387
+    },
+    {
+      "id": "sideling-hill-pinch-10",
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "detail": "A ridge saddle near 2150 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+      "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        39.95588,
+        -78.16589
+      ],
+      "roadDistM": 212
+    },
+    {
+      "id": "sideling-hill-pinch-11",
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "detail": "A ridge saddle near 1031 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+      "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        39.9443,
+        -78.13399
+      ],
+      "roadDistM": 145
+    },
+    {
+      "id": "sideling-hill-pinch-12",
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "detail": "A ridge saddle near 1739 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+      "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        39.99408,
+        -78.15246
+      ],
+      "roadDistM": 281
+    },
+    {
+      "id": "sideling-hill-pinch-13",
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "detail": "A ridge saddle near 1056 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+      "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        39.93826,
+        -78.13561
+      ],
+      "roadDistM": 30
+    },
+    {
+      "id": "sideling-hill-pinch-14",
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "detail": "A ridge saddle near 2078 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+      "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        39.94523,
+        -78.18117
+      ],
+      "roadDistM": 14
+    },
+    {
+      "id": "sideling-hill-pinch-15",
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "detail": "A ridge saddle near 2162 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+      "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        39.94049,
+        -78.18222
+      ],
+      "roadDistM": 200
+    },
+    {
+      "id": "sideling-hill-pinch-16",
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "detail": "A ridge saddle near 1647 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+      "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        39.99317,
+        -78.13199
+      ],
+      "roadDistM": 219
+    },
+    {
+      "id": "sideling-hill-pinch-17",
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "detail": "A ridge saddle near 998 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+      "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        39.95198,
+        -78.13315
+      ],
+      "roadDistM": 374
+    },
+    {
+      "id": "sideling-hill-pinch-18",
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "detail": "A ridge saddle near 1017 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+      "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        39.93902,
+        -78.13407
+      ],
+      "roadDistM": 38
+    },
+    {
+      "id": "sideling-hill-pinch-19",
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "detail": "A ridge saddle near 1313 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand.",
+      "windNote": "Sit the downhill side on a crosswind. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "point": [
+        39.94024,
+        -78.16702
+      ],
+      "roadDistM": 537
+    },
+    {
       "id": "sideling-hill-bench-0",
       "kind": "travel",
       "title": "Bench trail (1388 ft)",
@@ -971,6 +1115,312 @@
         [
           39.95484,
           -78.1562
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-12",
+      "kind": "travel",
+      "title": "Bench trail (910 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.95563,
+          -78.13299
+        ],
+        [
+          39.95509,
+          -78.13336
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-13",
+      "kind": "travel",
+      "title": "Bench trail (1295 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.98542,
+          -78.1885
+        ],
+        [
+          39.98563,
+          -78.1893
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-14",
+      "kind": "travel",
+      "title": "Bench trail (1675 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.96011,
+          -78.18178
+        ],
+        [
+          39.95958,
+          -78.18178
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-15",
+      "kind": "travel",
+      "title": "Bench trail (1093 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.94868,
+          -78.15315
+        ],
+        [
+          39.9482,
+          -78.15289
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-16",
+      "kind": "travel",
+      "title": "Bench trail (1320 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.97635,
+          -78.19285
+        ],
+        [
+          39.97671,
+          -78.19346
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-17",
+      "kind": "travel",
+      "title": "Bench trail (1328 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.95405,
+          -78.15574
+        ],
+        [
+          39.95424,
+          -78.15631
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-18",
+      "kind": "travel",
+      "title": "Bench trail (1234 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.95374,
+          -78.15407
+        ],
+        [
+          39.95389,
+          -78.15471
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-19",
+      "kind": "travel",
+      "title": "Bench trail (1678 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.94904,
+          -78.17035
+        ],
+        [
+          39.94882,
+          -78.17081
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-20",
+      "kind": "travel",
+      "title": "Bench trail (998 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.93836,
+          -78.13468
+        ],
+        [
+          39.9381,
+          -78.13512
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-21",
+      "kind": "travel",
+      "title": "Bench trail (1705 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.95262,
+          -78.16168
+        ],
+        [
+          39.95229,
+          -78.16191
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-22",
+      "kind": "travel",
+      "title": "Bench trail (1260 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.97656,
+          -78.1923
+        ],
+        [
+          39.97673,
+          -78.19271
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-23",
+      "kind": "travel",
+      "title": "Bench trail (1696 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.99198,
+          -78.13365
+        ],
+        [
+          39.99165,
+          -78.13383
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-24",
+      "kind": "travel",
+      "title": "Bench trail (1358 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.97136,
+          -78.18754
+        ],
+        [
+          39.97104,
+          -78.1879
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-25",
+      "kind": "travel",
+      "title": "Bench trail (1649 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.9817,
+          -78.14191
+        ],
+        [
+          39.9814,
+          -78.14214
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-26",
+      "kind": "travel",
+      "title": "Bench trail (1286 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.97841,
+          -78.19408
+        ],
+        [
+          39.97851,
+          -78.19448
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-27",
+      "kind": "travel",
+      "title": "Bench trail (1512 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.94489,
+          -78.17433
+        ],
+        [
+          39.94497,
+          -78.17471
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-28",
+      "kind": "travel",
+      "title": "Bench trail (1616 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.96201,
+          -78.15657
+        ],
+        [
+          39.96191,
+          -78.15693
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-bench-29",
+      "kind": "travel",
+      "title": "Bench trail (1516 ft)",
+      "detail": "A near-level shelf on a steep hillside \u2014 deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.",
+      "windNote": "Deer walk it into the wind; sit the downwind end, above or below the trail. Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side.",
+      "line": [
+        [
+          39.94375,
+          -78.17265
+        ],
+        [
+          39.94347,
+          -78.17282
         ]
       ]
     },
@@ -1209,6 +1659,442 @@
         [
           39.95688,
           -78.18337
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-10",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.94453,
+          -78.1839
+        ],
+        [
+          39.94706,
+          -78.18743
+        ],
+        [
+          39.94881,
+          -78.1895
+        ],
+        [
+          39.94929,
+          -78.18953
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-11",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.94734,
+          -78.18302
+        ],
+        [
+          39.94981,
+          -78.18699
+        ],
+        [
+          39.9502,
+          -78.18974
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-12",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.96825,
+          -78.16233
+        ],
+        [
+          39.97033,
+          -78.16442
+        ],
+        [
+          39.97124,
+          -78.16647
+        ],
+        [
+          39.97248,
+          -78.16774
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-13",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.99015,
+          -78.14246
+        ],
+        [
+          39.99056,
+          -78.1498
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-14",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.95991,
+          -78.16835
+        ],
+        [
+          39.9619,
+          -78.17059
+        ],
+        [
+          39.96322,
+          -78.17132
+        ],
+        [
+          39.96445,
+          -78.17133
+        ],
+        [
+          39.96542,
+          -78.17044
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-15",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.96322,
+          -78.17154
+        ],
+        [
+          39.96559,
+          -78.17184
+        ],
+        [
+          39.96781,
+          -78.17546
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-16",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.95829,
+          -78.16682
+        ],
+        [
+          39.96145,
+          -78.17058
+        ],
+        [
+          39.96322,
+          -78.17154
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-17",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.94591,
+          -78.18358
+        ],
+        [
+          39.94755,
+          -78.18545
+        ],
+        [
+          39.94971,
+          -78.18917
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-18",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.96477,
+          -78.17911
+        ],
+        [
+          39.96724,
+          -78.18268
+        ],
+        [
+          39.968,
+          -78.18503
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-19",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.95961,
+          -78.169
+        ],
+        [
+          39.9641,
+          -78.17386
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-20",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.94141,
+          -78.18462
+        ],
+        [
+          39.9426,
+          -78.18775
+        ],
+        [
+          39.9426,
+          -78.19108
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-21",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.96551,
+          -78.14783
+        ],
+        [
+          39.96392,
+          -78.14439
+        ],
+        [
+          39.96248,
+          -78.14306
+        ],
+        [
+          39.96238,
+          -78.14243
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-22",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.98168,
+          -78.14995
+        ],
+        [
+          39.98294,
+          -78.151
+        ],
+        [
+          39.9844,
+          -78.15357
+        ],
+        [
+          39.98436,
+          -78.15557
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-23",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.95025,
+          -78.17545
+        ],
+        [
+          39.94916,
+          -78.17383
+        ],
+        [
+          39.94581,
+          -78.17123
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-24",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.98475,
+          -78.14154
+        ],
+        [
+          39.98087,
+          -78.13614
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-25",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.98367,
+          -78.14255
+        ],
+        [
+          39.9798,
+          -78.13722
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-26",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.98087,
+          -78.14101
+        ],
+        [
+          39.97827,
+          -78.13727
+        ],
+        [
+          39.9774,
+          -78.13638
+        ],
+        [
+          39.97697,
+          -78.13669
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-27",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.97446,
+          -78.15293
+        ],
+        [
+          39.97475,
+          -78.15274
+        ],
+        [
+          39.97584,
+          -78.15405
+        ],
+        [
+          39.97797,
+          -78.15787
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-28",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.97156,
+          -78.16459
+        ],
+        [
+          39.97342,
+          -78.16689
+        ],
+        [
+          39.97361,
+          -78.1687
+        ],
+        [
+          39.97464,
+          -78.16979
+        ]
+      ]
+    },
+    {
+      "id": "sideling-hill-draw-29",
+      "kind": "travel",
+      "title": "Draw travel corridor",
+      "detail": "A drainage carrying bed-to-feed travel and your quietest, lowest-scent way in.",
+      "windNote": "Thermals: scent sinks downhill at dawn/dusk, rises upslope by midday \u2014 let the active thermal, not just the wind, pick your side. Hunt the lower end at dawn, the upper end midday.",
+      "line": [
+        [
+          39.95569,
+          -78.16898
+        ],
+        [
+          39.95949,
+          -78.17361
         ]
       ]
     }

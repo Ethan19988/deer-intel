@@ -1548,6 +1548,17 @@ export default function HuntingMap() {
     setAreaPointMessage("");
   }
 
+  // Turning Terrain on also brings up the contour lines so the ground shape the
+  // deer-movement rules read (slopes, benches, drainages, saddles) is visible.
+  // Turning Terrain off leaves contours as they are — they can stand alone.
+  function toggleTerrain() {
+    setShowTerrain((current) => {
+      const next = !current;
+      if (next) setShowContours(true);
+      return next;
+    });
+  }
+
   function finishAreaDraw() {
     if (!selectedPropertyId || !huntAreaIsValid(draftAreaPoints)) return;
 
@@ -1564,8 +1575,10 @@ export default function HuntingMap() {
     cancelAreaDraw();
     // Finishing an area is a request to know that ground — turn the terrain
     // read on so the deer-movement review appears the moment the outline lands,
-    // no extra toggle.
+    // no extra toggle. Contours come on with it so the slopes, benches, drainages
+    // and saddles the deer-movement rules are reading are visible underneath.
     setShowTerrain(true);
+    setShowContours(true);
   }
 
   function clearHuntArea() {
@@ -2296,7 +2309,7 @@ export default function HuntingMap() {
             onTogglePropertyOwners={togglePropertyLines}
             onToggleWind={toggleWind}
             onToggleMovement={toggleMovement}
-            onToggleTerrain={() => setShowTerrain((current) => !current)}
+            onToggleTerrain={toggleTerrain}
           />
 
           {showWind ? (
