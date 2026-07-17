@@ -120,10 +120,36 @@ export function analyzeTerrain(
     .map((c) => ({ c, score: c.lap + (median - c.e) * 0.05 }))
     .sort((a, b) => b.score - a.score);
 
+  // Bench travel: gentle ground sitting in an otherwise-steep neighbourhood, in
+  // the lower/mid elevation band — the sidehill shelves deer travel along
+  // parallel to the ridge (Penn State: bed high, travel low). Index the cells
+  // so we can read the surrounding slope.
+  const cellAt = new Map<string, Cell>();
+  for (const c of cells) cellAt.set(`${c.i},${c.j}`, c);
+  const nbhdSlope = (c: Cell): number => {
+    let sum = 0;
+    let n = 0;
+    for (let di = -2; di <= 2; di += 1)
+      for (let dj = -2; dj <= 2; dj += 1) {
+        const o = cellAt.get(`${c.i + di},${c.j + dj}`);
+        if (o) { sum += o.slope; n += 1; }
+      }
+    return n ? sum / n : c.slope;
+  };
+  const elevCut = sorted[Math.floor(sorted.length * 0.72)];
+  const benches = cells
+    .filter(
+      (c) =>
+        c.slope <= 12 && c.e <= elevCut && Math.abs(c.lap) < 2.5 &&
+        nbhdSlope(c) >= 15,
+    )
+    .map((c) => ({ c, score: nbhdSlope(c) - c.slope }))
+    .sort((a, b) => b.score - a.score);
+
   const features: TerrainMovementFeature[] = [];
   const used: Cell[] = [];
   const farEnough = (c: Cell) =>
-    used.every((u) => Math.hypot(u.i - c.i, u.j - c.j) >= 1.5);
+    used.every((u) => Math.hypot(u.i - c.i, u.j - c.j) >= 1.4);
 
   const box = (c: Cell): LatLng[] => [
     [round(c.lat + dLat * 0.9), round(c.lng - dLng * 0.9)],
@@ -136,21 +162,30 @@ export function analyzeTerrain(
   const fallLine = (c: Cell): LatLng[] => {
     const rad = (c.aspect * Math.PI) / 180;
     const nUp = 1.6;
-    const upLat = c.lat - Math.cos(rad) * dLat * nUp;
-    const upLng = c.lng - Math.sin(rad) * dLng * nUp;
-    const dnLat = c.lat + Math.cos(rad) * dLat * nUp;
-    const dnLng = c.lng + Math.sin(rad) * dLng * nUp;
     return [
-      [round(upLat), round(upLng)],
+      [round(c.lat - Math.cos(rad) * dLat * nUp), round(c.lng - Math.sin(rad) * dLng * nUp)],
       [round(c.lat), round(c.lng)],
-      [round(dnLat), round(dnLng)],
+      [round(c.lat + Math.cos(rad) * dLat * nUp), round(c.lng + Math.sin(rad) * dLng * nUp)],
     ];
   };
 
-  // Bedding: south-facing benches first, then spur noses.
+  // A bench trail runs ALONG the contour — perpendicular to the fall line.
+  const contourLine = (c: Cell): LatLng[] => {
+    const rad = ((c.aspect + 90) * Math.PI) / 180;
+    const nn = 2.0;
+    return [
+      [round(c.lat - Math.cos(rad) * dLat * nn), round(c.lng - Math.sin(rad) * dLng * nn)],
+      [round(c.lat), round(c.lng)],
+      [round(c.lat + Math.cos(rad) * dLat * nn), round(c.lng + Math.sin(rad) * dLng * nn)],
+    ];
+  };
+
+  const kindCount = (k: string) => features.filter((f) => f.kind === k).length;
+
+  // Bedding (up to 6): south-facing benches first, then spur noses.
   const bedCandidates = [...beds.map((b) => b.c), ...spurs.map((s) => s.c)];
   for (const c of bedCandidates) {
-    if (features.filter((f) => f.kind === "bedding").length >= 2) break;
+    if (kindCount("bedding") >= 6) break;
     if (!farEnough(c)) continue;
     used.push(c);
     const south = isSouth(c.aspect);
@@ -166,9 +201,9 @@ export function analyzeTerrain(
     });
   }
 
-  // Pinch points: saddle crossings.
+  // Saddle crossings (up to 6).
   for (const { c } of saddles) {
-    if (features.filter((f) => f.kind === "pinch").length >= 2) break;
+    if (kindCount("pinch") >= 6) break;
     if (!farEnough(c)) continue;
     used.push(c);
     features.push({
@@ -181,30 +216,45 @@ export function analyzeTerrain(
     });
   }
 
-  // Travel: draw fall lines.
+  // Travel network (up to 10): bench contour trails first, then draws.
+  for (const { c } of benches) {
+    if (kindCount("travel") >= 6) break;
+    if (!farEnough(c)) continue;
+    used.push(c);
+    features.push({
+      id: `t-bench-${c.i}-${c.j}`,
+      kind: "travel",
+      title: `Bench trail (${Math.round(c.e * M_TO_FT)} ft)`,
+      detail: `A near-level shelf on a steep hillside — deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.`,
+      windNote: "Deer walk it into the wind; sit the downwind end, above or below the trail.",
+      line: contourLine(c),
+    });
+  }
   for (const { c } of draws) {
-    if (features.filter((f) => f.kind === "travel").length >= 2) break;
+    if (kindCount("travel") >= 10) break;
     if (!farEnough(c)) continue;
     used.push(c);
     features.push({
       id: `t-draw-${c.i}-${c.j}`,
       kind: "travel",
       title: "Draw travel corridor",
-      detail: `A drainage dropping toward the low ground — the natural bed-to-feed travel line and a quiet, low-scent way in.`,
+      detail: `A drainage dropping toward the low ground — a natural bed-to-feed travel line and a quiet, low-scent way in.`,
       windNote: "Morning thermals fall downhill — hunt the lower end at first light.",
       line: fallLine(c),
     });
   }
 
-  // Refuge: the single steepest cell's block.
-  const steepest = [...cells].sort((a, b) => b.slope - a.slope)[0];
-  if (steepest && steepest.slope >= 18) {
+  // Refuge (up to 2): the steepest blocks.
+  for (const c of [...cells].sort((a, b) => b.slope - a.slope)) {
+    if (kindCount("refuge") >= 2) break;
+    if (c.slope < 18 || !farEnough(c)) continue;
+    used.push(c);
     features.push({
-      id: `t-refuge-${steepest.i}-${steepest.j}`,
+      id: `t-refuge-${c.i}-${c.j}`,
       kind: "refuge",
       title: "Steep sanctuary",
-      detail: `The steepest ground on the property (~${Math.round(steepest.slope)}°) — the hard-to-reach cover deer ride out pressure in. Hunt its upper edge and the saddles leading out, don't push it.`,
-      polygon: box(steepest),
+      detail: `Steep, hard-to-reach ground (~${Math.round(c.slope)}°) — the cover deer ride out pressure in. Hunt its upper edge and the saddles leading out, don't push it.`,
+      polygon: box(c),
     });
   }
 

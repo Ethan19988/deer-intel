@@ -9,8 +9,9 @@ import type { TerrainMovementSet } from "@/lib/terrainMovement";
 // outside the US or if NED is briefly down. The 1 m LiDAR pipeline supersedes
 // this when a generated set exists for the property.
 
-const GRID_N = 10; // GRID_N x GRID_N samples (100 = one request per source)
+const GRID_N = 16; // GRID_N x GRID_N samples; chunked into <=100-point requests
 const SPACING_M = 70;
+const CHUNK = 100; // elevation APIs cap at 100 coordinates per request
 
 // Terrain doesn't change, so cache each property's read hard (per process).
 const cache = new Map<string, TerrainMovementSet | null>();
@@ -131,15 +132,36 @@ function buildGridPoints(
 
 type FetchResult = { elev: number[]; resolution: string };
 
+// Grids now exceed the 100-coordinate API cap, so fetch in chunks. Try USGS 10 m
+// for the whole grid; if any chunk fails, fall back to Open-Meteo 90 m for the
+// whole grid (never mix resolutions within one read).
 async function fetchElevations(
   points: Array<[number, number]>,
 ): Promise<FetchResult | null> {
-  return (await fromOpenTopoData(points)) ?? (await fromOpenMeteo(points));
+  return (
+    (await fetchChunked(points, fromOpenTopoDataChunk, "10 m")) ??
+    (await fetchChunked(points, fromOpenMeteoChunk, "90 m"))
+  );
 }
 
-async function fromOpenTopoData(
+async function fetchChunked(
   points: Array<[number, number]>,
+  provider: (chunk: Array<[number, number]>) => Promise<number[] | null>,
+  resolution: string,
 ): Promise<FetchResult | null> {
+  const elev: number[] = [];
+  for (let i = 0; i < points.length; i += CHUNK) {
+    const part = await provider(points.slice(i, i + CHUNK));
+    if (!part) return null;
+    elev.push(...part);
+  }
+  if (elev.filter((v) => Number.isFinite(v)).length < points.length * 0.8) return null;
+  return { elev, resolution };
+}
+
+async function fromOpenTopoDataChunk(
+  points: Array<[number, number]>,
+): Promise<number[] | null> {
   try {
     const locs = points.map((p) => `${p[0].toFixed(6)},${p[1].toFixed(6)}`).join("|");
     const url = `https://api.opentopodata.org/v1/ned10m?locations=${locs}`;
@@ -150,17 +172,15 @@ async function fromOpenTopoData(
       results?: Array<{ elevation: number | null }>;
     };
     if (body.status !== "OK" || !body.results) return null;
-    const elev = body.results.map((r) => (typeof r.elevation === "number" ? r.elevation : NaN));
-    if (elev.filter((v) => Number.isFinite(v)).length < points.length * 0.8) return null;
-    return { elev, resolution: "10 m" };
+    return body.results.map((r) => (typeof r.elevation === "number" ? r.elevation : NaN));
   } catch {
     return null;
   }
 }
 
-async function fromOpenMeteo(
+async function fromOpenMeteoChunk(
   points: Array<[number, number]>,
-): Promise<FetchResult | null> {
+): Promise<number[] | null> {
   try {
     const lats = points.map((p) => p[0].toFixed(5)).join(",");
     const lngs = points.map((p) => p[1].toFixed(5)).join(",");
@@ -171,7 +191,7 @@ async function fromOpenMeteo(
     if (!Array.isArray(body.elevation) || body.elevation.length !== points.length) {
       return null;
     }
-    return { elev: body.elevation, resolution: "90 m" };
+    return body.elevation;
   } catch {
     return null;
   }
