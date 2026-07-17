@@ -101,6 +101,12 @@ XING_DRAINAGES = 30           # only the N longest drainages count as real water
                               # not every 1 m micro-gully in the DEM stream net
 XING_DEDUP_DEG = 0.0018       # ~200 m: don't stack crossings on top of each other
 
+PINCH_BARRIER_SLOPE = 33.0    # slope (deg) deer treat as a wall / barrier
+PINCH_TRAVEL_SLOPE = 22.0     # slope (deg) still comfortable to travel
+PINCH_NECK_M = 90.0           # corridor narrower than this in one axis = a neck
+PINCH_OPEN_M = 150.0          # ...with the perpendicular axis at least this open
+PINCH_MAX = 12                # terrain funnels to mark (tightest necks first)
+
 # When the tiler runs scout_rules on a slice of a big tract, it sets CAP_SCALE so
 # each tile gets its SHARE of the whole-property caps (e.g. a quarter of the 60
 # bedding slots). Without it, every tile independently fills the full caps and
@@ -111,6 +117,7 @@ if _CAP_SCALE != 1.0:
     BENCH_MAX = max(1, round(BENCH_MAX * _CAP_SCALE))
     ROUTE_MAX = max(1, round(ROUTE_MAX * _CAP_SCALE))
     XING_MAX = max(1, round(XING_MAX * _CAP_SCALE))
+    PINCH_MAX = max(1, round(PINCH_MAX * _CAP_SCALE))
 
 DIRS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
         "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
@@ -375,6 +382,86 @@ def _crossing_points(geom):
     elif gt in ("MultiLineString", "GeometryCollection"):
         for g in geom.geoms:
             out.extend(_crossing_points(g))
+    return out
+
+
+def pinch_points(slope, valid, transform, crs, to_wgs, dist_road, max_points, existing):
+    """Terrain funnels: a narrow neck of travelable ground squeezed between steep
+    barriers on both sides in one axis and open the perpendicular way — deer pour
+    through the neck. Corridor width per axis is measured as the run-length of
+    travelable ground between steep cells (a barrier is slope >= PINCH_BARRIER),
+    on a ROUTE_DS_FACTOR-metre grid. Necks are ranked tightest-first and won't
+    stack on a pinch already marked (saddles, water crossings)."""
+    f = ROUTE_DS_FACTOR
+    h0, w0 = slope.shape
+    h0, w0 = (h0 // f) * f, (w0 // f) * f
+    if h0 == 0 or w0 == 0:
+        return []
+    s = np.nan_to_num(slope[:h0, :w0], nan=90.0).reshape(h0 // f, f, w0 // f, f).mean(axis=(1, 3))
+    v = valid[:h0, :w0].reshape(h0 // f, f, w0 // f, f).mean(axis=(1, 3)) >= 0.5
+    cell_m = f * abs(transform.a)
+    barrier = s >= PINCH_BARRIER_SLOPE
+    travel = v & (s <= PINCH_TRAVEL_SLOPE)
+
+    def dist_back(bar, axis):
+        n = bar.shape[axis]
+        sh = [1, 1]
+        sh[axis] = n
+        idx = np.broadcast_to(np.arange(n).reshape(sh), bar.shape).astype("float32")
+        return idx - np.maximum.accumulate(np.where(bar, idx, -np.inf), axis=axis)
+
+    def width(axis):
+        back = dist_back(barrier, axis)
+        fwd = np.flip(dist_back(np.flip(barrier, axis), axis), axis)
+        return (back + fwd) * cell_m
+
+    w_ew = width(1)
+    w_ns = width(0)
+    neck = travel & (
+        ((w_ew <= PINCH_NECK_M) & (w_ns >= PINCH_OPEN_M))
+        | ((w_ns <= PINCH_NECK_M) & (w_ew >= PINCH_OPEN_M))
+    )
+    if not neck.any():
+        return []
+    neck_w = np.where(neck, np.minimum(w_ew, w_ns), np.inf)
+    labels, n = ndimage.label(neck)
+    if n == 0:
+        return []
+    counts = np.bincount(labels.ravel())
+    counts[0] = 0
+    keep = [i for i in range(1, n + 1) if counts[i] >= 3]
+    if not keep:
+        return []
+    tight = np.atleast_1d(ndimage.minimum(neck_w, labels, keep))
+    coms = ndimage.center_of_mass(neck, labels, keep)
+
+    to_crs = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
+    out, kept_pts = [], []
+    for oi in np.argsort(tight):
+        yi, xi = coms[oi]
+        x, y = transform * (xi * f + f / 2, yi * f + f / 2)
+        lng, lat = to_wgs.transform(x, y)
+        lat, lng = round(lat, 5), round(lng, 5)
+        if any(abs(lat - a) + abs(lng - b) < XING_DEDUP_DEG for a, b in existing):
+            continue
+        if any(abs(lat - a) + abs(lng - b) < XING_DEDUP_DEG for a, b in kept_pts):
+            continue
+        road_d = sample_road_dist(dist_road, transform, x, y) if dist_road is not None else None
+        feat = {
+            "id": f"pinch-{len(out)}", "kind": "pinch", "title": "Terrain funnel",
+            "detail": (f"A ~{int(round(tight[oi]))} m neck of travelable ground squeezed "
+                       "between steep faces, open the other way — deer pour through it. A "
+                       "high-odds stand: sit the downwind edge of the neck."),
+            "windNote": ("Cover the neck on a crosswind so your scent blows off the travel "
+                         "lane, not down it. " + thermal_note()),
+            "point": [lat, lng],
+        }
+        if road_d is not None:
+            feat["roadDistM"] = round(road_d)
+        out.append(feat)
+        kept_pts.append((lat, lng))
+        if len(out) >= max_points:
+            break
     return out
 
 
@@ -859,6 +946,15 @@ def main():
                 })
             if kept:
                 print(f"[rules] {len(kept)} water crossings", flush=True)
+
+    # ---- Terrain funnels (pinch points between steep barriers) ----
+    print("[rules] terrain funnels", flush=True)
+    existing_pinch = [tuple(feat["point"]) for feat in features_out if feat.get("kind") == "pinch"]
+    for k, feat in enumerate(
+        pinch_points(slope, valid, transform, crs, to_wgs, dist_road, PINCH_MAX, existing_pinch)
+    ):
+        feat["id"] = f"{args.name}-funnel-{k}"
+        features_out.append(feat)
 
     # Center = mean of all feature anchor points (for the app map focus).
     all_pts = []
