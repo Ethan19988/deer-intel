@@ -31,7 +31,7 @@ from scipy import ndimage
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import dijkstra
 from scipy.stats import circmean
-from shapely.geometry import LineString, mapping, shape
+from shapely.geometry import LineString, box, mapping, shape
 from shapely.ops import transform as shp_transform
 from pyproj import Transformer
 
@@ -404,6 +404,13 @@ def main():
     ap.add_argument("--food", action="append", default=[],
                     help="Food source 'lat,lng' (repeatable) for bed-to-feed routes")
     ap.add_argument("--area-name", default=None)
+    ap.add_argument(
+        "--focus", nargs=4, type=float, default=None,
+        metavar=("MINLNG", "MINLAT", "MAXLNG", "MAXLAT"),
+        help="Restrict detection to this WGS84 bbox — the ground actually hunted. "
+             "The DEM can cover a whole tract; this keeps predictions (and the "
+             "feature caps) to the hunter's area instead of distant terrain.",
+    )
     args = ap.parse_args()
 
     food_pts = []
@@ -424,6 +431,35 @@ def main():
     dist_road = road_distance(args.roads, dem_path) if args.roads else None
 
     valid = ~np.isnan(dem) & ~np.isnan(slope)
+
+    # Optional focus box: the DEM may cover a whole tract, but the hunter only
+    # hunts part of it. Restrict the master valid mask to their bbox so every
+    # detector (and its cap) fills from that ground, not distant mountains. The
+    # lat/lng box becomes a pixel rectangle via the corners in the raster CRS
+    # (UTM is near-axis-aligned locally, so a corner bbox is exact to a few m).
+    focus_poly = None
+    if args.focus:
+        fminlng, fminlat, fmaxlng, fmaxlat = args.focus
+        focus_poly = box(fminlng, fminlat, fmaxlng, fmaxlat)
+        from_wgs = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
+        inv = ~transform
+        cols, rows = [], []
+        for lo, la in [(fminlng, fminlat), (fminlng, fmaxlat),
+                       (fmaxlng, fminlat), (fmaxlng, fmaxlat)]:
+            x, y = from_wgs.transform(lo, la)
+            c, r = inv * (x, y)
+            cols.append(c)
+            rows.append(r)
+        c0 = max(0, int(np.floor(min(cols))))
+        c1 = min(dem.shape[1], int(np.ceil(max(cols))))
+        r0 = max(0, int(np.floor(min(rows))))
+        r1 = min(dem.shape[0], int(np.ceil(max(rows))))
+        focus_mask = np.zeros(dem.shape, dtype=bool)
+        focus_mask[r0:r1, c0:c1] = True
+        valid &= focus_mask
+        print(f"[rules] focus box -> {int(focus_mask.sum())} cells "
+              f"(rows {r0}:{r1}, cols {c0}:{c1})", flush=True)
+
     south = (aspect >= SOUTH_MIN) & (aspect <= SOUTH_MAX)
     steep = (slope >= BED_SLOPE_MIN) & (slope <= BED_SLOPE_MAX)
     upper = tpi > 0
@@ -475,7 +511,8 @@ def main():
     # ---- Bedding (polygons) ----
     print("[rules] bedding components", flush=True)
     beds = component_stats(
-        bedding_mask, dem, slope, aspect, transform, MIN_BED_AREA_M2, 6
+        bedding_mask, dem, slope, aspect, transform, MIN_BED_AREA_M2,
+        MAX_PER_KIND["bedding"],
     )
     for k, c in enumerate(beds[: MAX_PER_KIND["bedding"]]):
         spur = SOUTH_MIN <= c["aspect"] <= SOUTH_MAX
@@ -512,7 +549,8 @@ def main():
     # ---- Refuge (polygon, largest steep-far block) ----
     print("[rules] refuge components", flush=True)
     refs = component_stats(
-        refuge_mask, dem, slope, aspect, transform, MIN_REFUGE_AREA_M2, 3
+        refuge_mask, dem, slope, aspect, transform, MIN_REFUGE_AREA_M2,
+        MAX_PER_KIND["refuge"],
     )
     for k, c in enumerate(refs[: MAX_PER_KIND["refuge"]]):
         features_out.append({
@@ -646,6 +684,12 @@ def main():
         lines = []
         for feat in gj.get("features", []):
             g = shape(feat["geometry"])
+            # Draws come from the stream vector, which spans the whole DEM — clip
+            # them to the focus box so drainages outside the hunted ground drop.
+            if focus_poly is not None:
+                g = g.intersection(focus_poly)
+                if g.is_empty:
+                    continue
             if g.geom_type == "LineString":
                 lines.append(g)
             elif g.geom_type == "MultiLineString":
