@@ -26,6 +26,7 @@ export const DEFAULT_MAP_LAYER: MapLayerId = "hybrid";
 export const DEFAULT_MAP_OVERLAYS: MapOverlayState = {
   contours: false,
   slope: false,
+  waterways: false,
   propertyLines: false,
   wind: false,
   movement: false,

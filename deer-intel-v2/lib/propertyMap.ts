@@ -28,6 +28,7 @@ export type AssetLayerId =
 export type MapOverlayId =
   | "contours"
   | "slope"
+  | "waterways"
   | "propertyLines"
   | "wind"
   | "movement"
@@ -49,6 +50,11 @@ export const MAP_OVERLAYS: Array<{
     id: "slope",
     label: "Slope Angle",
     description: "Shades steep ground so benches and draws stand out.",
+  },
+  {
+    id: "waterways",
+    label: "Creeks & Rivers",
+    description: "USGS streams, rivers and ponds — where deer water.",
   },
   {
     id: "propertyLines",
@@ -295,6 +301,14 @@ export const SLOPE_WMS_URL =
   "https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WMSServer";
 export const SLOPE_WMS_LAYER = "3DEPElevation:Slope Map";
 export const SLOPE_ATTRIBUTION = "Slope &copy; USGS 3DEP";
+
+// USGS National Map hydrography (NHD), cached transparent tiles — creeks,
+// streams, rivers, ponds and lakes drawn straight onto the satellite. Deer
+// water bed<->feed<->water daily and creek bottoms are travel highways, so this
+// marks the running + standing water for any property with no processing.
+export const WATER_TILE_URL =
+  "https://basemap.nationalmap.gov/arcgis/rest/services/USGSHydroCached/MapServer/tile/{z}/{y}/{x}";
+export const WATER_ATTRIBUTION = "Hydrography &copy; USGS NHD";
 
 // BLM Surface Management Agency — federal + state/local public land colored by
 // its managing agency (BLM, USFS, NPS, USFWS, state, …). It's a cached XYZ
