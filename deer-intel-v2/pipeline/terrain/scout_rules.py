@@ -369,9 +369,17 @@ def bed_to_feed_routes(slope, transform, crs, to_wgs, food_lonlat, beds, max_rou
 
 
 def road_distance(roads_geojson, ref_ds_path):
-    """Rasterize roads onto the DEM grid and return a distance-to-road array (m)."""
+    """Rasterize roads onto the DEM grid and return a distance-to-road array (m).
+
+    The distance transform runs on a coarse (~8 m) grid, not the full DEM: a
+    full-res EDT over a 100M+ cell tract needs several GB of float64 scratch
+    (it thrashes swap), and road distance only feeds the 450-900 m security
+    band, where a few metres is immaterial. Roads are rasterized straight onto
+    the coarse grid — rasterize burns every touched cell, so thin roads survive
+    the coarsening — then the result is upsampled back to the DEM grid.
+    """
     with rasterio.open(ref_ds_path) as ds:
-        shape_hw = (ds.height, ds.width)
+        H, W = ds.height, ds.width
         transform = ds.transform
         crs = ds.crs
     tr = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
@@ -383,11 +391,17 @@ def road_distance(roads_geojson, ref_ds_path):
         geoms.append(shp_transform(lambda x, y, z=None: tr.transform(x, y), g))
     if not geoms:
         return None
-    road_raster = features.rasterize(
-        [(g, 1) for g in geoms], out_shape=shape_hw, transform=transform, dtype="uint8"
-    )
     px = abs(transform.a)
-    return ndimage.distance_transform_edt(road_raster == 0) * px
+    f = max(1, int(round(8.0 / px)))
+    ch, cw = (H + f - 1) // f, (W + f - 1) // f
+    coarse = transform * Affine.scale(f)
+    road_coarse = features.rasterize(
+        [(g, 1) for g in geoms], out_shape=(ch, cw), transform=coarse, dtype="uint8"
+    )
+    edt = (ndimage.distance_transform_edt(road_coarse == 0) * (px * f)).astype("float32")
+    if f == 1:
+        return edt
+    return np.repeat(np.repeat(edt, f, axis=0), f, axis=1)[:H, :W]
 
 
 def to_latlng_ring(poly, to_wgs):
