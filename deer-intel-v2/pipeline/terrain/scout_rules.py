@@ -76,11 +76,11 @@ BENCH_NBHD_M = 60.0           # radius for "surrounding" slope
 TRAVEL_ELEV_PCTL = 75.0       # favor the lower/mid band deer travel, not ridgetops
 MIN_BENCH_AREA_M2 = 500.0
 BENCH_MIN_ELONGATION = 1.8    # a corridor is long and thin, not a blob
-BENCH_MAX = 30                # show the whole bench network, not just the top few
+BENCH_MAX = 70                # dense bench network across a whole big tract
 
 # A big-woods tract is a network, not a handful of spots — surface the whole
 # travel web (many benches + draws + saddles), not just the single best of each.
-MAX_PER_KIND = {"bedding": 24, "travel": 30, "pinch": 20, "refuge": 5}
+MAX_PER_KIND = {"bedding": 60, "travel": 70, "pinch": 50, "refuge": 10}
 
 # --- Bed-to-feed routing (needs --food) -------------------------------------
 # The straight terrain travel above is where deer CAN move; with a food source
@@ -92,7 +92,7 @@ MAX_PER_KIND = {"bedding": 24, "travel": 30, "pinch": 20, "refuge": 5}
 ROUTE_DS_FACTOR = 10          # metres per pathfinding cell (10x the 1 m DEM)
 ROUTE_SLOPE_REF = 12.0        # slope (deg) at which effort has roughly doubled
 ROUTE_MAX_SLOPE = 42.0        # steeper than this is treated as near-impassable
-ROUTE_MAX = 12                # a bed-to-feed route from every worthwhile bed
+ROUTE_MAX = 24                # a bed-to-feed route from every worthwhile bed
 
 DIRS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
         "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]

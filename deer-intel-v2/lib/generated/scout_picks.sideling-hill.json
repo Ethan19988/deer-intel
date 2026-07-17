@@ -8,8 +8,8 @@
       "lng": -78.15867,
       "elevationFt": 1784,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 1784 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 514 m from the nearest road \u2014 squarely in the huntable security band.",
-      "roadDistM": 514
+      "reason": "A ridge saddle near 1784 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 512 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 512
     },
     {
       "kind": "pinch",
@@ -18,8 +18,8 @@
       "lng": -78.15186,
       "elevationFt": 1487,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 1487 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 499 m from the nearest road \u2014 squarely in the huntable security band.",
-      "roadDistM": 499
+      "reason": "A ridge saddle near 1487 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 495 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 495
     },
     {
       "kind": "pinch",
@@ -28,8 +28,8 @@
       "lng": -78.15523,
       "elevationFt": 1441,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 1441 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 673 m from the nearest road \u2014 squarely in the huntable security band.",
-      "roadDistM": 673
+      "reason": "A ridge saddle near 1441 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 672 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 672
     },
     {
       "kind": "pinch",
@@ -38,8 +38,178 @@
       "lng": -78.15799,
       "elevationFt": 1448,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 1448 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 878 m from the nearest road \u2014 squarely in the huntable security band.",
-      "roadDistM": 878
+      "reason": "A ridge saddle near 1448 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 876 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 876
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.96306,
+      "lng": -78.15361,
+      "elevationFt": 1483,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1483 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 575 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 575
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.95482,
+      "lng": -78.15883,
+      "elevationFt": 1547,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1547 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 785 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 785
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.96156,
+      "lng": -78.15622,
+      "elevationFt": 1550,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1550 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 537 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 537
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.94537,
+      "lng": -78.17309,
+      "elevationFt": 1485,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1485 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 566 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 566
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.96072,
+      "lng": -78.15669,
+      "elevationFt": 1546,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1546 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 547 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 547
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.95531,
+      "lng": -78.15725,
+      "elevationFt": 1435,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1435 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 800 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 800
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.96324,
+      "lng": -78.15285,
+      "elevationFt": 1413,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1413 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 519 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 519
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.95652,
+      "lng": -78.15884,
+      "elevationFt": 1663,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1663 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 680 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 680
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.95717,
+      "lng": -78.1566,
+      "elevationFt": 1468,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1468 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 762 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 762
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.95668,
+      "lng": -78.1608,
+      "elevationFt": 1826,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1826 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 530 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 530
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.95942,
+      "lng": -78.1585,
+      "elevationFt": 1753,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1753 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 488 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 488
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.95338,
+      "lng": -78.15904,
+      "elevationFt": 1492,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1492 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 855 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 855
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.95939,
+      "lng": -78.15561,
+      "elevationFt": 1488,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1488 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 703 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 703
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.94994,
+      "lng": -78.16603,
+      "elevationFt": 1891,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1891 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 600 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 600
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.95901,
+      "lng": -78.15911,
+      "elevationFt": 1830,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1830 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 477 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 477
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.9569,
+      "lng": -78.15581,
+      "elevationFt": 1374,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1374 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 686 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 686
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.95083,
+      "lng": -78.16909,
+      "elevationFt": 1997,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1997 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 360 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 360
     },
     {
       "kind": "pinch",
@@ -48,8 +218,18 @@
       "lng": -78.17481,
       "elevationFt": 1756,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 1756 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 319 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 319
+      "reason": "A ridge saddle near 1756 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 320 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 320
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.99416,
+      "lng": -78.15395,
+      "elevationFt": 1804,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1804 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 312 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 312
     },
     {
       "kind": "pinch",
@@ -58,8 +238,38 @@
       "lng": -78.15244,
       "elevationFt": 1738,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 1738 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 282 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 282
+      "reason": "A ridge saddle near 1738 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 284 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 284
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.99091,
+      "lng": -78.17332,
+      "elevationFt": 1419,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1419 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 272 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 272
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.95585,
+      "lng": -78.16528,
+      "elevationFt": 2078,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 2078 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 258 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 258
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.95086,
+      "lng": -78.17091,
+      "elevationFt": 2001,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 2001 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 253 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 253
     },
     {
       "kind": "pinch",
@@ -68,8 +278,8 @@
       "lng": -78.16518,
       "elevationFt": 2080,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 2080 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 239 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 239
+      "reason": "A ridge saddle near 2080 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 240 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 240
     },
     {
       "kind": "pinch",
@@ -78,8 +288,8 @@
       "lng": -78.16588,
       "elevationFt": 2149,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 2149 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 213 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 213
+      "reason": "A ridge saddle near 2149 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 215 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 215
     },
     {
       "kind": "pinch",
@@ -88,8 +298,8 @@
       "lng": -78.18221,
       "elevationFt": 2162,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 2162 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 201 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 201
+      "reason": "A ridge saddle near 2162 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 195 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 195
     },
     {
       "kind": "pinch",
@@ -98,8 +308,18 @@
       "lng": -78.18333,
       "elevationFt": 2086,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 2086 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 159 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 159
+      "reason": "A ridge saddle near 2086 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 160 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 160
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.97408,
+      "lng": -78.14668,
+      "elevationFt": 1521,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1521 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 168 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 168
     },
     {
       "kind": "pinch",
@@ -118,18 +338,8 @@
       "lng": -78.16158,
       "elevationFt": 2008,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 2008 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 135 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 135
-    },
-    {
-      "kind": "pinch",
-      "title": "Saddle crossing",
-      "lat": 39.97108,
-      "lng": -78.15092,
-      "elevationFt": 1743,
-      "bestWind": "crosswind",
-      "reason": "A ridge saddle near 1743 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 106 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 106
+      "reason": "A ridge saddle near 2008 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 132 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 132
     },
     {
       "kind": "pinch",
@@ -138,8 +348,18 @@
       "lng": -78.15262,
       "elevationFt": 1989,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 1989 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 105 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 105
+      "reason": "A ridge saddle near 1989 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 104 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 104
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.97108,
+      "lng": -78.15092,
+      "elevationFt": 1743,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1743 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 104 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 104
     },
     {
       "kind": "pinch",
@@ -148,8 +368,8 @@
       "lng": -78.18043,
       "elevationFt": 2001,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 2001 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 77 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 77
+      "reason": "A ridge saddle near 2001 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 79 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 79
     },
     {
       "kind": "pinch",
@@ -164,12 +384,22 @@
     {
       "kind": "pinch",
       "title": "Saddle crossing",
+      "lat": 39.97106,
+      "lng": -78.15138,
+      "elevationFt": 1787,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1787 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 74 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 74
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
       "lat": 39.94472,
       "lng": -78.18206,
       "elevationFt": 2134,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 2134 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 67 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 67
+      "reason": "A ridge saddle near 2134 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 64 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 64
     },
     {
       "kind": "pinch",
@@ -178,8 +408,58 @@
       "lng": -78.1803,
       "elevationFt": 2000,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 2000 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 62 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 62
+      "reason": "A ridge saddle near 2000 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 61 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 61
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.97921,
+      "lng": -78.1701,
+      "elevationFt": 1439,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1439 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 68 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 68
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.9419,
+      "lng": -78.17783,
+      "elevationFt": 1938,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1938 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 56 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 56
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.94636,
+      "lng": -78.18077,
+      "elevationFt": 2095,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 2095 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 57 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 57
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.97255,
+      "lng": -78.1508,
+      "elevationFt": 1810,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1810 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 48 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 48
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.95222,
+      "lng": -78.1875,
+      "elevationFt": 1653,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1653 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 47 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 47
     },
     {
       "kind": "pinch",
@@ -188,8 +468,8 @@
       "lng": -78.18118,
       "elevationFt": 2078,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 2078 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 14 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 14
+      "reason": "A ridge saddle near 2078 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 16 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 16
     },
     {
       "kind": "pinch",
@@ -198,8 +478,28 @@
       "lng": -78.17879,
       "elevationFt": 2017,
       "bestWind": "crosswind",
-      "reason": "A ridge saddle near 2017 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 20 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 20
+      "reason": "A ridge saddle near 2017 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 23 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 23
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.9445,
+      "lng": -78.18075,
+      "elevationFt": 2042,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 2042 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 25 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 25
+    },
+    {
+      "kind": "pinch",
+      "title": "Saddle crossing",
+      "lat": 39.97532,
+      "lng": -78.14733,
+      "elevationFt": 1646,
+      "bestWind": "crosswind",
+      "reason": "A ridge saddle near 1646 ft \u2014 deer cross ridges at their low gaps, funneling travel between bedding areas. Prime stand. 33 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 33
     },
     {
       "kind": "bedding",
@@ -210,8 +510,8 @@
       "slopeDeg": 25,
       "aspect": "SSE",
       "bestWind": "NNW",
-      "reason": "SSE-facing bench near 2103 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 175 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 175
+      "reason": "SSE-facing bench near 2103 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 171 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 171
     },
     {
       "kind": "bedding",
@@ -222,8 +522,8 @@
       "slopeDeg": 26,
       "aspect": "SE",
       "bestWind": "NW",
-      "reason": "SSE-facing bench near 1551 ft, ~26\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 556 m from the nearest road \u2014 squarely in the huntable security band.",
-      "roadDistM": 556
+      "reason": "SSE-facing bench near 1551 ft, ~26\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 555 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 555
     },
     {
       "kind": "bedding",
@@ -258,8 +558,8 @@
       "slopeDeg": 23,
       "aspect": "SSE",
       "bestWind": "NNW",
-      "reason": "SSE-facing bench near 1927 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 514 m from the nearest road \u2014 squarely in the huntable security band.",
-      "roadDistM": 514
+      "reason": "SSE-facing bench near 1927 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 513 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 513
     },
     {
       "kind": "bedding",
@@ -270,8 +570,8 @@
       "slopeDeg": 24,
       "aspect": "SE",
       "bestWind": "NW",
-      "reason": "SSE-facing bench near 1763 ft, ~24\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 642 m from the nearest road \u2014 squarely in the huntable security band.",
-      "roadDistM": 642
+      "reason": "SSE-facing bench near 1763 ft, ~24\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 637 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 637
     },
     {
       "kind": "bedding",
@@ -282,8 +582,8 @@
       "slopeDeg": 24,
       "aspect": "SE",
       "bestWind": "NW",
-      "reason": "SSE-facing bench near 1717 ft, ~24\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 457 m from the nearest road \u2014 squarely in the huntable security band.",
-      "roadDistM": 457
+      "reason": "SSE-facing bench near 1717 ft, ~24\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 454 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 454
     },
     {
       "kind": "bedding",
@@ -294,8 +594,56 @@
       "slopeDeg": 24,
       "aspect": "SE",
       "bestWind": "NW",
-      "reason": "SSE-facing bench near 1963 ft, ~24\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 382 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 382
+      "reason": "SSE-facing bench near 1963 ft, ~24\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 383 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 383
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.95692,
+      "lng": -78.15705,
+      "elevationFt": 1521,
+      "slopeDeg": 28,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1521 ft, ~28\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 763 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 763
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.9583,
+      "lng": -78.15663,
+      "elevationFt": 1568,
+      "slopeDeg": 28,
+      "aspect": "ESE",
+      "bestWind": "WNW",
+      "reason": "SSE-facing bench near 1568 ft, ~28\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 695 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 695
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.96522,
+      "lng": -78.15253,
+      "elevationFt": 1529,
+      "slopeDeg": 29,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1529 ft, ~29\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 501 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 501
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.95313,
+      "lng": -78.159,
+      "elevationFt": 1539,
+      "slopeDeg": 26,
+      "aspect": "ESE",
+      "bestWind": "WNW",
+      "reason": "SSE-facing bench near 1539 ft, ~26\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 878 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 878
     },
     {
       "kind": "bedding",
@@ -306,8 +654,8 @@
       "slopeDeg": 27,
       "aspect": "SE",
       "bestWind": "NW",
-      "reason": "SSE-facing bench near 1708 ft, ~27\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 406 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 406
+      "reason": "SSE-facing bench near 1708 ft, ~27\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 402 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 402
     },
     {
       "kind": "bedding",
@@ -318,8 +666,20 @@
       "slopeDeg": 23,
       "aspect": "SE",
       "bestWind": "NW",
-      "reason": "SSE-facing bench near 1604 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 812 m from the nearest road \u2014 squarely in the huntable security band.",
-      "roadDistM": 812
+      "reason": "SSE-facing bench near 1604 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 808 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 808
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.95498,
+      "lng": -78.15765,
+      "elevationFt": 1493,
+      "slopeDeg": 25,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1493 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 834 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 834
     },
     {
       "kind": "bedding",
@@ -330,8 +690,20 @@
       "slopeDeg": 23,
       "aspect": "SSW",
       "bestWind": "NNE",
-      "reason": "SSE-facing bench near 1937 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 502 m from the nearest road \u2014 squarely in the huntable security band.",
-      "roadDistM": 502
+      "reason": "SSE-facing bench near 1937 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 506 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 506
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.95217,
+      "lng": -78.16262,
+      "elevationFt": 1776,
+      "slopeDeg": 23,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1776 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 671 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 671
     },
     {
       "kind": "bedding",
@@ -342,8 +714,8 @@
       "slopeDeg": 25,
       "aspect": "SE",
       "bestWind": "NW",
-      "reason": "SSE-facing bench near 1766 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 257 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 257
+      "reason": "SSE-facing bench near 1766 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 251 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 251
     },
     {
       "kind": "bedding",
@@ -354,8 +726,8 @@
       "slopeDeg": 26,
       "aspect": "S",
       "bestWind": "N",
-      "reason": "SSE-facing bench near 1976 ft, ~26\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 322 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 322
+      "reason": "SSE-facing bench near 1976 ft, ~26\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 315 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 315
     },
     {
       "kind": "bedding",
@@ -366,8 +738,8 @@
       "slopeDeg": 26,
       "aspect": "SE",
       "bestWind": "NW",
-      "reason": "SSE-facing bench near 2018 ft, ~26\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 86 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 86
+      "reason": "SSE-facing bench near 2018 ft, ~26\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 85 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 85
     },
     {
       "kind": "bedding",
@@ -378,8 +750,20 @@
       "slopeDeg": 22,
       "aspect": "WSW",
       "bestWind": "ENE",
-      "reason": "SSE-facing bench near 1744 ft, ~22\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 616 m from the nearest road \u2014 squarely in the huntable security band.",
-      "roadDistM": 616
+      "reason": "SSE-facing bench near 1744 ft, ~22\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 614 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 614
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.95109,
+      "lng": -78.16391,
+      "elevationFt": 1754,
+      "slopeDeg": 26,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1754 ft, ~26\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 641 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 641
     },
     {
       "kind": "bedding",
@@ -390,8 +774,20 @@
       "slopeDeg": 25,
       "aspect": "SE",
       "bestWind": "NW",
-      "reason": "SSE-facing bench near 1884 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 131 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 131
+      "reason": "SSE-facing bench near 1884 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 129 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 129
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.95081,
+      "lng": -78.1646,
+      "elevationFt": 1808,
+      "slopeDeg": 25,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1808 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 615 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 615
     },
     {
       "kind": "bedding",
@@ -402,8 +798,32 @@
       "slopeDeg": 25,
       "aspect": "SSE",
       "bestWind": "NNW",
-      "reason": "SSE-facing bench near 2103 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 276 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 276
+      "reason": "SSE-facing bench near 2103 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 275 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 275
+    },
+    {
+      "kind": "bedding",
+      "title": "Spur-point beds",
+      "lat": 39.95874,
+      "lng": -78.15956,
+      "elevationFt": 1933,
+      "slopeDeg": 23,
+      "aspect": "E",
+      "bestWind": "W",
+      "reason": "A spur nose bench near 1933 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 464 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 464
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.95359,
+      "lng": -78.15747,
+      "elevationFt": 1427,
+      "slopeDeg": 23,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1427 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 834 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 834
     },
     {
       "kind": "bedding",
@@ -414,8 +834,128 @@
       "slopeDeg": 25,
       "aspect": "SE",
       "bestWind": "NW",
-      "reason": "SSE-facing bench near 1635 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 236 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 236
+      "reason": "SSE-facing bench near 1635 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 238 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 238
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.94529,
+      "lng": -78.16776,
+      "elevationFt": 1583,
+      "slopeDeg": 20,
+      "aspect": "SW",
+      "bestWind": "NE",
+      "reason": "SSE-facing bench near 1583 ft, ~20\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 871 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 871
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.95648,
+      "lng": -78.18153,
+      "elevationFt": 1732,
+      "slopeDeg": 21,
+      "aspect": "SW",
+      "bestWind": "NE",
+      "reason": "SSE-facing bench near 1732 ft, ~21\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 698 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 698
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.95032,
+      "lng": -78.16187,
+      "elevationFt": 1570,
+      "slopeDeg": 22,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1570 ft, ~22\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 833 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 833
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.94849,
+      "lng": -78.17581,
+      "elevationFt": 1904,
+      "slopeDeg": 32,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1904 ft, ~32\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 208 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 208
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.94744,
+      "lng": -78.16452,
+      "elevationFt": 1704,
+      "slopeDeg": 21,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1704 ft, ~21\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 836 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 836
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.95102,
+      "lng": -78.16306,
+      "elevationFt": 1660,
+      "slopeDeg": 21,
+      "aspect": "SSE",
+      "bestWind": "NNW",
+      "reason": "SSE-facing bench near 1660 ft, ~21\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 707 m from the nearest road \u2014 squarely in the huntable security band.",
+      "roadDistM": 707
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.94886,
+      "lng": -78.17303,
+      "elevationFt": 1761,
+      "slopeDeg": 27,
+      "aspect": "SSE",
+      "bestWind": "NNW",
+      "reason": "SSE-facing bench near 1761 ft, ~27\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 285 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 285
+    },
+    {
+      "kind": "bedding",
+      "title": "Spur-point beds",
+      "lat": 39.96738,
+      "lng": -78.15199,
+      "elevationFt": 1595,
+      "slopeDeg": 24,
+      "aspect": "E",
+      "bestWind": "W",
+      "reason": "A spur nose bench near 1595 ft, ~24\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 334 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 334
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.96507,
+      "lng": -78.15571,
+      "elevationFt": 1879,
+      "slopeDeg": 21,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1879 ft, ~21\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 397 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 397
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.94841,
+      "lng": -78.17461,
+      "elevationFt": 1808,
+      "slopeDeg": 25,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1808 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 261 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 261
     },
     {
       "kind": "bedding",
@@ -426,20 +966,8 @@
       "slopeDeg": 24,
       "aspect": "SE",
       "bestWind": "NW",
-      "reason": "SSE-facing bench near 1582 ft, ~24\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 196 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 196
-    },
-    {
-      "kind": "bedding",
-      "title": "South-face beds",
-      "lat": 39.97394,
-      "lng": -78.14729,
-      "elevationFt": 1624,
-      "slopeDeg": 23,
-      "aspect": "SE",
-      "bestWind": "NW",
-      "reason": "SSE-facing bench near 1624 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 132 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 132
+      "reason": "SSE-facing bench near 1582 ft, ~24\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 194 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 194
     },
     {
       "kind": "bedding",
@@ -450,20 +978,44 @@
       "slopeDeg": 27,
       "aspect": "SE",
       "bestWind": "NW",
-      "reason": "SSE-facing bench near 1877 ft, ~27\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 144 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 144
+      "reason": "SSE-facing bench near 1877 ft, ~27\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 147 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 147
     },
     {
       "kind": "bedding",
       "title": "South-face beds",
-      "lat": 39.94118,
-      "lng": -78.17674,
-      "elevationFt": 1847,
+      "lat": 39.97394,
+      "lng": -78.14729,
+      "elevationFt": 1624,
       "slopeDeg": 23,
-      "aspect": "SSE",
-      "bestWind": "NNW",
-      "reason": "SSE-facing bench near 1847 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 171 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 171
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1624 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 126 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 126
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.96619,
+      "lng": -78.15498,
+      "elevationFt": 1919,
+      "slopeDeg": 22,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1919 ft, ~22\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 301 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 301
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.95713,
+      "lng": -78.16519,
+      "elevationFt": 2159,
+      "slopeDeg": 27,
+      "aspect": "ESE",
+      "bestWind": "WNW",
+      "reason": "SSE-facing bench near 2159 ft, ~27\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 193 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 193
     },
     {
       "kind": "bedding",
@@ -474,8 +1026,32 @@
       "slopeDeg": 25,
       "aspect": "SE",
       "bestWind": "NW",
-      "reason": "SSE-facing bench near 1814 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 14 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 14
+      "reason": "SSE-facing bench near 1814 ft, ~25\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 23 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 23
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.9739,
+      "lng": -78.15188,
+      "elevationFt": 1956,
+      "slopeDeg": 31,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1956 ft, ~31\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 96 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 96
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.94118,
+      "lng": -78.17674,
+      "elevationFt": 1847,
+      "slopeDeg": 23,
+      "aspect": "SSE",
+      "bestWind": "NNW",
+      "reason": "SSE-facing bench near 1847 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 170 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 170
     },
     {
       "kind": "bedding",
@@ -486,8 +1062,164 @@
       "slopeDeg": 26,
       "aspect": "ESE",
       "bestWind": "WNW",
-      "reason": "SSE-facing bench near 1937 ft, ~26\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 81 m from a road \u2014 a touch close; deer stay edgy in daylight.",
-      "roadDistM": 81
+      "reason": "SSE-facing bench near 1937 ft, ~26\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 82 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 82
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.95159,
+      "lng": -78.16914,
+      "elevationFt": 2094,
+      "slopeDeg": 21,
+      "aspect": "S",
+      "bestWind": "N",
+      "reason": "SSE-facing bench near 2094 ft, ~21\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 291 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 291
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.9472,
+      "lng": -78.17684,
+      "elevationFt": 1795,
+      "slopeDeg": 23,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1795 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 262 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 262
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.96301,
+      "lng": -78.16068,
+      "elevationFt": 1964,
+      "slopeDeg": 26,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1964 ft, ~26\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 124 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 124
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.9469,
+      "lng": -78.17888,
+      "elevationFt": 1961,
+      "slopeDeg": 27,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1961 ft, ~27\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 154 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 154
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.94761,
+      "lng": -78.17946,
+      "elevationFt": 2101,
+      "slopeDeg": 27,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 2101 ft, ~27\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 68 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 68
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.97275,
+      "lng": -78.15287,
+      "elevationFt": 2013,
+      "slopeDeg": 26,
+      "aspect": "ESE",
+      "bestWind": "WNW",
+      "reason": "SSE-facing bench near 2013 ft, ~26\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 111 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 111
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.94153,
+      "lng": -78.1802,
+      "elevationFt": 2094,
+      "slopeDeg": 24,
+      "aspect": "ESE",
+      "bestWind": "WNW",
+      "reason": "SSE-facing bench near 2094 ft, ~24\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 121 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 121
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.97669,
+      "lng": -78.14982,
+      "elevationFt": 1965,
+      "slopeDeg": 27,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1965 ft, ~27\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 82 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 82
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.97216,
+      "lng": -78.14948,
+      "elevationFt": 1680,
+      "slopeDeg": 22,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1680 ft, ~22\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 173 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 173
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.97561,
+      "lng": -78.14613,
+      "elevationFt": 1574,
+      "slopeDeg": 24,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1574 ft, ~24\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 51 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 51
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.97621,
+      "lng": -78.147,
+      "elevationFt": 1687,
+      "slopeDeg": 22,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1687 ft, ~22\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 40 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 40
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.97707,
+      "lng": -78.14547,
+      "elevationFt": 1633,
+      "slopeDeg": 23,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1633 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 40 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 40
+    },
+    {
+      "kind": "bedding",
+      "title": "South-face beds",
+      "lat": 39.98336,
+      "lng": -78.1657,
+      "elevationFt": 1557,
+      "slopeDeg": 23,
+      "aspect": "SE",
+      "bestWind": "NW",
+      "reason": "SSE-facing bench near 1557 ft, ~23\u00b0 \u2014 thermal sun and a downhill escape; Penn State collar deer bed exactly this. 61 m from a road \u2014 a touch close; deer stay edgy in daylight.",
+      "roadDistM": 61
     }
   ]
 }
