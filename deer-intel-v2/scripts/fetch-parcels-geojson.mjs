@@ -288,12 +288,259 @@ async function fetchJson(url) {
   }
 }
 
-async function fetchCounty(slug, outPath) {
+// ---------------------------------------------------------------------------
+// Holding label points
+//
+// The map draws one owner name per holding, and it has to stay put. Deriving
+// that at render time can't work: vector tiles clip every parcel at the tile
+// seams, so a big tract arrives as different pieces at different zooms and any
+// centre computed from a piece moves when the pieces do. So the anchor is
+// computed once here, over whole parcels, and shipped as its own point layer.
+//
+// A holding is same-owner parcels near each other (owner names are county
+// scoped, so no cross-county merging). Its anchor is an interior point of the
+// biggest parcel in the group — interior, not the average of the group, which
+// for an L of parcels or a pair either side of a hill lands on someone else's
+// ground.
+// ---------------------------------------------------------------------------
+
+const HOLDING_CLUSTER_M = 2000;
+const LABEL_MIN_Z = 12;
+const LABEL_MAX_Z = 17;
+// Matches the renderer: 13px caps name, up to 3 wrapped lines, 11px acreage
+// caption beneath. Caps at 13px average ~0.62em, plus the 0.4px tracking.
+const NAME_PX = 13;
+const NAME_EM = 0.62;
+const NAME_TRACKING_PX = 0.4;
+const NAME_LINE_PX = NAME_PX * 1.18;
+const ACRES_LINE_PX = 11 * 1.3;
+const MAX_LINES = 3;
+
+function ringArea(ring) {
+  let a2 = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[(i + 1) % ring.length];
+    a2 += x1 * y2 - x2 * y1;
+  }
+  return Math.abs(a2) / 2;
+}
+
+// Point in ring, even-odd.
+function pointInRing(x, y, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+// A guaranteed-interior anchor: sample a grid inside the ring's bbox and keep
+// the inside point farthest from the boundary. Same intent as the renderer's
+// pole of inaccessibility, cheap enough to run per parcel over a whole state.
+function interiorPoint(ring) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const [x, y] of ring) {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  if (pointInRing(cx, cy, ring)) return [cx, cy];
+
+  const N = 12;
+  let best = null;
+  let bestScore = -1;
+  for (let i = 1; i < N; i++) {
+    for (let j = 1; j < N; j++) {
+      const x = minX + ((maxX - minX) * i) / N;
+      const y = minY + ((maxY - minY) * j) / N;
+      if (!pointInRing(x, y, ring)) continue;
+      // Distance to the bbox edge is a good enough proxy for "well inside".
+      const score = Math.min(x - minX, maxX - x, y - minY, maxY - y);
+      if (score > bestScore) {
+        bestScore = score;
+        best = [x, y];
+      }
+    }
+  }
+  return best || [cx, cy];
+}
+
+function summarizeParcel(geom, owner, acres) {
+  const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+  let bestRing = null;
+  let bestArea = -1;
+  for (const poly of polys) {
+    const ring = poly && poly[0];
+    if (!ring || ring.length < 4) continue;
+    const a = ringArea(ring);
+    if (a > bestArea) {
+      bestArea = a;
+      bestRing = ring;
+    }
+  }
+  if (!bestRing) return null;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const [x, y] of bestRing) {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  const [lng, lat] = interiorPoint(bestRing);
+  const mPerDegLat = 111320;
+  const mPerDegLng = 111320 * Math.cos((lat * Math.PI) / 180);
+  return {
+    owner,
+    acres: acres || 0,
+    lng,
+    lat,
+    wM: (maxX - minX) * mPerDegLng,
+    hM: (maxY - minY) * mPerDegLat,
+    area: bestArea,
+  };
+}
+
+// The zoom at which this holding's name first fits inside its own parcel. Baked
+// so the renderer needs no polygon to decide — it just compares zoom.
+function labelMinZoom(name, acresText, wM, hM, lat) {
+  const perChar = NAME_PX * NAME_EM + NAME_TRACKING_PX;
+  const full = name.length * perChar;
+  for (let z = LABEL_MIN_Z; z <= LABEL_MAX_Z; z++) {
+    const mpp =
+      (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, z);
+    const wPx = wM / mpp;
+    const hPx = hM / mpp;
+    // Allow wrapping onto up to MAX_LINES; each line must fit the width.
+    const lines = Math.min(MAX_LINES, Math.max(1, Math.ceil(full / (wPx * 0.92))));
+    const lineW = full / lines;
+    const blockH = lines * NAME_LINE_PX + (acresText ? ACRES_LINE_PX : 0);
+    if (lineW <= wPx * 0.98 && blockH <= hPx * 0.98) return z;
+  }
+  return LABEL_MAX_Z + 1; // never fits within our zoom range
+}
+
+// Group same-owner parcels into holdings by proximity, then emit one point per
+// holding at the biggest parcel's interior anchor.
+function buildHoldingLabels(summaries) {
+  const byOwner = new Map();
+  for (const s of summaries) {
+    let list = byOwner.get(s.owner);
+    if (!list) {
+      list = [];
+      byOwner.set(s.owner, list);
+    }
+    list.push(s);
+  }
+
+  const labels = [];
+  for (const [owner, list] of byOwner) {
+    // Grid-cluster within the owner, then union touching cells. Bucketing on
+    // the cell key alone chopped contiguous ground into squares — Cameron's
+    // COMMONWEALTH OF PA came out as 135 "holdings" because one state forest
+    // spans dozens of cells. Merging neighbours makes a run of adjacent cells
+    // a single holding, which is what a hunter reads it as.
+    const cell = HOLDING_CLUSTER_M / 111320;
+    const cells = new Map();
+    for (const s of list) {
+      const key = `${Math.round(s.lat / cell)}:${Math.round(s.lng / cell)}`;
+      let c = cells.get(key);
+      if (!c) {
+        c = [];
+        cells.set(key, c);
+      }
+      c.push(s);
+    }
+
+    const parent = new Map();
+    const find = (k) => {
+      let r = k;
+      while (parent.get(r) !== r) r = parent.get(r);
+      while (parent.get(k) !== r) {
+        const next = parent.get(k);
+        parent.set(k, r);
+        k = next;
+      }
+      return r;
+    };
+    const union = (a, b) => {
+      const ra = find(a);
+      const rb = find(b);
+      if (ra !== rb) parent.set(ra, rb);
+    };
+    for (const key of cells.keys()) parent.set(key, key);
+    for (const key of cells.keys()) {
+      const [gy, gx] = key.split(":").map(Number);
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dy && !dx) continue;
+          const n = `${gy + dy}:${gx + dx}`;
+          if (cells.has(n)) union(key, n);
+        }
+      }
+    }
+
+    const clusters = new Map();
+    for (const [key, parcels] of cells) {
+      const root = find(key);
+      let c = clusters.get(root);
+      if (!c) {
+        c = [];
+        clusters.set(root, c);
+      }
+      c.push(...parcels);
+    }
+
+    for (const group of clusters.values()) {
+      let rep = group[0];
+      let acres = 0;
+      for (const s of group) {
+        acres += s.acres || 0;
+        if (s.area > rep.area) rep = s;
+      }
+      const acresText = acres > 0;
+      const mz = labelMinZoom(owner, acresText, rep.wM, rep.hM, rep.lat);
+      if (mz > LABEL_MAX_Z) continue; // never legible; skip rather than ship noise
+      labels.push({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [rep.lng, rep.lat] },
+        properties: {
+          owner,
+          acres: Math.round(acres * 100) / 100,
+          pub: PUBLIC_OWNER_PATTERN.test(owner) ? 1 : 0,
+          mz,
+        },
+      });
+    }
+  }
+  return labels;
+}
+
+async function fetchCounty(slug, outPath, labelPath) {
   const cfg = COUNTIES[slug];
   if (!cfg) throw new Error(`unknown county: ${slug}`);
 
   await mkdir(dirname(outPath), { recursive: true });
   const out = createWriteStream(outPath);
+
+  // One record per parcel, kept to feed the holding pass once the county has
+  // streamed. Deliberately not the geometry — a big county is 300k parcels, so
+  // only the label anchor, extent and area are retained.
+  const parcelSummaries = [];
 
   let offset = 0;
   let total = 0;
@@ -333,6 +580,9 @@ async function fetchCounty(slug, outPath) {
         })}\n`,
       );
       total += 1;
+
+      const summary = summarizeParcel(geom, owner, cfg.acres(p));
+      if (summary) parcelSummaries.push(summary);
     }
 
     if (features.length < PAGE_SIZE) break;
@@ -342,6 +592,17 @@ async function fetchCounty(slug, outPath) {
 
   await new Promise((resolve) => out.end(resolve));
   process.stderr.write(`${slug}: wrote ${total} features -> ${outPath}\n`);
+
+  if (labelPath) {
+    const labels = buildHoldingLabels(parcelSummaries);
+    const labelOut = createWriteStream(labelPath);
+    for (const f of labels) labelOut.write(`${JSON.stringify(f)}\n`);
+    await new Promise((resolve) => labelOut.end(resolve));
+    process.stderr.write(
+      `${slug}: wrote ${labels.length} holding labels (from ${parcelSummaries.length} parcels) -> ${labelPath}\n`,
+    );
+  }
+
   return total;
 }
 
@@ -357,16 +618,22 @@ async function main() {
   if (args[0] === "--all") {
     const dir = args[1] || "out";
     for (const slug of Object.keys(COUNTIES)) {
-      await fetchCounty(slug, join(dir, `${slug}.ndjson`));
+      await fetchCounty(
+        slug,
+        join(dir, `${slug}.ndjson`),
+        join(dir, `${slug}.labels.ndjson`),
+      );
     }
     return;
   }
-  const [slug, outPath] = args;
+  const [slug, outPath, labelPath] = args;
   if (!slug || !outPath) {
-    console.error(`Usage: fetch-parcels-geojson.mjs <${Object.keys(COUNTIES).join("|")}|--all> <out>`);
+    console.error(
+      `Usage: fetch-parcels-geojson.mjs <${Object.keys(COUNTIES).join("|")}|--all> <out> [labels-out]`,
+    );
     process.exit(1);
   }
-  await fetchCounty(slug, outPath);
+  await fetchCounty(slug, outPath, labelPath);
 }
 
 main().catch((err) => {

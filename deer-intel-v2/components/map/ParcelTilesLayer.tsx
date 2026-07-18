@@ -261,6 +261,110 @@ function poleOfInaccessibility(ring: Pt[]): Pt {
   return { x: best.x, y: best.y };
 }
 
+// Width a holding name wraps to. The point layer carries no polygon, so there
+// is nothing to measure against — but the zoom at which the name fits its
+// ground was already decided at build time (the baked `mz`), so this only has
+// to keep long names to a tidy block rather than one long streak.
+const HOLDING_LABEL_WRAP_PX = 150;
+
+// Labels for the baked holding points: one per owner holding, at an anchor
+// computed over whole parcels at build time. Nothing here depends on polygon
+// geometry, which is the entire point — a tile clips polygons at its seams, so
+// any centre derived from what's in a tile shifts as the tiles change under it.
+class HoldingLabelSymbolizer {
+  place(layout: Layout, geom: Pt[][], feature: Feature) {
+    const owner = String(feature.props.owner ?? "")
+      .trim()
+      .toUpperCase();
+    if (!owner) return undefined;
+
+    const anchor = geom[0]?.[0];
+    if (!anchor) return undefined;
+
+    const acresText = ownerAcresText(Number(feature.props.acres) || 0);
+    const nameFont = `400 ${OWNER_NAME_FONT_PX}px ${LABEL_FONT_STACK}`;
+    const acresFont = `400 ${OWNER_ACRES_FONT_PX}px ${LABEL_FONT_STACK}`;
+
+    layout.scratch.letterSpacing = OWNER_LABEL_TRACKING;
+    layout.scratch.font = nameFont;
+    const nameLines = wrapWords(
+      layout.scratch,
+      owner,
+      HOLDING_LABEL_WRAP_PX,
+      OWNER_NAME_MAX_LINES,
+    );
+
+    let textWidth = 0;
+    for (const line of nameLines) {
+      textWidth = Math.max(textWidth, layout.scratch.measureText(line).width);
+    }
+    if (acresText) {
+      layout.scratch.font = acresFont;
+      textWidth = Math.max(textWidth, layout.scratch.measureText(acresText).width);
+    }
+    const textHeight =
+      nameLines.length * OWNER_NAME_LINE_PX +
+      (acresText ? OWNER_ACRES_LINE_PX : 0);
+
+    return [
+      {
+        anchor,
+        bboxes: [
+          {
+            minX: anchor.x - textWidth / 2,
+            minY: anchor.y - textHeight / 2,
+            maxX: anchor.x + textWidth / 2,
+            maxY: anchor.y + textHeight / 2,
+          },
+        ],
+        draw: makeLabelDraw(nameLines, acresText, nameFont, acresFont, textHeight),
+        deduplicationKey: owner,
+        deduplicationDistance: OWNER_LABEL_DEDUP_MIN_PX,
+      },
+    ];
+  }
+}
+
+// Shared glyph painting for both label symbolizers.
+function makeLabelDraw(
+  nameLines: string[],
+  acresText: string,
+  nameFont: string,
+  acresFont: string,
+  textHeight: number,
+) {
+  return (ctx: CanvasRenderingContext2D) => {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    ctx.miterLimit = 2;
+    ctx.letterSpacing = OWNER_LABEL_TRACKING;
+
+    let y = -textHeight / 2;
+    const fillLine = (
+      line: string,
+      font: string,
+      linePx: number,
+      color: string,
+    ) => {
+      ctx.font = font;
+      const baseline = y + linePx / 2;
+      ctx.strokeStyle = OWNER_LABEL_HALO;
+      ctx.lineWidth = OWNER_LABEL_HALO_PX;
+      ctx.strokeText(line, 0, baseline);
+      ctx.fillStyle = color;
+      ctx.fillText(line, 0, baseline);
+      y += linePx;
+    };
+    for (const line of nameLines) {
+      fillLine(line, nameFont, OWNER_NAME_LINE_PX, OWNER_LABEL_TEXT);
+    }
+    if (acresText) {
+      fillLine(acresText, acresFont, OWNER_ACRES_LINE_PX, OWNER_ACRES_TEXT);
+    }
+  };
+}
+
 // A protomaps label symbolizer that renders each owner name as a uniform,
 // Spartan-Forge-style label centered in the parcel: CAPS name (wrapped to fit
 // the width) with the acreage spelled out beneath, in plain white. The label is
@@ -381,43 +485,18 @@ class FitToParcelOwnerSymbolizer {
       },
     ];
 
-    const draw = (ctx: CanvasRenderingContext2D) => {
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      // Halo, then glyph. The names sit straight on aerial imagery, which runs
-      // from near-black timber to sunlit field and snow, so plain fill of any
-      // single colour disappears somewhere: white text vanished over stubble
-      // and snow. Stroking a contrasting outline around every glyph first is
-      // what keeps a name readable on all of it. Round joins stop the stroke
-      // spiking off sharp corners like "W" and "&".
-      ctx.lineJoin = "round";
-      ctx.miterLimit = 2;
-      ctx.letterSpacing = OWNER_LABEL_TRACKING;
-      // The canvas is translated to the anchor, so lay the block out from the
-      // top edge (−textHeight/2) downward, advancing one line at a time.
-      let y = -textHeight / 2;
-      const fillLine = (
-        line: string,
-        font: string,
-        linePx: number,
-        color: string,
-      ) => {
-        ctx.font = font;
-        const baseline = y + linePx / 2;
-        ctx.strokeStyle = OWNER_LABEL_HALO;
-        ctx.lineWidth = OWNER_LABEL_HALO_PX;
-        ctx.strokeText(line, 0, baseline);
-        ctx.fillStyle = color;
-        ctx.fillText(line, 0, baseline);
-        y += linePx;
-      };
-      for (const line of nameLines) {
-        fillLine(line, nameFont, OWNER_NAME_LINE_PX, OWNER_LABEL_TEXT);
-      }
-      if (acresText) {
-        fillLine(acresText, acresFont, OWNER_ACRES_LINE_PX, OWNER_ACRES_TEXT);
-      }
-    };
+    // Halo, then glyph, shared with the holding-point labels. The names sit
+    // straight on aerial imagery, which runs from near-black timber to sunlit
+    // field and snow, so a plain fill of any single colour disappears
+    // somewhere; stroking a contrasting outline around every glyph is what
+    // keeps a name readable on all of it.
+    const draw = makeLabelDraw(
+      nameLines,
+      acresText,
+      nameFont,
+      acresFont,
+      textHeight,
+    );
 
     return [
       {
@@ -514,6 +593,24 @@ export default function ParcelTilesLayer({
         },
       ],
       labelRules: [
+        // Preferred: the baked holding points. One per owner holding, anchored
+        // over whole parcels, with the zoom it becomes legible baked in as `mz`
+        // — so the name lands in the same spot at every zoom and prints once.
+        {
+          dataLayer: "parcel_labels",
+          minzoom: PARCEL_TILES_MIN_ZOOM,
+          filter: (z, f) =>
+            hasOwnerName(f) &&
+            z >= (Number(f.props.mz) || PARCEL_TILES_MIN_ZOOM),
+          sort: (a, b) => (Number(b.acres) || 0) - (Number(a.acres) || 0),
+          symbolizer: new HoldingLabelSymbolizer() as unknown as LabelSymbolizer,
+        },
+        // Fallback for archives built before the holding-point layer existed:
+        // labels derived from the polygons themselves. Harmless once the point
+        // layer is present in the tiles, since this rule then has the field to
+        // itself only on older archives — but it must be dropped in the same
+        // change that ships a rebuilt archive, or both rules draw and every
+        // name doubles.
         {
           dataLayer: "parcels",
           minzoom: LABEL_MIN_ZOOM,

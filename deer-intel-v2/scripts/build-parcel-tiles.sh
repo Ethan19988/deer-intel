@@ -31,6 +31,7 @@ COUNTIES="${COUNTIES:-$(node "$HERE/fetch-parcels-geojson.mjs" --list)}"
 mkdir -p "$WORK"
 
 inputs=()
+labelInputs=()
 failed=()
 for county in $COUNTIES; do
   ndjson="$WORK/$county.ndjson"
@@ -39,9 +40,10 @@ for county in $COUNTIES; do
   # trip an undici assertion), so retry each a few times. One county that stays
   # down is skipped with a warning rather than aborting the whole build.
   ok=0
+  labels="$WORK/$county.labels.ndjson"
   for attempt in 1 2 3; do
     if NODE_USE_ENV_PROXY="${NODE_USE_ENV_PROXY:-1}" \
-        node "$HERE/fetch-parcels-geojson.mjs" "$county" "$ndjson"; then
+        node "$HERE/fetch-parcels-geojson.mjs" "$county" "$ndjson" "$labels"; then
       ok=1
       break
     fi
@@ -50,6 +52,7 @@ for county in $COUNTIES; do
   done
   if [ "$ok" -eq 1 ]; then
     inputs+=("$ndjson")
+    [ -s "$labels" ] && labelInputs+=("$labels")
   else
     echo "WARNING: giving up on $county after 3 attempts; excluding it"
     failed+=("$county")
@@ -65,10 +68,20 @@ if [ "${#failed[@]}" -gt 0 ]; then
 fi
 
 echo ">> building tiles -> $OUT"
-tippecanoe -o "$OUT" -l parcels -n "PA Parcels" \
+# Two layers: the parcel polygons, and one point per owner holding carrying the
+# label anchor. The anchor has to be baked because tiles clip polygons at their
+# seams — a centre derived from a clipped piece moves when the pieces do, which
+# is what made big tracts wander and print their name more than once. A point
+# belongs to exactly one tile, so the name lands in one place at every zoom.
+layerArgs=()
+for f in "${inputs[@]}"; do layerArgs+=(-L "parcels:$f"); done
+for f in "${labelInputs[@]}"; do layerArgs+=(-L "parcel_labels:$f"); done
+echo ">> layers: ${#inputs[@]} parcel files, ${#labelInputs[@]} label files"
+
+tippecanoe -o "$OUT" -n "PA Parcels" \
   -Z12 -z15 \
   --drop-densest-as-needed --extend-zooms-if-still-dropping \
   --simplification=4 \
-  --force "${inputs[@]}"
+  --force "${layerArgs[@]}"
 
 echo ">> done: $(du -h "$OUT" | cut -f1) $OUT"
