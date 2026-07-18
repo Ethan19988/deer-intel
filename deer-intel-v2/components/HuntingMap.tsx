@@ -76,6 +76,8 @@ import MapPinBox, {
 import ParcelBoundaryLayer from "@/components/map/ParcelBoundaryLayer";
 import ParcelOwnerInfoCard from "@/components/map/ParcelOwnerInfoCard";
 import ParcelTilesLayer, {
+  PARCEL_LABEL_MIN_ZOOM,
+  PARCEL_TILES_MIN_ZOOM,
   type ParcelTileOwnerPick,
 } from "@/components/map/ParcelTilesLayer";
 import { ownerAcresText } from "@/lib/ownerLabel";
@@ -1229,7 +1231,18 @@ export default function HuntingMap() {
     : isPlacingPin
       ? `Tap map to place ${pinType}`
       : pinBoxMessage;
-  const mapOverlayMessages = [parcelLayerState?.message].filter(
+  // The parcel archive starts at z12, so at the zoom the map opens on there is
+  // no tile at all: no lines, no names, and taps hit nothing. Say so instead of
+  // leaving a blank map that reads as broken, and once the lines are up, point
+  // out that the names need a few more zooms.
+  const parcelZoomHint =
+    mapZoom < PARCEL_TILES_MIN_ZOOM
+      ? "Zoom in to see property lines and owner names."
+      : mapZoom < PARCEL_LABEL_MIN_ZOOM
+        ? "Zoom in further for owner names — tap any parcel to see who owns it."
+        : "";
+
+  const mapOverlayMessages = [parcelLayerState?.message, parcelZoomHint].filter(
     (message): message is string => Boolean(message),
   );
 

@@ -24,9 +24,20 @@ import { ownerAcresText } from "@/lib/ownerLabel";
 const PMTILES_URL =
   "https://pub-d5fa85d2972147979d3a9820dd7195f2.r2.dev/pa-parcels.pmtiles";
 
+// The archive itself starts at z12 — below that there is no tile to fetch, so
+// nothing draws AND nothing is tappable (the pick queries loaded tiles). The
+// map opens at z8, so callers need this to explain the empty screen rather than
+// leaving the overlay looking broken.
+export const PARCEL_TILES_MIN_ZOOM = 12;
+
 // Owner labels only make sense zoomed in; below this they collide into mush.
 // (protomaps' labeler also drops overlapping labels automatically.)
 const LABEL_MIN_ZOOM = 15;
+
+// Boundaries and tap-to-identify work from PARCEL_TILES_MIN_ZOOM, but names
+// only start here — worth telling the hunter apart, since "I see lines but no
+// names" and "I see nothing" have different fixes.
+export const PARCEL_LABEL_MIN_ZOOM = LABEL_MIN_ZOOM;
 
 // Spartan-Forge-style labels: a uniform, modest font (not sized to the parcel),
 // plain white regular-weight lettering (no halo, no bold), the owner in CAPS
