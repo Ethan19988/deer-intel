@@ -100,6 +100,13 @@ XING_MAX = 18                 # water-crossing funnels (travel corridor x draina
 XING_DRAINAGES = 30           # only the N longest drainages count as real water,
                               # not every 1 m micro-gully in the DEM stream net
 XING_DEDUP_DEG = 0.0018       # ~200 m: don't stack crossings on top of each other
+ROAD_AVOID_M = 150.0          # road-proximity cost fades to nothing by here
+ROAD_AVOID_W = 3.0            # cost multiplier ON the road itself. Big enough to
+                              # push travel off the corridor, deliberately finite
+                              # so a route can still CROSS a road — deer cross
+                              # roads constantly, they just don't walk down them
+ROAD_CROSS_M = 30.0           # a route within this of a road is crossing it
+ROAD_XING_MAX = 12            # cap road crossings like the other funnel types
 
 PINCH_BARRIER_SLOPE = 33.0    # slope (deg) deer treat as a wall / barrier
 PINCH_TRAVEL_SLOPE = 22.0     # slope (deg) still comfortable to travel
@@ -312,7 +319,28 @@ def bench_centerlines(mask, dem, transform, to_wgs, min_area_m2, max_keep):
     return out[:max_keep]
 
 
-def _grid_graph(slope_ds, elev_ds, cell_m):
+def _road_penalty(dist_road_ds):
+    """Per-cell cost for being near a road, 0 beyond ROAD_AVOID_M.
+
+    Without this the router puts deer on roads, and it is not a glitch — it is
+    the cost function working exactly as written. The dominant term is grade,
+    and a road IS the flattest line across the ground: graded, benched and
+    contoured around everything steep. So the cheapest path the solver can find
+    is very often the road prism itself.
+
+    Deer really do travel old logging grades and skid roads, so the answer is a
+    penalty, never a barrier: it rises steeply on the road and fades out by
+    ROAD_AVOID_M, which pushes travel off the corridor while still letting a
+    route cross one — deer cross roads constantly, they just don't walk down
+    them in daylight.
+    """
+    if dist_road_ds is None:
+        return None
+    d = np.clip(np.nan_to_num(dist_road_ds, nan=ROAD_AVOID_M), 0.0, ROAD_AVOID_M)
+    return ROAD_AVOID_W * (1.0 - d / ROAD_AVOID_M) ** 2
+
+
+def _grid_graph(slope_ds, elev_ds, cell_m, road_pen=None):
     """8-connected least-effort graph.
 
     The dominant edge term is the GRADE of the step — the rise/run between the
@@ -322,6 +350,8 @@ def _grid_graph(slope_ds, elev_ds, cell_m):
     of running straight up a face or plunging straight down to the food. A
     smaller roughness term keeps it off generally steep ground even where it
     could contour across, and cells past ROUTE_MAX_SLOPE are near-impassable.
+
+    road_pen (optional) adds the road-proximity cost from _road_penalty.
     """
     hh, ww = slope_ds.shape
     idx = np.arange(hh * ww).reshape(hh, ww)
@@ -339,7 +369,10 @@ def _grid_graph(slope_ds, elev_ds, cell_m):
         climb_deg = np.degrees(np.arctan2(np.abs(elev_ds[b] - elev_ds[a]), horiz))
         climb = (climb_deg / ROUTE_SLOPE_REF) ** 2
         edge_rough = 0.5 * (rough[a] + rough[b])
-        w = horiz * (1.0 + climb + ROUTE_ROUGH_W * edge_rough)
+        edge_road = (
+            0.5 * (road_pen[a] + road_pen[b]) if road_pen is not None else 0.0
+        )
+        w = horiz * (1.0 + climb + ROUTE_ROUGH_W * edge_rough + edge_road)
         w = np.where(blocked[a] | blocked[b], horiz * 1e4, w)
         rows.append(idx[a].ravel())
         cols.append(idx[b].ravel())
@@ -465,7 +498,9 @@ def pinch_points(slope, valid, transform, crs, to_wgs, dist_road, max_points, ex
     return out
 
 
-def bed_to_feed_routes(slope, dem, transform, crs, to_wgs, food_lonlat, beds, max_routes):
+def bed_to_feed_routes(
+    slope, dem, transform, crs, to_wgs, food_lonlat, beds, max_routes, dist_road=None
+):
     """Least-effort paths from the top beds to a food source — where deer
     actually travel bed<->feed, not just where terrain allows it. The cost is
     driven by the GRADE of each step (see _grid_graph), so the path follows the
@@ -484,7 +519,19 @@ def bed_to_feed_routes(slope, dem, transform, crs, to_wgs, food_lonlat, beds, ma
         hh0 // F, F, ww0 // F, F).mean(axis=(1, 3))
     hh, ww = s.shape
     cell_m = F * abs(transform.a)
-    graph = _grid_graph(s, e, cell_m)
+
+    # Downsample distance-to-road onto the same routing grid. min() not mean():
+    # a road crossing one corner of a cell makes the whole cell road-adjacent,
+    # and averaging would wash a single-lane road out of existence.
+    rd = None
+    if dist_road is not None:
+        rd = (
+            np.nan_to_num(dist_road[:hh0, :ww0], nan=ROAD_AVOID_M)
+            .reshape(hh0 // F, F, ww0 // F, F)
+            .min(axis=(1, 3))
+        )
+
+    graph = _grid_graph(s, e, cell_m, _road_penalty(rd))
 
     to_crs = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
 
@@ -522,8 +569,42 @@ def bed_to_feed_routes(slope, dem, transform, crs, to_wgs, food_lonlat, beds, ma
         line = LineString(_chaikin(coords, 2)).simplify(0.00006)
         latlng = [[round(la, 5), round(lo, 5)] for lo, la in line.coords]
         if len(latlng) >= 2:
-            routes.append({"coords": latlng})
+            routes.append({"coords": latlng, "crossings": _road_crossings(path, rd, ww, F, transform, to_wgs)})
     return routes
+
+
+def _road_crossings(path, rd, ww, F, transform, to_wgs):
+    """Where a route actually meets a road.
+
+    Walks the path's cells and takes the closest-to-road cell of each contiguous
+    run that comes within ROAD_CROSS_M. One point per run, so a route that
+    crosses the same road once yields one crossing rather than a smear of them.
+
+    These are worth marking in their own right: deer funnel to a habitual place
+    to cross an opening, and a crossing with cover on both sides is a stand.
+    """
+    if rd is None:
+        return []
+
+    out, run = [], []
+    for nd in path:
+        r, c = divmod(nd, ww)
+        d = float(rd[r, c]) if 0 <= r < rd.shape[0] and 0 <= c < rd.shape[1] else None
+        if d is not None and d <= ROAD_CROSS_M:
+            run.append((d, r, c))
+            continue
+        if run:
+            out.append(min(run, key=lambda t: t[0]))
+            run = []
+    if run:
+        out.append(min(run, key=lambda t: t[0]))
+
+    pts = []
+    for d, r, c in out:
+        x, y = transform * ((c + 0.5) * F, (r + 0.5) * F)
+        lng, lat = to_wgs.transform(x, y)
+        pts.append({"lat": round(lat, 5), "lng": round(lng, 5), "roadDistM": round(d)})
+    return pts
 
 
 def road_distance(roads_geojson, ref_ds_path):
@@ -842,10 +923,13 @@ def main():
     # ---- Bed-to-feed routes (least-cost paths bed -> marked food) ----
     if food_pts and beds:
         print("[rules] bed-to-feed routes", flush=True)
+        road_xings = []
         for pk, food in enumerate(food_pts):
             routes = bed_to_feed_routes(
-                slope, dem, transform, crs, to_wgs, food, beds, ROUTE_MAX
+                slope, dem, transform, crs, to_wgs, food, beds, ROUTE_MAX, dist_road
             )
+            for rt in routes:
+                road_xings.extend(rt.get("crossings", []))
             for k, rt in enumerate(routes):
                 features_out.append({
                     "id": f"{args.name}-route-{pk}-{k}", "kind": "travel",
@@ -861,6 +945,37 @@ def main():
                     ),
                     "line": rt["coords"],
                 })
+
+        # Road crossings picked up along those routes. Deduped on the same grid
+        # as the water crossings so the two funnel types don't stack, and capped
+        # like them — a map showing every place a route nicks a road is noise.
+        kept_xings = []
+        for x in sorted(road_xings, key=lambda p: p["roadDistM"]):
+            if any(
+                abs(x["lat"] - a) + abs(x["lng"] - b) < XING_DEDUP_DEG
+                for a, b in kept_xings
+            ):
+                continue
+            kept_xings.append((x["lat"], x["lng"]))
+            features_out.append({
+                "id": f"{args.name}-roadx-{len(kept_xings) - 1}", "kind": "pinch",
+                "title": "Road crossing",
+                "detail": (
+                    f"A bed-to-feed route meets a road {x['roadDistM']} m out. Deer "
+                    "cross an opening at the same habitual spots rather than wherever "
+                    "they happen to reach it, so a crossing with cover tight to both "
+                    "sides concentrates travel into a few yards. Hunt the cover, back "
+                    "off the road itself."
+                ),
+                "windNote": (
+                    "Sit off the road on a crosswind so your scent crosses the opening "
+                    "rather than running back down the trail. " + thermal_note()
+                ),
+                "point": [x["lat"], x["lng"]],
+                "roadDistM": x["roadDistM"],
+            })
+            if len(kept_xings) >= ROAD_XING_MAX:
+                break
 
     # ---- Travel (draw centerlines from the stream vector) ----
     shp = os.path.join(work, "streams.shp")
