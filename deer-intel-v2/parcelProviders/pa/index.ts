@@ -8,6 +8,18 @@ const ADAMS_PARCEL_OWNER_SERVICE_URL =
 const CAMERON_PARCEL_OWNER_SERVICE_URL =
   "https://services5.arcgis.com/NN66N9nlzcCXJ9he/arcgis/rest/services/Parcels_(September_2025)/FeatureServer";
 
+// Northampton County's own ArcGIS Online parcel layer (~122k parcels), which
+// carries assessment owner names and the situs address. PASDA's Northampton
+// parcels have geometry but no owner field.
+const NORTHAMPTON_PARCEL_OWNER_SERVICE_URL =
+  "https://services2.arcgis.com/NlbUAihbvA50xxJw/arcgis/rest/services/Northampton_Parcels/FeatureServer";
+
+// Wayne County's own ArcGIS Online tax parcels (~58k). Owner + acreage only:
+// it publishes no parcel address (PropertyLocation is null throughout, and the
+// Address/City fields are the owner's mailing address).
+const WAYNE_PARCEL_OWNER_SERVICE_URL =
+  "https://services1.arcgis.com/VMKRr2Ecl6EFwJpm/arcgis/rest/services/TaxParcels/FeatureServer";
+
 // PASDA hosts a per-county parcel MapServer for every PA county at
 // .../pasda/<County>County/MapServer. Coverage of owner fields varies by
 // county, so each supported county is configured explicitly below.
@@ -240,6 +252,33 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     parcelLayerId: 14,
     parcelServiceUrl: pasdaCountyParcelServiceUrl("Montgomery"),
     source: "PASDA",
+    status: "supported",
+  },
+  Northampton: {
+    acreageFieldNames: ["ASSMNT_AC"],
+    addressFieldNames: ["LOCATION"],
+    geometrySupport: "polygon",
+    notes:
+      "Northampton County ArcGIS Online parcels. PASDA's Northampton layer has geometry but no owner field.",
+    ownerFieldNames: ["OWNER_LN1", "OWNER_LN2"],
+    parcelIdFieldNames: ["PARCEL_ID", "CAMA_ID"],
+    parcelLayerId: 0,
+    parcelServiceUrl: NORTHAMPTON_PARCEL_OWNER_SERVICE_URL,
+    source: "County ArcGIS",
+    status: "supported",
+  },
+  Wayne: {
+    // No address fields: the layer publishes none for the parcel itself.
+    acreageFieldNames: ["Acreage", "GISACRE"],
+    addressFieldNames: [],
+    geometrySupport: "polygon",
+    notes:
+      "Wayne County ArcGIS Online tax parcels. Owner + acreage only — no situs address published.",
+    ownerFieldNames: ["Name", "FullName"],
+    parcelIdFieldNames: ["ControlNumber", "PARCELNO"],
+    parcelLayerId: 0,
+    parcelServiceUrl: WAYNE_PARCEL_OWNER_SERVICE_URL,
+    source: "County ArcGIS",
     status: "supported",
   },
   Wyoming: {

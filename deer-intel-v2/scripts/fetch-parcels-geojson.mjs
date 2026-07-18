@@ -218,6 +218,32 @@ const COUNTIES = {
     pin: (p) => str(p.PIDN),
     addr: (p) => cleanAddr(p.PROPADR),
   },
+  northampton: {
+    // Northampton's own ArcGIS Online parcels (122k features; OID field is FID).
+    // OWNER_LN2 is blank in practice but joined anyway for the rare second name;
+    // LOCATION is the situs address (MAIL_ADDR* are the owner's mailing address).
+    layerUrl:
+      "https://services2.arcgis.com/NlbUAihbvA50xxJw/arcgis/rest/services/Northampton_Parcels/FeatureServer/0",
+    orderBy: "FID",
+    outFields: ["OWNER_LN1", "OWNER_LN2", "ASSMNT_AC", "PARCEL_ID", "LOCATION"],
+    owner: (p) => joinFields(p, ["OWNER_LN1", "OWNER_LN2"]),
+    acres: (p) => toAcres(p.ASSMNT_AC),
+    pin: (p) => str(p.PARCEL_ID),
+    addr: (p) => cleanAddr(p.LOCATION),
+  },
+  wayne: {
+    // Wayne County's own tax-parcel FeatureServer (57k features). It publishes
+    // no parcel address: PropertyLocation is null throughout and Address/City
+    // are the OWNER's mailing address, so addr stays blank rather than passing
+    // off a mailing address as where the land is.
+    layerUrl:
+      "https://services1.arcgis.com/VMKRr2Ecl6EFwJpm/arcgis/rest/services/TaxParcels/FeatureServer/0",
+    outFields: ["Name", "Acreage", "GISACRE", "ControlNumber", "PARCELNO"],
+    owner: (p) => str(p.Name),
+    acres: (p) => toAcres(p.Acreage) || toAcres(p.GISACRE),
+    pin: (p) => str(p.ControlNumber) || str(p.PARCELNO),
+    addr: () => "",
+  },
   indiana: {
     // NAME_EXT is the full assessment name; SHORT_NAME is a truncated form, so
     // it's only the fallback. Deeded acreage beats the GIS-computed figure.
