@@ -1,0 +1,92 @@
+name: Terrain worker
+
+# Runs the auto-1m terrain worker on a schedule instead of a server. The app
+# queues a job (terrain_jobs) when a hunter asks for a high-res read; this
+# claims one, runs the 1 m LiDAR pipeline, and stores the result in
+# terrain_sets, where the map picks it up in place of the live 10 m read.
+#
+# Why a scheduled Action rather than a host: the work is bursty — minutes of
+# heavy compute when someone draws a new property, then nothing for days. A
+# runner has 16 GB (more than the pipeline needs, and more than the dev box
+# has free) and costs nothing on a public repo, so paying for an always-on
+# 8 GB server to sit idle makes little sense until the queue is busy enough
+# that waiting for the next tick is the bottleneck.
+#
+# Setup (once):
+#   Settings > Secrets and variables > Actions
+#     secret  SUPABASE_SERVICE_ROLE_KEY   the service-role key (NEVER the anon
+#                                         key, and never a NEXT_PUBLIC_* var —
+#                                         it bypasses RLS for every user)
+#     var     SUPABASE_URL                https://<project>.supabase.co
+#
+# Note: GitHub disables scheduled workflows after 60 days with no repo
+# activity. If reads stop being picked up, check that first.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+# One worker at a time. Claiming is atomic (FOR UPDATE SKIP LOCKED) so overlap
+# would be safe, but a slow job shouldn't stack runs behind it.
+concurrency:
+  group: terrain-worker
+  cancel-in-progress: false
+
+jobs:
+  work:
+    runs-on: ubuntu-latest
+    # The pipeline shells out to the system GDAL (gdalwarp, gdal_contour,
+    # ogr2ogr), same base the worker Dockerfile uses.
+    container:
+      image: ghcr.io/osgeo/gdal:ubuntu-small-latest
+    # A 130M-cell tract took ~9 min on the dev box; leave room for a fetch of
+    # several hundred MB of DEM tiles on a cold cache, well under the 6h limit.
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Skip if the worker isn't configured
+        id: gate
+        env:
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          URL: ${{ vars.SUPABASE_URL }}
+        run: |
+          if [ -z "$KEY" ] || [ -z "$URL" ]; then
+            echo "SUPABASE_SERVICE_ROLE_KEY / SUPABASE_URL not set — nothing to do."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Python deps
+        if: steps.gate.outputs.configured == 'true'
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3-pip
+          pip3 install --no-cache-dir --break-system-packages \
+            -r deer-intel-v2/pipeline/terrain/worker/requirements.txt
+
+      # USGS tile filenames are globally unique, so one cache serves every
+      # property — overlapping tracts and re-reads skip a ~300 MB download.
+      - name: Restore LiDAR tile cache
+        if: steps.gate.outputs.configured == 'true'
+        uses: actions/cache@v4
+        with:
+          path: /tmp/tilecache
+          key: lidar-tiles-${{ github.run_id }}
+          restore-keys: lidar-tiles-
+
+      - name: Claim and run one job
+        if: steps.gate.outputs.configured == 'true'
+        working-directory: deer-intel-v2/pipeline/terrain
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          WORKER_ID: gha-${{ github.run_id }}
+          RUN_ONCE: "1"
+          MAX_JOBS: "1"
+          TILE_CACHE_DIR: /tmp/tilecache
+        run: python3 worker/runner.py

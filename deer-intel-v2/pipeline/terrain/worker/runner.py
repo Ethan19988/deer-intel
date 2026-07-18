@@ -14,6 +14,13 @@ Env:
   SUPABASE_SERVICE_ROLE_KEY    service-role key (server-only, bypasses RLS)
   WORKER_ID                    optional label (defaults to the hostname)
   POLL_SECONDS                 idle poll interval (default 20)
+  RUN_ONCE                     "1" to drain the queue and exit instead of
+                               polling forever — for a scheduled runner
+                               (GitHub Actions cron, a systemd timer, any
+                               host that pays per second rather than per hour)
+  MAX_JOBS                     with RUN_ONCE, stop after this many jobs
+                               (default 1) so a scheduled run can't overrun
+                               its host's time limit
 """
 from __future__ import annotations
 
@@ -33,6 +40,8 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 WORKER_ID = os.environ.get("WORKER_ID") or socket.gethostname()
 POLL_SECONDS = float(os.environ.get("POLL_SECONDS", "20"))
+RUN_ONCE = os.environ.get("RUN_ONCE", "").strip() in ("1", "true", "yes")
+MAX_JOBS = int(os.environ.get("MAX_JOBS", "1"))
 
 # pipeline/terrain — the scripts live one level up from this file.
 PIPELINE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -178,27 +187,46 @@ def main() -> int:
     if not SUPABASE_URL or not SERVICE_KEY:
         print("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required", file=sys.stderr)
         return 2
-    print(f"[worker] {WORKER_ID} polling {SUPABASE_URL} every {POLL_SECONDS}s", flush=True)
+    if RUN_ONCE:
+        print(f"[worker] {WORKER_ID} run-once against {SUPABASE_URL} (max {MAX_JOBS})", flush=True)
+    else:
+        print(f"[worker] {WORKER_ID} polling {SUPABASE_URL} every {POLL_SECONDS}s", flush=True)
+
+    done = 0
+    failed = False
     while True:
         try:
             job = claim_job()
         except Exception as e:  # noqa: BLE001
             print(f"[worker] claim failed: {e}", flush=True)
+            # A scheduled run should surface a broken claim as a failure rather
+            # than exiting 0 and looking like "no work to do".
+            if RUN_ONCE:
+                return 1
             time.sleep(POLL_SECONDS)
             continue
         if not job:
+            if RUN_ONCE:
+                print(f"[worker] queue empty, {done} job(s) run", flush=True)
+                return 1 if failed else 0
             time.sleep(POLL_SECONDS)
             continue
         print(f"[worker] claimed {job['id']} ({job['property_id']})", flush=True)
         try:
             process(job)
         except Exception as e:  # noqa: BLE001
+            failed = True
             msg = str(e)[:1000]
             print(f"[worker] job {job['id']} error: {msg}", flush=True)
             try:
                 update_job(job["id"], {"status": "error", "finished_at": now_iso(), "error": msg})
             except Exception as e2:  # noqa: BLE001
                 print(f"[worker] could not mark error: {e2}", flush=True)
+
+        done += 1
+        if RUN_ONCE and done >= MAX_JOBS:
+            print(f"[worker] ran {done} job(s), stopping", flush=True)
+            return 1 if failed else 0
 
 
 if __name__ == "__main__":
