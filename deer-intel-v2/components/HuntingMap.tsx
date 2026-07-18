@@ -258,6 +258,59 @@ function countyRecordLines(
   return [];
 }
 
+// A zoom that shows the whole drawn outline instead of dropping inside it.
+// Moore Hill's outline is ~13km across; opening it at PROPERTY_FOCUS_ZOOM puts
+// you staring at one corner of it with no idea which corner.
+function zoomForBounds(bounds: {
+  minLat: number;
+  minLng: number;
+  maxLat: number;
+  maxLng: number;
+}): number {
+  const latSpan = Math.max(bounds.maxLat - bounds.minLat, 1e-6);
+  const lngSpan = Math.max(bounds.maxLng - bounds.minLng, 1e-6);
+  const midLat = (bounds.minLat + bounds.maxLat) / 2;
+  // Convert the latitude span to longitude-equivalent degrees so one formula
+  // covers both axes (fine at property scale; Mercator only bends noticeably
+  // over far larger spans).
+  const latSpanAsLng = latSpan / Math.max(Math.cos((midLat * Math.PI) / 180), 0.1);
+  // Deliberately conservative viewport so the outline lands inside a phone
+  // screen too, rather than fitting a desktop window exactly.
+  const zoomForWidth = Math.log2((360 * 820) / (256 * lngSpan));
+  const zoomForHeight = Math.log2((360 * 560) / (256 * latSpanAsLng));
+  const fitted = Math.floor(Math.min(zoomForWidth, zoomForHeight));
+  return Math.max(8, Math.min(PROPERTY_FOCUS_ZOOM, fitted));
+}
+
+// Where "go to this property" should actually land. The drawn outline IS the
+// property, so its centre beats any single asset: resolvePropertyWeatherPoint
+// answers a different question (somewhere on the property good enough to fetch
+// weather for) and happily returns the first camera or pin, which on a
+// 27,000-acre tract can sit miles from the ground being hunted — landing there
+// reads as the map jumping somewhere random. Outline first, then the saved
+// coordinate, then assets.
+function propertyFocusTarget(
+  property: Parameters<typeof resolvePropertyWeatherPoint>[0],
+  cameras: Parameters<typeof resolvePropertyWeatherPoint>[1],
+  pins: Parameters<typeof resolvePropertyWeatherPoint>[2],
+): { center: MapCenter; zoom: number } | null {
+  const bounds = boundsOfHuntArea(property?.huntArea);
+  if (bounds) {
+    return {
+      center: [
+        (bounds.minLat + bounds.maxLat) / 2,
+        (bounds.minLng + bounds.maxLng) / 2,
+      ],
+      zoom: zoomForBounds(bounds),
+    };
+  }
+
+  const point = resolvePropertyWeatherPoint(property, cameras, pins);
+  if (!point) return null;
+
+  return { center: [point.lat, point.lng], zoom: PROPERTY_FOCUS_ZOOM };
+}
+
 function normalizeMapCenter(center: MapCenter): MapCenter {
   return [Number(center[0].toFixed(6)), Number(center[1].toFixed(6))];
 }
@@ -1280,24 +1333,34 @@ export default function HuntingMap() {
     };
   });
 
+  const propertyFocus = useMemo(
+    () => propertyFocusTarget(selectedProperty, propertyCameras, pins),
+    [selectedProperty, propertyCameras, pins],
+  );
+
+  const focusedPropertyIdRef = useRef("");
+
   useEffect(() => {
-    if (!selectedPropertyId) return;
+    if (!selectedPropertyId || !propertyFocus) return;
 
-    const {
-      selectedProperty: property,
-      propertyCameras: cameras,
-      pins: propertyPins,
-    } = focusInputsRef.current;
-    const point = resolvePropertyWeatherPoint(property, cameras, propertyPins);
-
-    if (!point) return;
+    // Focus once per property, tracked by id rather than by effect deps. The
+    // old version keyed only on the id and read assets from a ref, so on a
+    // refresh — where the store hydrates from localStorage after mount — the
+    // property's ground wasn't loaded yet, the target came back null, and it
+    // returned without ever focusing. The map then just sat on
+    // DEFAULT_MAP_CENTER in the middle of the state, which is the "takes me to
+    // a random spot" report. Depending on the target means late-arriving data
+    // still focuses, while the id guard keeps a later pin edit from yanking the
+    // view back.
+    if (focusedPropertyIdRef.current === selectedPropertyId) return;
+    focusedPropertyIdRef.current = selectedPropertyId;
 
     setSearchTarget({
-      center: [point.lat, point.lng],
+      center: propertyFocus.center,
       id: Date.now(),
-      zoom: PROPERTY_FOCUS_ZOOM,
+      zoom: propertyFocus.zoom,
     });
-  }, [selectedPropertyId]);
+  }, [selectedPropertyId, propertyFocus]);
 
   // Live wind for the wind/thermal overlay. Fetch only while the layer is on
   // (and re-fetch when the property changes) so panning never spams the API —
