@@ -28,6 +28,8 @@ import WeatherHistoryPanel from "@/components/weather/WeatherHistoryPanel";
 import SeasonRutCard from "@/components/season/SeasonRutCard";
 import PipelineCommandCard from "@/components/properties/PipelineCommandCard";
 import GenerateHighResButton from "@/components/terrain/GenerateHighResButton";
+import PropertyPatternReport from "@/components/properties/PropertyPatternReport";
+import { buildPropertyPatternReport } from "@/lib/propertyPatterns";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { hasPropertyCoordinate } from "@/lib/propertyLocation";
 import {
@@ -117,6 +119,11 @@ export default function PropertyWorkspacePage() {
   );
   const propertyCameraChecks = state.cameraChecks.filter(
     (check) => check.propertyId === params.id,
+  );
+  const patternReport = buildPropertyPatternReport(
+    propertyHunts,
+    propertyCameraChecks,
+    propertyCameras,
   );
   const propertyPhotoRecords = state.photoRecords.filter(
     (photo) => photo.propertyId === params.id,
@@ -570,6 +577,10 @@ export default function PropertyWorkspacePage() {
             hasPropertyCoordinate(property) ? property.latitude : undefined
           }
         />
+      </DashboardSection>
+
+      <DashboardSection eyebrow="Patterns" title="What Produces Deer Here">
+        <PropertyPatternReport report={patternReport} />
       </DashboardSection>
 
       <DashboardSection eyebrow="Conditions" title="Today's Conditions">
