@@ -69,6 +69,17 @@ const LABEL_FONT_STACK =
 // until you zoom onto a property — mirrors the JSON overlay's acreage gate.
 function labelPasses(zoom: number, feature: { props: Record<string, unknown> }) {
   const acres = Number(feature.props.acres) || 0;
+
+  // Acreage is only a cheap pre-filter for "big enough to be worth naming", and
+  // plenty of parcels carry none — their county publishes no acreage field, or
+  // it's blank for that record. At Moore Hill that's 53 of 93 features in view,
+  // STATE GAME LANDS among them. Treating unknown acreage as 0 acres meant
+  // those owners never drew until z17, even though tapping the same parcel
+  // named them instantly. Let them through and leave it to the fit gate below,
+  // which measures whether the name actually fits the parcel on screen — the
+  // honest test, and one that doesn't depend on the county's data quality.
+  if (!acres) return true;
+
   if (zoom >= 17) return true;
   if (zoom >= 16) return acres >= 1;
   return acres >= 4;
