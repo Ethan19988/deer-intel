@@ -2730,6 +2730,7 @@ export default function HuntingMap() {
                 corridors={movementCorridors}
                 period={movementPeriod}
                 outlookScore={movementOutlook?.score ?? null}
+                tapEnabled={!isPlacingPin && !isDrawingArea && !movingPin}
               />
             ) : null}
 

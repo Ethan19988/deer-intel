@@ -1,20 +1,24 @@
 "use client";
 
-import { useMemo } from "react";
-import { ImageOverlay } from "react-leaflet";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { ImageOverlay, Popup, useMapEvents } from "react-leaflet";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
 import { aggregateCameraActivity } from "@/lib/terrainLearning";
 import {
   buildDeerHeatSources,
+  explainDeerHeatAt,
   outlookIntensity,
+  PERIOD_HEAT_LINE,
   type CameraHeatSpot,
+  type HeatExplanation,
   type HeatSource,
+  type HeatSourceKind,
 } from "@/lib/deerHeat";
 import type {
   MovementCorridor,
   MovementPeriod,
 } from "@/lib/movementPrediction";
-import type { TerrainMovementSet } from "@/lib/terrainMovement";
+import { TERRAIN_STYLE, type TerrainMovementSet } from "@/lib/terrainMovement";
 
 type DeerHeatLayerProps = {
   set: TerrainMovementSet | null;
@@ -22,6 +26,8 @@ type DeerHeatLayerProps = {
   period: MovementPeriod;
   /** Today's movement-outlook score; scales the whole surface's brightness. */
   outlookScore: number | null;
+  /** Off while placing pins / drawing, so a tap never does two things. */
+  tapEnabled?: boolean;
 };
 
 // The predictive heat surface: every explainable prediction the app already
@@ -35,6 +41,7 @@ export default function DeerHeatLayer({
   corridors,
   period,
   outlookScore,
+  tapEnabled = true,
 }: DeerHeatLayerProps) {
   const state = useDeerIntelStore();
 
@@ -42,7 +49,12 @@ export default function DeerHeatLayer({
   // against the busiest camera so weights land on 0-1.
   const cameraSpots = useMemo<CameraHeatSpot[]>(() => {
     const cams = aggregateCameraActivity(state.cameras, state.cameraChecks)
-      .map((c) => ({ lat: c.lat, lng: c.lng, activity: c.bucks * 2 + c.does + c.fawns }))
+      .map((c) => ({
+        lat: c.lat,
+        lng: c.lng,
+        name: c.name,
+        activity: c.bucks * 2 + c.does + c.fawns,
+      }))
       .filter((c) => c.activity > 0);
     const max = Math.max(0, ...cams.map((c) => c.activity));
     if (max === 0) return [];
@@ -65,17 +77,163 @@ export default function DeerHeatLayer({
     [sources, outlookScore],
   );
 
+  // Tap a warm spot -> "why it's hot here". Cold ground closes the card, so
+  // the map's other tap behaviors (parcels, pins) keep the quiet ground.
+  const [explain, setExplain] = useState<{
+    position: [number, number];
+    explanation: HeatExplanation;
+  } | null>(null);
+
+  useMapEvents({
+    click: (event) => {
+      if (!tapEnabled) return;
+      const { lat, lng } = event.latlng;
+      const explanation = explainDeerHeatAt(lat, lng, sources);
+      setExplain(explanation ? { position: [lat, lng], explanation } : null);
+    },
+  });
+
+  // The card explains "right now", so only a period flip truly invalidates it.
+  // Deliberately NOT keyed on the sources array: its identity can churn with
+  // unrelated map re-renders, which would close the card the moment it opens.
+  useEffect(() => {
+    setExplain(null);
+  }, [period]);
+
   if (!overlay) return null;
 
   return (
-    <ImageOverlay
-      url={overlay.url}
-      bounds={overlay.bounds}
-      opacity={1}
-      className="di-deer-heat"
-    />
+    <>
+      <ImageOverlay
+        url={overlay.url}
+        bounds={overlay.bounds}
+        opacity={1}
+        className="di-deer-heat"
+      />
+      {explain ? (
+        <Popup position={explain.position} closeButton>
+          <HeatExplainCard explanation={explain.explanation} period={period} />
+        </Popup>
+      ) : null}
+    </>
   );
 }
+
+const MAX_LISTED_CONTRIBUTORS = 4;
+
+// Chip color per source kind: terrain kinds reuse TERRAIN_STYLE so the card
+// matches the Terrain layer's key; pins take the Movement purple; cameras the
+// Camera Heat orange.
+function contributorColor(kind: HeatSourceKind): string {
+  if (kind === "bedding" || kind === "travel" || kind === "pinch" || kind === "refuge") {
+    return TERRAIN_STYLE[kind].color;
+  }
+  if (kind === "route") return TERRAIN_STYLE.travel.color;
+  if (kind === "camera") return "#ef7a24";
+  return "#6d28d9";
+}
+
+const KIND_LABEL: Record<HeatSourceKind, string> = {
+  bedding: "Likely bedding",
+  travel: "Travel corridor",
+  route: "Bed-to-feed route",
+  pinch: "Crossing / pinch",
+  refuge: "Security refuge",
+  corridor: "Pin corridor",
+  "bed-pin": "Bedding pin",
+  food: "Food pin",
+  water: "Water pin",
+  camera: "Camera evidence",
+};
+
+function heatLabel(total: number): string {
+  if (total >= 0.75) return "Red-hot — predictions stack here";
+  if (total >= 0.45) return "Hot ground";
+  return "Warm ground";
+}
+
+function HeatExplainCard({
+  explanation,
+  period,
+}: {
+  explanation: HeatExplanation;
+  period: MovementPeriod;
+}) {
+  const listed = explanation.contributors.slice(0, MAX_LISTED_CONTRIBUTORS);
+  const extra = explanation.contributors.length - listed.length;
+
+  return (
+    <div style={cardStyle}>
+      <p style={headStyle}>{heatLabel(explanation.total)}</p>
+      <p style={periodStyle}>{PERIOD_HEAT_LINE[period]}</p>
+      <div style={listStyle}>
+        {listed.map((contributor, index) => (
+          <div key={`${contributor.kind}-${index}`} style={rowStyle}>
+            <span
+              style={{
+                ...dotStyle,
+                background: contributorColor(contributor.kind),
+              }}
+              aria-hidden="true"
+            />
+            <span>
+              <strong>{KIND_LABEL[contributor.kind]}</strong>
+              {contributor.title ? ` · ${contributor.title}` : ""}
+            </span>
+          </div>
+        ))}
+      </div>
+      {extra > 0 ? (
+        <p style={moreStyle}>
+          +{extra} more prediction{extra === 1 ? "" : "s"} overlapping here
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+const cardStyle: CSSProperties = {
+  maxWidth: 240,
+  fontSize: 13,
+  lineHeight: 1.4,
+};
+
+const headStyle: CSSProperties = {
+  margin: 0,
+  fontWeight: 800,
+};
+
+const periodStyle: CSSProperties = {
+  margin: "0.15rem 0 0.4rem",
+  color: "#6b7280",
+  fontSize: 12,
+  fontWeight: 600,
+};
+
+const listStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.3rem",
+};
+
+const rowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  gap: "0.4rem",
+};
+
+const dotStyle: CSSProperties = {
+  width: 9,
+  height: 9,
+  borderRadius: "50%",
+  flex: "0 0 auto",
+  transform: "translateY(1px)",
+};
+
+const moreStyle: CSSProperties = {
+  margin: "0.4rem 0 0",
+  color: "#6b7280",
+  fontSize: 12,
+};
 
 // Moderate resolution on purpose: the browser's bilinear upscale of the
 // stretched ImageOverlay is what melts the shapes into a soft heat surface.
