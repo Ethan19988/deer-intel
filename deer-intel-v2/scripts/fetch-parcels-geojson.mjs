@@ -347,6 +347,13 @@ async function fetchCounty(slug, outPath) {
 
 async function main() {
   const args = process.argv.slice(2);
+  // Single source of truth for which counties are configured, so the tile build
+  // can't drift from this file (it used to keep its own hardcoded list, and a
+  // county added here silently never made it into the archive).
+  if (args[0] === "--list") {
+    process.stdout.write(`${Object.keys(COUNTIES).join(" ")}\n`);
+    return;
+  }
   if (args[0] === "--all") {
     const dir = args[1] || "out";
     for (const slug of Object.keys(COUNTIES)) {

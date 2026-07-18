@@ -22,9 +22,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(dirname "$HERE")"
 WORK="${WORK:-$ROOT/.parcel-build}"
 OUT="$ROOT/public/data/pa-parcels.pmtiles"
-# The counties that publish complete owner-level parcels (see
-# discover-parcel-fields.mjs). Most PA counties don't, so this is not "all 45".
-COUNTIES="${COUNTIES:-franklin adams dauphin butler bedford juniata fulton berks bucks cameron chester forest montgomery wyoming york bradford}"
+# The counties that publish complete owner-level parcels. Most PA counties
+# don't, so this is not "all 67". Read straight from fetch-parcels-geojson.mjs
+# rather than restated here: this list used to be hardcoded and silently fell
+# out of sync, so counties added to the fetcher never reached the archive.
+COUNTIES="${COUNTIES:-$(node "$HERE/fetch-parcels-geojson.mjs" --list)}"
 
 mkdir -p "$WORK"
 
