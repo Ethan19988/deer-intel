@@ -126,6 +126,10 @@ import {
 } from "@/lib/waybackImagery";
 import { parsePropertyCoordinate } from "@/lib/propertyLocation";
 import {
+  IDLE_PARCEL_OWNER_LOOKUP_STATE,
+  lookupPaParcelOwnerAtPoint,
+} from "@/lib/parcelLookup";
+import {
   cameraToMapAsset,
   createVisibleAssetLayerState,
   DEFAULT_MAP_CENTER,
@@ -156,7 +160,10 @@ import {
   type MapCenter,
   type MapLayerId,
 } from "@/lib/propertyMap";
-import type { ParcelBoundaryLoadState } from "@/types/parcel";
+import type {
+  ParcelBoundaryLoadState,
+  ParcelOwnerLookupState,
+} from "@/types/parcel";
 import type { HuntAreaPoint } from "@/types/property";
 import {
   useDefaultMapLayer,
@@ -215,6 +222,36 @@ function huntAreaVertexIcon(pointNumber: number) {
     iconSize: [24, 24],
     iconAnchor: [12, 12],
   });
+}
+
+// Extra card lines from the tapped parcel's county record. The vector tile only
+// carries { owner, acres, pub }, so the county ArcGIS service is what supplies
+// the parcel ID and situs address. Plenty of counties have no live point-query
+// service, so "unsupported" is a normal outcome — worded as the *record* being
+// unavailable, never as the owner data being unpublished, since the tile is
+// usually showing an owner name right above this line. A lookup that simply
+// fails adds nothing, leaving the tile's own owner/acres card intact.
+function countyRecordLines(
+  state: ParcelOwnerLookupState,
+): Array<{ label: string; value: string }> {
+  if (state.status === "loading") {
+    return [{ label: "County record", value: "Looking up…" }];
+  }
+
+  if (state.status === "found" && state.parcel) {
+    return [
+      { label: "County", value: `${state.parcel.countyName} County` },
+      { label: "Parcel ID", value: state.parcel.parcelId ?? "Not listed" },
+      { label: "Address", value: state.parcel.address ?? "Not listed" },
+      { label: "Source", value: state.parcel.providerName },
+    ];
+  }
+
+  if (state.status === "unsupported") {
+    return [{ label: "County record", value: "Not available for this county" }];
+  }
+
+  return [];
 }
 
 function normalizeMapCenter(center: MapCenter): MapCenter {
@@ -812,6 +849,13 @@ export default function HuntingMap() {
   // the loaded tiles) — how small, label-gated parcels reveal their owner.
   const [tileOwnerPick, setTileOwnerPick] =
     useState<ParcelTileOwnerPick | null>(null);
+  // The picked parcel's county record (parcel ID, situs address), fetched after
+  // the tile card is already on screen. The ref tokens each tap so a slow reply
+  // can't land on a newer parcel's card.
+  const [tileOwnerDetail, setTileOwnerDetail] = useState<ParcelOwnerLookupState>(
+    IDLE_PARCEL_OWNER_LOOKUP_STATE,
+  );
+  const tileOwnerDetailRequestRef = useRef(0);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [isMobileAssetSheetOpen, setIsMobileAssetSheetOpen] = useState(false);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
@@ -1585,11 +1629,37 @@ export default function HuntingMap() {
     }));
   }
 
-  function handleTileOwnerPick(pick: ParcelTileOwnerPick | null) {
+  function handleTileOwnerPick(
+    pick: ParcelTileOwnerPick | null,
+    at: { lat: number; lng: number },
+  ) {
     // A parcel card replaces any open asset card; tapping empty ground just
     // dismisses the parcel card.
     if (pick) setSelectedAssetId(null);
     setTileOwnerPick(pick);
+
+    const requestId = tileOwnerDetailRequestRef.current + 1;
+    tileOwnerDetailRequestRef.current = requestId;
+
+    if (!pick) {
+      setTileOwnerDetail(IDLE_PARCEL_OWNER_LOOKUP_STATE);
+      return;
+    }
+
+    // Deliberately not awaited before showing the card: the tile already knows
+    // the owner, so the name appears on tap and the county fields fill in when
+    // (and if) the county answers. A slow or unsupported county costs nothing.
+    setTileOwnerDetail({ status: "loading", message: "" });
+
+    lookupPaParcelOwnerAtPoint(at.lat, at.lng)
+      .then((result) => {
+        if (tileOwnerDetailRequestRef.current !== requestId) return;
+        setTileOwnerDetail(result);
+      })
+      .catch(() => {
+        if (tileOwnerDetailRequestRef.current !== requestId) return;
+        setTileOwnerDetail({ status: "error", message: "" });
+      });
   }
 
   async function searchAddressOrPlace(query: string) {
@@ -2862,8 +2932,13 @@ export default function HuntingMap() {
                     ? "Public / government"
                     : "Private",
                 },
+                ...countyRecordLines(tileOwnerDetail),
               ]}
-              onClose={() => setTileOwnerPick(null)}
+              onClose={() => {
+                setTileOwnerPick(null);
+                setTileOwnerDetail(IDLE_PARCEL_OWNER_LOOKUP_STATE);
+                tileOwnerDetailRequestRef.current += 1;
+              }}
             />
           ) : null}
         </div>

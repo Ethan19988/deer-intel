@@ -336,9 +336,14 @@ type ParcelTilesLayerProps = {
   enabled: boolean;
   // Tap-to-identify: while true, a map tap reports the parcel under it (or null
   // for empty ground) via onOwnerPick. Lets small parcels — whose labels are
-  // zoom-gated out — still reveal their owner on demand.
+  // zoom-gated out — still reveal their owner on demand. The tap location rides
+  // along so the caller can look the parcel up in its county's record, which
+  // carries fields the vector tile doesn't (parcel ID, situs address).
   pickEnabled?: boolean;
-  onOwnerPick?: (pick: ParcelTileOwnerPick | null) => void;
+  onOwnerPick?: (
+    pick: ParcelTileOwnerPick | null,
+    at: { lat: number; lng: number },
+  ) => void;
 };
 
 export default function ParcelTilesLayer({
@@ -426,7 +431,7 @@ export default function ParcelTilesLayer({
         }
       }
 
-      report(best);
+      report(best, { lat, lng });
     };
 
     map.on("click", handleClick);
