@@ -14,12 +14,9 @@ type MapLayerManagerProps = {
   pinBoxSection?: ReactNode;
   offlineSection?: ReactNode;
   trackingSection?: ReactNode;
-  ownerNamesDisabled?: boolean;
-  showOwnerNames: boolean;
   visibleAssetLayers: Record<AssetLayerId, boolean>;
   onToggleLayer: (layerId: AssetLayerId) => void;
   onToggleMapTool: (toolId: MapToolId) => void;
-  onToggleOwnerNames: () => void;
 };
 
 const VISIBILITY_LABELS: Record<AssetLayerId, string> = {

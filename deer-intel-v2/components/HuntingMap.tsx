@@ -74,7 +74,6 @@ import MapPinBox, {
   PIN_BOX_DRAG_DATA_TYPE,
 } from "@/components/map/MapPinBox";
 import ParcelBoundaryLayer from "@/components/map/ParcelBoundaryLayer";
-import ParcelOwnerLabelLayer from "@/components/map/ParcelOwnerLabelLayer";
 import ParcelOwnerInfoCard from "@/components/map/ParcelOwnerInfoCard";
 import ParcelTilesLayer, {
   type ParcelTileOwnerPick,
@@ -127,14 +126,6 @@ import {
 } from "@/lib/waybackImagery";
 import { parsePropertyCoordinate } from "@/lib/propertyLocation";
 import {
-  IDLE_PARCEL_OWNER_LOOKUP_STATE,
-  lookupPaParcelOwnerAtPoint,
-} from "@/lib/parcelLookup";
-import {
-  MOBILE_MAP_MEDIA_QUERY,
-  isMobileMapDevice as getIsMobileMapDevice,
-} from "@/lib/mapDevice";
-import {
   cameraToMapAsset,
   createVisibleAssetLayerState,
   DEFAULT_MAP_CENTER,
@@ -165,11 +156,7 @@ import {
   type MapCenter,
   type MapLayerId,
 } from "@/lib/propertyMap";
-import type {
-  ParcelBoundaryLoadState,
-  ParcelOwnerLookupState,
-  ParcelOwnerLabelLoadState,
-} from "@/types/parcel";
+import type { ParcelBoundaryLoadState } from "@/types/parcel";
 import type { HuntAreaPoint } from "@/types/property";
 import {
   useDefaultMapLayer,
@@ -230,30 +217,6 @@ function huntAreaVertexIcon(pointNumber: number) {
   });
 }
 
-function useIsMobileMapDevice() {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const mediaQuery = window.matchMedia(MOBILE_MAP_MEDIA_QUERY);
-    const updateMobileState = () => setIsMobile(mediaQuery.matches);
-
-    updateMobileState();
-
-    if (typeof mediaQuery.addEventListener === "function") {
-      mediaQuery.addEventListener("change", updateMobileState);
-      return () =>
-        mediaQuery.removeEventListener("change", updateMobileState);
-    }
-
-    mediaQuery.addListener(updateMobileState);
-    return () => mediaQuery.removeListener(updateMobileState);
-  }, []);
-
-  return isMobile;
-}
-
 function normalizeMapCenter(center: MapCenter): MapCenter {
   return [Number(center[0].toFixed(6)), Number(center[1].toFixed(6))];
 }
@@ -276,24 +239,6 @@ function ClickToAddPin({
       if (!enabled || !propertyId) return;
 
       onAddPin(pinType, event.latlng.lat, event.latlng.lng);
-    },
-  });
-
-  return null;
-}
-
-function ClickToLookupParcelOwner({
-  enabled,
-  onLookup,
-}: {
-  enabled: boolean;
-  onLookup: (lat: number, lng: number) => void;
-}) {
-  useMapEvents({
-    click(event: MapClickEvent) {
-      if (!enabled) return;
-
-      onLookup(event.latlng.lat, event.latlng.lng);
     },
   });
 
@@ -861,13 +806,8 @@ export default function HuntingMap() {
   const [trackMessage, setTrackMessage] = useState("");
   const trackPropertyIdRef = useRef("");
   const trackStartedAtRef = useRef("");
-  const [showOwnerNames, setShowOwnerNames] = useState(false);
   const [parcelLayerState, setParcelLayerState] =
     useState<ParcelBoundaryLoadState | null>(null);
-  const [ownerLabelState, setOwnerLabelState] =
-    useState<ParcelOwnerLabelLoadState | null>(null);
-  const [parcelOwnerLookupState, setParcelOwnerLookupState] =
-    useState<ParcelOwnerLookupState>(IDLE_PARCEL_OWNER_LOOKUP_STATE);
   // Parcel picked by tapping the Land Owners overlay (owner read straight from
   // the loaded tiles) — how small, label-gated parcels reveal their owner.
   const [tileOwnerPick, setTileOwnerPick] =
@@ -899,7 +839,6 @@ export default function HuntingMap() {
   const [visibleAssetLayers, setVisibleAssetLayers] = useState<
     Record<AssetLayerId, boolean>
   >(createVisibleAssetLayerState);
-  const isMobileMapPerformanceMode = useIsMobileMapDevice();
 
   const offlinePacks = useOfflineMapPacks();
   const offlineSupported = offlineMapsSupported();
@@ -1236,30 +1175,19 @@ export default function HuntingMap() {
   const selectedPin = selectedAsset?.pinId
     ? pins.find((pin) => pin.id === selectedAsset.pinId)
     : undefined;
-  const ownerNamesEnabled = showOwnerNames && !isMobileMapPerformanceMode;
-  const pinBoxDisabled =
-    !selectedPropertyId || ownerNamesEnabled || isDrawingArea;
+  const pinBoxDisabled = !selectedPropertyId || isDrawingArea;
   const huntArea = selectedProperty?.huntArea;
   const hasHuntArea = huntAreaIsValid(huntArea);
   const draftAreaAcresLabel = formatHuntAreaAcres(draftAreaPoints);
   const savedAreaAcresLabel = formatHuntAreaAcres(huntArea);
   const currentPinBoxMessage = pinBoxDisabled
-    ? ownerNamesEnabled
-      ? "Turn off Owner Names to add pins."
-      : "Choose a property before placing pins."
+    ? "Choose a property before placing pins."
     : isPlacingPin
       ? `Tap map to place ${pinType}`
       : pinBoxMessage;
-  const mapOverlayMessages = [
-    parcelLayerState?.message,
-    ownerNamesEnabled && parcelOwnerLookupState.status === "idle"
-      ? ownerLabelState?.message
-      : "",
-    parcelOwnerLookupState.status !== "idle" &&
-    parcelOwnerLookupState.status !== "found"
-      ? parcelOwnerLookupState.message
-      : "",
-  ].filter((message): message is string => Boolean(message));
+  const mapOverlayMessages = [parcelLayerState?.message].filter(
+    (message): message is string => Boolean(message),
+  );
 
   const saveMapState = useCallback((center: MapCenter, zoom: number) => {
     latestMapZoomRef.current = zoom;
@@ -1657,42 +1585,11 @@ export default function HuntingMap() {
     }));
   }
 
-  function toggleOwnerNames() {
-    if (getIsMobileMapDevice()) {
-      setShowOwnerNames(false);
-      setOwnerLabelState(null);
-      setParcelOwnerLookupState(IDLE_PARCEL_OWNER_LOOKUP_STATE);
-      return;
-    }
-
-    setShowOwnerNames((isVisible) => {
-      const shouldShowOwnerNames = !isVisible;
-
-      if (!shouldShowOwnerNames) {
-        setParcelOwnerLookupState(IDLE_PARCEL_OWNER_LOOKUP_STATE);
-      }
-
-      return shouldShowOwnerNames;
-    });
-  }
-
   function handleTileOwnerPick(pick: ParcelTileOwnerPick | null) {
     // A parcel card replaces any open asset card; tapping empty ground just
     // dismisses the parcel card.
     if (pick) setSelectedAssetId(null);
     setTileOwnerPick(pick);
-  }
-
-  async function lookupParcelOwner(lat: number, lng: number) {
-    setSelectedAssetId(null);
-    setParcelOwnerLookupState({
-      status: "loading",
-      message: "Looking up parcel owner...",
-    });
-
-    const result = await lookupPaParcelOwnerAtPoint(lat, lng);
-
-    setParcelOwnerLookupState(result);
   }
 
   async function searchAddressOrPlace(query: string) {
@@ -2647,11 +2544,6 @@ export default function HuntingMap() {
               propertyId={selectedPropertyId}
               onStateChange={setParcelLayerState}
             />
-            <ParcelOwnerLabelLayer
-              enabled={ownerNamesEnabled}
-              propertyId={selectedPropertyId}
-              onStateChange={setOwnerLabelState}
-            />
             <ParcelTilesLayer
               enabled
               pickEnabled={!isPlacingPin && !isDrawingArea && !movingPin}
@@ -2691,10 +2583,6 @@ export default function HuntingMap() {
               pinType={pinType}
               propertyId={selectedPropertyId}
               onAddPin={createPinAtLocation}
-            />
-            <ClickToLookupParcelOwner
-              enabled={ownerNamesEnabled && !isDrawingArea && !movingPin}
-              onLookup={lookupParcelOwner}
             />
             <ClickToMovePin
               enabled={Boolean(movingPin)}
@@ -2823,12 +2711,9 @@ export default function HuntingMap() {
                 onDelete={removeOfflinePack}
               />
             }
-            ownerNamesDisabled={isMobileMapPerformanceMode}
-            showOwnerNames={ownerNamesEnabled}
             visibleAssetLayers={visibleAssetLayers}
             onToggleLayer={toggleAssetLayer}
             onToggleMapTool={toggleMapTool}
-            onToggleOwnerNames={toggleOwnerNames}
           />
 
           {mapOverlayMessages.length > 0 ? (
@@ -2960,38 +2845,6 @@ export default function HuntingMap() {
                   : undefined
               }
               onStartMove={selectedPin ? startPinMove : undefined}
-            />
-          ) : null}
-
-          {parcelOwnerLookupState.status === "found" &&
-          parcelOwnerLookupState.parcel ? (
-            <ParcelOwnerInfoCard
-              ownerName={parcelOwnerLookupState.parcel.ownerName}
-              lines={[
-                {
-                  label: "County",
-                  value: `${parcelOwnerLookupState.parcel.countyName} County`,
-                },
-                {
-                  label: "Parcel ID",
-                  value: parcelOwnerLookupState.parcel.parcelId ?? "Not listed",
-                },
-                {
-                  label: "Address",
-                  value: parcelOwnerLookupState.parcel.address ?? "Not listed",
-                },
-                {
-                  label: "Acres",
-                  value: parcelOwnerLookupState.parcel.acreage ?? "Not listed",
-                },
-                {
-                  label: "Source",
-                  value: parcelOwnerLookupState.parcel.providerName,
-                },
-              ]}
-              onClose={() =>
-                setParcelOwnerLookupState(IDLE_PARCEL_OWNER_LOOKUP_STATE)
-              }
             />
           ) : null}
 

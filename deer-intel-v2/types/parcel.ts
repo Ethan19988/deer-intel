@@ -23,14 +23,6 @@ export type ParcelBoundary = {
   points: ParcelBoundaryPoint[];
 };
 
-export type ParcelOwnerLabel = {
-  id: string;
-  parcelId: string;
-  providerId: string;
-  ownerName: string;
-  center: ParcelBoundaryPoint;
-};
-
 export type ParcelProviderConfig = {
   attribution: string;
   id: string;
@@ -41,23 +33,10 @@ export type ParcelProviderConfig = {
   enabled: boolean;
 };
 
-export type ParcelOwnerProviderConfig = {
-  attribution?: string;
-  enabled: boolean;
-  id: string;
-  name: string;
-};
-
 export type ParcelBoundaryLoadState = {
   status: ParcelProviderStatus;
   message: string;
   boundaries: ParcelBoundary[];
-};
-
-export type ParcelOwnerLabelLoadState = {
-  status: ParcelProviderStatus;
-  message: string;
-  labels: ParcelOwnerLabel[];
 };
 
 export type ParcelProviderSupportStatus =
