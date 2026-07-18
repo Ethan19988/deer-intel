@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import HuntLogForm from "@/components/hunts/HuntLogForm";
 import HuntLogList from "@/components/hunts/HuntLogList";
+import StandPinConvertList from "@/components/hunts/StandPinConvertList";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import PageShell from "@/components/ui/PageShell";
@@ -17,12 +18,15 @@ import {
   EMPTY_HUNT_FORM_VALUES,
 } from "@/lib/huntFormValues";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import { createStandFromPin, getStandPins } from "@/lib/standPins";
+import type { MapPin } from "@/types/mapPin";
 
 export default function HuntLogPage() {
   const state = useDeerIntelStore();
   const [huntValues, setHuntValues] = useState(EMPTY_HUNT_FORM_VALUES);
   const [loadedUrlDefaults, setLoadedUrlDefaults] = useState(false);
   const hasStands = state.stands.length > 0;
+  const standPins = getStandPins(state.pins);
   const weatherLocation = resolvePropertyWeatherPoint(
     state.properties.find(
       (property) => property.id === huntValues.propertyId,
@@ -87,6 +91,23 @@ export default function HuntLogPage() {
     });
   }
 
+  function convertPinToStand(pin: MapPin) {
+    const newStand = createStandFromPin({
+      id: createDeerIntelId("stand"),
+      pin,
+    });
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      stands: [...currentState.stands, newStand],
+    }));
+    setHuntValues((currentValues) => ({
+      ...currentValues,
+      propertyId: newStand.propertyId,
+      standId: newStand.id,
+    }));
+  }
+
   function getPropertyName(propertyId: string) {
     return (
       state.properties.find((property) => property.id === propertyId)?.name ??
@@ -104,6 +125,12 @@ export default function HuntLogPage() {
           weatherLocation={weatherLocation}
           onChange={setHuntValues}
           onSubmit={saveHunt}
+        />
+      ) : standPins.length > 0 ? (
+        <StandPinConvertList
+          standPins={standPins}
+          getPropertyName={getPropertyName}
+          onConvert={convertPinToStand}
         />
       ) : (
         <EmptyState
