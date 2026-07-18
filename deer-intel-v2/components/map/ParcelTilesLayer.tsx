@@ -59,7 +59,16 @@ export const PARCEL_LABEL_MIN_ZOOM = LABEL_MIN_ZOOM;
 // it legible on pale ground (stubble, snow, sunlit field) where plain white
 // would wash out — over timber the white is doing all the work on its own.
 const OWNER_LABEL_TEXT = "#ffffff";
-const OWNER_LABEL_HALO = "rgba(17, 24, 39, 0.75)";
+const OWNER_LABEL_HALO = "rgba(17, 24, 39, 0.88)";
+// The acreage caption sits a step back from the name so the two read as a
+// hierarchy rather than one block of shouting — the name is what you're
+// scanning for, the acreage is confirmation once you've found it.
+const OWNER_ACRES_TEXT = "rgba(255, 255, 255, 0.82)";
+// A touch of tracking on the caps name. Uppercase set solid reads cramped and
+// screen-ish; opening it slightly is most of what makes a map label look drawn
+// rather than typed. MUST be applied to the measuring context too, or the fit
+// gate would measure narrower text than we draw and let names spill their lot.
+const OWNER_LABEL_TRACKING = "0.4px";
 // Stroked width is centred on the glyph outline, so ~half of this shows either
 // side. Wider smears thin strokes together and closes up letters like "e".
 const OWNER_LABEL_HALO_PX = 3;
@@ -300,6 +309,11 @@ class FitToParcelOwnerSymbolizer {
     const acresFont = `400 ${OWNER_ACRES_FONT_PX}px ${LABEL_FONT_STACK}`;
     const widthBudget = widthPx * 0.92;
 
+    // Same tracking the draw pass uses, so every width measured below — the
+    // wrap points and the fit gate — describes the text that actually lands on
+    // the canvas. Browsers without letterSpacing ignore it in both places and
+    // stay consistent.
+    layout.scratch.letterSpacing = OWNER_LABEL_TRACKING;
     layout.scratch.font = nameFont;
     const nameLines = wrapWords(
       layout.scratch,
@@ -356,23 +370,31 @@ class FitToParcelOwnerSymbolizer {
       // spiking off sharp corners like "W" and "&".
       ctx.lineJoin = "round";
       ctx.miterLimit = 2;
+      ctx.letterSpacing = OWNER_LABEL_TRACKING;
       // The canvas is translated to the anchor, so lay the block out from the
       // top edge (−textHeight/2) downward, advancing one line at a time.
       let y = -textHeight / 2;
-      const fillLine = (line: string, font: string, linePx: number) => {
+      const fillLine = (
+        line: string,
+        font: string,
+        linePx: number,
+        color: string,
+      ) => {
         ctx.font = font;
         const baseline = y + linePx / 2;
         ctx.strokeStyle = OWNER_LABEL_HALO;
         ctx.lineWidth = OWNER_LABEL_HALO_PX;
         ctx.strokeText(line, 0, baseline);
-        ctx.fillStyle = OWNER_LABEL_TEXT;
+        ctx.fillStyle = color;
         ctx.fillText(line, 0, baseline);
         y += linePx;
       };
       for (const line of nameLines) {
-        fillLine(line, nameFont, OWNER_NAME_LINE_PX);
+        fillLine(line, nameFont, OWNER_NAME_LINE_PX, OWNER_LABEL_TEXT);
       }
-      if (acresText) fillLine(acresText, acresFont, OWNER_ACRES_LINE_PX);
+      if (acresText) {
+        fillLine(acresText, acresFont, OWNER_ACRES_LINE_PX, OWNER_ACRES_TEXT);
+      }
     };
 
     return [
@@ -441,13 +463,25 @@ export default function ParcelTilesLayer({
           }),
           filter: (_z, f) => f.props.pub === 1,
         },
-        // Every parcel gets a light boundary line, legible over satellite.
+        // Boundaries are drawn twice: a dark casing, then the bright line on
+        // top of it. A single light hairline is the amateur tell — it holds up
+        // over timber and then dissolves into pale stubble, snow or a gravel
+        // pit. The casing gives every boundary its own contrast so the line
+        // reads the same over anything the imagery does, which is what OnX and
+        // Spartan are actually doing when their parcel lines look "crisp".
         {
           dataLayer: "parcels",
           symbolizer: new LineSymbolizer({
-            color: "#f8fafc",
-            width: 0.8,
-            opacity: 0.7,
+            color: "rgba(17, 24, 39, 0.55)",
+            width: 2.4,
+          }),
+        },
+        {
+          dataLayer: "parcels",
+          symbolizer: new LineSymbolizer({
+            color: "#ffffff",
+            width: 1.1,
+            opacity: 0.95,
           }),
         },
       ],
