@@ -319,6 +319,40 @@ def bench_centerlines(mask, dem, transform, to_wgs, min_area_m2, max_keep):
     return out[:max_keep]
 
 
+# Crossings and funnels rank against the saddles rather than on an absolute
+# number. Saddle score is strength*1e6, so any constant picked here would either
+# bury them under every saddle or float them all above one, depending on a scale
+# that isn't knowable up front. Anchoring to a high saddle keeps them at the top
+# of the list while still interleaving with the strongest saddles.
+XING_PICK_MULT = 1.15    # water crossing: reliable water on a travel line
+XING_ROUTE_MULT = 0.20   # extra when it's a bed-to-feed route, not a bench
+ROADX_PICK_MULT = 1.10   # road crossing: deer cross an opening at set places
+FUNNEL_PICK_MULT = 1.05  # terrain funnel: a neck between steep barriers
+
+
+def saddle_reference_score(picks):
+    """A high-but-not-top saddle score, used to place the other pinch types."""
+    scores = sorted(
+        (p["score"] for p in picks if p.get("title") == "Saddle crossing"),
+        reverse=True,
+    )
+    if not scores:
+        return 1000.0
+    return scores[max(0, len(scores) // 4)]  # ~75th percentile
+
+
+def pinch_pick(title, lat, lng, reason, score, road_d=None):
+    """Ranked-list entry for a pinch feature (crossing / funnel)."""
+    pick = {
+        "kind": "pinch", "title": title,
+        "lat": round(lat, 5), "lng": round(lng, 5),
+        "bestWind": "crosswind", "reason": reason, "score": score,
+    }
+    if road_d is not None:
+        pick["roadDistM"] = round(road_d)
+    return pick
+
+
 def _road_penalty(dist_road_ds):
     """Per-cell cost for being near a road, 0 beyond ROAD_AVOID_M.
 
@@ -957,16 +991,17 @@ def main():
             ):
                 continue
             kept_xings.append((x["lat"], x["lng"]))
+            roadx_detail = (
+                f"A bed-to-feed route meets a road {x['roadDistM']} m out. Deer "
+                "cross an opening at the same habitual spots rather than wherever "
+                "they happen to reach it, so a crossing with cover tight to both "
+                "sides concentrates travel into a few yards. Hunt the cover, back "
+                "off the road itself."
+            )
             features_out.append({
                 "id": f"{args.name}-roadx-{len(kept_xings) - 1}", "kind": "pinch",
                 "title": "Road crossing",
-                "detail": (
-                    f"A bed-to-feed route meets a road {x['roadDistM']} m out. Deer "
-                    "cross an opening at the same habitual spots rather than wherever "
-                    "they happen to reach it, so a crossing with cover tight to both "
-                    "sides concentrates travel into a few yards. Hunt the cover, back "
-                    "off the road itself."
-                ),
+                "detail": roadx_detail,
                 "windNote": (
                     "Sit off the road on a crosswind so your scent crosses the opening "
                     "rather than running back down the trail. " + thermal_note()
@@ -974,6 +1009,11 @@ def main():
                 "point": [x["lat"], x["lng"]],
                 "roadDistM": x["roadDistM"],
             })
+            picks.append(pinch_pick(
+                "Road crossing", x["lat"], x["lng"], roadx_detail,
+                saddle_reference_score(picks) * ROADX_PICK_MULT,
+                x["roadDistM"],
+            ))
             if len(kept_xings) >= ROAD_XING_MAX:
                 break
 
@@ -1037,6 +1077,9 @@ def main():
                 trav = LineString([(c[1], c[0]) for c in feat["line"]])
                 for p in _crossing_points(trav.intersection(major)):
                     cand.append((round(p.y, 5), round(p.x, 5), is_route))
+            # Captured before the loop so every crossing is ranked against the
+            # same reference, not against a list this loop is itself growing.
+            xing_ref = saddle_reference_score(picks)
             cand.sort(key=lambda c: 0 if c[2] else 1)  # route crossings first
             kept = []
             for lat, lng, is_route in cand:
@@ -1049,16 +1092,22 @@ def main():
                     break
             for k, (lat, lng, is_route) in enumerate(kept):
                 via = "bed-to-feed route" if is_route else "travel corridor"
+                detail = (f"Where a {via} crosses a drainage — deer funnel through the "
+                          "low gap to get across, with reliable water right there. One of "
+                          "the highest-odds stands on the property.")
+                wind = ("Sit the downwind bank. Morning thermals sink into the "
+                        "drainage, so hunt the low end at first light. " + thermal_note())
                 features_out.append({
                     "id": f"{args.name}-xing-{k}", "kind": "pinch",
-                    "title": "Water crossing",
-                    "detail": (f"Where a {via} crosses a drainage — deer funnel through the "
-                               "low gap to get across, with reliable water right there. One of "
-                               "the highest-odds stands on the property."),
-                    "windNote": ("Sit the downwind bank. Morning thermals sink into the "
-                                 "drainage, so hunt the low end at first light. " + thermal_note()),
-                    "point": [lat, lng],
+                    "title": "Water crossing", "detail": detail,
+                    "windNote": wind, "point": [lat, lng],
                 })
+                # A crossing on a bed-to-feed route beats one on a bench
+                # corridor: the route is where deer are actually headed.
+                picks.append(pinch_pick(
+                    "Water crossing", lat, lng, detail,
+                    xing_ref * (XING_PICK_MULT + (XING_ROUTE_MULT if is_route else 0)),
+                ))
             if kept:
                 print(f"[rules] {len(kept)} water crossings", flush=True)
 
@@ -1070,6 +1119,12 @@ def main():
     ):
         feat["id"] = f"{args.name}-funnel-{k}"
         features_out.append(feat)
+        lat, lng = feat["point"]
+        picks.append(pinch_pick(
+            "Terrain funnel", lat, lng, feat["detail"],
+            saddle_reference_score(picks) * FUNNEL_PICK_MULT,
+            feat.get("roadDistM"),
+        ))
 
     # Center = mean of all feature anchor points (for the app map focus).
     all_pts = []

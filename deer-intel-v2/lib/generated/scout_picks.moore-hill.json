@@ -3,6 +3,318 @@
   "picks": [
     {
       "kind": "pinch",
+      "title": "Water crossing",
+      "lat": 41.42209,
+      "lng": -78.31935,
+      "bestWind": "crosswind",
+      "reason": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property."
+    },
+    {
+      "kind": "pinch",
+      "title": "Water crossing",
+      "lat": 41.44847,
+      "lng": -78.28343,
+      "bestWind": "crosswind",
+      "reason": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property."
+    },
+    {
+      "kind": "pinch",
+      "title": "Water crossing",
+      "lat": 41.42239,
+      "lng": -78.31639,
+      "bestWind": "crosswind",
+      "reason": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property."
+    },
+    {
+      "kind": "pinch",
+      "title": "Water crossing",
+      "lat": 41.45128,
+      "lng": -78.28641,
+      "bestWind": "crosswind",
+      "reason": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property."
+    },
+    {
+      "kind": "pinch",
+      "title": "Water crossing",
+      "lat": 41.42017,
+      "lng": -78.33125,
+      "bestWind": "crosswind",
+      "reason": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property."
+    },
+    {
+      "kind": "pinch",
+      "title": "Water crossing",
+      "lat": 41.43467,
+      "lng": -78.35041,
+      "bestWind": "crosswind",
+      "reason": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property."
+    },
+    {
+      "kind": "pinch",
+      "title": "Water crossing",
+      "lat": 41.4343,
+      "lng": -78.3618,
+      "bestWind": "crosswind",
+      "reason": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property."
+    },
+    {
+      "kind": "pinch",
+      "title": "Water crossing",
+      "lat": 41.41803,
+      "lng": -78.31777,
+      "bestWind": "crosswind",
+      "reason": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property."
+    },
+    {
+      "kind": "pinch",
+      "title": "Water crossing",
+      "lat": 41.41859,
+      "lng": -78.31255,
+      "bestWind": "crosswind",
+      "reason": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property."
+    },
+    {
+      "kind": "pinch",
+      "title": "Water crossing",
+      "lat": 41.43297,
+      "lng": -78.31871,
+      "bestWind": "crosswind",
+      "reason": "Where a bed-to-feed route crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property."
+    },
+    {
+      "kind": "pinch",
+      "title": "Water crossing",
+      "lat": 41.44882,
+      "lng": -78.31381,
+      "bestWind": "crosswind",
+      "reason": "Where a travel corridor crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property."
+    },
+    {
+      "kind": "pinch",
+      "title": "Water crossing",
+      "lat": 41.41041,
+      "lng": -78.27793,
+      "bestWind": "crosswind",
+      "reason": "Where a travel corridor crosses a drainage \u2014 deer funnel through the low gap to get across, with reliable water right there. One of the highest-odds stands on the property."
+    },
+    {
+      "kind": "pinch",
+      "title": "Road crossing",
+      "lat": 41.42343,
+      "lng": -78.31248,
+      "bestWind": "crosswind",
+      "reason": "A bed-to-feed route meets a road 0 m out. Deer cross an opening at the same habitual spots rather than wherever they happen to reach it, so a crossing with cover tight to both sides concentrates travel into a few yards. Hunt the cover, back off the road itself.",
+      "roadDistM": 0
+    },
+    {
+      "kind": "pinch",
+      "title": "Road crossing",
+      "lat": 41.45797,
+      "lng": -78.27622,
+      "bestWind": "crosswind",
+      "reason": "A bed-to-feed route meets a road 0 m out. Deer cross an opening at the same habitual spots rather than wherever they happen to reach it, so a crossing with cover tight to both sides concentrates travel into a few yards. Hunt the cover, back off the road itself.",
+      "roadDistM": 0
+    },
+    {
+      "kind": "pinch",
+      "title": "Road crossing",
+      "lat": 41.46262,
+      "lng": -78.27064,
+      "bestWind": "crosswind",
+      "reason": "A bed-to-feed route meets a road 0 m out. Deer cross an opening at the same habitual spots rather than wherever they happen to reach it, so a crossing with cover tight to both sides concentrates travel into a few yards. Hunt the cover, back off the road itself.",
+      "roadDistM": 0
+    },
+    {
+      "kind": "pinch",
+      "title": "Road crossing",
+      "lat": 41.46375,
+      "lng": -78.26903,
+      "bestWind": "crosswind",
+      "reason": "A bed-to-feed route meets a road 0 m out. Deer cross an opening at the same habitual spots rather than wherever they happen to reach it, so a crossing with cover tight to both sides concentrates travel into a few yards. Hunt the cover, back off the road itself.",
+      "roadDistM": 0
+    },
+    {
+      "kind": "pinch",
+      "title": "Road crossing",
+      "lat": 41.45388,
+      "lng": -78.34762,
+      "bestWind": "crosswind",
+      "reason": "A bed-to-feed route meets a road 0 m out. Deer cross an opening at the same habitual spots rather than wherever they happen to reach it, so a crossing with cover tight to both sides concentrates travel into a few yards. Hunt the cover, back off the road itself.",
+      "roadDistM": 0
+    },
+    {
+      "kind": "pinch",
+      "title": "Road crossing",
+      "lat": 41.45761,
+      "lng": -78.34124,
+      "bestWind": "crosswind",
+      "reason": "A bed-to-feed route meets a road 0 m out. Deer cross an opening at the same habitual spots rather than wherever they happen to reach it, so a crossing with cover tight to both sides concentrates travel into a few yards. Hunt the cover, back off the road itself.",
+      "roadDistM": 0
+    },
+    {
+      "kind": "pinch",
+      "title": "Road crossing",
+      "lat": 41.4642,
+      "lng": -78.31511,
+      "bestWind": "crosswind",
+      "reason": "A bed-to-feed route meets a road 0 m out. Deer cross an opening at the same habitual spots rather than wherever they happen to reach it, so a crossing with cover tight to both sides concentrates travel into a few yards. Hunt the cover, back off the road itself.",
+      "roadDistM": 0
+    },
+    {
+      "kind": "pinch",
+      "title": "Road crossing",
+      "lat": 41.46959,
+      "lng": -78.29537,
+      "bestWind": "crosswind",
+      "reason": "A bed-to-feed route meets a road 0 m out. Deer cross an opening at the same habitual spots rather than wherever they happen to reach it, so a crossing with cover tight to both sides concentrates travel into a few yards. Hunt the cover, back off the road itself.",
+      "roadDistM": 0
+    },
+    {
+      "kind": "pinch",
+      "title": "Road crossing",
+      "lat": 41.4713,
+      "lng": -78.29147,
+      "bestWind": "crosswind",
+      "reason": "A bed-to-feed route meets a road 0 m out. Deer cross an opening at the same habitual spots rather than wherever they happen to reach it, so a crossing with cover tight to both sides concentrates travel into a few yards. Hunt the cover, back off the road itself.",
+      "roadDistM": 0
+    },
+    {
+      "kind": "pinch",
+      "title": "Road crossing",
+      "lat": 41.42606,
+      "lng": -78.35581,
+      "bestWind": "crosswind",
+      "reason": "A bed-to-feed route meets a road 0 m out. Deer cross an opening at the same habitual spots rather than wherever they happen to reach it, so a crossing with cover tight to both sides concentrates travel into a few yards. Hunt the cover, back off the road itself.",
+      "roadDistM": 0
+    },
+    {
+      "kind": "pinch",
+      "title": "Road crossing",
+      "lat": 41.44005,
+      "lng": -78.32999,
+      "bestWind": "crosswind",
+      "reason": "A bed-to-feed route meets a road 0 m out. Deer cross an opening at the same habitual spots rather than wherever they happen to reach it, so a crossing with cover tight to both sides concentrates travel into a few yards. Hunt the cover, back off the road itself.",
+      "roadDistM": 0
+    },
+    {
+      "kind": "pinch",
+      "title": "Road crossing",
+      "lat": 41.45806,
+      "lng": -78.31034,
+      "bestWind": "crosswind",
+      "reason": "A bed-to-feed route meets a road 0 m out. Deer cross an opening at the same habitual spots rather than wherever they happen to reach it, so a crossing with cover tight to both sides concentrates travel into a few yards. Hunt the cover, back off the road itself.",
+      "roadDistM": 0
+    },
+    {
+      "kind": "pinch",
+      "title": "Terrain funnel",
+      "lat": 41.42825,
+      "lng": -78.25824,
+      "bestWind": "crosswind",
+      "reason": "A ~30 m neck of travelable ground squeezed between steep faces, open the other way \u2014 deer pour through it. A high-odds stand: sit the downwind edge of the neck.",
+      "roadDistM": 8
+    },
+    {
+      "kind": "pinch",
+      "title": "Terrain funnel",
+      "lat": 41.44987,
+      "lng": -78.26101,
+      "bestWind": "crosswind",
+      "reason": "A ~40 m neck of travelable ground squeezed between steep faces, open the other way \u2014 deer pour through it. A high-odds stand: sit the downwind edge of the neck.",
+      "roadDistM": 424
+    },
+    {
+      "kind": "pinch",
+      "title": "Terrain funnel",
+      "lat": 41.40773,
+      "lng": -78.26719,
+      "bestWind": "crosswind",
+      "reason": "A ~40 m neck of travelable ground squeezed between steep faces, open the other way \u2014 deer pour through it. A high-odds stand: sit the downwind edge of the neck.",
+      "roadDistM": 72
+    },
+    {
+      "kind": "pinch",
+      "title": "Terrain funnel",
+      "lat": 41.41838,
+      "lng": -78.2701,
+      "bestWind": "crosswind",
+      "reason": "A ~40 m neck of travelable ground squeezed between steep faces, open the other way \u2014 deer pour through it. A high-odds stand: sit the downwind edge of the neck.",
+      "roadDistM": 29
+    },
+    {
+      "kind": "pinch",
+      "title": "Terrain funnel",
+      "lat": 41.44885,
+      "lng": -78.25996,
+      "bestWind": "crosswind",
+      "reason": "A ~50 m neck of travelable ground squeezed between steep faces, open the other way \u2014 deer pour through it. A high-odds stand: sit the downwind edge of the neck.",
+      "roadDistM": 476
+    },
+    {
+      "kind": "pinch",
+      "title": "Terrain funnel",
+      "lat": 41.41729,
+      "lng": -78.34574,
+      "bestWind": "crosswind",
+      "reason": "A ~50 m neck of travelable ground squeezed between steep faces, open the other way \u2014 deer pour through it. A high-odds stand: sit the downwind edge of the neck.",
+      "roadDistM": 359
+    },
+    {
+      "kind": "pinch",
+      "title": "Terrain funnel",
+      "lat": 41.41592,
+      "lng": -78.26429,
+      "bestWind": "crosswind",
+      "reason": "A ~50 m neck of travelable ground squeezed between steep faces, open the other way \u2014 deer pour through it. A high-odds stand: sit the downwind edge of the neck.",
+      "roadDistM": 0
+    },
+    {
+      "kind": "pinch",
+      "title": "Terrain funnel",
+      "lat": 41.4676,
+      "lng": -78.41786,
+      "bestWind": "crosswind",
+      "reason": "A ~50 m neck of travelable ground squeezed between steep faces, open the other way \u2014 deer pour through it. A high-odds stand: sit the downwind edge of the neck.",
+      "roadDistM": 0
+    },
+    {
+      "kind": "pinch",
+      "title": "Terrain funnel",
+      "lat": 41.45175,
+      "lng": -78.2587,
+      "bestWind": "crosswind",
+      "reason": "A ~50 m neck of travelable ground squeezed between steep faces, open the other way \u2014 deer pour through it. A high-odds stand: sit the downwind edge of the neck.",
+      "roadDistM": 140
+    },
+    {
+      "kind": "pinch",
+      "title": "Terrain funnel",
+      "lat": 41.42045,
+      "lng": -78.26056,
+      "bestWind": "crosswind",
+      "reason": "A ~50 m neck of travelable ground squeezed between steep faces, open the other way \u2014 deer pour through it. A high-odds stand: sit the downwind edge of the neck.",
+      "roadDistM": 349
+    },
+    {
+      "kind": "pinch",
+      "title": "Terrain funnel",
+      "lat": 41.42255,
+      "lng": -78.27884,
+      "bestWind": "crosswind",
+      "reason": "A ~60 m neck of travelable ground squeezed between steep faces, open the other way \u2014 deer pour through it. A high-odds stand: sit the downwind edge of the neck.",
+      "roadDistM": 240
+    },
+    {
+      "kind": "pinch",
+      "title": "Terrain funnel",
+      "lat": 41.41779,
+      "lng": -78.27359,
+      "bestWind": "crosswind",
+      "reason": "A ~60 m neck of travelable ground squeezed between steep faces, open the other way \u2014 deer pour through it. A high-odds stand: sit the downwind edge of the neck.",
+      "roadDistM": 154
+    },
+    {
+      "kind": "pinch",
       "title": "Saddle crossing",
       "lat": 41.41379,
       "lng": -78.34109,
