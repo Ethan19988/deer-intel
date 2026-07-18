@@ -53,6 +53,15 @@ export const PARCEL_LABEL_MIN_ZOOM = LABEL_MIN_ZOOM;
 // plain white regular-weight lettering (no halo, no bold), the owner in CAPS
 // with the acreage spelled out on the line below. Long names wrap to fit the
 // parcel width instead of shrinking.
+// Dark glyph over a white halo, per the requested look. The halo is what makes
+// it work on satellite: on pale ground the dark text carries, on dark timber
+// the white outline is what you actually read. Flip these two to invert it.
+const OWNER_LABEL_TEXT = "#111827";
+const OWNER_LABEL_HALO = "rgba(255, 255, 255, 0.95)";
+// Stroked width is centred on the glyph outline, so ~half of this shows either
+// side. Wider smears thin strokes together and closes up letters like "e".
+const OWNER_LABEL_HALO_PX = 3;
+
 const OWNER_NAME_FONT_PX = 13;
 const OWNER_ACRES_FONT_PX = 11;
 const OWNER_NAME_LINE_PX = OWNER_NAME_FONT_PX * 1.18;
@@ -329,13 +338,25 @@ class FitToParcelOwnerSymbolizer {
     const draw = (ctx: CanvasRenderingContext2D) => {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = "#ffffff";
+      // Halo, then glyph. The names sit straight on aerial imagery, which runs
+      // from near-black timber to sunlit field and snow, so plain fill of any
+      // single colour disappears somewhere: white text vanished over stubble
+      // and snow. Stroking a contrasting outline around every glyph first is
+      // what keeps a name readable on all of it. Round joins stop the stroke
+      // spiking off sharp corners like "W" and "&".
+      ctx.lineJoin = "round";
+      ctx.miterLimit = 2;
       // The canvas is translated to the anchor, so lay the block out from the
       // top edge (−textHeight/2) downward, advancing one line at a time.
       let y = -textHeight / 2;
       const fillLine = (line: string, font: string, linePx: number) => {
         ctx.font = font;
-        ctx.fillText(line, 0, y + linePx / 2);
+        const baseline = y + linePx / 2;
+        ctx.strokeStyle = OWNER_LABEL_HALO;
+        ctx.lineWidth = OWNER_LABEL_HALO_PX;
+        ctx.strokeText(line, 0, baseline);
+        ctx.fillStyle = OWNER_LABEL_TEXT;
+        ctx.fillText(line, 0, baseline);
         y += linePx;
       };
       for (const line of nameLines) {
