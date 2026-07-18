@@ -89,8 +89,18 @@ const OWNER_NAME_MAX_LINES = 3;
 // parcel gets clipped into a separate feature per vector tile), so the same name
 // would otherwise print once per piece — cluttered and confusing. Tag each label
 // with the owner name so protomaps' labeler drops a repeat of the same owner
-// within this many screen pixels, collapsing a property to a single name.
-const OWNER_LABEL_DEDUP_PX = 600;
+// within a radius, collapsing a holding to a single name.
+//
+// The radius scales with the piece being labelled rather than being one fixed
+// number, because the right answer differs by two orders of magnitude: state
+// game lands spread their pieces further apart than a whole suburban block is
+// wide. A flat radius big enough to collapse the game lands erased genuinely
+// separate owners in town — measured in Franklin County, a flat 2400px took the
+// labelled owners from 10 down to 6. Scaling by the piece's own size collapsed
+// the game lands to one name AND kept all 10.
+const OWNER_LABEL_DEDUP_SCALE = 3;
+const OWNER_LABEL_DEDUP_MIN_PX = 600;
+const OWNER_LABEL_DEDUP_MAX_PX = 6000;
 
 // Aptos leads the stack (user preference). It ships with modern Windows and
 // Office but not iOS/Android; Seravek (bundled with iOS) is the closest
@@ -415,7 +425,13 @@ class FitToParcelOwnerSymbolizer {
         bboxes,
         draw,
         deduplicationKey: owner,
-        deduplicationDistance: OWNER_LABEL_DEDUP_PX,
+        deduplicationDistance: Math.min(
+          OWNER_LABEL_DEDUP_MAX_PX,
+          Math.max(
+            OWNER_LABEL_DEDUP_MIN_PX,
+            Math.hypot(widthPx, heightPx) * OWNER_LABEL_DEDUP_SCALE,
+          ),
+        ),
       },
     ];
   }
