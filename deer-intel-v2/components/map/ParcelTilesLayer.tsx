@@ -40,9 +40,11 @@ export const PARCEL_TILES_MIN_ZOOM = 12;
 // and pins live in overlayPane/markerPane, which are above tilePane entirely.
 const PARCEL_TILES_Z_INDEX = 700;
 
-// Owner labels only make sense zoomed in; below this they collide into mush.
-// (protomaps' labeler also drops overlapping labels automatically.)
-const LABEL_MIN_ZOOM = 15;
+// Labels track the parcel layer itself rather than waiting for a zoom of their
+// own: whether a name shows is decided by whether it fits inside its parcel, so
+// the big tracts get named as soon as parcels are drawn at all and the smaller
+// ones fill in as you zoom. (protomaps' labeler also drops overlapping labels.)
+const LABEL_MIN_ZOOM = PARCEL_TILES_MIN_ZOOM;
 
 // Boundaries and tap-to-identify work from PARCEL_TILES_MIN_ZOOM, but names
 // only start here — worth telling the hunter apart, since "I see lines but no
@@ -53,14 +55,18 @@ export const PARCEL_LABEL_MIN_ZOOM = LABEL_MIN_ZOOM;
 // plain white regular-weight lettering (no halo, no bold), the owner in CAPS
 // with the acreage spelled out on the line below. Long names wrap to fit the
 // parcel width instead of shrinking.
-// Dark glyph over a white halo, per the requested look. The halo is what makes
-// it work on satellite: on pale ground the dark text carries, on dark timber
-// the white outline is what you actually read. Flip these two to invert it.
-const OWNER_LABEL_TEXT = "#111827";
-const OWNER_LABEL_HALO = "rgba(255, 255, 255, 0.95)";
+// Bright white lettering, regular weight. The dark halo behind it is what keeps
+// it legible on pale ground (stubble, snow, sunlit field) where plain white
+// would wash out — over timber the white is doing all the work on its own.
+const OWNER_LABEL_TEXT = "#ffffff";
+const OWNER_LABEL_HALO = "rgba(17, 24, 39, 0.75)";
 // Stroked width is centred on the glyph outline, so ~half of this shows either
 // side. Wider smears thin strokes together and closes up letters like "e".
 const OWNER_LABEL_HALO_PX = 3;
+
+// A footprint narrower than this can't hold a label at any useful length, so
+// it's rejected before any measuring or pole-of-inaccessibility work happens.
+const OWNER_LABEL_MIN_BOX_PX = 26;
 
 const OWNER_NAME_FONT_PX = 13;
 const OWNER_ACRES_FONT_PX = 11;
@@ -84,24 +90,18 @@ const OWNER_LABEL_DEDUP_PX = 600;
 const LABEL_FONT_STACK =
   "Aptos, Seravek, system-ui, -apple-system, Segoe UI, sans-serif";
 
-// Thin the label candidates at lower zoom so only bigger parcels get names
-// until you zoom onto a property — mirrors the JSON overlay's acreage gate.
-function labelPasses(zoom: number, feature: { props: Record<string, unknown> }) {
-  const acres = Number(feature.props.acres) || 0;
-
-  // Acreage is only a cheap pre-filter for "big enough to be worth naming", and
-  // plenty of parcels carry none — their county publishes no acreage field, or
-  // it's blank for that record. At Moore Hill that's 53 of 93 features in view,
-  // STATE GAME LANDS among them. Treating unknown acreage as 0 acres meant
-  // those owners never drew until z17, even though tapping the same parcel
-  // named them instantly. Let them through and leave it to the fit gate below,
-  // which measures whether the name actually fits the parcel on screen — the
-  // honest test, and one that doesn't depend on the county's data quality.
-  if (!acres) return true;
-
-  if (zoom >= 17) return true;
-  if (zoom >= 16) return acres >= 1;
-  return acres >= 4;
+// Every parcel with an owner is a label candidate; whether it actually gets one
+// is decided geometrically in the symbolizer, by whether the name fits inside
+// the parcel on screen.
+//
+// This used to gate on acreage (>=4 ac at z15, >=1 at z16), which was wrong on
+// both ends: it hid parcels that would have fit their name perfectly well, and
+// because a missing acreage reads as 0, it hid every parcel whose county
+// publishes no acreage at all — 53 of 93 features in view at Moore Hill, STATE
+// GAME LANDS among them, each of which named itself instantly when tapped.
+// Fit doesn't care how good a county's attribute data is.
+function hasOwnerName(feature: { props: Record<string, unknown> }) {
+  return String(feature.props.owner ?? "").trim().length > 0;
 }
 
 type Pt = { x: number; y: number };
@@ -281,14 +281,16 @@ class FitToParcelOwnerSymbolizer {
     }
     if (!Number.isFinite(minX) || largest.length === 0) return undefined;
 
-    // Anchor at the ring's pole of inaccessibility — the interior point
-    // farthest from every boundary — so the name sits where a person would
-    // hand-place it, even in L-shaped or concave parcels where the plain
-    // centroid drifts to an edge (or outside the lot entirely).
-    const anchor = poleOfInaccessibility(largest);
-
     const widthPx = maxX - minX;
     const heightPx = maxY - minY;
+
+    // Cheapest possible reject, before any text measuring or the pole search:
+    // a footprint that can't hold one line at the label font never will. Fit is
+    // now the only gate, so at low zoom this rejects most parcels in view and
+    // keeps that from costing anything.
+    if (widthPx < OWNER_LABEL_MIN_BOX_PX || heightPx < OWNER_NAME_LINE_PX) {
+      return undefined;
+    }
 
     const acresText = ownerAcresText(Number(feature.props.acres) || 0);
 
@@ -319,12 +321,20 @@ class FitToParcelOwnerSymbolizer {
       nameLines.length * OWNER_NAME_LINE_PX +
       (acresText ? OWNER_ACRES_LINE_PX : 0);
 
-    // Gate on fit: only label the parcel once its footprint can actually hold
-    // the block. Below that the parcel is too small at this zoom, so leave it
-    // unlabeled and let zooming in (which grows the footprint) reveal it.
+    // The one rule that matters: the name is only placed once it actually fits
+    // inside the parcel. Zooming in grows every footprint, so parcels reveal
+    // their owners smallest-last, all the way down, with no acreage cutoff
+    // deciding it for them.
     if (textWidth > widthPx * 0.98 || textHeight > heightPx * 0.98) {
       return undefined;
     }
+
+    // Only now, for a label that's actually going to be drawn, pay for the pole
+    // of inaccessibility — the interior point farthest from every boundary — so
+    // the name sits where a person would hand-place it, even on L-shaped or
+    // concave parcels where a plain centroid drifts to an edge (or clean out of
+    // the lot). Kept after the fit gate because it's the expensive step.
+    const anchor = poleOfInaccessibility(largest);
 
     const bboxes = [
       {
@@ -445,7 +455,7 @@ export default function ParcelTilesLayer({
         {
           dataLayer: "parcels",
           minzoom: LABEL_MIN_ZOOM,
-          filter: (z, f) => labelPasses(z, f),
+          filter: (_z, f) => hasOwnerName(f),
           // Place bigger parcels first so that when several parcels share an
           // owner, the owner-name dedup keeps the label on the largest one — the
           // most central spot for the name across their holding.
