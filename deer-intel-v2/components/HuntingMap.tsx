@@ -37,6 +37,8 @@ import TerrainMovementLayer from "@/components/map/TerrainMovementLayer";
 import TerrainLegend from "@/components/map/TerrainLegend";
 import LandCoverLegend from "@/components/map/LandCoverLegend";
 import CameraHeatLayer from "@/components/map/CameraHeatLayer";
+import DeerHeatLayer from "@/components/map/DeerHeatLayer";
+import DeerHeatLegend from "@/components/map/DeerHeatLegend";
 import ScoutPicksPanel from "@/components/map/ScoutPicksPanel";
 import type { LatLng } from "@/lib/terrainMovement";
 import {
@@ -785,6 +787,7 @@ export default function HuntingMap() {
   const [showSlope, setShowSlope] = useState(defaultOverlays.slope);
   const [showLandcover, setShowLandcover] = useState(defaultOverlays.landcover);
   const [showCameraHeat, setShowCameraHeat] = useState(defaultOverlays.cameraHeat);
+  const [showDeerHeat, setShowDeerHeat] = useState(defaultOverlays.deerHeat);
   const [showWind, setShowWind] = useState(defaultOverlays.wind);
   const [showMovement, setShowMovement] = useState(defaultOverlays.movement);
   const [showTerrain, setShowTerrain] = useState(defaultOverlays.terrain);
@@ -1300,7 +1303,7 @@ export default function HuntingMap() {
   // (and re-fetch when the property changes) so panning never spams the API —
   // the point comes from refs, and Open-Meteo responses are cached per point.
   useEffect(() => {
-    if (!showWind && !showMovement) return;
+    if (!showWind && !showMovement && !showDeerHeat) return;
 
     const {
       selectedProperty: property,
@@ -1352,7 +1355,7 @@ export default function HuntingMap() {
     return () => {
       cancelled = true;
     };
-  }, [showWind, showMovement, selectedPropertyId]);
+  }, [showWind, showMovement, showDeerHeat, selectedPropertyId]);
 
   function toggleWind() {
     setShowWind((current) => !current);
@@ -2376,6 +2379,7 @@ export default function HuntingMap() {
             showSlope={showSlope}
             showLandcover={showLandcover}
             showCameraHeat={showCameraHeat}
+            showDeerHeat={showDeerHeat}
             showWind={showWind}
             showMovement={showMovement}
             showTerrain={showTerrain}
@@ -2384,6 +2388,7 @@ export default function HuntingMap() {
             onToggleSlope={() => setShowSlope((current) => !current)}
             onToggleLandcover={() => setShowLandcover((current) => !current)}
             onToggleCameraHeat={() => setShowCameraHeat((current) => !current)}
+            onToggleDeerHeat={() => setShowDeerHeat((current) => !current)}
             onToggleWind={toggleWind}
             onToggleMovement={toggleMovement}
             onToggleTerrain={toggleTerrain}
@@ -2610,6 +2615,17 @@ export default function HuntingMap() {
 
             {showCameraHeat ? <CameraHeatLayer /> : null}
 
+            {/* Heat under the terrain vectors, so lines and labels stay readable
+                when both prediction views are on. */}
+            {showDeerHeat ? (
+              <DeerHeatLayer
+                set={terrainReview}
+                corridors={movementCorridors}
+                period={movementPeriod}
+                outlookScore={movementOutlook?.score ?? null}
+              />
+            ) : null}
+
             {showTerrain && terrainReview ? (
               <TerrainMovementLayer set={terrainReview} />
             ) : null}
@@ -2756,6 +2772,15 @@ export default function HuntingMap() {
 
           {showLandcover ? (
             <LandCoverLegend raised={showTerrain && !!terrainReview} />
+          ) : null}
+
+          {showDeerHeat ? (
+            <DeerHeatLegend
+              period={movementPeriod}
+              lift={
+                (showTerrain && terrainReview ? 1 : 0) + (showLandcover ? 1 : 0)
+              }
+            />
           ) : null}
 
           {showTerrain ? (

@@ -10,6 +10,7 @@ type MapTopBarProps = {
   showSlope: boolean;
   showLandcover: boolean;
   showCameraHeat: boolean;
+  showDeerHeat: boolean;
   showWind: boolean;
   showMovement: boolean;
   showTerrain: boolean;
@@ -18,6 +19,7 @@ type MapTopBarProps = {
   onToggleSlope: () => void;
   onToggleLandcover: () => void;
   onToggleCameraHeat: () => void;
+  onToggleDeerHeat: () => void;
   onToggleWind: () => void;
   onToggleMovement: () => void;
   onToggleTerrain: () => void;
@@ -40,6 +42,7 @@ export default function MapTopBar({
   showSlope,
   showLandcover,
   showCameraHeat,
+  showDeerHeat,
   showWind,
   showMovement,
   showTerrain,
@@ -48,6 +51,7 @@ export default function MapTopBar({
   onToggleSlope,
   onToggleLandcover,
   onToggleCameraHeat,
+  onToggleDeerHeat,
   onToggleWind,
   onToggleMovement,
   onToggleTerrain,
@@ -121,6 +125,16 @@ export default function MapTopBar({
         onClick={onToggleCameraHeat}
       >
         Camera Heat
+      </button>
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={showDeerHeat}
+        style={{ ...pillStyle, ...(showDeerHeat ? activeDeerHeatPillStyle : null) }}
+        onClick={onToggleDeerHeat}
+      >
+        Deer Heat
       </button>
 
       <button
@@ -228,6 +242,12 @@ const activePillStyle: CSSProperties = {
 const activeCameraHeatPillStyle: CSSProperties = {
   borderColor: "rgba(239, 122, 36, 0.7)",
   background: "#b4471b",
+  color: "white",
+};
+
+const activeDeerHeatPillStyle: CSSProperties = {
+  borderColor: "rgba(209, 53, 43, 0.7)",
+  background: "#9c231c",
   color: "white",
 };
 

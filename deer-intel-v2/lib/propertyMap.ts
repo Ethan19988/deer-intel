@@ -30,6 +30,7 @@ export type MapOverlayId =
   | "slope"
   | "landcover"
   | "cameraHeat"
+  | "deerHeat"
   | "wind"
   | "movement"
   | "terrain";
@@ -75,6 +76,11 @@ export const MAP_OVERLAYS: Array<{
     id: "cameraHeat",
     label: "Camera Heat",
     description: "Where your cameras have logged the most deer.",
+  },
+  {
+    id: "deerHeat",
+    label: "Deer Heat",
+    description: "Predicted hot zones for right now — shifts through the day.",
   },
   {
     id: "wind",
