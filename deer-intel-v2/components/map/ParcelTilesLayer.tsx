@@ -605,22 +605,6 @@ export default function ParcelTilesLayer({
           sort: (a, b) => (Number(b.acres) || 0) - (Number(a.acres) || 0),
           symbolizer: new HoldingLabelSymbolizer() as unknown as LabelSymbolizer,
         },
-        // Fallback for archives built before the holding-point layer existed:
-        // labels derived from the polygons themselves. Harmless once the point
-        // layer is present in the tiles, since this rule then has the field to
-        // itself only on older archives — but it must be dropped in the same
-        // change that ships a rebuilt archive, or both rules draw and every
-        // name doubles.
-        {
-          dataLayer: "parcels",
-          minzoom: LABEL_MIN_ZOOM,
-          filter: (_z, f) => hasOwnerName(f),
-          // Place bigger parcels first so that when several parcels share an
-          // owner, the owner-name dedup keeps the label on the largest one — the
-          // most central spot for the name across their holding.
-          sort: (a, b) => (Number(b.acres) || 0) - (Number(a.acres) || 0),
-          symbolizer: new FitToParcelOwnerSymbolizer() as unknown as LabelSymbolizer,
-        },
       ],
     });
 
