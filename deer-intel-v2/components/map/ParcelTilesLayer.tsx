@@ -30,6 +30,16 @@ const PMTILES_URL =
 // leaving the overlay looking broken.
 export const PARCEL_TILES_MIN_ZOOM = 12;
 
+// Every other tile overlay on this map sets an explicit zIndex inside the
+// tilePane — base imagery 650+, land cover 660, water 670, slope 690, contours
+// 695 — but Leaflet's GridLayer defaults to zIndex 1. Without this the parcel
+// canvas is painted UNDER the satellite imagery and the always-on water layer,
+// so boundaries and owner names are invisible while tapping still works (the
+// pick queries loaded tile data, not pixels) — which is exactly how the bug
+// presented. Sits at the top of the raster stack; the app's own vector layers
+// and pins live in overlayPane/markerPane, which are above tilePane entirely.
+const PARCEL_TILES_Z_INDEX = 700;
+
 // Owner labels only make sense zoomed in; below this they collide into mush.
 // (protomaps' labeler also drops overlapping labels automatically.)
 const LABEL_MIN_ZOOM = 15;
@@ -387,6 +397,7 @@ export default function ParcelTilesLayer({
 
     const layer = leafletLayer({
       url: PMTILES_URL,
+      zIndex: PARCEL_TILES_Z_INDEX,
       // Tiles top out at z15; keep drawing them (overzoomed) past that.
       maxDataZoom: 15,
       paintRules: [
