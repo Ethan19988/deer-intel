@@ -258,6 +258,35 @@ function countyRecordLines(
   return [];
 }
 
+// Width only. The keys and the Scout panel only compete for space on a narrow
+// screen — deliberately NOT the shared mobile query, which also matches any
+// touch device, because a wide touchscreen laptop has room for both and
+// shouldn't lose its keys.
+const NARROW_MAP_QUERY = "(max-width: 720px)";
+
+function useIsNarrowMapViewport() {
+  const [narrow, setNarrow] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const query = window.matchMedia(NARROW_MAP_QUERY);
+    const update = () => setNarrow(query.matches);
+
+    update();
+
+    if (typeof query.addEventListener === "function") {
+      query.addEventListener("change", update);
+      return () => query.removeEventListener("change", update);
+    }
+
+    query.addListener(update);
+    return () => query.removeListener(update);
+  }, []);
+
+  return narrow;
+}
+
 // A zoom that shows the whole drawn outline instead of dropping inside it.
 // Moore Hill's outline is ~13km across; opening it at PROPERTY_FOCUS_ZOOM puts
 // you staring at one corner of it with no idea which corner.
@@ -924,6 +953,7 @@ export default function HuntingMap() {
   } | null>(null);
   const [layersOpen, setLayersOpen] = useState(false);
   const [scoutOpen, setScoutOpen] = useState(false);
+  const isNarrowViewport = useIsNarrowMapViewport();
   const [isDrawingArea, setIsDrawingArea] = useState(false);
   const [draftAreaPoints, setDraftAreaPoints] = useState<HuntAreaPoint[]>([]);
   const [areaCoordInput, setAreaCoordInput] = useState("");
@@ -1034,8 +1064,14 @@ export default function HuntingMap() {
 
     return [...cameraAssets, ...pins.map(pinToMapAsset)];
   }, [pins, propertyCameras]);
-  const visibleAssets = mapAssets.filter((asset) =>
-    asset.layerId === "other" ? true : visibleAssetLayers[asset.layerId],
+  // Memoized so downstream memos (corridors, heat sources) keep their identity
+  // across unrelated re-renders instead of recomputing on every map click.
+  const visibleAssets = useMemo(
+    () =>
+      mapAssets.filter((asset) =>
+        asset.layerId === "other" ? true : visibleAssetLayers[asset.layerId],
+      ),
+    [mapAssets, visibleAssetLayers],
   );
   const propertyStands = useMemo(
     () =>
@@ -2208,6 +2244,14 @@ export default function HuntingMap() {
 
   const scoutPanelOpen = scoutOpen || isDrawingArea;
 
+  // Moving the keys to the opposite corner fixed this on a desktop but not on a
+  // phone: the Scout panel is min(300px, …) anchored left and the keys are up
+  // to 340px anchored right, so on a 375px screen they overlap by 237px, and
+  // the panel sits above them (z1100 vs z1000) and covers them anyway. There is
+  // no free corner at that width, so the keys yield while the panel is open and
+  // come straight back when it closes. Nothing is hidden on a wide screen.
+  const mapKeysHidden = isNarrowViewport && scoutPanelOpen;
+
   return (
     <div className="di-map-layout" style={mapLayoutStyle}>
       <div className="di-map-scout" style={scoutOverlayStyle}>
@@ -2831,13 +2875,13 @@ export default function HuntingMap() {
             </div>
           ) : null}
 
-          {showTerrain && terrainReview ? <TerrainLegend /> : null}
+          {showTerrain && terrainReview && !mapKeysHidden ? <TerrainLegend /> : null}
 
-          {showLandcover ? (
+          {showLandcover && !mapKeysHidden ? (
             <LandCoverLegend raised={showTerrain && !!terrainReview} />
           ) : null}
 
-          {showDeerHeat ? (
+          {showDeerHeat && !mapKeysHidden ? (
             <DeerHeatLegend
               period={movementPeriod}
               lift={
