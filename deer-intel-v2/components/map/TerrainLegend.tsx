@@ -26,8 +26,12 @@ export default function TerrainLegend() {
 
 const wrapStyle: CSSProperties = {
   position: "absolute",
-  bottom: "1.5rem",
-  left: "1rem",
+  // Bottom-RIGHT. The bottom-left corner belongs to the Scout the Property
+  // panel, which is anchored there at a higher z-index and simply covered these
+  // keys. Bottom-right is the one free corner; the offset clears Leaflet's
+  // attribution strip, which sits under it.
+  bottom: "2.25rem",
+  right: "1rem",
   zIndex: 1000,
   display: "grid",
   gap: "0.35rem",

@@ -8,7 +8,7 @@ import type { MovementPeriod } from "@/lib/movementPrediction";
 // does right now (the current movement period). Shares the bottom-left slot
 // with the terrain and Food & Cover legends, so `lift` steps it above however
 // many of those are showing.
-const LIFT_REM = ["1.5rem", "9.5rem", "17.5rem"];
+const LIFT_REM = ["2.25rem", "10.25rem", "18.25rem"];
 
 export default function DeerHeatLegend({
   period,
@@ -34,7 +34,8 @@ export default function DeerHeatLegend({
 
 const wrapStyle: CSSProperties = {
   position: "absolute",
-  left: "1rem",
+  // Bottom-right; see TerrainLegend for why this corner rather than the left.
+  right: "1rem",
   zIndex: 1000,
   maxWidth: "min(280px, calc(100% - 2rem))",
   padding: "0.5rem 0.65rem",

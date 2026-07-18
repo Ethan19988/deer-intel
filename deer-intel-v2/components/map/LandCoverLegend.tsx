@@ -9,7 +9,7 @@ import { LAND_COVER_LEGEND } from "@/lib/propertyMap";
 // `raised` lifts it above the terrain legend, which shares the bottom-left slot.
 export default function LandCoverLegend({ raised = false }: { raised?: boolean }) {
   return (
-    <div style={{ ...wrapStyle, bottom: raised ? "9.5rem" : "1.5rem" }}>
+    <div style={{ ...wrapStyle, bottom: raised ? "10.25rem" : "2.25rem" }}>
       <p style={titleStyle}>Food &amp; Cover</p>
       <div style={gridStyle}>
         {LAND_COVER_LEGEND.map((item) => (
@@ -28,7 +28,8 @@ export default function LandCoverLegend({ raised = false }: { raised?: boolean }
 
 const wrapStyle: CSSProperties = {
   position: "absolute",
-  left: "1rem",
+  // Bottom-right; see TerrainLegend for why this corner rather than the left.
+  right: "1rem",
   zIndex: 1000,
   maxWidth: "min(340px, calc(100% - 2rem))",
   padding: "0.5rem 0.65rem",
