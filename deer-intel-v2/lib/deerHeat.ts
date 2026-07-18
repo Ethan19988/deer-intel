@@ -204,6 +204,15 @@ export function outlookIntensity(score: number | null): number {
   return Math.min(1, Math.max(0.55, 0.6 + 0.05 * score));
 }
 
+/**
+ * Stacked intensity below this renders (and taps) as nothing. One faint
+ * out-of-period footprint sits under it; a feature in its prime period or any
+ * real stack clears it — so the map shows only the ground worth looking at
+ * instead of washing the whole tract in faint red. Shared by the renderer and
+ * the tap gate so nothing paints that can't explain itself, and vice versa.
+ */
+export const DEER_HEAT_FLOOR = 0.32;
+
 /** One-line legend read of what the heat means right now. */
 export const PERIOD_HEAT_LINE: Record<MovementPeriod, string> = {
   dawn: "Dawn — deer sliding back to beds",

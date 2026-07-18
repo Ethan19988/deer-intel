@@ -6,6 +6,7 @@ import { useDeerIntelStore } from "@/lib/deerIntelStore";
 import { aggregateCameraActivity } from "@/lib/terrainLearning";
 import {
   buildDeerHeatSources,
+  DEER_HEAT_FLOOR,
   explainDeerHeatAt,
   outlookIntensity,
   PERIOD_HEAT_LINE,
@@ -86,10 +87,15 @@ export default function DeerHeatLayer({
 
   useMapEvents({
     click: (event) => {
-      if (!tapEnabled) return;
+      if (!tapEnabled || !overlay) return;
       const { lat, lng } = event.latlng;
       const explanation = explainDeerHeatAt(lat, lng, sources);
-      setExplain(explanation ? { position: [lat, lng], explanation } : null);
+      // Below the raster's floor nothing is painted, so nothing explains either.
+      setExplain(
+        explanation && explanation.total >= overlay.floor
+          ? { position: [lat, lng], explanation }
+          : null,
+      );
     },
   });
 
@@ -238,14 +244,21 @@ const moreStyle: CSSProperties = {
 // Moderate resolution on purpose: the browser's bilinear upscale of the
 // stretched ImageOverlay is what melts the shapes into a soft heat surface.
 const CANVAS_WIDTH = 480;
-// Below ~3% intensity the ramp is invisible anyway; clipping it keeps faint
-// spill from tinting half the property.
-const MIN_VISIBLE = 0.03;
 
 type HeatOverlay = {
   url: string;
   bounds: [[number, number], [number, number]];
+  /** The intensity cut actually used for this raster; the tap gate matches it. */
+  floor: number;
 };
+
+// At most this fraction of the raster may paint — the surface keeps only its
+// hottest ground however today's stack is distributed. A fraction-of-max floor
+// was tried first and failed on the Moore Hill read: the dense travel web
+// stacks into one narrow value band (~0.32-0.48), so any proportional cut
+// either kept all of it (~21% of the tract) or none. Budgeting the painted
+// AREA cuts into the band deterministically.
+const MAX_PAINT_FRACTION = 0.08;
 
 /**
  * Rasterize the weighted sources into a colored PNG data URL plus the
@@ -372,21 +385,53 @@ function renderHeatOverlay(
   }
 
   // Colorize: intensity (red channel — additive white, so R=G=B) through the
-  // ramp; alpha rises with heat but caps low enough to read the imagery under it.
+  // ramp. Everything under the floor is fully transparent — only the genuinely
+  // hot ground paints — and the amber→red ramp is restretched over the
+  // surviving range so those spots still grade instead of all reading as one
+  // flat red. The floor comes from the paint budget below (with
+  // DEER_HEAT_FLOOR as the absolute minimum), and the soft footprints cross it
+  // gradually, so the cut edge fades out on its own.
   const image = ctx.getImageData(0, 0, width, height);
   const data = image.data;
+  // Histogram the intensity, then raise the floor until only the hottest
+  // MAX_PAINT_FRACTION of pixels survives (never below the absolute floor).
+  const histogram = new Uint32Array(256);
+  const floorByteMin = Math.round(DEER_HEAT_FLOOR * 255);
+  let paintable = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i] >= floorByteMin) {
+      histogram[data[i]] += 1;
+      paintable += 1;
+    }
+  }
+  let floorByte = floorByteMin;
+  const budget = Math.floor(width * height * MAX_PAINT_FRACTION);
+  if (paintable > budget) {
+    let kept = 0;
+    for (let v = 255; v >= floorByteMin; v--) {
+      kept += histogram[v];
+      if (kept > budget) {
+        // Keep the bin that crossed the budget: flat regions (polygon fills)
+        // land whole on one byte, and cutting that bin out would erase the
+        // hottest ground entirely. Slightly over budget beats an empty map.
+        floorByte = v;
+        break;
+      }
+    }
+  }
+  const floor = floorByte / 255;
   for (let i = 0; i < data.length; i += 4) {
     const value = data[i] / 255;
-    if (value < MIN_VISIBLE) {
+    if (value < floor) {
       data[i + 3] = 0;
       continue;
     }
-    const t = Math.pow(Math.min(1, value), 0.7);
+    const t = Math.pow(Math.min(1, (value - floor) / (1 - floor)), 0.7);
     const [r, g, b] = rampColor(t);
     data[i] = r;
     data[i + 1] = g;
     data[i + 2] = b;
-    data[i + 3] = Math.round(255 * Math.min(0.68, t * 0.85) * intensity);
+    data[i + 3] = Math.round(255 * Math.min(0.68, 0.18 + t * 0.7) * intensity);
   }
   ctx.globalCompositeOperation = "source-over";
   ctx.putImageData(image, 0, 0);
@@ -397,6 +442,7 @@ function renderHeatOverlay(
       [south, west],
       [north, east],
     ],
+    floor,
   };
 }
 
