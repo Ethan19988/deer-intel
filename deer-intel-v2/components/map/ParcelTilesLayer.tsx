@@ -263,12 +263,9 @@ class FitToParcelOwnerSymbolizer {
       .toUpperCase();
     if (!owner) return undefined;
 
-    // Footprint bbox over every ring; the largest ring *by area* (not vertex
-    // count — a tiny but vertex-dense ring must not win) carries the label.
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
+    // The largest ring *by area* (not vertex count — a tiny but vertex-dense
+    // ring must not win) carries the label. A hole is always smaller than the
+    // ring enclosing it, so the largest is necessarily an exterior ring.
     let largest: Pt[] = geom[0] ?? [];
     let largestArea = -1;
     for (const ring of geom) {
@@ -277,10 +274,6 @@ class FitToParcelOwnerSymbolizer {
         const p = ring[i];
         const q = ring[(i + 1) % ring.length];
         area2 += p.x * q.y - q.x * p.y;
-        if (p.x < minX) minX = p.x;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.y > maxY) maxY = p.y;
       }
       const area = Math.abs(area2);
       if (area > largestArea) {
@@ -288,7 +281,26 @@ class FitToParcelOwnerSymbolizer {
         largest = ring;
       }
     }
-    if (!Number.isFinite(minX) || largest.length === 0) return undefined;
+    if (largest.length === 0) return undefined;
+
+    // Measure the ring the name is actually drawn in — NOT the union of every
+    // ring. A parcel that comes in several pieces (a farm either side of a
+    // road, or any feature split across a tile boundary) spans a combined box
+    // far bigger than the piece carrying the label, and fitting against that
+    // box let names sprawl clean off their own ground: in Franklin County a
+    // five-ring parcel took a 164px name on a 49px piece, 230% over, because
+    // the pieces together spanned 227px.
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const p of largest) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+    if (!Number.isFinite(minX)) return undefined;
 
     const widthPx = maxX - minX;
     const heightPx = maxY - minY;
