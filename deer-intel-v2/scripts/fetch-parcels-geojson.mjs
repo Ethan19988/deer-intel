@@ -218,6 +218,23 @@ const COUNTIES = {
     pin: (p) => str(p.PIDN),
     addr: (p) => cleanAddr(p.PROPADR),
   },
+  indiana: {
+    // NAME_EXT is the full assessment name; SHORT_NAME is a truncated form, so
+    // it's only the fallback. Deeded acreage beats the GIS-computed figure.
+    layerUrl: PASDA("IndianaCounty", 5),
+    outFields: [
+      "NAME_EXT",
+      "SHORT_NAME",
+      "DEEDED_ACR",
+      "ACRES",
+      "PARCEL_ID",
+      "COMBINED_S",
+    ],
+    owner: (p) => str(p.NAME_EXT) || str(p.SHORT_NAME),
+    acres: (p) => toAcres(p.DEEDED_ACR) || toAcres(p.ACRES),
+    pin: (p) => str(p.PARCEL_ID),
+    addr: (p) => cleanAddr(p.COMBINED_S),
+  },
   bradford: {
     // Owner parcels live on layer 5 (a join); OID field is OBJECTID_12.
     layerUrl: PASDA("BradfordCounty", 5),

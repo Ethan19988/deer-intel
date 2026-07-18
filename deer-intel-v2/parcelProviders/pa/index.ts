@@ -204,6 +204,20 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     source: "PASDA",
     status: "supported",
   },
+  Indiana: {
+    acreageFieldNames: ["DEEDED_ACR", "ACRES", "GIS_ACRES"],
+    addressFieldNames: ["COMBINED_S"],
+    // Fall back to the parts when the combined situs string is blank.
+    addressFieldGroups: [["COMBINED_S"], ["ADDRESS_1", "CITY", "STATE", "ZIP"]],
+    geometrySupport: "polygon",
+    notes: "PASDA Indiana County parcel layer (5) with assessment owner names.",
+    ownerFieldNames: ["NAME_EXT", "SHORT_NAME"],
+    parcelIdFieldNames: ["PARCEL_ID", "PARCEL_NO", "GIS_PIN"],
+    parcelLayerId: 5,
+    parcelServiceUrl: pasdaCountyParcelServiceUrl("Indiana"),
+    source: "PASDA",
+    status: "supported",
+  },
   Juniata: {
     acreageFieldNames: ["Calc_AC", "Assess_Acr"],
     addressFieldNames: ["Physical_A"],
