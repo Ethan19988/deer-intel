@@ -29,7 +29,7 @@ export type MapOverlayId =
   | "contours"
   | "slope"
   | "landcover"
-  | "propertyLines"
+  | "cameraHeat"
   | "wind"
   | "movement"
   | "terrain";
@@ -72,9 +72,9 @@ export const MAP_OVERLAYS: Array<{
     description: "Crop fields, pasture, grass and forest type (NLCD).",
   },
   {
-    id: "propertyLines",
-    label: "Property & Owners",
-    description: "Parcel boundaries and land-owner names.",
+    id: "cameraHeat",
+    label: "Camera Heat",
+    description: "Where your cameras have logged the most deer.",
   },
   {
     id: "wind",

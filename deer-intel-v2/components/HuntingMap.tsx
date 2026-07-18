@@ -36,6 +36,7 @@ import MovementBadge from "@/components/map/MovementBadge";
 import TerrainMovementLayer from "@/components/map/TerrainMovementLayer";
 import TerrainLegend from "@/components/map/TerrainLegend";
 import LandCoverLegend from "@/components/map/LandCoverLegend";
+import CameraHeatLayer from "@/components/map/CameraHeatLayer";
 import ScoutPicksPanel from "@/components/map/ScoutPicksPanel";
 import type { LatLng } from "@/lib/terrainMovement";
 import {
@@ -799,6 +800,7 @@ export default function HuntingMap() {
   const [showContours, setShowContours] = useState(defaultOverlays.contours);
   const [showSlope, setShowSlope] = useState(defaultOverlays.slope);
   const [showLandcover, setShowLandcover] = useState(defaultOverlays.landcover);
+  const [showCameraHeat, setShowCameraHeat] = useState(defaultOverlays.cameraHeat);
   const [showWind, setShowWind] = useState(defaultOverlays.wind);
   const [showMovement, setShowMovement] = useState(defaultOverlays.movement);
   const [showTerrain, setShowTerrain] = useState(defaultOverlays.terrain);
@@ -859,11 +861,6 @@ export default function HuntingMap() {
   const [trackMessage, setTrackMessage] = useState("");
   const trackPropertyIdRef = useRef("");
   const trackStartedAtRef = useRef("");
-  // One switch drives the whole ownership picture: the parcel-line overlay
-  // plus the statewide land-owner tiles (names + tap-to-identify).
-  const [showPropertyLines, setShowPropertyLines] = useState(
-    defaultOverlays.propertyLines,
-  );
   const [showOwnerNames, setShowOwnerNames] = useState(false);
   const [parcelLayerState, setParcelLayerState] =
     useState<ParcelBoundaryLoadState | null>(null);
@@ -1254,7 +1251,7 @@ export default function HuntingMap() {
       ? `Tap map to place ${pinType}`
       : pinBoxMessage;
   const mapOverlayMessages = [
-    showPropertyLines ? parcelLayerState?.message : "",
+    parcelLayerState?.message,
     ownerNamesEnabled && parcelOwnerLookupState.status === "idle"
       ? ownerLabelState?.message
       : "",
@@ -1660,20 +1657,6 @@ export default function HuntingMap() {
     }));
   }
 
-  function togglePropertyLines() {
-    const shouldShowPropertyLines = !showPropertyLines;
-
-    setShowPropertyLines(shouldShowPropertyLines);
-    // Whichever direction the toggle goes, any open parcel card is stale.
-    setTileOwnerPick(null);
-
-    if (!shouldShowPropertyLines) {
-      setShowOwnerNames(false);
-      setOwnerLabelState(null);
-      setParcelOwnerLookupState(IDLE_PARCEL_OWNER_LOOKUP_STATE);
-    }
-  }
-
   function toggleOwnerNames() {
     if (getIsMobileMapDevice()) {
       setShowOwnerNames(false);
@@ -1684,10 +1667,6 @@ export default function HuntingMap() {
 
     setShowOwnerNames((isVisible) => {
       const shouldShowOwnerNames = !isVisible;
-
-      if (shouldShowOwnerNames) {
-        setShowPropertyLines(true);
-      }
 
       if (!shouldShowOwnerNames) {
         setParcelOwnerLookupState(IDLE_PARCEL_OWNER_LOOKUP_STATE);
@@ -2416,7 +2395,7 @@ export default function HuntingMap() {
             contourNeedsZoomIn={showContours && mapZoom < CONTOUR_MIN_ZOOM}
             showSlope={showSlope}
             showLandcover={showLandcover}
-            showPropertyOwners={showPropertyLines}
+            showCameraHeat={showCameraHeat}
             showWind={showWind}
             showMovement={showMovement}
             showTerrain={showTerrain}
@@ -2424,7 +2403,7 @@ export default function HuntingMap() {
             onToggleContours={() => setShowContours((current) => !current)}
             onToggleSlope={() => setShowSlope((current) => !current)}
             onToggleLandcover={() => setShowLandcover((current) => !current)}
-            onTogglePropertyOwners={togglePropertyLines}
+            onToggleCameraHeat={() => setShowCameraHeat((current) => !current)}
             onToggleWind={toggleWind}
             onToggleMovement={toggleMovement}
             onToggleTerrain={toggleTerrain}
@@ -2649,6 +2628,8 @@ export default function HuntingMap() {
               />
             ) : null}
 
+            {showCameraHeat ? <CameraHeatLayer /> : null}
+
             {showTerrain && terrainReview ? (
               <TerrainMovementLayer set={terrainReview} />
             ) : null}
@@ -2659,18 +2640,20 @@ export default function HuntingMap() {
               }}
             />
 
+            {/* The ownership picture (parcel lines + land-owner tiles) is a
+                permanent layer, not a toggle. */}
             <ParcelBoundaryLayer
-              enabled={showPropertyLines}
+              enabled
               propertyId={selectedPropertyId}
               onStateChange={setParcelLayerState}
             />
             <ParcelOwnerLabelLayer
-              enabled={showPropertyLines && ownerNamesEnabled}
+              enabled={ownerNamesEnabled}
               propertyId={selectedPropertyId}
               onStateChange={setOwnerLabelState}
             />
             <ParcelTilesLayer
-              enabled={showPropertyLines}
+              enabled
               pickEnabled={!isPlacingPin && !isDrawingArea && !movingPin}
               onOwnerPick={handleTileOwnerPick}
             />
@@ -2710,12 +2693,7 @@ export default function HuntingMap() {
               onAddPin={createPinAtLocation}
             />
             <ClickToLookupParcelOwner
-              enabled={
-                showPropertyLines &&
-                ownerNamesEnabled &&
-                !isDrawingArea &&
-                !movingPin
-              }
+              enabled={ownerNamesEnabled && !isDrawingArea && !movingPin}
               onLookup={lookupParcelOwner}
             />
             <ClickToMovePin

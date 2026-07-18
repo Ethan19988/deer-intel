@@ -27,7 +27,7 @@ export const DEFAULT_MAP_OVERLAYS: MapOverlayState = {
   contours: false,
   slope: false,
   landcover: false,
-  propertyLines: false,
+  cameraHeat: false,
   wind: false,
   movement: false,
   terrain: false,
