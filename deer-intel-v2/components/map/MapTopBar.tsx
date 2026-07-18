@@ -10,7 +10,6 @@ type MapTopBarProps = {
   showSlope: boolean;
   showLandcover: boolean;
   showCameraHeat: boolean;
-  showPropertyOwners: boolean;
   showWind: boolean;
   showMovement: boolean;
   showTerrain: boolean;
@@ -19,7 +18,6 @@ type MapTopBarProps = {
   onToggleSlope: () => void;
   onToggleLandcover: () => void;
   onToggleCameraHeat: () => void;
-  onTogglePropertyOwners: () => void;
   onToggleWind: () => void;
   onToggleMovement: () => void;
   onToggleTerrain: () => void;
@@ -42,7 +40,6 @@ export default function MapTopBar({
   showSlope,
   showLandcover,
   showCameraHeat,
-  showPropertyOwners,
   showWind,
   showMovement,
   showTerrain,
@@ -51,7 +48,6 @@ export default function MapTopBar({
   onToggleSlope,
   onToggleLandcover,
   onToggleCameraHeat,
-  onTogglePropertyOwners,
   onToggleWind,
   onToggleMovement,
   onToggleTerrain,
@@ -125,19 +121,6 @@ export default function MapTopBar({
         onClick={onToggleCameraHeat}
       >
         Camera Heat
-      </button>
-
-      <button
-        type="button"
-        role="switch"
-        aria-checked={showPropertyOwners}
-        style={{
-          ...pillStyle,
-          ...(showPropertyOwners ? activePropertyOwnersPillStyle : null),
-        }}
-        onClick={onTogglePropertyOwners}
-      >
-        Property & Owners
       </button>
 
       <button
@@ -239,12 +222,6 @@ const pillStyle: CSSProperties = {
 const activePillStyle: CSSProperties = {
   borderColor: "rgba(245, 168, 66, 0.6)",
   background: "#b45309",
-  color: "white",
-};
-
-const activePropertyOwnersPillStyle: CSSProperties = {
-  borderColor: "rgba(116, 199, 255, 0.6)",
-  background: "#1d4e6b",
   color: "white",
 };
 

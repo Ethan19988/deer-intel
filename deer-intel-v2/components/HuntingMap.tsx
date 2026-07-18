@@ -861,11 +861,6 @@ export default function HuntingMap() {
   const [trackMessage, setTrackMessage] = useState("");
   const trackPropertyIdRef = useRef("");
   const trackStartedAtRef = useRef("");
-  // One switch drives the whole ownership picture: the parcel-line overlay
-  // plus the statewide land-owner tiles (names + tap-to-identify).
-  const [showPropertyLines, setShowPropertyLines] = useState(
-    defaultOverlays.propertyLines,
-  );
   const [showOwnerNames, setShowOwnerNames] = useState(false);
   const [parcelLayerState, setParcelLayerState] =
     useState<ParcelBoundaryLoadState | null>(null);
@@ -1256,7 +1251,7 @@ export default function HuntingMap() {
       ? `Tap map to place ${pinType}`
       : pinBoxMessage;
   const mapOverlayMessages = [
-    showPropertyLines ? parcelLayerState?.message : "",
+    parcelLayerState?.message,
     ownerNamesEnabled && parcelOwnerLookupState.status === "idle"
       ? ownerLabelState?.message
       : "",
@@ -1662,20 +1657,6 @@ export default function HuntingMap() {
     }));
   }
 
-  function togglePropertyLines() {
-    const shouldShowPropertyLines = !showPropertyLines;
-
-    setShowPropertyLines(shouldShowPropertyLines);
-    // Whichever direction the toggle goes, any open parcel card is stale.
-    setTileOwnerPick(null);
-
-    if (!shouldShowPropertyLines) {
-      setShowOwnerNames(false);
-      setOwnerLabelState(null);
-      setParcelOwnerLookupState(IDLE_PARCEL_OWNER_LOOKUP_STATE);
-    }
-  }
-
   function toggleOwnerNames() {
     if (getIsMobileMapDevice()) {
       setShowOwnerNames(false);
@@ -1686,10 +1667,6 @@ export default function HuntingMap() {
 
     setShowOwnerNames((isVisible) => {
       const shouldShowOwnerNames = !isVisible;
-
-      if (shouldShowOwnerNames) {
-        setShowPropertyLines(true);
-      }
 
       if (!shouldShowOwnerNames) {
         setParcelOwnerLookupState(IDLE_PARCEL_OWNER_LOOKUP_STATE);
@@ -2419,7 +2396,6 @@ export default function HuntingMap() {
             showSlope={showSlope}
             showLandcover={showLandcover}
             showCameraHeat={showCameraHeat}
-            showPropertyOwners={showPropertyLines}
             showWind={showWind}
             showMovement={showMovement}
             showTerrain={showTerrain}
@@ -2428,7 +2404,6 @@ export default function HuntingMap() {
             onToggleSlope={() => setShowSlope((current) => !current)}
             onToggleLandcover={() => setShowLandcover((current) => !current)}
             onToggleCameraHeat={() => setShowCameraHeat((current) => !current)}
-            onTogglePropertyOwners={togglePropertyLines}
             onToggleWind={toggleWind}
             onToggleMovement={toggleMovement}
             onToggleTerrain={toggleTerrain}
@@ -2665,18 +2640,20 @@ export default function HuntingMap() {
               }}
             />
 
+            {/* The ownership picture (parcel lines + land-owner tiles) is a
+                permanent layer, not a toggle. */}
             <ParcelBoundaryLayer
-              enabled={showPropertyLines}
+              enabled
               propertyId={selectedPropertyId}
               onStateChange={setParcelLayerState}
             />
             <ParcelOwnerLabelLayer
-              enabled={showPropertyLines && ownerNamesEnabled}
+              enabled={ownerNamesEnabled}
               propertyId={selectedPropertyId}
               onStateChange={setOwnerLabelState}
             />
             <ParcelTilesLayer
-              enabled={showPropertyLines}
+              enabled
               pickEnabled={!isPlacingPin && !isDrawingArea && !movingPin}
               onOwnerPick={handleTileOwnerPick}
             />
@@ -2716,12 +2693,7 @@ export default function HuntingMap() {
               onAddPin={createPinAtLocation}
             />
             <ClickToLookupParcelOwner
-              enabled={
-                showPropertyLines &&
-                ownerNamesEnabled &&
-                !isDrawingArea &&
-                !movingPin
-              }
+              enabled={ownerNamesEnabled && !isDrawingArea && !movingPin}
               onLookup={lookupParcelOwner}
             />
             <ClickToMovePin
