@@ -6,9 +6,16 @@ import type { PropertyPatternReport as Report } from "@/lib/propertyPatterns";
 
 // Renders the property pattern report: what conditions have actually produced
 // deer here, from the hunter's own sits + camera checks.
-export default function PropertyPatternReport({ report }: { report: Report }) {
-  const rows = [...report.conditionInsights];
+export default function PropertyPatternReport({
+  report,
+  limit,
+}: {
+  report: Report;
+  limit?: number;
+}) {
+  let rows = [...report.conditionInsights];
   if (report.hottestCamera) rows.push(report.hottestCamera);
+  if (limit != null) rows = rows.slice(0, limit);
 
   return (
     <Card as="div" variant="subtle">

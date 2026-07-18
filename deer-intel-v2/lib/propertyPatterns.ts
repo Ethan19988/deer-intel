@@ -11,7 +11,12 @@ import type { HuntLogEntry } from "@/types/hunt";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { Camera } from "@/types/camera";
 
-export type PatternInsight = { label: string; value: string; detail: string };
+export type PatternInsight = {
+  label: string;
+  value: string;
+  detail: string;
+  lift?: number; // how many times the property average this bucket beats
+};
 
 export type PropertyPatternReport = {
   sits: number;
@@ -127,13 +132,14 @@ function bestBucket(
   }
   if (!best || best.rate < LIFT * avg) return null;
 
-  const lift = (best.rate / avg).toFixed(1);
+  const lift = best.rate / avg;
   return {
     label,
     value: phrase(best.bucket),
-    detail: `${lift}× your average — ${best.g.deer} deer${
+    detail: `${lift.toFixed(1)}× your average — ${best.g.deer} deer${
       best.g.bucks ? ` (${best.g.bucks} bucks)` : ""
     } over ${best.g.n} sits.`,
+    lift,
   };
 }
 
@@ -185,6 +191,9 @@ export function buildPropertyPatternReport(
     b === "Dawn" ? "First light" : b === "Dusk" ? "Last light" : "Midday",
   ));
   push(bestBucket(sits, (s) => s.stand, "Best stand", (b) => b));
+
+  // Strongest pattern first, so a compact view (Today) leads with the best one.
+  conditionInsights.sort((a, b) => (b.lift ?? 0) - (a.lift ?? 0));
 
   // Hottest camera site — deer logged, ignoring check-time weather.
   const nameById = new Map(cameras.map((c) => [c.id, c.name]));

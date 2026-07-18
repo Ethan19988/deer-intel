@@ -8,6 +8,8 @@ import Card from "@/components/ui/Card";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
+import PropertyPatternReport from "@/components/properties/PropertyPatternReport";
+import { buildPropertyPatternReport } from "@/lib/propertyPatterns";
 import MovementScorePanel from "@/components/weather/MovementScorePanel";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
@@ -61,6 +63,13 @@ export default function Home() {
   const propertyCameraChecks = state.cameraChecks.filter(
     (check) => check.propertyId === activePropertyId,
   );
+  const patternReport = buildPropertyPatternReport(
+    propertyHunts,
+    propertyCameraChecks,
+    propertyCameras,
+  );
+  const hasPatternSignal =
+    patternReport.conditionInsights.length > 0 || Boolean(patternReport.hottestCamera);
   const propertyDeerProfiles = state.deerProfiles.filter(
     (profile) => profile.propertyId === activePropertyId,
   );
@@ -261,6 +270,12 @@ export default function Home() {
           </div>
         </Card>
       </Section>
+
+      {activeProperty && hasPatternSignal ? (
+        <Section eyebrow="Patterns" title="What's Been Working">
+          <PropertyPatternReport report={patternReport} limit={2} />
+        </Section>
+      ) : null}
 
       {activeProperty && propertyStands.length > 0 ? (
         <Section eyebrow="Wind Call" title="Tonight's Sit">
