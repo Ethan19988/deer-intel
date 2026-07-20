@@ -1,5 +1,6 @@
 import type { CSSProperties, FormEvent } from "react";
 import Button from "@/components/ui/Button";
+import CompassDial from "@/components/cameras/CompassDial";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import { COMPASS_16 } from "@/lib/travelDirection";
 import type { CameraStatus, CameraType } from "@/types/camera";
@@ -166,6 +167,14 @@ export default function CameraForm({
               ))}
             </select>
           </label>
+
+          <div style={fieldStyle}>
+            <span style={labelStyle}>Or Point It on the Dial</span>
+            <CompassDial
+              value={values.facingDirection}
+              onChange={(point) => updateField("facingDirection", point)}
+            />
+          </div>
         </div>
 
         <p style={facingHintStyle}>

@@ -19,11 +19,15 @@ type MapAssetInfoCardProps = {
   /** The backing pin when the asset is a map pin — enables inline editing. */
   pin?: MapPin;
   propertyName: string;
+  /** Compass point the camera looks toward ("" when unset); cameras only. */
+  cameraFacing?: string;
   onCenter: () => void;
   onClose: () => void;
   onDelete: () => void;
   onSavePin?: (updates: PinUpdates) => void;
   onStartMove?: () => void;
+  /** Arms point-the-camera mode on the map; cameras only. */
+  onStartAim?: () => void;
 };
 
 export default function MapAssetInfoCard({
@@ -32,11 +36,13 @@ export default function MapAssetInfoCard({
   editRoute,
   pin,
   propertyName,
+  cameraFacing,
   onCenter,
   onClose,
   onDelete,
   onSavePin,
   onStartMove,
+  onStartAim,
 }: MapAssetInfoCardProps) {
   const [actionMessage, setActionMessage] = useState("");
   const [isEditingPin, setIsEditingPin] = useState(false);
@@ -209,6 +215,12 @@ export default function MapAssetInfoCard({
               label="GPS"
               value={`${formatCoordinate(asset.lat)}, ${formatCoordinate(asset.lng)}`}
             />
+            {onStartAim ? (
+              <InfoLine
+                label="Facing"
+                value={cameraFacing || "Not set — use Point Camera"}
+              />
+            ) : null}
             {pin ? (
               <InfoLine label="Placed" value={formatPlacedDate(pin.createdAt)} />
             ) : null}
@@ -263,6 +275,16 @@ export default function MapAssetInfoCard({
                 Edit
               </button>
             )}
+
+            {onStartAim ? (
+              <button
+                type="button"
+                style={secondaryActionStyle}
+                onClick={onStartAim}
+              >
+                Point Camera
+              </button>
+            ) : null}
 
             <button type="button" style={secondaryActionStyle} onClick={onCenter}>
               Center on Map

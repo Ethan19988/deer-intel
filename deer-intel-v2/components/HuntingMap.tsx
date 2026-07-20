@@ -89,6 +89,7 @@ import OfflineDownloadStatus from "@/components/map/OfflineDownloadStatus";
 import OfflineMapsPanel, {
   type OfflineStatus,
 } from "@/components/map/OfflineMapsPanel";
+import CameraFacingCone from "@/components/map/CameraFacingCone";
 import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
 import UserLocationMarker from "@/components/map/UserLocationMarker";
 import WalkTrackLayer from "@/components/map/WalkTrackLayer";
@@ -100,6 +101,11 @@ import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { formatHuntAreaAcres, huntAreaIsValid } from "@/lib/huntArea";
+import {
+  bearingBetween,
+  compassToDegrees,
+  degreesToCompass,
+} from "@/lib/travelDirection";
 import {
   distanceBetweenMeters,
   formatWalkDistance,
@@ -398,6 +404,24 @@ function ClickToMovePin({
       if (!enabled) return;
 
       onMovePin(event.latlng.lat, event.latlng.lng);
+    },
+  });
+
+  return null;
+}
+
+function ClickToAimCamera({
+  enabled,
+  onAim,
+}: {
+  enabled: boolean;
+  onAim: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click(event: MapClickEvent) {
+      if (!enabled) return;
+
+      onAim(event.latlng.lat, event.latlng.lng);
     },
   });
 
@@ -947,6 +971,14 @@ export default function HuntingMap() {
   const [isMobileAssetSheetOpen, setIsMobileAssetSheetOpen] = useState(false);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
   // Pin being relocated via "Move Pin" — the next map tap becomes its new spot.
+  // Point-the-camera mode: tap the map where the lens looks and the bearing
+  // from the camera to that spot becomes its facing direction.
+  const [aimingCamera, setAimingCamera] = useState<{
+    id: string;
+    lat: number;
+    lng: number;
+    label: string;
+  } | null>(null);
   const [movingPin, setMovingPin] = useState<{
     id: string;
     label: string;
@@ -1072,6 +1104,31 @@ export default function HuntingMap() {
         asset.layerId === "other" ? true : visibleAssetLayers[asset.layerId],
       ),
     [mapAssets, visibleAssetLayers],
+  );
+  // View cones for cameras whose facing direction is set, drawn under the pins.
+  const cameraFacingCones = useMemo(
+    () =>
+      visibleAssets.flatMap((asset) => {
+        if (asset.source !== "camera") return [];
+
+        const facing =
+          propertyCameras.find((camera) => camera.id === asset.sourceId)
+            ?.facingDirection ?? "";
+        const degrees = compassToDegrees(facing);
+
+        return degrees === null
+          ? []
+          : [
+              {
+                id: asset.id,
+                lat: asset.lat,
+                lng: asset.lng,
+                degrees,
+                color: asset.color,
+              },
+            ];
+      }),
+    [visibleAssets, propertyCameras],
   );
   const propertyStands = useMemo(
     () =>
@@ -2011,6 +2068,45 @@ export default function HuntingMap() {
     setSelectedAssetId(`pin-${pinId}`);
   }
 
+  function startCameraAim() {
+    if (!selectedAsset || selectedAsset.source !== "camera") return;
+
+    setIsPlacingPin(false);
+    setAimingCamera({
+      id: selectedAsset.sourceId,
+      lat: selectedAsset.lat,
+      lng: selectedAsset.lng,
+      label: selectedAsset.label,
+    });
+    // Close the card so the map underneath is tappable for the aim point.
+    setSelectedAssetId(null);
+  }
+
+  function cancelCameraAim() {
+    setAimingCamera(null);
+  }
+
+  function aimCameraToward(lat: number, lng: number) {
+    if (!aimingCamera) return;
+
+    const cameraId = aimingCamera.id;
+    const facing = degreesToCompass(
+      bearingBetween(aimingCamera.lat, aimingCamera.lng, lat, lng),
+    );
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      cameras: currentState.cameras.map((camera) =>
+        camera.id === cameraId
+          ? { ...camera, facingDirection: facing }
+          : camera,
+      ),
+    }));
+    setAimingCamera(null);
+    // Reopen the card so the new facing direction is right there to check.
+    setSelectedAssetId(`camera-${cameraId}`);
+  }
+
   function deletePin(pinId: string) {
     updateDeerIntelStore((currentState) => ({
       ...currentState,
@@ -2730,7 +2826,9 @@ export default function HuntingMap() {
                 corridors={movementCorridors}
                 period={movementPeriod}
                 outlookScore={movementOutlook?.score ?? null}
-                tapEnabled={!isPlacingPin && !isDrawingArea && !movingPin}
+                tapEnabled={
+                  !isPlacingPin && !isDrawingArea && !movingPin && !aimingCamera
+                }
               />
             ) : null}
 
@@ -2753,7 +2851,9 @@ export default function HuntingMap() {
             />
             <ParcelTilesLayer
               enabled
-              pickEnabled={!isPlacingPin && !isDrawingArea && !movingPin}
+              pickEnabled={
+                !isPlacingPin && !isDrawingArea && !movingPin && !aimingCamera
+              }
               onOwnerPick={handleTileOwnerPick}
             />
 
@@ -2794,6 +2894,10 @@ export default function HuntingMap() {
             <ClickToMovePin
               enabled={Boolean(movingPin)}
               onMovePin={movePinToLocation}
+            />
+            <ClickToAimCamera
+              enabled={Boolean(aimingCamera)}
+              onAim={aimCameraToward}
             />
             <ClickToDrawArea
               enabled={isDrawingArea}
@@ -2844,6 +2948,16 @@ export default function HuntingMap() {
                   />
                 ))
               : null}
+
+            {cameraFacingCones.map((cone) => (
+              <CameraFacingCone
+                key={`${cone.id}-cone`}
+                lat={cone.lat}
+                lng={cone.lng}
+                degrees={cone.degrees}
+                color={cone.color}
+              />
+            ))}
 
             {visibleAssets.map((asset) => (
               <PropertyMapAssetMarker
@@ -2955,6 +3069,23 @@ export default function HuntingMap() {
             </div>
           ) : null}
 
+          {aimingCamera && !isDrawingArea ? (
+            <div className="di-area-pill" style={drawActionBarStyle}>
+              <span style={drawActionStatusStyle}>
+                Tap the map where {aimingCamera.label} points
+              </span>
+              <div style={drawActionButtonRowStyle}>
+                <button
+                  type="button"
+                  style={drawSecondaryButtonStyle}
+                  onClick={cancelCameraAim}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {isPlacingPin && !isDrawingArea ? (
             <div className="di-area-pill" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
@@ -3052,6 +3183,13 @@ export default function HuntingMap() {
               editRoute={getAssetEditHref(selectedAsset, selectedPropertyId)}
               pin={selectedPin}
               propertyName={selectedProperty.name}
+              cameraFacing={
+                selectedAsset.source === "camera"
+                  ? (propertyCameras.find(
+                      (camera) => camera.id === selectedAsset.sourceId,
+                    )?.facingDirection ?? "")
+                  : undefined
+              }
               onCenter={centerOnAsset}
               onClose={() => setSelectedAssetId(null)}
               onDelete={deleteSelectedAsset}
@@ -3061,6 +3199,9 @@ export default function HuntingMap() {
                   : undefined
               }
               onStartMove={selectedPin ? startPinMove : undefined}
+              onStartAim={
+                selectedAsset.source === "camera" ? startCameraAim : undefined
+              }
             />
           ) : null}
 
