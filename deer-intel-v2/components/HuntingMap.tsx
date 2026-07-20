@@ -1111,35 +1111,6 @@ export default function HuntingMap() {
       ),
     [mapAssets, visibleAssetLayers],
   );
-  // View cones for cameras whose facing direction is set, drawn under the
-  // pins. Camera records and camera pins both carry one.
-  const cameraFacingCones = useMemo(
-    () =>
-      visibleAssets.flatMap((asset) => {
-        if (asset.layerId !== "cameras") return [];
-
-        const facing =
-          (asset.source === "camera"
-            ? propertyCameras.find((camera) => camera.id === asset.sourceId)
-                ?.facingDirection
-            : pins.find((pin) => pin.id === asset.sourceId)
-                ?.facingDirection) ?? "";
-        const degrees = compassToDegrees(facing);
-
-        return degrees === null
-          ? []
-          : [
-              {
-                id: asset.id,
-                lat: asset.lat,
-                lng: asset.lng,
-                degrees,
-                color: asset.color,
-              },
-            ];
-      }),
-    [visibleAssets, propertyCameras, pins],
-  );
   const propertyStands = useMemo(
     () =>
       state.stands.filter((stand) => stand.propertyId === selectedPropertyId),
@@ -2081,6 +2052,15 @@ export default function HuntingMap() {
   function startAim() {
     if (!selectedAsset || selectedAsset.layerId !== "cameras") return;
 
+    // Seed the preview with the saved direction, so re-opening Point Camera
+    // shows where the lens currently looks — the only time the beam draws.
+    const savedFacing =
+      (selectedAsset.source === "camera"
+        ? propertyCameras.find(
+            (camera) => camera.id === selectedAsset.sourceId,
+          )?.facingDirection
+        : selectedPin?.facingDirection) ?? "";
+
     setIsPlacingPin(false);
     setAimingTarget({
       kind: selectedAsset.source,
@@ -2090,7 +2070,7 @@ export default function HuntingMap() {
       lng: selectedAsset.lng,
       label: selectedAsset.label,
       color: selectedAsset.color,
-      preview: null,
+      preview: compassToDegrees(savedFacing) === null ? null : savedFacing,
     });
     // Close the card so the map underneath is tappable for the aim point.
     setSelectedAssetId(null);
@@ -3001,20 +2981,8 @@ export default function HuntingMap() {
                 ))
               : null}
 
-            {cameraFacingCones
-              .filter((cone) => cone.id !== aimingTarget?.assetId)
-              .map((cone) => (
-                <CameraFacingCone
-                  key={`${cone.id}-cone`}
-                  lat={cone.lat}
-                  lng={cone.lng}
-                  degrees={cone.degrees}
-                  color={cone.color}
-                />
-              ))}
-
-            {/* The unsaved preview beam while aiming; replaces the target's
-                saved cone so only one direction shows at a time. */}
+            {/* The beam only draws while aiming — the saved direction lives on
+                the record (card, travel learning), not as map clutter. */}
             {aimingTarget?.preview ? (
               <CameraFacingCone
                 lat={aimingTarget.lat}
