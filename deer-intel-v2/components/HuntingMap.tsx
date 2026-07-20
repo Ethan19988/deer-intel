@@ -2348,9 +2348,27 @@ export default function HuntingMap() {
   // come straight back when it closes. Nothing is hidden on a wide screen.
   const mapKeysHidden = isNarrowViewport && scoutPanelOpen;
 
+  // Same corner fight from the other side: the bottom mode pill (aim / move /
+  // place / draw) and the scout panel share the phone's bottom slot, and the
+  // panel sits above it (z1100 vs z1000), covering the pill's wording and
+  // Cancel. The pill is the interaction the hunter is mid-way through, so the
+  // panel yields while a mode is live and returns the moment it ends.
+  const scoutPanelYields =
+    isNarrowViewport &&
+    (Boolean(aimingCamera) ||
+      Boolean(movingPin) ||
+      isPlacingPin ||
+      isDrawingArea);
+
   return (
     <div className="di-map-layout" style={mapLayoutStyle}>
-      <div className="di-map-scout" style={scoutOverlayStyle}>
+      <div
+        className="di-map-scout"
+        style={{
+          ...scoutOverlayStyle,
+          ...(scoutPanelYields ? { display: "none" } : null),
+        }}
+      >
         <div style={scoutHeaderStyle}>
           <select
             aria-label="Property"
