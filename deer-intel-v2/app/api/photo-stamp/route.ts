@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { AI_KEY_HEADER, sanitizeAiKey } from "@/lib/aiKeyHeader";
 import {
   PhotoVisionError,
   isPhotoVisionConfigured,
@@ -45,8 +46,14 @@ function sanitizeKnownBucks(value: unknown): KnownBuckSummary[] {
     .filter((buck) => buck.id && buck.name);
 }
 
-export async function GET() {
-  return NextResponse.json({ configured: isPhotoVisionConfigured() });
+export async function GET(request: Request) {
+  // A hunter's own key (sent as a header from their browser) makes photo
+  // reading available even when the deployment has no env key of its own.
+  const userKey = sanitizeAiKey(request.headers.get(AI_KEY_HEADER));
+
+  return NextResponse.json({
+    configured: isPhotoVisionConfigured() || Boolean(userKey),
+  });
 }
 
 export async function POST(request: Request) {
@@ -91,9 +98,16 @@ export async function POST(request: Request) {
       : "image/jpeg";
   const unit: PhotoStampUnit = input && input.unit === "C" ? "C" : "F";
   const knownBucks = sanitizeKnownBucks(input?.knownBucks);
+  const userKey = sanitizeAiKey(request.headers.get(AI_KEY_HEADER));
 
   try {
-    const stamp = await readPhotoStamp(imageBase64, mediaType, unit, knownBucks);
+    const stamp = await readPhotoStamp(
+      imageBase64,
+      mediaType,
+      unit,
+      knownBucks,
+      userKey,
+    );
 
     return NextResponse.json({ stamp });
   } catch (error) {

@@ -37,6 +37,7 @@ import {
   useDefaultMapOverlays,
   useShowSampleTerrain,
 } from "@/lib/mapPreferences";
+import { clearAiKey, maskAiKey, setAiKey, useAiKey } from "@/lib/aiKey";
 import { setAiScoutEnabled, useAiScoutEnabled } from "@/lib/aiScoutPreferences";
 import {
   setRutPeak,
@@ -78,9 +79,33 @@ export default function SettingsPage() {
       (property) => property.id === state.selectedPropertyId,
     ) ?? state.properties[0];
 
+  const savedAiKey = useAiKey();
+  const [aiKeyInput, setAiKeyInput] = useState("");
+  const [aiKeyMessage, setAiKeyMessage] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importMessage, setImportMessage] = useState<string | null>(null);
+
+  function handleSaveAiKey() {
+    const key = aiKeyInput.trim();
+
+    if (!key) return;
+
+    setAiKey(key);
+    setAiKeyInput("");
+    setAiKeyMessage(
+      "Key saved in this browser. Your photo reads and AI Scout calls now bill your own Anthropic account.",
+    );
+  }
+
+  function handleRemoveAiKey() {
+    clearAiKey();
+    setAiKeyInput("");
+    setAiKeyMessage(
+      "Key removed. AI features fall back to this deployment's shared key, if one is set.",
+    );
+  }
   const [pendingImport, setPendingImport] = useState<{
     state: DeerIntelState;
     fileName: string;
@@ -526,9 +551,11 @@ export default function SettingsPage() {
             AI Scout reads this property&apos;s saved stands, hunts, camera
             checks, and buck photos to recommend where to hunt. It&apos;s
             opt-in and pay-per-call: it only runs when you tap &ldquo;Ask AI
-            Scout,&rdquo; and only if an <code style={inlineCodeStyle}>ANTHROPIC_API_KEY</code>{" "}
-            is set on the server. When you ask, that property&apos;s data is
-            sent to Anthropic to generate the recommendation.
+            Scout,&rdquo; and only if a key is available — your own key from
+            the &ldquo;Your Own AI Key&rdquo; section below, or an{" "}
+            <code style={inlineCodeStyle}>ANTHROPIC_API_KEY</code> set on the
+            server. When you ask, that property&apos;s data is sent to
+            Anthropic to generate the recommendation.
           </p>
           <p style={mutedTextStyle}>
             Turn it off to keep AI Scout hidden and never send any data to
@@ -562,6 +589,65 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
+        </Card>
+      </Section>
+
+      <Section eyebrow="AI" title="Your Own AI Key">
+        <Card as="div" variant="subtle">
+          <p style={mutedTextStyle}>
+            Deer Intel&apos;s AI features (photo reading, buck matching, AI
+            Scout) run on Anthropic&apos;s API, which is pay-per-use. Paste
+            your own Anthropic API key here and those calls bill{" "}
+            <strong>your</strong> account instead of the app operator&apos;s —
+            typically a cent or two per photo. Get a key at
+            console.anthropic.com.
+          </p>
+          <p style={mutedTextStyle}>
+            The key is saved only in this browser — it is never cloud-synced,
+            never included in backups, and only ever sent with your own AI
+            requests. Remove it any time.
+          </p>
+
+          {savedAiKey ? (
+            <div style={aiKeyStatusRowStyle}>
+              <Badge variant="success">
+                Using your key: {maskAiKey(savedAiKey)}
+              </Badge>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={handleRemoveAiKey}
+              >
+                Remove Key
+              </Button>
+            </div>
+          ) : null}
+
+          <div style={aiKeyInputRowStyle}>
+            <input
+              type="password"
+              placeholder="sk-ant-..."
+              value={aiKeyInput}
+              onChange={(event) => setAiKeyInput(event.target.value)}
+              autoComplete="off"
+              style={aiKeyInputStyle}
+              aria-label="Your Anthropic API key"
+            />
+            <Button
+              type="button"
+              variant="primary"
+              onClick={handleSaveAiKey}
+              disabled={!aiKeyInput.trim()}
+            >
+              {savedAiKey ? "Replace Key" : "Save Key"}
+            </Button>
+          </div>
+
+          {aiKeyMessage ? (
+            <p style={successTextStyle} role="status">
+              {aiKeyMessage}
+            </p>
+          ) : null}
         </Card>
       </Section>
 
@@ -708,6 +794,33 @@ const unitSegmentActiveStyle: CSSProperties = {
   border: "1px solid var(--accent)",
   background: "var(--accent-tint)",
   color: "var(--accent-text)",
+};
+
+const aiKeyStatusRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  flexWrap: "wrap",
+  gap: "0.75rem",
+  marginTop: "1rem",
+};
+
+const aiKeyInputRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.75rem",
+  marginTop: "1rem",
+};
+
+const aiKeyInputStyle: CSSProperties = {
+  flex: "1 1 240px",
+  minHeight: "46px",
+  padding: "0.6rem 0.7rem",
+  borderRadius: "8px",
+  border: "1px solid var(--border)",
+  background: "var(--surface-2)",
+  color: "var(--text)",
+  fontSize: "1rem",
 };
 
 const aiScoutToggleRowStyle: CSSProperties = {

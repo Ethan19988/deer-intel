@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { AI_KEY_HEADER, sanitizeAiKey } from "@/lib/aiKeyHeader";
 import { AiScoutError, generateAiScoutReport, isAiScoutConfigured } from "@/lib/aiScout";
 import type { AiScoutRequestContext } from "@/types/aiScout";
 
@@ -8,8 +9,14 @@ import type { AiScoutRequestContext } from "@/types/aiScout";
 //           whether to show the "Ask AI Scout" button at all.
 //   POST -> the actual LLM call, made only when the hunter clicks the button.
 
-export async function GET() {
-  return NextResponse.json({ configured: isAiScoutConfigured() });
+export async function GET(request: Request) {
+  // A hunter's own key (sent as a header from their browser) makes AI Scout
+  // available even when the deployment has no env key of its own.
+  const userKey = sanitizeAiKey(request.headers.get(AI_KEY_HEADER));
+
+  return NextResponse.json({
+    configured: isAiScoutConfigured() || Boolean(userKey),
+  });
 }
 
 export async function POST(request: Request) {
@@ -30,8 +37,13 @@ export async function POST(request: Request) {
     );
   }
 
+  const userKey = sanitizeAiKey(request.headers.get(AI_KEY_HEADER));
+
   try {
-    const report = await generateAiScoutReport(context as AiScoutRequestContext);
+    const report = await generateAiScoutReport(
+      context as AiScoutRequestContext,
+      userKey,
+    );
 
     return NextResponse.json(report);
   } catch (error) {
