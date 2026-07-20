@@ -28,9 +28,11 @@ import {
   createPhotoRecordFromValues,
   emptyPhotoFormValues,
 } from "@/lib/photoFormValues";
-import { deletePhotoImage } from "@/lib/imageStore";
+import { deletePhotoImage, getPhotoImage } from "@/lib/imageStore";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { buildPhotoWeatherSnapshot } from "@/lib/photoWeather";
+import { requestPhotoStamp } from "@/lib/photoStampClient";
+import { frameDirectionToHeading } from "@/lib/travelDirection";
 import { getPhotoSummary } from "@/lib/photos";
 import { useUnitPreferences } from "@/lib/units";
 import {
@@ -61,6 +63,9 @@ export default function PropertyAssetWorkspacePage() {
     EMPTY_CAMERA_CHECK_FORM_VALUES,
   );
   const [photoValues, setPhotoValues] = useState(emptyPhotoFormValues);
+  // Progress/result text for the "Re-read with AI" pass over stored photos.
+  const [isRereading, setIsRereading] = useState(false);
+  const [rereadStatus, setRereadStatus] = useState("");
   const units = useUnitPreferences();
 
   if (!property) {
@@ -273,6 +278,93 @@ export default function PropertyAssetWorkspacePage() {
     }
   }
 
+  // Re-run the AI over the photos already saved for this camera — no original
+  // files, no deleting — filling in the animal read (species, behavior, travel
+  // direction, buck match) that photos imported before AI was on never got.
+  // Only empty fields are touched, so a hunter's manual edits are never
+  // clobbered; direction needs the camera's facing to become a heading.
+  async function rereadPhotosWithAI() {
+    if (!camera || isRereading) return;
+
+    const storedPhotos = cameraPhotoRecords.filter((photo) => photo.imageId);
+
+    if (storedPhotos.length === 0) {
+      setRereadStatus("No stored photos on this camera to re-read.");
+      return;
+    }
+
+    setIsRereading(true);
+    setRereadStatus(`Reading 1 of ${storedPhotos.length}…`);
+
+    const knownBucks = propertyDeerProfiles.map((profile) => ({
+      id: profile.id,
+      name: profile.nickname,
+      description: [profile.estimatedAge, profile.notes]
+        .filter(Boolean)
+        .join(" — "),
+    }));
+    const facing = camera.facingDirection ?? "";
+    const patches = new Map<string, Partial<(typeof storedPhotos)[number]>>();
+
+    for (let index = 0; index < storedPhotos.length; index += 1) {
+      setRereadStatus(`Reading ${index + 1} of ${storedPhotos.length}…`);
+
+      const photo = storedPhotos[index];
+      const blob = photo.imageId
+        ? await getPhotoImage(photo.imageId).catch(() => null)
+        : null;
+
+      if (!blob) continue;
+
+      const stamp = await requestPhotoStamp(
+        blob,
+        units.temperature,
+        knownBucks,
+      ).catch(() => null);
+
+      if (!stamp) continue;
+
+      const patch: Partial<(typeof storedPhotos)[number]> = {};
+      const heading = frameDirectionToHeading(
+        stamp.travelDirectionInFrame,
+        facing,
+      );
+
+      if (heading && !photo.travelDirection) patch.travelDirection = heading;
+      if (stamp.behavior && !photo.behavior) patch.behavior = stamp.behavior;
+      if (stamp.species && (!photo.species || photo.species === "Other")) {
+        patch.species = stamp.species;
+      }
+      if (stamp.matchedProfileId && !photo.deerProfileId) {
+        patch.deerProfileId = stamp.matchedProfileId;
+        const matched = propertyDeerProfiles.find(
+          (profile) => profile.id === stamp.matchedProfileId,
+        );
+        if (matched && !photo.buckName) patch.buckName = matched.nickname;
+      }
+
+      if (Object.keys(patch).length > 0) patches.set(photo.id, patch);
+    }
+
+    if (patches.size > 0) {
+      updateDeerIntelStore((currentState) => ({
+        ...currentState,
+        photoRecords: currentState.photoRecords.map((photo) =>
+          patches.has(photo.id)
+            ? { ...photo, ...patches.get(photo.id) }
+            : photo,
+        ),
+      }));
+    }
+
+    setIsRereading(false);
+    setRereadStatus(
+      patches.size > 0
+        ? `Updated ${patches.size} of ${storedPhotos.length} photos.`
+        : `Read ${storedPhotos.length} photos — nothing to add (no clear direction, and no new match).`,
+    );
+  }
+
   return (
     <PageShell>
       <div style={topBarStyle}>
@@ -311,6 +403,25 @@ export default function PropertyAssetWorkspacePage() {
           description="Every photo saved for this camera. Tick photos to move or delete them."
           defaultOpen
         >
+          {cameraPhotoRecords.some((photo) => photo.imageId) ? (
+            <div style={rereadBarStyle}>
+              <button
+                type="button"
+                onClick={rereadPhotosWithAI}
+                disabled={isRereading}
+                style={rereadButtonStyle}
+              >
+                {isRereading ? "Reading…" : "Re-read photos with AI"}
+              </button>
+              <span style={rereadHintStyle}>
+                {rereadStatus ||
+                  (camera.facingDirection
+                    ? "Fills in the animal, behavior, travel direction, and buck match on saved photos — only where they're still blank."
+                    : "Point this camera first (Edit camera) so travel direction can be read; the AI will still fill in animal and behavior.")}
+              </span>
+            </div>
+          ) : null}
+
           <PhotoRecordList
             photoRecords={cameraPhotoRecords}
             deerProfiles={propertyDeerProfiles}
@@ -581,6 +692,35 @@ const workspaceGridStyle: CSSProperties = {
   gap: "1rem",
   marginTop: "1.5rem",
   alignItems: "start",
+};
+
+const rereadBarStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.75rem",
+  flexWrap: "wrap",
+  marginBottom: "1rem",
+  paddingBottom: "1rem",
+  borderBottom: "1px solid var(--border)",
+};
+
+const rereadButtonStyle: CSSProperties = {
+  flex: "0 0 auto",
+  minHeight: "44px",
+  padding: "0.6rem 0.9rem",
+  border: "1px solid var(--accent)",
+  borderRadius: "8px",
+  background: "var(--accent)",
+  color: "white",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const rereadHintStyle: CSSProperties = {
+  flex: "1 1 200px",
+  color: "var(--text-muted)",
+  fontSize: "0.85rem",
+  lineHeight: 1.4,
 };
 
 const editLinkStyle: CSSProperties = {

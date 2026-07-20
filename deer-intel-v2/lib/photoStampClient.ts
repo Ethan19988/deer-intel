@@ -41,7 +41,7 @@ function isConfigured(): Promise<boolean> {
  * lookup, and manual species entry.
  */
 export async function requestPhotoStamp(
-  file: File,
+  file: Blob,
   unit: "F" | "C",
   knownBucks: KnownBuckSummary[] = [],
 ): Promise<PhotoStamp | null> {
@@ -82,8 +82,9 @@ export async function requestPhotoStamp(
 type VisionImage = { base64: string; mediaType: string };
 
 // Downscale the whole photo for vision: the full frame is needed to identify
-// the animal, and the info bar stays legible at this size.
-async function prepareVisionImage(file: File): Promise<VisionImage | null> {
+// the animal, and the info bar stays legible at this size. Accepts a Blob so
+// it works on a freshly picked File and on an image blob re-read from storage.
+async function prepareVisionImage(file: Blob): Promise<VisionImage | null> {
   if (!file.type.startsWith("image/")) return null;
 
   const objectUrl = URL.createObjectURL(file);
