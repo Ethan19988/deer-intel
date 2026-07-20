@@ -804,6 +804,19 @@ function MapSearchTargetController({
   return null;
 }
 
+// TEMP DIAGNOSTIC: increments once per real Leaflet-map build (this beacon only
+// re-mounts when the MapContainer itself is torn down and rebuilt).
+let __mapBuildCount = 0;
+function MapBuildBeacon({ onBuild }: { onBuild: (n: number) => void }) {
+  useEffect(() => {
+    __mapBuildCount += 1;
+    onBuild(__mapBuildCount);
+    // Intentionally once-per-mount: this counts MapContainer (re)builds.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
+}
+
 function MapInstanceBridge({
   onReady,
 }: {
@@ -979,7 +992,15 @@ export default function HuntingMap() {
     useState<AddressSearchPlace | null>(null);
   const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
   // Stable so it isn't a fresh dependency each render for the fly-to controller.
-  const clearSearchTarget = useCallback(() => setSearchTarget(null), []);
+  // Clears the one-shot fly-to target once flown; also bumps a diagnostic count.
+  // TEMP DIAGNOSTIC: how many times the Leaflet map has been (re)built, and how
+  // many fly-tos have fired, shown in an on-screen HUD to pin down the iOS reset.
+  const [mapBuilds, setMapBuilds] = useState(0);
+  const [flyCount, setFlyCount] = useState(0);
+  const handleFlyApplied = useCallback(() => {
+    setFlyCount((n) => n + 1);
+    setSearchTarget(null);
+  }, []);
   const [visibleAssetLayers, setVisibleAssetLayers] = useState<
     Record<AssetLayerId, boolean>
   >(createVisibleAssetLayerState);
@@ -2478,6 +2499,24 @@ export default function HuntingMap() {
 
       <div className="di-map-stage" style={mapStageStyle}>
         <div className="di-map-frame" style={mapFrameStyle}>
+          {/* TEMP DIAGNOSTIC HUD — remove after the iOS zoom-reset is pinned. */}
+          <div
+            style={{
+              position: "absolute",
+              top: 8,
+              left: 8,
+              zIndex: 2000,
+              background: "rgba(0,0,0,0.78)",
+              color: "#fff",
+              font: "600 13px/1.35 system-ui, sans-serif",
+              padding: "6px 9px",
+              borderRadius: 8,
+              pointerEvents: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            map builds: {mapBuilds} · fly-tos: {flyCount} · zoom: {mapZoom}
+          </div>
           <MapSearchBar
             canCreateAsset={selectedSearchResult !== null}
             isSearching={isSearching}
@@ -2771,8 +2810,9 @@ export default function HuntingMap() {
 
             <MapSearchTargetController
               target={searchTarget}
-              onApplied={clearSearchTarget}
+              onApplied={handleFlyApplied}
             />
+            <MapBuildBeacon onBuild={setMapBuilds} />
             <MapStateTracker onMapStateChange={saveMapState} />
             <MapControlButtons
               showCompass={mapTools.compass}
