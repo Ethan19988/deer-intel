@@ -92,14 +92,16 @@ export default function PhotoUploadField({
         await deletePhotoImage(imageId);
       }
 
-      // EXIF already gives the capture time, and the weather lookup fills in
-      // temp/wind/moon from it — only spend an AI read of the printed bar on
-      // files with no metadata (screenshots, app exports).
-      let stamp: PhotoStamp | null = null;
-      if (!exifDate) {
-        setStatusText("Reading photo info…");
-        stamp = await requestPhotoStamp(file, units.temperature, knownBucks);
-      }
+      // The AI read identifies the animal and its travel direction (what the
+      // per-buck learning trains on), so it runs on every photo. EXIF still
+      // owns the capture time below; the AI's date read is only the fallback
+      // for metadata-stripped files.
+      setStatusText("Reading photo info…");
+      const stamp: PhotoStamp | null = await requestPhotoStamp(
+        file,
+        units.temperature,
+        knownBucks,
+      );
 
       onImageSelected({
         imageId: newImageId,
@@ -192,9 +194,9 @@ export default function PhotoUploadField({
             {isProcessing ? statusText || "Processing photo…" : "Upload a photo"}
           </span>
           <span style={dropHintStyle}>
-            Tap to choose from your library or take a photo. The capture date is
-            read from the photo automatically, and the weather, wind, and moon
-            are filled in for you.
+            Tap to choose from your library or take a photo. The date is read
+            from the photo automatically; the weather, wind, and moon fill in,
+            and the animal is identified for you to confirm.
           </span>
         </button>
       )}

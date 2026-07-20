@@ -209,13 +209,15 @@ export default function CameraImportPage() {
           readPhotoDateTimeInput(file),
           storeImportImage(file),
         ]);
-        // EXIF already gives the capture time, and the weather lookup fills in
-        // temp/wind/moon from it — only spend an AI read on files with no
-        // metadata (screenshots, app exports), where the printed bar is the
-        // sole source of the date.
-        const stamp = exifDate
-          ? null
-          : await requestPhotoStamp(file, units.temperature, knownBucks);
+        // The AI read identifies the animal and which way it moved through the
+        // frame — the inputs the per-buck travel learning trains on — so it runs
+        // on every photo. EXIF still owns the date (below); the AI's own date
+        // read is only a fallback for metadata-stripped files.
+        const stamp = await requestPhotoStamp(
+          file,
+          units.temperature,
+          knownBucks,
+        );
         const matchedProfile = stamp?.matchedProfileId
           ? deerProfiles.find((profile) => profile.id === stamp.matchedProfileId)
           : undefined;
@@ -409,7 +411,7 @@ export default function CameraImportPage() {
         <PageHeader
           eyebrow="Camera Import"
           title="Import Photos"
-          description="Pick your camera photos and Deer Intel fills in the rest — date, weather, wind, and moon. Check the cards, fix anything, then press Save Photos."
+          description="Pick your camera photos and Deer Intel fills in the rest — date, weather, wind, moon, and the animal it sees. Check the cards, fix anything, then press Save Photos."
           meta={<Badge>{drafts.length} ready to save</Badge>}
         />
       </Card>
@@ -535,8 +537,8 @@ export default function CameraImportPage() {
             <span style={uploadTitleStyle}>Choose camera photos</span>
             <span style={mutedTextStyle}>
               Pick one or more photos. Deer Intel reads each one and fills in
-              the date, weather, wind, and moon for you — just check the cards
-              below and press Save Photos.
+              the date, weather, wind, moon, and the animal it sees for you —
+              just check the cards below and press Save Photos.
             </span>
             <input
               type="file"
@@ -898,9 +900,20 @@ function createImportDraft({
 }
 
 function extractPhotoMetadata(file: File, exifDate: string, stampDate: string) {
-  // The date/time PRINTED on the photo is what the camera recorded locally and
-  // what the hunter sees, so it outranks EXIF — camera apps often write EXIF
-  // in UTC, which shifts the clock (8:08 PM EDT becomes 12:08 AM).
+  // A trail cam writes the same local capture time into EXIF and onto the
+  // printed stamp, so EXIF — read losslessly, no OCR guesswork — is the date
+  // when present. The AI-read stamp is the fallback for metadata-stripped
+  // files (screenshots, some app exports), where EXIF is gone.
+  if (exifDate) {
+    const parsed = new Date(exifDate);
+
+    return {
+      photoDate: exifDate,
+      extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
+      metadataSource: "Date read from photo (EXIF)",
+    };
+  }
+
   if (stampDate) {
     const parsed = new Date(
       stampDate.length <= 10 ? `${stampDate}T12:00` : stampDate,
@@ -910,16 +923,6 @@ function extractPhotoMetadata(file: File, exifDate: string, stampDate: string) {
       photoDate: stampDate.length <= 10 ? `${stampDate}T12:00` : stampDate,
       extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
       metadataSource: "Date read from photo stamp",
-    };
-  }
-
-  if (exifDate) {
-    const parsed = new Date(exifDate);
-
-    return {
-      photoDate: exifDate,
-      extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
-      metadataSource: "Date read from photo (EXIF)",
     };
   }
 
