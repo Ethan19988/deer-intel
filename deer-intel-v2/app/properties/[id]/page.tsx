@@ -57,6 +57,7 @@ import { getPropertyIntelligenceCards } from "@/lib/propertyIntelligence";
 import { getPropertyInsights } from "@/lib/propertyInsights";
 import { getHuntPlannerIntelligence } from "@/lib/huntPlannerIntelligence";
 import { getPropertyWeatherSummary } from "@/lib/weather";
+import { PIN_LAYER_LOOKUP } from "@/lib/propertyMap";
 import {
   createDeerIntelId,
   updateDeerIntelStore,
@@ -109,6 +110,12 @@ export default function PropertyWorkspacePage() {
     (stand) => stand.propertyId === params.id,
   );
   const propertyPins = state.pins.filter((pin) => pin.propertyId === params.id);
+  // Food pins on this property feed the high-res read's bed-to-feed routes (and
+  // therefore the road crossings on them). Both "Food" and "Food Source" pins
+  // resolve to the food layer, so match on that rather than a single label.
+  const propertyFood = propertyPins
+    .filter((pin) => PIN_LAYER_LOOKUP[pin.type] === "food")
+    .map((pin) => ({ lat: pin.lat, lng: pin.lng }));
   const weatherPoint = resolvePropertyWeatherPoint(
     property,
     state.cameras.filter((camera) => camera.propertyId === params.id),
@@ -617,7 +624,12 @@ export default function PropertyWorkspacePage() {
         />
         <div style={{ marginTop: 12 }}>
           <GenerateHighResButton
-            property={{ id: property.id, name: property.name, huntArea: property.huntArea }}
+            property={{
+              id: property.id,
+              name: property.name,
+              huntArea: property.huntArea,
+              food: propertyFood,
+            }}
           />
         </div>
       </DashboardSection>

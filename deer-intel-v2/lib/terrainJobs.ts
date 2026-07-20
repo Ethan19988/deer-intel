@@ -43,8 +43,22 @@ function bboxOf(ring: HuntAreaPoint[]): [number, number, number, number] {
 
 /** Stable short hash of the drawn outline, so re-requesting the same shape is a
  *  no-op and editing it forces a fresh read. */
-async function outlineHash(ring: HuntAreaPoint[]): Promise<string> {
-  const text = ring.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join(";");
+// The dedup key for a read. It has to cover everything that changes the OUTPUT,
+// not just the outline — food drives the bed-to-feed routes (and the road
+// crossings on them), so a hash of the ring alone made "generate, then drop a
+// food pin, regenerate" a no-op: same ring, same hash, "already have it". Food
+// points are sorted so merely reordering pins doesn't force a needless re-run,
+// while adding, moving or removing one does. (The DB column stays outline_hash.)
+async function readHash(
+  ring: HuntAreaPoint[],
+  food?: HuntAreaPoint[],
+): Promise<string> {
+  const ringText = ring.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join(";");
+  const foodText = (food ?? [])
+    .map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`)
+    .sort()
+    .join(";");
+  const text = `${ringText}|${foodText}`;
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -72,9 +86,9 @@ export async function requestHighResRead(input: HighResRequest): Promise<Request
   const user = auth.user;
   if (!user) return { state: "off", message: "Sign in to generate a high-res read." };
 
-  const hash = await outlineHash(input.huntArea);
+  const hash = await readHash(input.huntArea, input.food);
 
-  // Already have a set for this exact outline? Nothing to do.
+  // Already have a set for this exact outline + food? Nothing to do.
   const { data: existing } = await supabase
     .from("terrain_sets")
     .select("outline_hash")
