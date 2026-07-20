@@ -1,3 +1,4 @@
+import { FRAME_DIRECTION_VALUES } from "@/lib/travelDirection";
 import type { KnownBuckSummary, PhotoStamp } from "@/types/photoStamp";
 
 // Server-only module: reads process.env.ANTHROPIC_API_KEY directly, so this must
@@ -98,6 +99,12 @@ function buildTool(unit: PhotoStampUnit, knownBucks: KnownBuckSummary[]) {
           description:
             "What the main animal is doing in the frame. Empty string if no animal is visible or the behavior is unclear.",
         },
+        travelDirectionInFrame: {
+          type: "string",
+          enum: [...FRAME_DIRECTION_VALUES, ""],
+          description:
+            "Which way the main animal is moving through the frame, judged from body orientation, head direction, and gait. Empty string when no animal is visible, it is bedded, or it stands square with no clear direction of movement.",
+        },
         animalNotes: {
           type: "string",
           description:
@@ -151,6 +158,8 @@ const SYSTEM_PROMPT = `You analyze trail camera photos for a hunting app. Your j
 2. Identify the main animal in the frame, if any. A whitetail deer with visible antlers is a "Buck"; an adult deer without visible antlers is a "Doe"; a young deer (small body, possibly spotted) is a "Fawn". Report "Other" for any animal outside the list (or a person/vehicle), and an empty species if nothing is clearly visible.
 
 3. Read the animal's BEHAVIOR — this is the intel a hunter patterns deer with. Classify it (Traveling / Feeding / Chasing / At scrape or rub / Bedded / Alert) from body language: head down grazing = Feeding; steady purposeful walk, head level = Traveling; neck extended low behind another deer, running posture = Chasing (rut); working an overhanging branch or pawing dirt = At scrape or rub; lying down = Bedded; head up, ears forward, staring = Alert.
+
+Also report travelDirectionInFrame — which way the animal is moving through the frame (Left to right / Right to left / Toward camera / Away from camera), judged from its body orientation, which way its head points, and its gait. The app combines this with the camera's compass facing to learn each buck's travel routes, so only report a direction when the animal is genuinely in motion or clearly oriented mid-walk; report none for a bedded, feeding-in-place, or square-standing animal.
 
 Write animalNotes as one or two short sentences that LEAD with the behavior and say what it means for hunting. Use the time printed on the info bar for movement context: deer photographed traveling in early morning are usually returning to bedding; in late afternoon or evening, heading out to feed; midday movement during the rut means cruising for does. Examples: "Chasing — mature buck pushing a doe hard, rut is on." / "Traveling — 8-point on a steady walk at 6:40 AM, likely returning to bedding." / "Feeding — two does relaxed in the plot at last light." Count animals and antler points when countable. Never invent details you cannot see.
 
@@ -292,6 +301,7 @@ function normalizeStamp(
     humidity?: unknown;
     species?: unknown;
     behavior?: unknown;
+    travelDirectionInFrame?: unknown;
     animalNotes?: unknown;
     matchedBuckId?: unknown;
     matchConfidence?: unknown;
@@ -311,6 +321,10 @@ function normalizeStamp(
   const humidity = hasOverlay ? cleanNumber(asString(input.humidity)) : "";
   const species = cleanListedValue(asString(input.species), SPECIES_VALUES);
   const behavior = cleanListedValue(asString(input.behavior), BEHAVIOR_VALUES);
+  const travelDirectionInFrame = cleanListedValue(
+    asString(input.travelDirectionInFrame),
+    FRAME_DIRECTION_VALUES,
+  );
   const animalNotes = asString(input.animalNotes).trim().slice(0, 300);
 
   // A profile match only stands when the animal is a buck, the id is one we
@@ -342,6 +356,7 @@ function normalizeStamp(
     humidity,
     species,
     behavior,
+    travelDirectionInFrame,
     animalNotes,
     matchedProfileId,
     matchConfidence,

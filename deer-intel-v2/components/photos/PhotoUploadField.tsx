@@ -9,7 +9,7 @@ import { deletePhotoImage, putPhotoImage } from "@/lib/imageStore";
 import { readPhotoDateTimeInput } from "@/lib/photoExif";
 import { requestPhotoStamp } from "@/lib/photoStampClient";
 import { useUnitPreferences } from "@/lib/units";
-import type { KnownBuckSummary } from "@/types/photoStamp";
+import type { KnownBuckSummary, PhotoStamp } from "@/types/photoStamp";
 
 export type SelectedPhotoImage = {
   imageId: string;
@@ -17,8 +17,8 @@ export type SelectedPhotoImage = {
   imageHeight: number;
   fileName: string;
   lastModified: number;
-  // Capture time from the printed stamp (preferred — EXIF is often written in
-  // UTC and shifts the clock), then EXIF, or "" if neither.
+  // Capture time from EXIF when the file has it, otherwise from the printed
+  // stamp (read by AI only for metadata-stripped files), or "" if neither.
   capturedAt: string;
   // Values read off the photo's printed info bar, or "" if none.
   stampedTemperature: string;
@@ -28,6 +28,10 @@ export type SelectedPhotoImage = {
   stampedHumidity: string;
   // Animal the AI identified in the frame, or "" if none / not configured.
   detectedSpecies: string;
+  detectedBehavior: string;
+  // Frame-relative movement ("Left to right", ...), or "" if none. The form
+  // converts it to a compass heading using the camera's facing direction.
+  detectedFrameDirection: string;
   detectedNotes: string;
   // Saved deer profile the AI matched the buck to, or "" if no match.
   matchedProfileId: string;
@@ -88,10 +92,14 @@ export default function PhotoUploadField({
         await deletePhotoImage(imageId);
       }
 
-      // Read the date/temp/moon printed on the photo (opt-in, when configured).
-      // Returns null and falls back to EXIF + weather lookup otherwise.
-      setStatusText("Reading photo info…");
-      const stamp = await requestPhotoStamp(file, units.temperature, knownBucks);
+      // EXIF already gives the capture time, and the weather lookup fills in
+      // temp/wind/moon from it — only spend an AI read of the printed bar on
+      // files with no metadata (screenshots, app exports).
+      let stamp: PhotoStamp | null = null;
+      if (!exifDate) {
+        setStatusText("Reading photo info…");
+        stamp = await requestPhotoStamp(file, units.temperature, knownBucks);
+      }
 
       onImageSelected({
         imageId: newImageId,
@@ -99,13 +107,15 @@ export default function PhotoUploadField({
         imageHeight: processed.height,
         fileName: file.name,
         lastModified: file.lastModified,
-        capturedAt: stamp?.dateTime || exifDate || "",
+        capturedAt: exifDate || stamp?.dateTime || "",
         stampedTemperature: stamp?.temperature ?? "",
         stampedMoonPhase: stamp?.moonPhase ?? "",
         stampedWindDirection: stamp?.windDirection ?? "",
         stampedWindSpeed: stamp?.windSpeed ?? "",
         stampedHumidity: stamp?.humidity ?? "",
         detectedSpecies: stamp?.species ?? "",
+        detectedBehavior: stamp?.behavior ?? "",
+        detectedFrameDirection: stamp?.travelDirectionInFrame ?? "",
         detectedNotes: stamp?.animalNotes ?? "",
         matchedProfileId: stamp?.matchedProfileId ?? "",
         matchConfidence: stamp?.matchConfidence ?? "",
@@ -182,9 +192,9 @@ export default function PhotoUploadField({
             {isProcessing ? statusText || "Processing photo…" : "Upload a photo"}
           </span>
           <span style={dropHintStyle}>
-            Tap to choose from your library or take a photo. The date, temp, and
-            moon printed on the photo are read in automatically, and the animal
-            is identified for you to confirm.
+            Tap to choose from your library or take a photo. The capture date is
+            read from the photo automatically, and the weather, wind, and moon
+            are filled in for you.
           </span>
         </button>
       )}

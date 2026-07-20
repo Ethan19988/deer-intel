@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import { formatCameraCheckDate } from "@/lib/cameraChecks";
 import type { PhotoFormValues } from "@/lib/photoFormValues";
+import { COMPASS_16, frameDirectionToHeading } from "@/lib/travelDirection";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { DeerProfile } from "@/types/deerProfile";
 
@@ -19,10 +20,24 @@ const SPECIES_OPTIONS = [
   "Other",
 ];
 
+// Must match the BEHAVIOR_VALUES the photo vision reports.
+const BEHAVIOR_OPTIONS = [
+  "Traveling",
+  "Feeding",
+  "Chasing",
+  "At scrape or rub",
+  "Bedded",
+  "Alert",
+  "Other",
+];
+
 type PhotoRecordFormProps = {
   values: PhotoFormValues;
   cameraChecks: CameraCheck[];
   deerProfiles?: DeerProfile[];
+  // Compass point the camera site faces; lets the AI's frame-relative travel
+  // read auto-fill as a real compass heading.
+  cameraFacingDirection?: string;
   onChange: (values: PhotoFormValues) => void;
   onSubmit: () => void;
 };
@@ -31,6 +46,7 @@ export default function PhotoRecordForm({
   values,
   cameraChecks,
   deerProfiles = [],
+  cameraFacingDirection = "",
   onChange,
   onSubmit,
 }: PhotoRecordFormProps) {
@@ -82,6 +98,13 @@ export default function PhotoRecordForm({
       // Pre-select what the AI saw; anything the hunter already picked or
       // typed stays untouched, and everything stays editable before submitting.
       species: values.species || image.detectedSpecies,
+      behavior: values.behavior || image.detectedBehavior,
+      travelDirection:
+        values.travelDirection ||
+        frameDirectionToHeading(
+          image.detectedFrameDirection,
+          cameraFacingDirection,
+        ),
       notes: values.notes.trim() ? values.notes : image.detectedNotes,
       deerProfileId: values.deerProfileId || image.matchedProfileId,
       buckName:
@@ -180,6 +203,40 @@ export default function PhotoRecordForm({
               {SPECIES_OPTIONS.map((species) => (
                 <option key={species} value={species}>
                   {species}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Behavior</span>
+            <select
+              value={values.behavior}
+              onChange={(event) => updateField("behavior", event.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Not observed</option>
+              {BEHAVIOR_OPTIONS.map((behavior) => (
+                <option key={behavior} value={behavior}>
+                  {behavior}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Headed (compass)</span>
+            <select
+              value={values.travelDirection}
+              onChange={(event) =>
+                updateField("travelDirection", event.target.value)
+              }
+              style={inputStyle}
+            >
+              <option value="">Direction unknown</option>
+              {COMPASS_16.map((point) => (
+                <option key={point} value={point}>
+                  {point}
                 </option>
               ))}
             </select>

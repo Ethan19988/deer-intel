@@ -333,6 +333,7 @@ export default function PropertyAssetWorkspacePage() {
             values={photoValues}
             cameraChecks={cameraChecks}
             deerProfiles={propertyDeerProfiles}
+            cameraFacingDirection={camera.facingDirection}
             onChange={setPhotoValues}
             onSubmit={addPhotoRecord}
           />

@@ -15,6 +15,10 @@ export type PhotoStamp = {
   species: string;
   // What the animal is doing (e.g. "Chasing", "Feeding", "Traveling"), else "".
   behavior: string;
+  // Which way the animal is moving through the frame ("Left to right",
+  // "Toward camera", ...), else "". Combined with the camera site's facing
+  // direction, this becomes a real compass heading.
+  travelDirectionInFrame: string;
   // Behavior-led hunting read of what was seen (e.g. "Chasing — mature buck
   // pushing a doe, rut movement"), else "".
   animalNotes: string;

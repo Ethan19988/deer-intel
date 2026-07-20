@@ -9,6 +9,7 @@ export const EMPTY_CAMERA_FORM_VALUES: CameraFormValues = {
   status: "Active",
   latitude: "",
   longitude: "",
+  facingDirection: "",
   locationNotes: "",
   notes: "",
 };
@@ -38,6 +39,7 @@ export function createCameraFromValues({
     status: values.status,
     latitude: parseOptionalNumber(values.latitude),
     longitude: parseOptionalNumber(values.longitude),
+    facingDirection: values.facingDirection.trim() || undefined,
     locationNotes: values.locationNotes.trim(),
     notes: values.notes.trim(),
   };
@@ -52,6 +54,7 @@ export function cameraToFormValues(camera: Camera): CameraFormValues {
     status: camera.status,
     latitude: camera.latitude === undefined ? "" : String(camera.latitude),
     longitude: camera.longitude === undefined ? "" : String(camera.longitude),
+    facingDirection: camera.facingDirection ?? "",
     locationNotes: camera.locationNotes,
     notes: camera.notes,
   };

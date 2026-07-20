@@ -26,6 +26,7 @@ import { describeMoonPhase } from "@/lib/moonPhase";
 import { buildPhotoWeatherSnapshot } from "@/lib/photoWeather";
 import { readPhotoDateTimeInput } from "@/lib/photoExif";
 import { requestPhotoStamp } from "@/lib/photoStampClient";
+import { COMPASS_16, frameDirectionToHeading } from "@/lib/travelDirection";
 import { useUnitPreferences } from "@/lib/units";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { PhotoRecord } from "@/types/photo";
@@ -44,6 +45,17 @@ const SPECIES_OPTIONS = [
   "Other",
 ];
 
+// Must match the BEHAVIOR_VALUES the photo vision reports.
+const BEHAVIOR_OPTIONS = [
+  "Traveling",
+  "Feeding",
+  "Chasing",
+  "At scrape or rub",
+  "Bedded",
+  "Alert",
+  "Other",
+];
+
 type ImportDraft = {
   id: string;
   fileName: string;
@@ -53,6 +65,11 @@ type ImportDraft = {
   species: string;
   deerProfileId: string;
   buckName: string;
+  // What the animal was doing and the compass point it was headed — pre-filled
+  // from the AI (direction converted through the camera's facing direction),
+  // editable on the card before saving.
+  behavior: string;
+  travelDirection: string;
   notes: string;
   selected: boolean;
   // Values read off the photo's printed info bar, "" when nothing was read.
@@ -66,6 +83,8 @@ type ImportDraft = {
   // the hunter adjusts the dropdown.
   aiSpecies: string;
   aiBehavior: string;
+  // Frame-relative movement the AI saw ("Left to right", ...), "" when none.
+  aiFrameDirection: string;
   // "Big 8 (likely)" when the AI matched a saved deer profile, else "".
   aiMatchLabel: string;
   // The stored (resized) image blob's id and dimensions; "" / 0 when storing
@@ -182,19 +201,25 @@ export default function CameraImportPage() {
         .join(" — "),
     }));
 
-    // Store each image (resized, in IndexedDB) and read its EXIF capture time
-    // plus the info bar the camera printed on it (vision, when configured).
+    // Store each image (resized, in IndexedDB) and read its EXIF capture time.
     // This must all happen now — the File objects are not kept once staged.
     const nextDrafts = await Promise.all(
       files.map(async (file) => {
-        const [exifDate, stamp, storedImage] = await Promise.all([
+        const [exifDate, storedImage] = await Promise.all([
           readPhotoDateTimeInput(file),
-          requestPhotoStamp(file, units.temperature, knownBucks),
           storeImportImage(file),
         ]);
+        // EXIF already gives the capture time, and the weather lookup fills in
+        // temp/wind/moon from it — only spend an AI read on files with no
+        // metadata (screenshots, app exports), where the printed bar is the
+        // sole source of the date.
+        const stamp = exifDate
+          ? null
+          : await requestPhotoStamp(file, units.temperature, knownBucks);
         const matchedProfile = stamp?.matchedProfileId
           ? deerProfiles.find((profile) => profile.id === stamp.matchedProfileId)
           : undefined;
+        const frameDirection = stamp?.travelDirectionInFrame ?? "";
 
         return createImportDraft({
           file,
@@ -203,6 +228,15 @@ export default function CameraImportPage() {
           species: stamp?.species || "Other",
           deerProfileId: matchedProfile?.id ?? "",
           buckName: matchedProfile?.nickname ?? "",
+          behavior: stamp?.behavior ?? "",
+          // The AI's frame-relative read only becomes a compass heading when
+          // this camera site's facing direction is known; either way it stays
+          // editable on the card.
+          travelDirection: frameDirectionToHeading(
+            frameDirection,
+            activeCamera?.facingDirection ?? "",
+          ),
+          aiFrameDirection: frameDirection,
           exifDate,
           stampDate: stamp?.dateTime ?? "",
           stampedTemperature: stamp?.temperature ?? "",
@@ -325,6 +359,8 @@ export default function CameraImportPage() {
           species: draft.species.trim(),
           deerProfileId: draft.deerProfileId.trim() || undefined,
           buckName: draft.buckName.trim() || undefined,
+          travelDirection: draft.travelDirection.trim() || undefined,
+          behavior: draft.behavior.trim() || undefined,
           notes: buildImportNotes(draft),
           createdAt: new Date().toISOString(),
           imageId: draft.imageId || undefined,
@@ -373,7 +409,7 @@ export default function CameraImportPage() {
         <PageHeader
           eyebrow="Camera Import"
           title="Import Photos"
-          description="Pick your camera photos and Deer Intel fills in the rest — date, weather, and what animal it sees. Check the cards, fix anything, then press Save Photos."
+          description="Pick your camera photos and Deer Intel fills in the rest — date, weather, wind, and moon. Check the cards, fix anything, then press Save Photos."
           meta={<Badge>{drafts.length} ready to save</Badge>}
         />
       </Card>
@@ -481,6 +517,14 @@ export default function CameraImportPage() {
                 can review or edit it later from the camera site.
               </p>
             ) : null}
+
+            {activeCamera && !activeCamera.facingDirection ? (
+              <p style={assignmentTextStyle}>
+                {activeCamera.name} has no facing direction set, so the
+                AI&apos;s travel reads stay frame-relative instead of becoming
+                compass headings. Set it by editing the camera site.
+              </p>
+            ) : null}
           </Card>
         )}
       </Section>
@@ -491,7 +535,7 @@ export default function CameraImportPage() {
             <span style={uploadTitleStyle}>Choose camera photos</span>
             <span style={mutedTextStyle}>
               Pick one or more photos. Deer Intel reads each one and fills in
-              the date, weather, and animal for you — just check the cards
+              the date, weather, wind, and moon for you — just check the cards
               below and press Save Photos.
             </span>
             <input
@@ -545,6 +589,12 @@ export default function CameraImportPage() {
                       <Badge variant="success">
                         AI saw: {draft.aiSpecies}
                         {draft.aiBehavior ? ` — ${draft.aiBehavior}` : ""}
+                        {draft.aiFrameDirection
+                          ? `, ${draft.aiFrameDirection.toLowerCase()}`
+                          : ""}
+                        {draft.travelDirection
+                          ? ` (headed ${draft.travelDirection})`
+                          : ""}
                       </Badge>
                     ) : null}
                     {draft.aiMatchLabel ? (
@@ -606,6 +656,46 @@ export default function CameraImportPage() {
                       {SPECIES_OPTIONS.map((species) => (
                         <option key={species} value={species}>
                           {species}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label style={fieldStyle}>
+                    <span style={labelStyle}>Behavior</span>
+                    <select
+                      value={draft.behavior}
+                      onChange={(event) =>
+                        updateDraft(draft.id, "behavior", event.target.value)
+                      }
+                      style={inputStyle}
+                    >
+                      <option value="">Not observed</option>
+                      {BEHAVIOR_OPTIONS.map((behavior) => (
+                        <option key={behavior} value={behavior}>
+                          {behavior}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label style={fieldStyle}>
+                    <span style={labelStyle}>Headed (compass)</span>
+                    <select
+                      value={draft.travelDirection}
+                      onChange={(event) =>
+                        updateDraft(
+                          draft.id,
+                          "travelDirection",
+                          event.target.value,
+                        )
+                      }
+                      style={inputStyle}
+                    >
+                      <option value="">Direction unknown</option>
+                      {COMPASS_16.map((point) => (
+                        <option key={point} value={point}>
+                          {point}
                         </option>
                       ))}
                     </select>
@@ -735,6 +825,9 @@ function createImportDraft({
   species,
   deerProfileId,
   buckName,
+  behavior,
+  travelDirection,
+  aiFrameDirection,
   exifDate,
   stampDate,
   stampedTemperature,
@@ -754,6 +847,9 @@ function createImportDraft({
   species: string;
   deerProfileId: string;
   buckName: string;
+  behavior: string;
+  travelDirection: string;
+  aiFrameDirection: string;
   exifDate: string;
   stampDate: string;
   stampedTemperature: string;
@@ -780,6 +876,8 @@ function createImportDraft({
     species,
     deerProfileId,
     buckName,
+    behavior,
+    travelDirection,
     // Seed the notes with what the AI saw so it lands on the record; the
     // hunter can edit or clear it on the draft card.
     notes: animalNotes || "Imported through Camera Import Inbox.",
@@ -791,6 +889,7 @@ function createImportDraft({
     stampedHumidity,
     aiSpecies,
     aiBehavior,
+    aiFrameDirection,
     aiMatchLabel,
     imageId,
     imageWidth,

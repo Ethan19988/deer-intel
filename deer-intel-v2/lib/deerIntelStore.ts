@@ -243,6 +243,7 @@ function normalizeCamera(value: unknown): Camera | null {
     status,
     latitude: optionalNumberValue(value.latitude ?? value.lat),
     longitude: optionalNumberValue(value.longitude ?? value.lng),
+    facingDirection: optionalStringValue(value.facingDirection),
     locationNotes: stringValue(value.locationNotes),
     notes: stringValue(value.notes, "No notes yet."),
   };
@@ -439,6 +440,8 @@ function normalizePhotoRecord(value: unknown): PhotoRecord | null {
     species,
     deerProfileId: optionalStringValue(value.deerProfileId),
     buckName: optionalStringValue(value.buckName),
+    travelDirection: optionalStringValue(value.travelDirection),
+    behavior: optionalStringValue(value.behavior),
     notes: stringValue(value.notes),
     createdAt: stringValue(value.createdAt, photoDate),
     imageId,

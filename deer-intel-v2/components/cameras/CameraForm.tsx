@@ -1,6 +1,7 @@
 import type { CSSProperties, FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
+import { COMPASS_16 } from "@/lib/travelDirection";
 import type { CameraStatus, CameraType } from "@/types/camera";
 
 export type CameraFormValues = {
@@ -11,6 +12,7 @@ export type CameraFormValues = {
   status: CameraStatus;
   latitude: string;
   longitude: string;
+  facingDirection: string;
   locationNotes: string;
   notes: string;
 };
@@ -146,7 +148,31 @@ export default function CameraForm({
               style={inputStyle}
             />
           </label>
+
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Facing Direction</span>
+            <select
+              value={values.facingDirection}
+              onChange={(event) =>
+                updateField("facingDirection", event.target.value)
+              }
+              style={inputStyle}
+            >
+              <option value="">Not set</option>
+              {COMPASS_16.map((point) => (
+                <option key={point} value={point}>
+                  {point}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
+
+        <p style={facingHintStyle}>
+          The compass direction the lens looks toward. With it set, Deer Intel
+          turns the AI&apos;s &quot;walking left to right&quot; photo reads into
+          real travel headings for each buck.
+        </p>
 
         <label style={{ ...fieldStyle, marginTop: "1rem" }}>
           <span style={labelStyle}>Location Notes</span>
@@ -207,6 +233,13 @@ const labelStyle: CSSProperties = {
   color: "var(--text-muted)",
   fontSize: "0.85rem",
   fontWeight: 700,
+};
+
+const facingHintStyle: CSSProperties = {
+  margin: "0.75rem 0 0",
+  color: "var(--text-muted)",
+  fontSize: "0.85rem",
+  lineHeight: 1.5,
 };
 
 const inputStyle: CSSProperties = {

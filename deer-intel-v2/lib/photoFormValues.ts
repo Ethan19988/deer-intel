@@ -8,6 +8,8 @@ export type PhotoFormValues = {
   photoDate: string;
   species: string;
   buckName: string;
+  travelDirection: string;
+  behavior: string;
   notes: string;
   imageId: string;
   imageWidth: number;
@@ -28,6 +30,8 @@ export const EMPTY_PHOTO_FORM_VALUES: PhotoFormValues = {
   photoDate: "",
   species: "",
   buckName: "",
+  travelDirection: "",
+  behavior: "",
   notes: "",
   imageId: "",
   imageWidth: 0,
@@ -101,6 +105,8 @@ export function createPhotoRecordFromValues({
     species,
     deerProfileId: values.deerProfileId.trim() || undefined,
     buckName: values.buckName.trim() || undefined,
+    travelDirection: values.travelDirection.trim() || undefined,
+    behavior: values.behavior.trim() || undefined,
     notes: values.notes.trim(),
     createdAt: new Date().toISOString(),
     imageId: imageId || undefined,

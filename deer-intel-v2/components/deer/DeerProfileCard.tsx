@@ -5,15 +5,18 @@ import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import EmptyState from "@/components/ui/EmptyState";
 import type { DeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
 import type { DeerProfileSummary } from "@/lib/deerProfiles";
+import type { DeerTravelIntelligence } from "@/lib/deerTravelIntelligence";
 
 type DeerProfileCardProps = {
   summary: DeerProfileSummary;
   intelligence: DeerProfileIntelligence;
+  travel: DeerTravelIntelligence;
 };
 
 export default function DeerProfileCard({
   summary,
   intelligence,
+  travel,
 }: DeerProfileCardProps) {
   return (
     <Card as="article" variant="subtle" style={cardStyle}>
@@ -48,7 +51,64 @@ export default function DeerProfileCard({
           <DeerProfileIntelligencePanel intelligence={intelligence} />
         </CollapsibleSection>
       </div>
+
+      <div style={intelligenceWrapStyle}>
+        <CollapsibleSection
+          title="Travel"
+          description="How this deer moves, learned from your photos"
+          defaultOpen={travel.hasData}
+          variant="bare"
+        >
+          <DeerTravelPanel travel={travel} />
+        </CollapsibleSection>
+      </div>
     </Card>
+  );
+}
+
+function DeerTravelPanel({ travel }: { travel: DeerTravelIntelligence }) {
+  return (
+    <div style={intelligenceStackStyle}>
+      {!travel.hasData ? (
+        <EmptyState
+          title="No travel data yet"
+          description="Set each camera site's facing direction, then import photos of this buck — the AI reads which way he's moving and the winds he moves on."
+        />
+      ) : null}
+
+      <div style={detailsGridStyle}>
+        <ProfileDetail
+          label="Direction of Travel"
+          value={`${travel.heading.title}. ${travel.heading.detail}`}
+        />
+        <ProfileDetail
+          label="Winds He Moves On"
+          value={`${travel.wind.title}. ${travel.wind.detail}`}
+        />
+        <ProfileDetail
+          label="When He Moves"
+          value={`${travel.timeOfDay.title}. ${travel.timeOfDay.detail}`}
+        />
+        <ProfileDetail
+          label="Route"
+          value={`${travel.route.title}. ${travel.route.detail}`}
+        />
+      </div>
+
+      {travel.legs.length > 0 ? (
+        <div style={notesMentionWrapStyle}>
+          <p style={detailLabelStyle}>Camera-to-Camera Moves</p>
+          <div style={notesMentionListStyle}>
+            {travel.legs.slice(0, 6).map((leg) => (
+              <div key={leg.key} style={noteMentionStyle}>
+                <p style={mentionSourceStyle}>{leg.label}</p>
+                <p style={detailValueStyle}>{leg.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

@@ -195,6 +195,10 @@ export default function PhotoRecordList({
                   </Badge>
                 ) : null}
                 <Badge>{photo.species}</Badge>
+                {photo.behavior ? <Badge>{photo.behavior}</Badge> : null}
+                {photo.travelDirection ? (
+                  <Badge variant="success">Headed {photo.travelDirection}</Badge>
+                ) : null}
               </div>
             </div>
 

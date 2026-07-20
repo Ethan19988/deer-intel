@@ -8,6 +8,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import type { DeerProfileFormValues } from "@/lib/deerProfileFormValues";
 import { getDeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
 import type { DeerProfileSummary } from "@/lib/deerProfiles";
+import { getDeerTravelIntelligence } from "@/lib/deerTravelIntelligence";
 import type { Camera } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { HuntLogEntry } from "@/types/hunt";
@@ -73,12 +74,18 @@ export default function DeerProfilesSection({
               hunts,
               pins,
             });
+            const travel = getDeerTravelIntelligence({
+              profile: summary.profile,
+              cameras,
+              photoRecords,
+            });
 
             return (
               <DeerProfileCard
                 key={summary.profile.id}
                 summary={summary}
                 intelligence={intelligence}
+                travel={travel}
               />
             );
           })}
