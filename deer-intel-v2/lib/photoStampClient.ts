@@ -1,6 +1,5 @@
 "use client";
 
-import { aiKeyHeader, readAiKey } from "@/lib/aiKey";
 import type {
   KnownBuckSummary,
   PhotoStamp,
@@ -18,20 +17,11 @@ const MAX_EDGE_PIXELS = 1568;
 const REQUEST_TIMEOUT_MS = 30_000;
 
 let configuredPromise: Promise<boolean> | null = null;
-// The hunter's own key changes the answer, so the cache is keyed to it —
-// saving or removing a key in Settings makes the next check re-ask the server.
-let configuredForKey: string | null = null;
 
-/** Whether photo reading is available (cached until the saved key changes). */
+/** Whether this deployment has photo reading enabled (cached per session). */
 function isConfigured(): Promise<boolean> {
-  const currentKey = readAiKey();
-
-  if (!configuredPromise || configuredForKey !== currentKey) {
-    configuredForKey = currentKey;
-    configuredPromise = fetch("/api/photo-stamp", {
-      method: "GET",
-      headers: aiKeyHeader(),
-    })
+  if (!configuredPromise) {
+    configuredPromise = fetch("/api/photo-stamp", { method: "GET" })
       .then((response) =>
         response.ok
           ? (response.json() as Promise<PhotoStampStatusResponse>)
@@ -67,7 +57,7 @@ export async function requestPhotoStamp(
   try {
     const response = await fetch("/api/photo-stamp", {
       method: "POST",
-      headers: { "content-type": "application/json", ...aiKeyHeader() },
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         imageBase64: cropped.base64,
         mediaType: cropped.mediaType,

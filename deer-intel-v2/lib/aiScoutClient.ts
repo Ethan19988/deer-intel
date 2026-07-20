@@ -1,6 +1,5 @@
 "use client";
 
-import { aiKeyHeader } from "@/lib/aiKey";
 import type {
   AiScoutErrorResponse,
   AiScoutReport,
@@ -11,10 +10,7 @@ import type {
 /** Cheap check the AI Scout page uses to decide whether to show the ask button. */
 export async function checkAiScoutConfigured(): Promise<boolean> {
   try {
-    const response = await fetch("/api/ai-scout", {
-      method: "GET",
-      headers: aiKeyHeader(),
-    });
+    const response = await fetch("/api/ai-scout", { method: "GET" });
 
     if (!response.ok) return false;
 
@@ -31,7 +27,7 @@ export async function requestAiScoutReport(
 ): Promise<AiScoutReport> {
   const response = await fetch("/api/ai-scout", {
     method: "POST",
-    headers: { "content-type": "application/json", ...aiKeyHeader() },
+    headers: { "content-type": "application/json" },
     body: JSON.stringify(context),
   });
 

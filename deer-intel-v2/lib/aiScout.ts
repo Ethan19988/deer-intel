@@ -106,15 +106,12 @@ export class AiScoutError extends Error {
 
 export async function generateAiScoutReport(
   context: AiScoutRequestContext,
-  // A hunter's own key from the request header outranks the deployment's env
-  // key, so their AI Scout calls bill their Anthropic account, not the operator's.
-  userApiKey = "",
 ): Promise<AiScoutReport> {
-  const apiKey = userApiKey || process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
     throw new AiScoutError(
-      "AI Scout is not configured yet. Add your own Anthropic API key in Settings, or set ANTHROPIC_API_KEY on the deployment.",
+      "AI Scout is not configured yet. Add ANTHROPIC_API_KEY to this project's environment variables to enable it.",
       503,
     );
   }
@@ -166,9 +163,7 @@ export async function generateAiScoutReport(
 
     if (status === 401) {
       throw new AiScoutError(
-        userApiKey
-          ? "Your API key was rejected by Anthropic. Double-check the key saved in Settings."
-          : "The configured ANTHROPIC_API_KEY was rejected. Double-check the key in your environment variables.",
+        "The configured ANTHROPIC_API_KEY was rejected. Double-check the key in your environment variables.",
         401,
       );
     }
