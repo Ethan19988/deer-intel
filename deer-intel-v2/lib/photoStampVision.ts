@@ -12,8 +12,11 @@ import type { KnownBuckSummary, PhotoStamp } from "@/types/photoStamp";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 
-// Default model when ANTHROPIC_MODEL is not set. Must be a vision-capable model.
-const DEFAULT_MODEL = "claude-sonnet-4-5-20250929";
+// Default model when ANTHROPIC_MODEL is not set. Must be a vision-capable
+// model. Haiku reads the printed bar and identifies the animal at roughly a
+// third of Sonnet's price — set ANTHROPIC_MODEL to a bigger model if buck
+// matching ever needs more horsepower.
+const DEFAULT_MODEL = "claude-haiku-4-5";
 
 const STAMP_TOOL_NAME = "submit_photo_stamp";
 

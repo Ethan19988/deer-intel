@@ -8,10 +8,10 @@ import type { AiScoutReport, AiScoutRequestContext } from "@/types/aiScout";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 
-// Default model used when ANTHROPIC_MODEL is not set. Anthropic periodically
-// ships newer models — check https://docs.claude.com/en/docs/about-claude/models
-// if you want to point this at something newer than what shipped with this code.
-const DEFAULT_MODEL = "claude-sonnet-4-5-20250929";
+// Default model used when ANTHROPIC_MODEL is not set. Haiku keeps the shared
+// deployment's per-call cost low; set ANTHROPIC_MODEL to a bigger model if
+// recommendations ever need more horsepower.
+const DEFAULT_MODEL = "claude-haiku-4-5";
 
 const REPORT_TOOL_NAME = "submit_scout_report";
 
@@ -118,10 +118,10 @@ export async function generateAiScoutReport(
 
   const model = process.env.ANTHROPIC_MODEL || DEFAULT_MODEL;
 
+  // Compact JSON — pretty-printing the property context inflated every call's
+  // input tokens by a quarter or more for zero gain the model cares about.
   const userMessage = `Here is the saved Deer Intel data for this property, as JSON:\n\n${JSON.stringify(
     context,
-    null,
-    2,
   )}\n\nUsing only this data, recommend which stand to hunt and why, then call ${REPORT_TOOL_NAME} with your answer.`;
 
   let response: Response;
