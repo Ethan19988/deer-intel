@@ -46,4 +46,6 @@ export type MapPin = {
   /** Display name shown as the pin's title; falls back to notes, then type. */
   name: string;
   notes: string;
+  /** Compass point a camera pin's lens looks toward (e.g. "NW"); "" unset. */
+  facingDirection?: string;
 };

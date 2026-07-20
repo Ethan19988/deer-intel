@@ -972,12 +972,18 @@ export default function HuntingMap() {
   const [isPlacingPin, setIsPlacingPin] = useState(false);
   // Pin being relocated via "Move Pin" — the next map tap becomes its new spot.
   // Point-the-camera mode: tap the map where the lens looks and the bearing
-  // from the camera to that spot becomes its facing direction.
-  const [aimingCamera, setAimingCamera] = useState<{
+  // from the camera to that spot becomes its facing direction. Taps only move
+  // a preview beam — nothing is written until Save — and it works for camera
+  // records and camera pins alike (kind tells saveAim which list to update).
+  const [aimingTarget, setAimingTarget] = useState<{
+    kind: "camera" | "pin";
     id: string;
+    assetId: string;
     lat: number;
     lng: number;
     label: string;
+    color: string;
+    preview: string | null;
   } | null>(null);
   const [movingPin, setMovingPin] = useState<{
     id: string;
@@ -1105,15 +1111,19 @@ export default function HuntingMap() {
       ),
     [mapAssets, visibleAssetLayers],
   );
-  // View cones for cameras whose facing direction is set, drawn under the pins.
+  // View cones for cameras whose facing direction is set, drawn under the
+  // pins. Camera records and camera pins both carry one.
   const cameraFacingCones = useMemo(
     () =>
       visibleAssets.flatMap((asset) => {
-        if (asset.source !== "camera") return [];
+        if (asset.layerId !== "cameras") return [];
 
         const facing =
-          propertyCameras.find((camera) => camera.id === asset.sourceId)
-            ?.facingDirection ?? "";
+          (asset.source === "camera"
+            ? propertyCameras.find((camera) => camera.id === asset.sourceId)
+                ?.facingDirection
+            : pins.find((pin) => pin.id === asset.sourceId)
+                ?.facingDirection) ?? "";
         const degrees = compassToDegrees(facing);
 
         return degrees === null
@@ -1128,7 +1138,7 @@ export default function HuntingMap() {
               },
             ];
       }),
-    [visibleAssets, propertyCameras],
+    [visibleAssets, propertyCameras, pins],
   );
   const propertyStands = useMemo(
     () =>
@@ -2068,43 +2078,67 @@ export default function HuntingMap() {
     setSelectedAssetId(`pin-${pinId}`);
   }
 
-  function startCameraAim() {
-    if (!selectedAsset || selectedAsset.source !== "camera") return;
+  function startAim() {
+    if (!selectedAsset || selectedAsset.layerId !== "cameras") return;
 
     setIsPlacingPin(false);
-    setAimingCamera({
+    setAimingTarget({
+      kind: selectedAsset.source,
       id: selectedAsset.sourceId,
+      assetId: selectedAsset.id,
       lat: selectedAsset.lat,
       lng: selectedAsset.lng,
       label: selectedAsset.label,
+      color: selectedAsset.color,
+      preview: null,
     });
     // Close the card so the map underneath is tappable for the aim point.
     setSelectedAssetId(null);
   }
 
-  function cancelCameraAim() {
-    setAimingCamera(null);
+  function cancelAim() {
+    setAimingTarget(null);
   }
 
-  function aimCameraToward(lat: number, lng: number) {
-    if (!aimingCamera) return;
-
-    const cameraId = aimingCamera.id;
-    const facing = degreesToCompass(
-      bearingBetween(aimingCamera.lat, aimingCamera.lng, lat, lng),
+  // Each tap re-points the preview beam; Save is what commits it.
+  function aimToward(lat: number, lng: number) {
+    setAimingTarget((current) =>
+      current
+        ? {
+            ...current,
+            preview: degreesToCompass(
+              bearingBetween(current.lat, current.lng, lat, lng),
+            ),
+          }
+        : current,
     );
+  }
 
-    updateDeerIntelStore((currentState) => ({
-      ...currentState,
-      cameras: currentState.cameras.map((camera) =>
-        camera.id === cameraId
-          ? { ...camera, facingDirection: facing }
-          : camera,
-      ),
-    }));
-    setAimingCamera(null);
+  function saveAim() {
+    if (!aimingTarget?.preview) return;
+
+    const { kind, id, assetId, preview } = aimingTarget;
+
+    updateDeerIntelStore((currentState) =>
+      kind === "camera"
+        ? {
+            ...currentState,
+            cameras: currentState.cameras.map((camera) =>
+              camera.id === id
+                ? { ...camera, facingDirection: preview }
+                : camera,
+            ),
+          }
+        : {
+            ...currentState,
+            pins: currentState.pins.map((pin) =>
+              pin.id === id ? { ...pin, facingDirection: preview } : pin,
+            ),
+          },
+    );
+    setAimingTarget(null);
     // Reopen the card so the new facing direction is right there to check.
-    setSelectedAssetId(`camera-${cameraId}`);
+    setSelectedAssetId(assetId);
   }
 
   function deletePin(pinId: string) {
@@ -2355,7 +2389,7 @@ export default function HuntingMap() {
   // panel yields while a mode is live and returns the moment it ends.
   const scoutPanelYields =
     isNarrowViewport &&
-    (Boolean(aimingCamera) ||
+    (Boolean(aimingTarget) ||
       Boolean(movingPin) ||
       isPlacingPin ||
       isDrawingArea);
@@ -2845,7 +2879,7 @@ export default function HuntingMap() {
                 period={movementPeriod}
                 outlookScore={movementOutlook?.score ?? null}
                 tapEnabled={
-                  !isPlacingPin && !isDrawingArea && !movingPin && !aimingCamera
+                  !isPlacingPin && !isDrawingArea && !movingPin && !aimingTarget
                 }
               />
             ) : null}
@@ -2870,7 +2904,7 @@ export default function HuntingMap() {
             <ParcelTilesLayer
               enabled
               pickEnabled={
-                !isPlacingPin && !isDrawingArea && !movingPin && !aimingCamera
+                !isPlacingPin && !isDrawingArea && !movingPin && !aimingTarget
               }
               onOwnerPick={handleTileOwnerPick}
             />
@@ -2914,8 +2948,8 @@ export default function HuntingMap() {
               onMovePin={movePinToLocation}
             />
             <ClickToAimCamera
-              enabled={Boolean(aimingCamera)}
-              onAim={aimCameraToward}
+              enabled={Boolean(aimingTarget)}
+              onAim={aimToward}
             />
             <ClickToDrawArea
               enabled={isDrawingArea}
@@ -2967,15 +3001,28 @@ export default function HuntingMap() {
                 ))
               : null}
 
-            {cameraFacingCones.map((cone) => (
+            {cameraFacingCones
+              .filter((cone) => cone.id !== aimingTarget?.assetId)
+              .map((cone) => (
+                <CameraFacingCone
+                  key={`${cone.id}-cone`}
+                  lat={cone.lat}
+                  lng={cone.lng}
+                  degrees={cone.degrees}
+                  color={cone.color}
+                />
+              ))}
+
+            {/* The unsaved preview beam while aiming; replaces the target's
+                saved cone so only one direction shows at a time. */}
+            {aimingTarget?.preview ? (
               <CameraFacingCone
-                key={`${cone.id}-cone`}
-                lat={cone.lat}
-                lng={cone.lng}
-                degrees={cone.degrees}
-                color={cone.color}
+                lat={aimingTarget.lat}
+                lng={aimingTarget.lng}
+                degrees={compassToDegrees(aimingTarget.preview) ?? 0}
+                color={aimingTarget.color}
               />
-            ))}
+            ) : null}
 
             {visibleAssets.map((asset) => (
               <PropertyMapAssetMarker
@@ -3087,16 +3134,27 @@ export default function HuntingMap() {
             </div>
           ) : null}
 
-          {aimingCamera && !isDrawingArea ? (
+          {aimingTarget && !isDrawingArea ? (
             <div className="di-area-pill" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
-                Tap the map where {aimingCamera.label} points
+                {aimingTarget.preview
+                  ? `Facing ${aimingTarget.preview} — tap again to adjust`
+                  : `Tap the map where ${aimingTarget.label} points`}
               </span>
               <div style={drawActionButtonRowStyle}>
+                {aimingTarget.preview ? (
+                  <button
+                    type="button"
+                    style={drawPrimaryButtonStyle}
+                    onClick={saveAim}
+                  >
+                    Save
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   style={drawSecondaryButtonStyle}
-                  onClick={cancelCameraAim}
+                  onClick={cancelAim}
                 >
                   Cancel
                 </button>
@@ -3202,10 +3260,12 @@ export default function HuntingMap() {
               pin={selectedPin}
               propertyName={selectedProperty.name}
               cameraFacing={
-                selectedAsset.source === "camera"
-                  ? (propertyCameras.find(
-                      (camera) => camera.id === selectedAsset.sourceId,
-                    )?.facingDirection ?? "")
+                selectedAsset.layerId === "cameras"
+                  ? ((selectedAsset.source === "camera"
+                      ? propertyCameras.find(
+                          (camera) => camera.id === selectedAsset.sourceId,
+                        )?.facingDirection
+                      : selectedPin?.facingDirection) ?? "")
                   : undefined
               }
               onCenter={centerOnAsset}
@@ -3218,7 +3278,7 @@ export default function HuntingMap() {
               }
               onStartMove={selectedPin ? startPinMove : undefined}
               onStartAim={
-                selectedAsset.source === "camera" ? startCameraAim : undefined
+                selectedAsset.layerId === "cameras" ? startAim : undefined
               }
             />
           ) : null}

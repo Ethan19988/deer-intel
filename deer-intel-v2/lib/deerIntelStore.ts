@@ -211,6 +211,7 @@ function normalizePin(value: unknown): MapPin | null {
     createdAt: stringValue(value.createdAt),
     name: stringValue(value.name),
     notes: stringValue(value.notes),
+    facingDirection: stringValue(value.facingDirection),
   };
 }
 
