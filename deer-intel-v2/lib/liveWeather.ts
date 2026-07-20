@@ -111,11 +111,25 @@ type OpenMeteoResponse = {
 
 const liveWeatherCache = new Map<string, LiveWeatherResult>();
 
+/** True only for a real-world coordinate — finite and inside lat/lng bounds. */
+function isUsableCoordinate(lat: number, lng: number): boolean {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
+
 /**
  * Derive a single representative coordinate for a property from the assets a
  * hunter has already placed on the map. Cameras carry their own lat/long and
  * map pins carry lat/lng, so the average of everything saved is a good stand-in
- * for "where this property is" until properties store their own center.
+ * for "where this property is" until properties store their own center. A
+ * mistyped coordinate (e.g. a longitude missing its decimal point) is skipped
+ * rather than poisoning the average for the whole property.
  */
 export function getPropertyWeatherPoint(
   cameras: Camera[],
@@ -127,15 +141,14 @@ export function getPropertyWeatherPoint(
     if (
       typeof camera.latitude === "number" &&
       typeof camera.longitude === "number" &&
-      Number.isFinite(camera.latitude) &&
-      Number.isFinite(camera.longitude)
+      isUsableCoordinate(camera.latitude, camera.longitude)
     ) {
       coordinates.push({ lat: camera.latitude, lng: camera.longitude });
     }
   }
 
   for (const pin of pins) {
-    if (Number.isFinite(pin.lat) && Number.isFinite(pin.lng)) {
+    if (isUsableCoordinate(pin.lat, pin.lng)) {
       coordinates.push({ lat: pin.lat, lng: pin.lng });
     }
   }
@@ -177,14 +190,7 @@ export async function fetchLiveWeather(
   point: WeatherPoint,
   units: UnitPreferences = DEFAULT_UNITS,
 ): Promise<LiveWeatherResult> {
-  if (
-    !Number.isFinite(point.lat) ||
-    !Number.isFinite(point.lng) ||
-    point.lat < -90 ||
-    point.lat > 90 ||
-    point.lng < -180 ||
-    point.lng > 180
-  ) {
+  if (!isUsableCoordinate(point.lat, point.lng)) {
     return {
       status: "error",
       message: "That location isn't a valid coordinate for weather.",
@@ -257,14 +263,7 @@ export async function fetchLiveForecast(
   point: WeatherPoint,
   units: UnitPreferences = DEFAULT_UNITS,
 ): Promise<LiveForecastResult> {
-  if (
-    !Number.isFinite(point.lat) ||
-    !Number.isFinite(point.lng) ||
-    point.lat < -90 ||
-    point.lat > 90 ||
-    point.lng < -180 ||
-    point.lng > 180
-  ) {
+  if (!isUsableCoordinate(point.lat, point.lng)) {
     return {
       status: "error",
       message: "That location isn't a valid coordinate for weather.",
@@ -388,14 +387,7 @@ export async function fetchWeatherHistory(
   units: UnitPreferences = DEFAULT_UNITS,
   days = 7,
 ): Promise<WeatherHistoryResult> {
-  if (
-    !Number.isFinite(point.lat) ||
-    !Number.isFinite(point.lng) ||
-    point.lat < -90 ||
-    point.lat > 90 ||
-    point.lng < -180 ||
-    point.lng > 180
-  ) {
+  if (!isUsableCoordinate(point.lat, point.lng)) {
     return {
       status: "error",
       message: "That location isn't a valid coordinate for weather.",

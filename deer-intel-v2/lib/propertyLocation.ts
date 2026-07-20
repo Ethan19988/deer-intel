@@ -17,7 +17,11 @@ export function hasPropertyCoordinate(
     typeof property.latitude === "number" &&
     typeof property.longitude === "number" &&
     Number.isFinite(property.latitude) &&
-    Number.isFinite(property.longitude)
+    Number.isFinite(property.longitude) &&
+    property.latitude >= -90 &&
+    property.latitude <= 90 &&
+    property.longitude >= -180 &&
+    property.longitude <= 180
   );
 }
 

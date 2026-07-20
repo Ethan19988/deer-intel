@@ -131,6 +131,8 @@ export default function CameraForm({
             <input
               type="number"
               step="any"
+              min={-90}
+              max={90}
               placeholder="41.1234"
               value={values.latitude}
               onChange={(event) => updateField("latitude", event.target.value)}
@@ -143,6 +145,8 @@ export default function CameraForm({
             <input
               type="number"
               step="any"
+              min={-180}
+              max={180}
               placeholder="-78.1234"
               value={values.longitude}
               onChange={(event) => updateField("longitude", event.target.value)}
