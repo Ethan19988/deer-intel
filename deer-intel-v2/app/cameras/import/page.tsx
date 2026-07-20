@@ -18,6 +18,10 @@ import {
   EMPTY_CAMERA_CHECK_FORM_VALUES,
   createCameraCheckFromValues,
 } from "@/lib/cameraCheckFormValues";
+import {
+  EMPTY_DEER_PROFILE_FORM_VALUES,
+  createDeerProfileFromValues,
+} from "@/lib/deerProfileFormValues";
 import PhotoImage from "@/components/photos/PhotoImage";
 import { processImageFile } from "@/lib/imageProcessing";
 import { deletePhotoImage, putPhotoImage } from "@/lib/imageStore";
@@ -34,6 +38,10 @@ import type { PhotoRecord } from "@/types/photo";
 // Sentinel for the Camera Check dropdown: create a fresh check on import
 // instead of attaching photos to an existing one.
 const NEW_CHECK_OPTION = "new-check";
+
+// Default note seeded when the AI reported no animal notes; used to tell a real
+// AI description (worth seeding a buck profile with) from the placeholder.
+const IMPORTED_NOTE = "Imported through Camera Import Inbox.";
 
 const SPECIES_OPTIONS = [
   "Buck",
@@ -273,6 +281,54 @@ export default function CameraImportPage() {
     setDrafts((currentDrafts) =>
       currentDrafts.map((draft) =>
         draft.id === draftId ? { ...draft, [field]: value } : draft,
+      ),
+    );
+  }
+
+  // Create a deer profile straight from a reviewed photo, seeded with the AI's
+  // read of the animal, and link this photo to it. Later imports pass the new
+  // profile to the AI so this buck's future photos can be matched to him — the
+  // reference a hunter needs to tell "same buck" apart.
+  function createBuckFromDraft(draft: ImportDraft) {
+    if (!propertyId) return;
+
+    const defaultName =
+      draft.buckName.trim() || `Buck ${deerProfiles.length + 1}`;
+    const nickname = window.prompt("Name this buck", defaultName)?.trim();
+
+    if (!nickname) return;
+
+    // The AI's description (in notes) is the seed to match his later photos on;
+    // never seed with the generic import placeholder.
+    const seededNotes =
+      draft.notes && draft.notes !== IMPORTED_NOTE ? draft.notes : "";
+    const seenDate = draft.photoDate ? draft.photoDate.slice(0, 10) : "";
+    const id = createDeerIntelId("deer");
+    const profile = createDeerProfileFromValues({
+      id,
+      propertyId,
+      values: {
+        ...EMPTY_DEER_PROFILE_FORM_VALUES,
+        nickname,
+        firstSeen: seenDate,
+        lastSeen: seenDate,
+        notes: seededNotes,
+      },
+    });
+
+    if (!profile) return;
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      deerProfiles: [...currentState.deerProfiles, profile],
+    }));
+
+    // Link this photo to the new buck and mirror his name onto the card.
+    setDrafts((currentDrafts) =>
+      currentDrafts.map((item) =>
+        item.id === draft.id
+          ? { ...item, deerProfileId: id, buckName: nickname }
+          : item,
       ),
     );
   }
@@ -521,11 +577,20 @@ export default function CameraImportPage() {
             ) : null}
 
             {activeCamera && !activeCamera.facingDirection ? (
-              <p style={assignmentTextStyle}>
-                {activeCamera.name} has no facing direction set, so the
-                AI&apos;s travel reads stay frame-relative instead of becoming
-                compass headings. Set it by editing the camera site.
-              </p>
+              <div style={facingWarningStyle}>
+                <span style={facingWarningTitleStyle}>
+                  ⚠ {activeCamera.name} isn&apos;t pointed yet
+                </span>
+                <span>
+                  Without a facing direction, the AI can see which way a deer
+                  moves in the frame but can&apos;t turn it into a compass
+                  heading — so travel direction stays blank on these photos.
+                  Point it first, then import.
+                </span>
+                <Link href="/map" style={facingWarningLinkStyle}>
+                  Point {activeCamera.name} on the map →
+                </Link>
+              </div>
             ) : null}
           </Card>
         )}
@@ -703,9 +768,10 @@ export default function CameraImportPage() {
                     </select>
                   </label>
 
-                  <label style={fieldStyle}>
+                  <div style={fieldStyle}>
                     <span style={labelStyle}>Deer Profile</span>
                     <select
+                      aria-label="Deer profile"
                       value={draft.deerProfileId}
                       onChange={(event) =>
                         updateDraft(draft.id, "deerProfileId", event.target.value)
@@ -719,7 +785,17 @@ export default function CameraImportPage() {
                         </option>
                       ))}
                     </select>
-                  </label>
+                    {(draft.species === "Buck" || draft.aiSpecies === "Buck") &&
+                    !draft.deerProfileId ? (
+                      <button
+                        type="button"
+                        onClick={() => createBuckFromDraft(draft)}
+                        style={newBuckButtonStyle}
+                      >
+                        + New buck from this photo
+                      </button>
+                    ) : null}
+                  </div>
 
                   <label style={fieldStyle}>
                     <span style={labelStyle}>Buck Name</span>
@@ -882,7 +958,7 @@ function createImportDraft({
     travelDirection,
     // Seed the notes with what the AI saw so it lands on the record; the
     // hunter can edit or clear it on the draft card.
-    notes: animalNotes || "Imported through Camera Import Inbox.",
+    notes: animalNotes || IMPORTED_NOTE,
     selected: true,
     stampedTemperature,
     stampedMoonPhase,
@@ -1094,6 +1170,43 @@ const assignmentTextStyle: CSSProperties = {
   margin: "1rem 0 0",
   color: "var(--text-muted)",
   lineHeight: 1.55,
+};
+
+const facingWarningStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.5rem",
+  margin: "1rem 0 0",
+  padding: "0.85rem 1rem",
+  border: "1px solid var(--accent-2)",
+  borderLeft: "4px solid var(--accent-2)",
+  borderRadius: "8px",
+  background: "var(--surface-2)",
+  color: "var(--text)",
+  lineHeight: 1.5,
+};
+
+const facingWarningTitleStyle: CSSProperties = {
+  fontWeight: 800,
+};
+
+const facingWarningLinkStyle: CSSProperties = {
+  justifySelf: "start",
+  color: "var(--accent)",
+  fontWeight: 800,
+  textDecoration: "underline",
+};
+
+const newBuckButtonStyle: CSSProperties = {
+  justifySelf: "start",
+  minHeight: "40px",
+  padding: "0.45rem 0.7rem",
+  border: "1px solid var(--accent)",
+  borderRadius: "8px",
+  background: "transparent",
+  color: "var(--accent)",
+  fontSize: "0.85rem",
+  fontWeight: 800,
+  cursor: "pointer",
 };
 
 const uploadBoxStyle: CSSProperties = {
