@@ -1,8 +1,19 @@
 "use client";
 
+import {
+  deleteCloudImage,
+  downloadCloudImage,
+  uploadCloudImage,
+} from "@/lib/cloudImages";
+
 // Uploaded photos can be several megabytes each, which would quickly blow past
 // the localStorage quota used for the rest of the app state. Image blobs live in
 // IndexedDB instead, keyed by a stable id, while PhotoRecord only keeps the id.
+//
+// IndexedDB is per-device and can be evicted by the browser, so every put is
+// also backed up to per-user Supabase Storage (lib/cloudImages) when signed in,
+// and a local miss falls back to the cloud copy. Both are best-effort: with
+// cloud sync off, this behaves exactly like plain local IndexedDB.
 
 const DB_NAME = "deer-intel-images";
 const DB_VERSION = 1;
@@ -67,19 +78,37 @@ function runTransaction<Result>(
 
 export function putPhotoImage(id: string, blob: Blob): Promise<boolean> {
   return runTransaction("readwrite", (store) => store.put(blob, id)).then(
-    () => true,
+    () => {
+      // Back up to the cloud without blocking the local save.
+      void uploadCloudImage(id, blob);
+      return true;
+    },
     () => false,
   );
 }
 
-export function getPhotoImage(id: string): Promise<Blob | null> {
-  return runTransaction<Blob>("readonly", (store) => store.get(id)).then(
-    (value) => (value instanceof Blob ? value : null),
-  );
+export async function getPhotoImage(id: string): Promise<Blob | null> {
+  const local = await runTransaction<Blob>("readonly", (store) =>
+    store.get(id),
+  ).then((value) => (value instanceof Blob ? value : null));
+
+  if (local) return local;
+
+  // Local miss — evicted here, or saved on another device. Pull the cloud
+  // backup and re-cache it so thumbnails and the AI re-read work on this device
+  // too. Returns null (unchanged behavior) when there is no cloud copy.
+  const cloud = await downloadCloudImage(id);
+
+  if (cloud) {
+    void runTransaction("readwrite", (store) => store.put(cloud, id));
+    return cloud;
+  }
+
+  return null;
 }
 
 export function deletePhotoImage(id: string): Promise<void> {
-  return runTransaction("readwrite", (store) => store.delete(id)).then(
-    () => undefined,
-  );
+  return runTransaction("readwrite", (store) => store.delete(id)).then(() => {
+    void deleteCloudImage(id);
+  });
 }
