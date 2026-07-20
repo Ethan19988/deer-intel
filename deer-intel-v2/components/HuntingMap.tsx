@@ -780,8 +780,10 @@ function MapStateTracker({
 
 function MapSearchTargetController({
   target,
+  onApplied,
 }: {
   target: SearchTarget | null;
+  onApplied: () => void;
 }) {
   const map = useMap();
 
@@ -789,7 +791,15 @@ function MapSearchTargetController({
     if (!target) return;
 
     map.flyTo(target.center, target.zoom, { duration: 0.85 });
-  }, [map, target]);
+
+    // A fly-to is a one-shot "go here" command, not a view to hold. Clear it now
+    // that it's been flown so it can never be replayed: on iOS Safari a pinch
+    // fires viewport events that re-run this controller, and a still-set target
+    // would fly the map straight back to where it opened — the map "resets to
+    // the start view" every time you try to zoom in. Clearing state (rather than
+    // a local ref) also survives the controller remounting under the map.
+    onApplied();
+  }, [map, target, onApplied]);
 
   return null;
 }
@@ -968,6 +978,8 @@ export default function HuntingMap() {
   const [selectedSearchResult, setSelectedSearchResult] =
     useState<AddressSearchPlace | null>(null);
   const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
+  // Stable so it isn't a fresh dependency each render for the fly-to controller.
+  const clearSearchTarget = useCallback(() => setSearchTarget(null), []);
   const [visibleAssetLayers, setVisibleAssetLayers] = useState<
     Record<AssetLayerId, boolean>
   >(createVisibleAssetLayerState);
@@ -2757,7 +2769,10 @@ export default function HuntingMap() {
               onOwnerPick={handleTileOwnerPick}
             />
 
-            <MapSearchTargetController target={searchTarget} />
+            <MapSearchTargetController
+              target={searchTarget}
+              onApplied={clearSearchTarget}
+            />
             <MapStateTracker onMapStateChange={saveMapState} />
             <MapControlButtons
               showCompass={mapTools.compass}
