@@ -36,8 +36,13 @@ from datetime import datetime, timezone
 
 import requests
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+# .strip() both: a service-role key pasted into a CI secret almost always
+# arrives with a trailing newline or a stray leading space, and requests refuses
+# to build an auth header from a value with surrounding whitespace ("Invalid
+# leading whitespace ... in header value"). Stripping here means the operator
+# never has to paste it byte-perfect.
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 WORKER_ID = os.environ.get("WORKER_ID") or socket.gethostname()
 POLL_SECONDS = float(os.environ.get("POLL_SECONDS", "20"))
 RUN_ONCE = os.environ.get("RUN_ONCE", "").strip() in ("1", "true", "yes")
