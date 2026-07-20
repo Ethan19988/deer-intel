@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { divIcon } from "leaflet";
 import { Circle, Marker, useMapEvents } from "react-leaflet";
 
@@ -31,12 +31,36 @@ export default function UserLocationMarker({
   onUserPan: () => void;
 }) {
   const [location, setLocation] = useState<LiveLocation | null>(null);
+  // While a zoom gesture is running, hold off on recentering. On iOS Safari a
+  // pinch doesn't commit its new zoom until it ends, so a GPS fix that lands
+  // mid-pinch would call setView with the *old* zoom and cancel the pinch — the
+  // map "resets" the instant you try to zoom in while following your location.
+  // We recenter again on zoomend so following stays tight once the zoom lands.
+  const isZoomingRef = useRef(false);
+  // Newest fix, read by the zoomend handler without re-subscribing the events.
+  const latestLocationRef = useRef<LiveLocation | null>(null);
+  useEffect(() => {
+    latestLocationRef.current = location;
+  }, [location]);
   // A hand-pan (mouse or touch drag) releases follow so the user can look
   // around freely; our own setView recenters don't fire dragstart, so they're
   // never mistaken for user input.
   const map = useMapEvents({
     dragstart() {
       if (enabled && follow) onUserPan();
+    },
+    zoomstart() {
+      isZoomingRef.current = true;
+    },
+    zoomend() {
+      isZoomingRef.current = false;
+      // Snap back onto the hunter now the zoom has committed, using the newest
+      // fix — the one we skipped mid-pinch would otherwise leave the dot off
+      // center until the next fix arrives.
+      const latest = latestLocationRef.current;
+      if (enabled && follow && latest) {
+        map.setView([latest.lat, latest.lng], map.getZoom());
+      }
     },
   });
 
@@ -70,6 +94,9 @@ export default function UserLocationMarker({
   // current zoom so only the pan tracks the hunter.
   useEffect(() => {
     if (!enabled || !follow || !location) return;
+    // Mid-zoom, hold position — recentering now would fight the gesture (and on
+    // iOS reset the zoom). zoomend recenters onto the latest fix once it lands.
+    if (isZoomingRef.current) return;
 
     map.setView([location.lat, location.lng], map.getZoom());
   }, [enabled, follow, location, map]);
