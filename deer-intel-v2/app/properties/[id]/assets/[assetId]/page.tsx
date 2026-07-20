@@ -28,6 +28,10 @@ import {
   createPhotoRecordFromValues,
   emptyPhotoFormValues,
 } from "@/lib/photoFormValues";
+import {
+  EMPTY_DEER_PROFILE_FORM_VALUES,
+  createDeerProfileFromValues,
+} from "@/lib/deerProfileFormValues";
 import { deletePhotoImage, getPhotoImage } from "@/lib/imageStore";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { buildPhotoWeatherSnapshot } from "@/lib/photoWeather";
@@ -47,6 +51,7 @@ import {
   type StandIntelligenceSummary,
 } from "@/lib/standIntelligence";
 import type { HuntLogEntry } from "@/types/hunt";
+import type { PhotoRecord } from "@/types/photo";
 import type { Stand } from "@/types/stand";
 
 export default function PropertyAssetWorkspacePage() {
@@ -278,6 +283,68 @@ export default function PropertyAssetWorkspacePage() {
     }
   }
 
+  // Record a buck straight from a saved photo, seeded with the AI's read (its
+  // notes/species), and link the photo to it — the reference later photos match
+  // against. Placeholder import notes aren't worth seeding a description with.
+  function createBuckFromPhoto(photo: PhotoRecord) {
+    const defaultName =
+      (photo.buckName ?? "").trim() ||
+      `Buck ${propertyDeerProfiles.length + 1}`;
+    const nickname = window.prompt("Name this buck", defaultName)?.trim();
+
+    if (!nickname) return;
+
+    const seededNotes =
+      photo.notes && photo.notes !== "Imported through Camera Import Inbox."
+        ? photo.notes
+        : "";
+    const seenDate = photo.photoDate ? photo.photoDate.slice(0, 10) : "";
+    const id = createDeerIntelId("deer");
+    const profile = createDeerProfileFromValues({
+      id,
+      propertyId,
+      values: {
+        ...EMPTY_DEER_PROFILE_FORM_VALUES,
+        nickname,
+        firstSeen: seenDate,
+        lastSeen: seenDate,
+        notes: seededNotes,
+      },
+    });
+
+    if (!profile) return;
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      deerProfiles: [...currentState.deerProfiles, profile],
+      photoRecords: currentState.photoRecords.map((item) =>
+        item.id === photo.id
+          ? { ...item, deerProfileId: id, buckName: item.buckName || nickname }
+          : item,
+      ),
+    }));
+  }
+
+  function linkPhotoToBuck(photoId: string, profileId: string) {
+    const profile = propertyDeerProfiles.find((item) => item.id === profileId);
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      photoRecords: currentState.photoRecords.map((item) =>
+        item.id === photoId
+          ? {
+              ...item,
+              deerProfileId: profileId,
+              buckName:
+                profileId && !item.buckName
+                  ? (profile?.nickname ?? item.buckName ?? "")
+                  : (item.buckName ?? ""),
+            }
+          : item,
+      ),
+    }));
+  }
+
   // Re-run the AI over the photos already saved for this camera — no original
   // files, no deleting — filling in the animal read (species, behavior, travel
   // direction, buck match) that photos imported before AI was on never got.
@@ -432,6 +499,8 @@ export default function PropertyAssetWorkspacePage() {
             }))}
             onMovePhotos={movePhotoRecords}
             onDeletePhotos={deletePhotoRecords}
+            onCreateBuckFromPhoto={createBuckFromPhoto}
+            onLinkPhotoToBuck={linkPhotoToBuck}
           />
         </AssetPanel>
 

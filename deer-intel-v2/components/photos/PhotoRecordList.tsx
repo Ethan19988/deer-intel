@@ -28,6 +28,10 @@ type PhotoRecordListProps = {
   moveTargets?: MoveTarget[];
   onMovePhotos?: (photoIds: string[], targetCameraId: string) => void;
   onDeletePhotos?: (photoIds: string[]) => void;
+  // When provided, buck photos get a "link to buck" control and a one-tap
+  // "New buck from this photo" that records a profile from the AI's read.
+  onCreateBuckFromPhoto?: (photo: PhotoRecord) => void;
+  onLinkPhotoToBuck?: (photoId: string, profileId: string) => void;
 };
 
 export default function PhotoRecordList({
@@ -37,6 +41,8 @@ export default function PhotoRecordList({
   moveTargets = [],
   onMovePhotos,
   onDeletePhotos,
+  onCreateBuckFromPhoto,
+  onLinkPhotoToBuck,
 }: PhotoRecordListProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [moveTargetId, setMoveTargetId] = useState("");
@@ -235,6 +241,41 @@ export default function PhotoRecordList({
                 ) : null}
               </div>
             ) : null}
+
+            {photo.species === "Buck" &&
+            (onCreateBuckFromPhoto || onLinkPhotoToBuck) ? (
+              <div style={buckActionsStyle}>
+                {onLinkPhotoToBuck ? (
+                  <label style={buckLinkLabelStyle}>
+                    <span style={detailLabelStyle}>Link to buck</span>
+                    <select
+                      aria-label={`Link ${photo.fileName} to a buck`}
+                      value={photo.deerProfileId || ""}
+                      onChange={(event) =>
+                        onLinkPhotoToBuck(photo.id, event.target.value)
+                      }
+                      style={buckSelectStyle}
+                    >
+                      <option value="">Not linked</option>
+                      {deerProfiles.map((profile) => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.nickname}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                {onCreateBuckFromPhoto && !photo.deerProfileId ? (
+                  <button
+                    type="button"
+                    onClick={() => onCreateBuckFromPhoto(photo)}
+                    style={newBuckButtonStyle}
+                  >
+                    + New buck from this photo
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </article>
         );
       })}
@@ -350,6 +391,43 @@ const detailsStyle: CSSProperties = {
   marginTop: "0.85rem",
   paddingTop: "0.85rem",
   borderTop: "1px solid var(--border)",
+};
+
+const buckActionsStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-end",
+  gap: "0.6rem",
+  flexWrap: "wrap",
+  marginTop: "0.85rem",
+  paddingTop: "0.85rem",
+  borderTop: "1px solid var(--border)",
+};
+
+const buckLinkLabelStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.35rem",
+};
+
+const buckSelectStyle: CSSProperties = {
+  minHeight: "40px",
+  minWidth: "150px",
+  padding: "0.45rem 0.6rem",
+  border: "1px solid var(--border)",
+  borderRadius: "8px",
+  background: "var(--surface)",
+  color: "var(--text)",
+};
+
+const newBuckButtonStyle: CSSProperties = {
+  minHeight: "40px",
+  padding: "0.45rem 0.7rem",
+  border: "1px solid var(--accent)",
+  borderRadius: "8px",
+  background: "transparent",
+  color: "var(--accent)",
+  fontSize: "0.85rem",
+  fontWeight: 800,
+  cursor: "pointer",
 };
 
 const detailLabelStyle: CSSProperties = {
