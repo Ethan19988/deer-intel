@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import StandCard from "@/components/stands/StandCard";
 import EmptyState from "@/components/ui/EmptyState";
+import { StandIcon } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import StatCard from "@/components/ui/StatCard";
 import Tabs from "@/components/ui/Tabs";
@@ -116,6 +117,7 @@ export default function StandsPage() {
     <div style={listStyle}>
       {propertyStands.length === 0 ? (
         <EmptyState
+          illustration={<StandIcon size={30} />}
           title="No stands for this property"
           description="Open the property command center to add stand type, wind notes, access, exit, and notes."
           action={

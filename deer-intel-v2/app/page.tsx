@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import ActionCard from "@/components/ui/ActionCard";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
@@ -25,22 +30,39 @@ import TodaysPlayCard from "@/components/TodaysPlayCard";
 import { getStandWindCheck } from "@/lib/standWind";
 import { getHuntPlannerSummary, plannerHuntDate } from "@/lib/huntPlanner";
 import { formatHuntDate } from "@/lib/hunts";
+import HeroScene from "@/components/ui/HeroScene";
+import {
+  ClipboardIcon,
+  CompassIcon,
+  DeerIcon,
+  LeafIcon,
+  MapIcon,
+  MapPinIcon,
+  MoonIcon,
+  SunIcon,
+  SunriseIcon,
+  SunsetIcon,
+  TargetIcon,
+} from "@/components/ui/FieldIcons";
 
 const HOME_ACTIONS = [
   {
     href: "/map",
     title: "Start Scouting",
     description: "Open the map, check your position, and add field pins.",
+    icon: <MapPinIcon size={22} />,
   },
   {
     href: "/hunt-log",
     title: "Start Hunt",
     description: "Review the last sit or log what happens tonight.",
+    icon: <ClipboardIcon size={22} />,
   },
   {
     href: "/map",
     title: "Open Map",
     description: "Go straight to layers, GPS, pins, and property overlays.",
+    icon: <MapIcon size={22} />,
   },
 ];
 
@@ -102,7 +124,8 @@ export default function Home() {
 
   const greeting = now
     ? getGreeting(now.getHours())
-    : { label: "Welcome back", emoji: "👋" };
+    : { label: "Welcome back", icon: "sun" as const };
+  const GreetingIcon = GREETING_ICONS[greeting.icon];
   const dateLabel = now
     ? now.toLocaleDateString(undefined, {
         weekday: "long",
@@ -168,11 +191,12 @@ export default function Home() {
         stands={propertyStands}
       />
       <Card as="section" variant="elevated" style={briefStyle}>
+        <HeroScene />
         <div style={briefHeaderStyle}>
           <div style={heroHeadingWrapStyle}>
             <p style={heroEyebrowStyle}>
               <span style={heroEmojiStyle} aria-hidden="true">
-                {greeting.emoji}
+                <GreetingIcon size={15} />
               </span>
               <span>{greeting.label}</span>
               {dateLabel ? (
@@ -185,7 +209,7 @@ export default function Home() {
             <h1 style={briefTitleStyle}>
               Today&apos;s Brief
               <span style={heroSparkStyle} aria-hidden="true">
-                🍂
+                <LeafIcon size={26} />
               </span>
             </h1>
             {activeProperty ? (
@@ -229,7 +253,7 @@ export default function Home() {
 
         <div style={briefGridStyle}>
           <BriefItem
-            icon="🎯"
+            icon={<TargetIcon size={18} />}
             label="Focus"
             value={
               activeProperty
@@ -239,13 +263,13 @@ export default function Home() {
             detail="Keep the plan simple before you head out."
           />
           <BriefItem
-            icon="🦌"
+            icon={<DeerIcon size={18} />}
             label="Last Hunt"
             value={plannerHuntDate(lastHunt)}
             detail={lastHunt ? planner.lastHunt.detail : "No hunt logged yet."}
           />
           <BriefItem
-            icon="🧭"
+            icon={<CompassIcon size={18} />}
             label="Next Step"
             value={activeProperty ? "Open the map" : "Add property"}
             detail={
@@ -320,6 +344,7 @@ export default function Home() {
             href={action.href}
             title={action.title}
             description={action.description}
+            icon={action.icon}
             size="large"
             tone="primary"
           />
@@ -336,7 +361,7 @@ function BriefItem({
   value,
 }: {
   detail: string;
-  icon: string;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {
@@ -369,12 +394,21 @@ function propertySubtitle(county?: string, acres?: string) {
     .join(" / ") || "Property workspace";
 }
 
-function getGreeting(hour: number): { label: string; emoji: string } {
-  if (hour < 5) return { label: "Late night", emoji: "🌙" };
-  if (hour < 12) return { label: "Good morning", emoji: "🌄" };
-  if (hour < 17) return { label: "Good afternoon", emoji: "🌤️" };
-  if (hour < 20) return { label: "Golden hour", emoji: "🌆" };
-  return { label: "Good evening", emoji: "🌙" };
+const GREETING_ICONS = {
+  moon: MoonIcon,
+  sunrise: SunriseIcon,
+  sun: SunIcon,
+  sunset: SunsetIcon,
+} as const;
+
+type GreetingIconKey = keyof typeof GREETING_ICONS;
+
+function getGreeting(hour: number): { label: string; icon: GreetingIconKey } {
+  if (hour < 5) return { label: "Late night", icon: "moon" };
+  if (hour < 12) return { label: "Good morning", icon: "sunrise" };
+  if (hour < 17) return { label: "Good afternoon", icon: "sun" };
+  if (hour < 20) return { label: "Golden hour", icon: "sunset" };
+  return { label: "Good evening", icon: "moon" };
 }
 
 function getHeroTagline({
@@ -406,6 +440,9 @@ function getHeroTagline({
 }
 
 const briefStyle: CSSProperties = {
+  position: "relative",
+  overflow: "hidden",
+  isolation: "isolate",
   display: "grid",
   gap: "1.1rem",
   padding: "1.75rem",
@@ -462,7 +499,9 @@ const heroEyebrowStyle: CSSProperties = {
 };
 
 const heroEmojiStyle: CSSProperties = {
-  fontSize: "1rem",
+  display: "inline-flex",
+  alignItems: "center",
+  color: "var(--accent-2-text)",
   lineHeight: 1,
 };
 
@@ -492,7 +531,9 @@ const briefTitleStyle: CSSProperties = {
 };
 
 const heroSparkStyle: CSSProperties = {
-  fontSize: "1.7rem",
+  display: "inline-flex",
+  alignItems: "center",
+  color: "var(--accent-2)",
   transform: "rotate(8deg)",
 };
 
@@ -571,7 +612,7 @@ const briefItemIconStyle: CSSProperties = {
   borderRadius: "9px",
   background: "var(--accent-2-tint)",
   border: "1px solid var(--accent-2-tint-border)",
-  fontSize: "1rem",
+  color: "var(--accent-2-text)",
 };
 
 const briefValueStyle: CSSProperties = {

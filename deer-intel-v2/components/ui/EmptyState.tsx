@@ -4,15 +4,36 @@ type EmptyStateProps = {
   title?: string;
   description: string;
   action?: ReactNode;
+  /**
+   * Optional line-icon illustration (e.g. a FieldIcons glyph). When provided,
+   * the empty state centers and shows the icon in a soft badge above the copy —
+   * turning a first-run dead-end into a friendly invitation. Small inline
+   * empties can keep omitting it and render as a plain note, exactly as before.
+   */
+  illustration?: ReactNode;
 };
 
 export default function EmptyState({
   title,
   description,
   action,
+  illustration,
 }: EmptyStateProps) {
+  const illustrated = Boolean(illustration);
+
   return (
-    <div className="di-empty-state" style={emptyStateStyle}>
+    <div
+      className="di-empty-state"
+      style={{
+        ...emptyStateStyle,
+        ...(illustrated ? illustratedStyle : null),
+      }}
+    >
+      {illustration ? (
+        <span style={illustrationStyle} aria-hidden="true">
+          {illustration}
+        </span>
+      ) : null}
       {title ? <p style={titleStyle}>{title}</p> : null}
       <p style={{ ...descriptionStyle, ...(title ? titledDescriptionStyle : null) }}>
         {description}
@@ -36,6 +57,28 @@ const emptyStateStyle: CSSProperties = {
   fontSize: "1rem",
   lineHeight: 1.5,
   textShadow: "0 1px 0 rgba(255, 255, 255, 0.35)",
+};
+
+const illustratedStyle: CSSProperties = {
+  display: "grid",
+  justifyItems: "center",
+  textAlign: "center",
+  gap: "0.5rem",
+  padding: "2rem 1.4rem",
+};
+
+const illustrationStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "3.4rem",
+  height: "3.4rem",
+  marginBottom: "0.15rem",
+  borderRadius: "16px",
+  background: "var(--accent-tint)",
+  border: "1px solid var(--accent-tint-border)",
+  color: "var(--accent-text)",
+  boxShadow: "0 8px 20px -14px rgba(36, 29, 16, 0.6)",
 };
 
 const titleStyle: CSSProperties = {

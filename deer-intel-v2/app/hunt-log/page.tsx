@@ -6,6 +6,7 @@ import HuntLogList from "@/components/hunts/HuntLogList";
 import StandPinConvertList from "@/components/hunts/StandPinConvertList";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
+import { StandIcon } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Tabs from "@/components/ui/Tabs";
 import {
@@ -134,6 +135,7 @@ export default function HuntLogPage() {
         />
       ) : (
         <EmptyState
+          illustration={<StandIcon size={30} />}
           title="Add a stand first"
           description="Hunts need a stand. Open a property, add a stand, then come back here to log the sit."
         />

@@ -259,6 +259,27 @@ h3 {
   }
 }
 
+/* The golden-hour vignette in the Today's Brief hero. Absolutely placed in the
+   card's top-right and pushed behind the greeting/type via a negative z-index
+   (the card sets `isolation: isolate` so this stays scoped to the card). Hidden
+   on narrow phones so it never crowds the heading. */
+.di-hero-scene {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  z-index: -1;
+  width: 210px;
+  height: auto;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+@media (max-width: 560px) {
+  .di-hero-scene {
+    display: none;
+  }
+}
+
 /* ---- Woodland camo surfaces (Realtree EDGE, light -> dark text) ---- */
 /* --camo (the SVG data URI) is injected into :root below. */
 .di-camo,

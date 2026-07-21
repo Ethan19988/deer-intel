@@ -6,6 +6,7 @@ import type { CSSProperties } from "react";
 import CameraCard from "@/components/cameras/CameraCard";
 import CameraIntelligenceSection from "@/components/cameras/CameraIntelligenceSection";
 import EmptyState from "@/components/ui/EmptyState";
+import { CameraIcon } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import StatCard from "@/components/ui/StatCard";
 import Tabs from "@/components/ui/Tabs";
@@ -101,6 +102,7 @@ export default function CamerasPage() {
     <div style={listStyle}>
       {propertyCameras.length === 0 ? (
         <EmptyState
+          illustration={<CameraIcon size={30} />}
           title="No camera sites for this property"
           description="Open the property command center to add a camera site with name, type, status, GPS, battery, card, and notes."
           action={

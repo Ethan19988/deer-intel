@@ -7,6 +7,7 @@ import PropertyForm, {
 } from "@/components/properties/PropertyForm";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
+import { MapPinIcon } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Tabs from "@/components/ui/Tabs";
 import {
@@ -235,7 +236,11 @@ export default function PropertiesPage() {
 
   const propertiesTab =
     properties.length === 0 ? (
-      <EmptyState description="No properties yet. Add your first hunting property from the Add property tab." />
+      <EmptyState
+        illustration={<MapPinIcon size={30} />}
+        title="No properties yet"
+        description="Add your first hunting property from the Add property tab to unlock the map, stands, cameras, and hunt log."
+      />
     ) : (
       <div style={propertyListStyle}>
         {properties.map((property) => (
