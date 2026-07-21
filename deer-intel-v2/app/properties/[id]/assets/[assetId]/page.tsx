@@ -71,6 +71,9 @@ export default function PropertyAssetWorkspacePage() {
   // Progress/result text for the "Re-read with AI" pass over stored photos.
   const [isRereading, setIsRereading] = useState(false);
   const [rereadStatus, setRereadStatus] = useState("");
+  // Cleanup of photos whose image files are gone (evicted, never backed up).
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [cleanupStatus, setCleanupStatus] = useState("");
   const units = useUnitPreferences();
 
   if (!property) {
@@ -432,6 +435,65 @@ export default function PropertyAssetWorkspacePage() {
     );
   }
 
+  // Remove only the photos whose image can be loaded from neither this device
+  // nor the cloud backup — the "ghosts" a browser eviction leaves behind. Every
+  // photo with a recoverable image is left untouched, so this can't delete a
+  // good photo.
+  async function removeMissingImagePhotos() {
+    if (isCleaningUp) return;
+
+    const candidates = cameraPhotoRecords.filter((photo) => photo.imageId);
+
+    if (candidates.length === 0) return;
+
+    setIsCleaningUp(true);
+    setRereadStatus("");
+
+    const ghostIds: string[] = [];
+
+    for (let index = 0; index < candidates.length; index += 1) {
+      setCleanupStatus(`Checking ${index + 1} of ${candidates.length}…`);
+
+      const photo = candidates[index];
+      const blob = photo.imageId
+        ? await getPhotoImage(photo.imageId).catch(() => null)
+        : null;
+
+      if (!blob) ghostIds.push(photo.id);
+    }
+
+    setIsCleaningUp(false);
+
+    if (ghostIds.length === 0) {
+      setCleanupStatus("Every photo still has its image — nothing to remove.");
+      return;
+    }
+
+    const noun = ghostIds.length === 1 ? "photo" : "photos";
+
+    if (
+      !window.confirm(
+        `Remove ${ghostIds.length} ${noun} whose image is gone? Their records (date, species, weather) go too. This can't be undone.`,
+      )
+    ) {
+      setCleanupStatus("");
+      return;
+    }
+
+    // Remove only the records. Ghosts have no image to clean up, and NOT calling
+    // deleteCloudImage means a photo momentarily misread as a ghost (a flaky
+    // cloud fetch) still keeps its cloud backup — no real image is ever lost.
+    const removeIds = new Set(ghostIds);
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      photoRecords: currentState.photoRecords.filter(
+        (photo) => !removeIds.has(photo.id),
+      ),
+    }));
+    setCleanupStatus(`Removed ${ghostIds.length} ${noun} with no image.`);
+  }
+
   return (
     <PageShell>
       <div style={topBarStyle}>
@@ -475,15 +537,24 @@ export default function PropertyAssetWorkspacePage() {
               <button
                 type="button"
                 onClick={rereadPhotosWithAI}
-                disabled={isRereading}
+                disabled={isRereading || isCleaningUp}
                 style={rereadButtonStyle}
               >
                 {isRereading ? "Reading…" : "Re-read photos with AI"}
               </button>
+              <button
+                type="button"
+                onClick={removeMissingImagePhotos}
+                disabled={isRereading || isCleaningUp}
+                style={cleanupButtonStyle}
+              >
+                {isCleaningUp ? "Checking…" : "Remove photos with no image"}
+              </button>
               <span style={rereadHintStyle}>
-                {rereadStatus ||
+                {cleanupStatus ||
+                  rereadStatus ||
                   (camera.facingDirection
-                    ? "Fills in the animal, behavior, travel direction, and buck match on saved photos — only where they're still blank."
+                    ? "Re-read fills in the animal, behavior, travel direction, and buck match on saved photos — only where they're still blank."
                     : "Point this camera first (Edit camera) so travel direction can be read; the AI will still fill in animal and behavior.")}
               </span>
             </div>
@@ -781,6 +852,18 @@ const rereadButtonStyle: CSSProperties = {
   borderRadius: "8px",
   background: "var(--accent)",
   color: "white",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const cleanupButtonStyle: CSSProperties = {
+  flex: "0 0 auto",
+  minHeight: "44px",
+  padding: "0.6rem 0.9rem",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "8px",
+  background: "transparent",
+  color: "var(--text-muted)",
   fontWeight: 800,
   cursor: "pointer",
 };
