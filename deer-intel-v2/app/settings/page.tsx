@@ -17,6 +17,7 @@ import NotificationsManager from "@/components/settings/NotificationsManager";
 import OfflineMapsManager from "@/components/settings/OfflineMapsManager";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { saveDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
+import { backupLocalImages } from "@/lib/imageStore";
 import {
   setThemePreference,
   THEME_DESCRIPTIONS,
@@ -85,6 +86,37 @@ export default function SettingsPage() {
     state: DeerIntelState;
     fileName: string;
   } | null>(null);
+  const [isBackingUpPhotos, setIsBackingUpPhotos] = useState(false);
+  const [photoBackupStatus, setPhotoBackupStatus] = useState<string | null>(
+    null,
+  );
+
+  async function handleBackupPhotos() {
+    setIsBackingUpPhotos(true);
+    setPhotoBackupStatus("Backing up your photos…");
+
+    try {
+      const result = await backupLocalImages((done, total) => {
+        setPhotoBackupStatus(`Backing up ${done} of ${total}…`);
+      });
+
+      setPhotoBackupStatus(
+        result.total === 0
+          ? "No photos are stored on this device. Open this on the device that has your pictures (usually your phone)."
+          : `Backed up ${result.uploaded} of ${result.total} photo${
+              result.total === 1 ? "" : "s"
+            }${
+              result.failed
+                ? ` — ${result.failed} couldn't upload, tap again to retry.`
+                : ". They're protected and will show on all your devices."
+            }`,
+      );
+    } catch {
+      setPhotoBackupStatus("Couldn't back up right now. Tap to try again.");
+    } finally {
+      setIsBackingUpPhotos(false);
+    }
+  }
 
   function handleExport() {
     setImportError(null);
@@ -487,6 +519,35 @@ export default function SettingsPage() {
           ) : null}
         </Card>
       </Section>
+
+      {cloudActive ? (
+        <Section eyebrow="Backup" title="Back Up Photos to the Cloud">
+          <Card as="div" variant="subtle">
+            <p style={mutedTextStyle}>
+              Photo details sync automatically, but the pictures are saved on
+              each device and a phone can clear them to free space. Tap below on
+              the device that has your photos (usually your phone) to upload
+              them all to your account — then they&apos;re protected and show on
+              every device. Photos you add from now on back up on their own.
+            </p>
+            <div style={backupActionsStyle}>
+              <Button
+                type="button"
+                variant="primary"
+                disabled={isBackingUpPhotos}
+                onClick={handleBackupPhotos}
+              >
+                {isBackingUpPhotos ? "Backing up…" : "Back Up My Photos"}
+              </Button>
+            </div>
+            {photoBackupStatus ? (
+              <p style={successTextStyle} role="status">
+                {photoBackupStatus}
+              </p>
+            ) : null}
+          </Card>
+        </Section>
+      ) : null}
 
       <Section eyebrow="Import" title="Import Pins from Other Apps">
         <Card as="div" variant="subtle">

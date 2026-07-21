@@ -87,10 +87,16 @@ export function putPhotoImage(id: string, blob: Blob): Promise<boolean> {
   );
 }
 
+// Read only the local (IndexedDB) copy — no cloud fallback. Used by the backup
+// sweep (to know what actually lives here) and by getPhotoImage.
+function readLocalImage(id: string): Promise<Blob | null> {
+  return runTransaction<Blob>("readonly", (store) => store.get(id)).then(
+    (value) => (value instanceof Blob ? value : null),
+  );
+}
+
 export async function getPhotoImage(id: string): Promise<Blob | null> {
-  const local = await runTransaction<Blob>("readonly", (store) =>
-    store.get(id),
-  ).then((value) => (value instanceof Blob ? value : null));
+  const local = await readLocalImage(id);
 
   if (local) return local;
 
@@ -111,4 +117,40 @@ export function deletePhotoImage(id: string): Promise<void> {
   return runTransaction("readwrite", (store) => store.delete(id)).then(() => {
     void deleteCloudImage(id);
   });
+}
+
+/** Every image id stored locally on this device. */
+function getAllLocalImageIds(): Promise<string[]> {
+  return runTransaction<IDBValidKey[]>("readonly", (store) =>
+    store.getAllKeys(),
+  ).then((keys) => (Array.isArray(keys) ? keys.map(String) : []));
+}
+
+/**
+ * Upload every image already saved on THIS device to the cloud backup — the
+ * catch-up for photos saved before backup existed. Run it on the device that
+ * holds the pictures (usually the phone). Best-effort and idempotent: images
+ * already backed up just re-upsert.
+ */
+export async function backupLocalImages(
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ total: number; uploaded: number; failed: number }> {
+  const ids = await getAllLocalImageIds();
+  let uploaded = 0;
+  let failed = 0;
+
+  for (let index = 0; index < ids.length; index += 1) {
+    const blob = await readLocalImage(ids[index]);
+
+    if (blob) {
+      const ok = await uploadCloudImage(ids[index], blob);
+
+      if (ok) uploaded += 1;
+      else failed += 1;
+    }
+
+    onProgress?.(index + 1, ids.length);
+  }
+
+  return { total: ids.length, uploaded, failed };
 }
