@@ -35,7 +35,11 @@ export default function ActionCard({
     >
       {hasHeader ? (
         <div style={headerStyle}>
-          {icon ? <span style={iconWrapStyle}>{icon}</span> : null}
+          {icon ? (
+            <span className="di-action-card-icon" style={iconWrapStyle}>
+              {icon}
+            </span>
+          ) : null}
           {badge ? (
             <Badge variant={badge === "Available" ? "success" : "default"}>
               {badge}
