@@ -52,7 +52,8 @@ export function hasMeaningfulData(state: DeerIntelState): boolean {
     state.hunts.length > 0 ||
     state.photoRecords.length > 0 ||
     state.deerProfiles.length > 0 ||
-    state.walkTracks.length > 0
+    state.walkTracks.length > 0 ||
+    state.documents.length > 0
   ) {
     return true;
   }

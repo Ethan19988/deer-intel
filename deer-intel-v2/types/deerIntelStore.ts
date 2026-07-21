@@ -1,6 +1,7 @@
 import type { Camera } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { DeerProfile } from "@/types/deerProfile";
+import type { DocumentRecord } from "@/types/document";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { MapPin } from "@/types/mapPin";
 import type { PhotoRecord } from "@/types/photo";
@@ -20,4 +21,5 @@ export type DeerIntelState = {
   photoRecords: PhotoRecord[];
   deerProfiles: DeerProfile[];
   walkTracks: WalkTrack[];
+  documents: DocumentRecord[];
 };
