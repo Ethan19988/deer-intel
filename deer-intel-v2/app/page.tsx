@@ -16,6 +16,8 @@ import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
 import PropertyPatternReport from "@/components/properties/PropertyPatternReport";
 import { buildPropertyPatternReport } from "@/lib/propertyPatterns";
 import MovementScorePanel from "@/components/weather/MovementScorePanel";
+import WindCompass from "@/components/weather/WindCompass";
+import MoonPhaseCard from "@/components/weather/MoonPhaseCard";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import {
@@ -251,6 +253,15 @@ export default function Home() {
 
         <MovementScorePanel point={weatherPoint} />
 
+        <div style={instrumentsRowStyle}>
+          <WindCompass
+            wind={currentWind}
+            windSpeed={forecast?.current.windSpeed}
+            stands={propertyStands}
+          />
+          <MoonPhaseCard />
+        </div>
+
         <div style={briefGridStyle}>
           <BriefItem
             icon={<TargetIcon size={18} />}
@@ -447,16 +458,21 @@ const briefStyle: CSSProperties = {
   gap: "1.1rem",
   padding: "1.75rem",
   border: "1px solid var(--border-strong)",
-  borderTop: "5px solid var(--accent-2)",
+  borderTop: "5px solid var(--accent)",
   color: "var(--camo-fg)",
   backgroundColor: "var(--camo-ink)",
+  // Cooler golden-hour wash: a pale-gold low sun top-right, a sage-green rise
+  // bottom-left, over a cool sage scrim (keeps the dark --camo-fg text legible
+  // on every theme, since --camo-fg is dark app-wide). The camo texture stays
+  // for character.
   backgroundImage:
-    "radial-gradient(120% 85% at 100% 0%, rgba(224, 100, 42, 0.22), transparent 55%), " +
-    "radial-gradient(95% 75% at 0% 100%, rgba(47, 125, 67, 0.18), transparent 55%), " +
-    "linear-gradient(rgba(233, 226, 206, 0.5), rgba(233, 226, 206, 0.62)), var(--camo)",
+    "radial-gradient(120% 90% at 100% -5%, rgba(232, 184, 104, 0.26), transparent 55%), " +
+    "radial-gradient(100% 85% at -5% 108%, rgba(47, 125, 67, 0.24), transparent 55%), " +
+    "linear-gradient(158deg, rgba(226, 228, 210, 0.52) 0%, rgba(200, 214, 199, 0.60) 55%, rgba(186, 205, 196, 0.66) 100%), " +
+    "var(--camo)",
   backgroundSize: "cover",
   backgroundPosition: "center",
-  boxShadow: "0 18px 40px -24px rgba(36, 29, 16, 0.55)",
+  boxShadow: "0 18px 40px -24px rgba(28, 36, 26, 0.55)",
 };
 
 const briefHeaderStyle: CSSProperties = {
@@ -579,6 +595,12 @@ const selectStyle: CSSProperties = {
   borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
   color: "var(--text)",
+};
+
+const instrumentsRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: "0.8rem",
 };
 
 const briefGridStyle: CSSProperties = {
