@@ -64,6 +64,8 @@ export type PressureReading = {
   value: string;
   trend: PressureTrend;
   hint: string;
+  /** Recent hourly readings in inHg, oldest → now, for a sparkline. */
+  series?: number[];
 };
 
 export type LiveForecast = {
@@ -687,7 +689,16 @@ function buildPressureReading(
         ? "Clearing behind a front"
         : "Little pressure change";
 
-  return { value, trend, hint };
+  // Up to ~12 hours of readings ending at now, in inHg, for a sparkline.
+  const series: number[] = [];
+  for (let i = Math.max(0, index - 12); i <= index; i += 1) {
+    const reading = readings[i];
+    if (typeof reading === "number" && Number.isFinite(reading)) {
+      series.push(Number((reading * HPA_TO_INHG).toFixed(3)));
+    }
+  }
+
+  return { value, trend, hint, series: series.length >= 3 ? series : undefined };
 }
 
 // Day-over-day barometric direction for each forecast day, used by the movement

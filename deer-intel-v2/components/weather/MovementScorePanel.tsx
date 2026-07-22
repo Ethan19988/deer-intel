@@ -14,6 +14,7 @@ import {
 import { getMoonPhaseInfo } from "@/lib/moonPhase";
 import { useUnitPreferences } from "@/lib/units";
 import { useMoonPhase } from "@/lib/useMoonPhase";
+import ScoreGauge from "@/components/weather/ScoreGauge";
 
 type MovementScorePanelProps = {
   point: WeatherPoint | null;
@@ -98,41 +99,20 @@ export default function MovementScorePanel({ point }: MovementScorePanelProps) {
 
   return (
     <div style={{ ...cardStyle, border: `1px solid ${accent.border}` }}>
-      <div style={topRowStyle}>
-        <span style={{ ...iconBadgeStyle, background: accent.tint }}>🦌</span>
-        <div style={headingWrapStyle}>
+      <div style={gaugeRowStyle}>
+        <ScoreGauge
+          value={movement.score}
+          max={5}
+          color={accent.solid}
+          caption="Movement"
+          ariaLabel={`Deer movement ${movement.score} out of 5: ${movement.label}`}
+        />
+        <div style={gaugeTextStyle}>
           <p style={eyebrowStyle}>Deer Movement</p>
           <p style={labelStyle}>{movement.label}</p>
+          <p style={reasonStyle}>{movement.reason}</p>
         </div>
-        <span style={scoreBadgeStyle}>
-          <span style={{ ...scoreNumberStyle, color: accent.solid }}>
-            {movement.score}
-          </span>
-          <span style={scoreOutOfStyle}>/5</span>
-        </span>
       </div>
-
-      <div
-        style={meterStyle}
-        role="meter"
-        aria-valuenow={movement.score}
-        aria-valuemin={1}
-        aria-valuemax={5}
-        aria-label={`Deer movement ${movement.score} out of 5: ${movement.label}`}
-      >
-        {[1, 2, 3, 4, 5].map((segment) => (
-          <span
-            key={segment}
-            style={{
-              ...segmentStyle,
-              background:
-                segment <= movement.score ? accent.solid : "var(--surface-3)",
-            }}
-          />
-        ))}
-      </div>
-
-      <p style={reasonStyle}>{movement.reason}</p>
 
       {outlook.length > 1 ? (
         <div style={outlookWrapStyle}>
@@ -229,27 +209,15 @@ const cardStyle: CSSProperties = {
   boxShadow: "var(--shadow-sm)",
 };
 
-const topRowStyle: CSSProperties = {
+const gaugeRowStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "0.75rem",
+  gap: "1rem",
 };
 
-const iconBadgeStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "2.5rem",
-  height: "2.5rem",
-  borderRadius: "12px",
-  fontSize: "1.35rem",
-  flexShrink: 0,
-};
-
-const headingWrapStyle: CSSProperties = {
+const gaugeTextStyle: CSSProperties = {
   display: "grid",
-  gap: "0.1rem",
-  marginRight: "auto",
+  gap: "0.15rem",
 };
 
 const eyebrowStyle: CSSProperties = {
@@ -267,36 +235,6 @@ const labelStyle: CSSProperties = {
   fontSize: "1.05rem",
   fontWeight: 850,
   lineHeight: 1.2,
-};
-
-const scoreBadgeStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "baseline",
-  gap: "0.1rem",
-  flexShrink: 0,
-};
-
-const scoreNumberStyle: CSSProperties = {
-  fontSize: "2.1rem",
-  fontWeight: 900,
-  lineHeight: 1,
-};
-
-const scoreOutOfStyle: CSSProperties = {
-  color: "var(--text-faint)",
-  fontSize: "1rem",
-  fontWeight: 800,
-};
-
-const meterStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(5, 1fr)",
-  gap: "0.35rem",
-};
-
-const segmentStyle: CSSProperties = {
-  height: "8px",
-  borderRadius: "999px",
 };
 
 const reasonStyle: CSSProperties = {

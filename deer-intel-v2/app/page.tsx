@@ -18,6 +18,8 @@ import { buildPropertyPatternReport } from "@/lib/propertyPatterns";
 import MovementScorePanel from "@/components/weather/MovementScorePanel";
 import WindCompass from "@/components/weather/WindCompass";
 import MoonPhaseCard from "@/components/weather/MoonPhaseCard";
+import Barometer from "@/components/weather/Barometer";
+import RutRibbon from "@/components/season/RutRibbon";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import {
@@ -260,7 +262,14 @@ export default function Home() {
             stands={propertyStands}
           />
           <MoonPhaseCard />
+          <Barometer pressure={forecast?.pressure} />
         </div>
+
+        <RutRibbon
+          phase={seasonCtx.phase}
+          phaseLabel={seasonCtx.phaseLabel}
+          daysToPeak={seasonCtx.daysToPeak}
+        />
 
         <div style={briefGridStyle}>
           <BriefItem
