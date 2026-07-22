@@ -2712,6 +2712,10 @@ export default function HuntingMap() {
               url={baseTileUrl}
               maxZoom={19}
               maxNativeZoom={selectedMapLayer.maxNativeZoom ?? 19}
+              // Throttle tile work during a pinch so the base map doesn't pile
+              // up tiles and stall memory-limited mobile browsers at close zoom.
+              updateWhenZooming={false}
+              keepBuffer={1}
             />
 
             {selectedMapLayer.overlayLayers?.map((overlayLayer, index) => (
@@ -2724,6 +2728,8 @@ export default function HuntingMap() {
                 maxNativeZoom={19}
                 opacity={overlayLayer.opacity ?? 1}
                 zIndex={650 + index}
+                updateWhenZooming={false}
+                keepBuffer={1}
               />
             ))}
 
@@ -2753,6 +2759,8 @@ export default function HuntingMap() {
               maxNativeZoom={16}
               opacity={0.9}
               zIndex={670}
+              updateWhenZooming={false}
+              keepBuffer={1}
             />
 
             {showSlope ? (

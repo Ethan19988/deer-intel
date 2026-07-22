@@ -321,11 +321,24 @@ export async function downloadOfflinePack(
 
 // Serve a cached tile as an object URL, or null if it isn't downloaded. Called
 // per tile by the cached tile layer, so it stays cheap and swallows errors.
+// Memoized cache handle: the map asks for this once per tile on the offline
+// path, and reopening the cache on every tile is needless work on the zoom hot
+// path. The handle stays valid for the session.
+let offlineTileCachePromise: Promise<Cache> | null = null;
+
+function openOfflineTileCache(): Promise<Cache> {
+  if (!offlineTileCachePromise) {
+    offlineTileCachePromise = caches.open(OFFLINE_TILE_CACHE);
+  }
+
+  return offlineTileCachePromise;
+}
+
 export async function matchOfflineTile(url: string): Promise<string | null> {
   if (!offlineCachesSupported()) return null;
 
   try {
-    const cache = await caches.open(OFFLINE_TILE_CACHE);
+    const cache = await openOfflineTileCache();
     const response = await cache.match(url);
     if (!response) return null;
 
