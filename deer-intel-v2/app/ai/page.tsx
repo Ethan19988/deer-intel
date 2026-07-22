@@ -6,7 +6,17 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
-import { TargetIcon } from "@/components/ui/FieldIcons";
+import {
+  AlertIcon,
+  CameraIcon,
+  ClipboardIcon,
+  CompassIcon,
+  DeerIcon,
+  ImageIcon,
+  MapPinIcon,
+  StandIcon,
+  TargetIcon,
+} from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
@@ -230,7 +240,11 @@ export default function AIPage() {
 
       {hub && selectedProperty ? (
         <>
-          <Section eyebrow="1" title="What's Happening">
+          <Section
+            eyebrow="1"
+            title="What's Happening"
+            icon={<CompassIcon size={18} />}
+          >
             <Card as="div" variant="subtle">
               <ul style={bulletListStyle}>
                 {hub.whatsHappening.map((insight) => (
@@ -242,7 +256,11 @@ export default function AIPage() {
             </Card>
           </Section>
 
-          <Section eyebrow="2" title="Best Stand">
+          <Section
+            eyebrow="2"
+            title="Best Stand"
+            icon={<StandIcon size={18} />}
+          >
             <Card as="article" variant="subtle">
               <div style={simpleHeaderStyle}>
                 <div>
@@ -262,7 +280,11 @@ export default function AIPage() {
             </Card>
           </Section>
 
-          <Section eyebrow="3" title="Recent Buck Activity">
+          <Section
+            eyebrow="3"
+            title="Recent Buck Activity"
+            icon={<DeerIcon size={18} />}
+          >
             <Card as="article" variant="subtle">
               <div style={simpleHeaderStyle}>
                 <div>
@@ -289,7 +311,11 @@ export default function AIPage() {
             </Card>
           </Section>
 
-          <Section eyebrow="4" title="Needs Attention">
+          <Section
+            eyebrow="4"
+            title="Needs Attention"
+            icon={<AlertIcon size={18} />}
+          >
             {hub.needsAttention.length === 0 ? (
               <EmptyState description="Nothing urgent stands out right now." />
             ) : (
@@ -301,32 +327,46 @@ export default function AIPage() {
             )}
           </Section>
 
-          <Section eyebrow="5" title="Property Snapshot">
+          <Section
+            eyebrow="5"
+            title="Property Snapshot"
+            icon={<MapPinIcon size={18} />}
+          >
             <div style={snapshotGridStyle}>
               <StatCard
                 label="Cameras"
                 value={hub.snapshot.cameras}
                 detail="Camera sites"
+                icon={<CameraIcon size={18} />}
+                tone="green"
               />
               <StatCard
                 label="Stands"
                 value={hub.snapshot.stands}
                 detail="Stand sites"
+                icon={<StandIcon size={18} />}
+                tone="green"
               />
               <StatCard
                 label="Deer Profiles"
                 value={hub.snapshot.deerProfiles}
                 detail="Tracked deer"
+                icon={<DeerIcon size={18} />}
+                tone="blaze"
               />
               <StatCard
                 label="Hunts"
                 value={hub.snapshot.hunts}
                 detail="Hunt log entries"
+                icon={<ClipboardIcon size={18} />}
+                tone="neutral"
               />
               <StatCard
                 label="Photos"
                 value={hub.snapshot.photos}
                 detail="Photo records"
+                icon={<ImageIcon size={18} />}
+                tone="neutral"
               />
             </div>
           </Section>

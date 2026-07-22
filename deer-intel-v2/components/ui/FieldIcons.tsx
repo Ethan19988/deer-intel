@@ -184,6 +184,15 @@ export function GearIcon(props: IconProps) {
   );
 }
 
+export function AlertIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 4.2 21 19.5H3z" />
+      <path d="M12 10.2v3.6M12 16.6h.01" />
+    </Svg>
+  );
+}
+
 export function ImageIcon(props: IconProps) {
   return (
     <Svg {...props}>
