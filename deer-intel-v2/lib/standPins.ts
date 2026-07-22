@@ -12,6 +12,30 @@ export function getStandPins(pins: MapPin[]): MapPin[] {
 }
 
 /**
+ * Stand-type map pins for a property that haven't been promoted into a stand
+ * site yet. Used by the hunt log so a hunter can turn a property's map stands
+ * into selectable sites even when other properties already have sites — and so
+ * a pin already saved as a site isn't offered again.
+ */
+export function getConvertibleStandPins(
+  pins: MapPin[],
+  stands: Stand[],
+  propertyId: string,
+): MapPin[] {
+  if (!propertyId) return [];
+
+  const convertedPinIds = new Set(
+    stands
+      .filter((stand) => stand.sourcePinId)
+      .map((stand) => stand.sourcePinId),
+  );
+
+  return getStandPins(pins).filter(
+    (pin) => pin.propertyId === propertyId && !convertedPinIds.has(pin.id),
+  );
+}
+
+/**
  * Promote a stand-type map pin into a full stand site. The Stand type has no
  * coordinates, so the pin's location is preserved in the notes; the pin itself
  * stays on the map untouched.
@@ -39,5 +63,6 @@ export function createStandFromPin({
     accessRouteNotes: "",
     exitRouteNotes: "",
     notes,
+    sourcePinId: pin.id,
   };
 }
