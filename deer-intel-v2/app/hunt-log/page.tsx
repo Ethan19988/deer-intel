@@ -3,7 +3,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import HuntLogForm from "@/components/hunts/HuntLogForm";
 import HuntLogList from "@/components/hunts/HuntLogList";
-import StandPinConvertList from "@/components/hunts/StandPinConvertList";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import { ClipboardIcon, StandIcon } from "@/components/ui/FieldIcons";
@@ -116,22 +115,21 @@ export default function HuntLogPage() {
     );
   }
 
+  const canLogOrConvert = hasStands || standPins.length > 0;
+
   const logTab = (
     <Card as="section" variant="elevated" style={formCardStyle}>
-      {hasStands ? (
+      {canLogOrConvert ? (
         <HuntLogForm
           values={huntValues}
           properties={state.properties}
           stands={state.stands}
+          standPins={standPins}
           weatherLocation={weatherLocation}
+          getPropertyName={getPropertyName}
+          onConvertPin={convertPinToStand}
           onChange={setHuntValues}
           onSubmit={saveHunt}
-        />
-      ) : standPins.length > 0 ? (
-        <StandPinConvertList
-          standPins={standPins}
-          getPropertyName={getPropertyName}
-          onConvert={convertPinToStand}
         />
       ) : (
         <EmptyState

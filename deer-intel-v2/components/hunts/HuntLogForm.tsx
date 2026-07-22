@@ -1,12 +1,15 @@
 import type { CSSProperties, FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
+import StandPinConvertList from "@/components/hunts/StandPinConvertList";
 import LiveWeatherFill from "@/components/weather/LiveWeatherFill";
 import type {
   HuntFormValues,
   YesNoValue,
 } from "@/lib/huntFormValues";
+import { getConvertibleStandPins } from "@/lib/standPins";
 import type { WeatherPoint } from "@/lib/liveWeather";
+import type { MapPin } from "@/types/mapPin";
 import type { Property } from "@/types/property";
 import type { Stand } from "@/types/stand";
 
@@ -14,7 +17,10 @@ type HuntLogFormProps = {
   values: HuntFormValues;
   properties: Property[];
   stands: Stand[];
+  standPins?: MapPin[];
   weatherLocation?: WeatherPoint | null;
+  getPropertyName?: (propertyId: string) => string;
+  onConvertPin?: (pin: MapPin) => void;
   onChange: (values: HuntFormValues) => void;
   onSubmit: () => void;
 };
@@ -23,13 +29,20 @@ export default function HuntLogForm({
   values,
   properties,
   stands,
+  standPins = [],
   weatherLocation = null,
+  getPropertyName,
+  onConvertPin,
   onChange,
   onSubmit,
 }: HuntLogFormProps) {
   const availableStands = stands.filter(
     (stand) => stand.propertyId === values.propertyId,
   );
+  const convertiblePins =
+    onConvertPin && values.propertyId
+      ? getConvertibleStandPins(standPins, stands, values.propertyId)
+      : [];
   const canSave = Boolean(values.propertyId && values.standId && values.date);
 
   function updateField<Field extends keyof HuntFormValues>(
@@ -108,6 +121,22 @@ export default function HuntLogForm({
             />
           </label>
         </div>
+
+        {convertiblePins.length > 0 && onConvertPin ? (
+          <div style={convertBoxStyle}>
+            <StandPinConvertList
+              standPins={convertiblePins}
+              getPropertyName={getPropertyName ?? ((id) => id)}
+              onConvert={onConvertPin}
+              title={
+                availableStands.length > 0
+                  ? "Add a map stand from this property"
+                  : "This property's map stands aren't stand sites yet"
+              }
+              description="These stand pins are on the map but haven't been saved as stand sites, so they can't be selected above. Save one and it's selected for you — the pin stays on the map."
+            />
+          </div>
+        ) : null}
 
         <div
           className="di-form-grid"
@@ -335,6 +364,14 @@ function YesNoField({
 const formStyle: CSSProperties = {
   display: "grid",
   gap: "1rem",
+};
+
+const convertBoxStyle: CSSProperties = {
+  marginTop: "1rem",
+  padding: "0.9rem",
+  borderRadius: "10px",
+  border: "1px dashed var(--border)",
+  background: "var(--surface-2)",
 };
 
 const formGridStyle: CSSProperties = {

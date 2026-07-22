@@ -6,26 +6,32 @@ type StandPinConvertListProps = {
   standPins: MapPin[];
   getPropertyName: (propertyId: string) => string;
   onConvert: (pin: MapPin) => void;
+  title?: string;
+  description?: string;
 };
 
+const DEFAULT_TITLE = "Your map stands aren't stand sites yet";
+const DEFAULT_DESCRIPTION =
+  "Hunts are logged against stand sites, and these map pins haven't been saved as sites. Save one below and the hunt form opens with it selected — the pin stays on the map.";
+
 /**
- * Shown on the Hunt Log when there are no stand sites yet but the map has
- * stand-type pins. Lets the hunter promote a pin into a stand site in one tap
- * so the sit can be logged without re-entering the stand by hand.
+ * Shown on the Hunt Log when the map has stand-type pins that haven't been
+ * promoted into stand sites. Lets the hunter promote a pin into a stand site in
+ * one tap so the sit can be logged without re-entering the stand by hand. Used
+ * both as a full-screen prompt (no stand sites yet) and inline in the hunt form
+ * for a selected property's unconverted pins.
  */
 export default function StandPinConvertList({
   standPins,
   getPropertyName,
   onConvert,
+  title = DEFAULT_TITLE,
+  description = DEFAULT_DESCRIPTION,
 }: StandPinConvertListProps) {
   return (
     <div style={wrapperStyle}>
-      <p style={titleStyle}>Your map stands aren&apos;t stand sites yet</p>
-      <p style={descriptionStyle}>
-        Hunts are logged against stand sites, and these map pins haven&apos;t
-        been saved as sites. Save one below and the hunt form opens with it
-        selected — the pin stays on the map.
-      </p>
+      <p style={titleStyle}>{title}</p>
+      <p style={descriptionStyle}>{description}</p>
       <ul style={listStyle}>
         {standPins.map((pin) => (
           <li key={pin.id} style={rowStyle}>

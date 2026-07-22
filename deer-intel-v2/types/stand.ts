@@ -25,4 +25,9 @@ export type Stand = {
   accessRouteNotes: string;
   exitRouteNotes: string;
   notes: string;
+  /**
+   * Id of the map pin this stand site was promoted from, if any. Lets the hunt
+   * log hide an already-converted pin so it can't be saved as a site twice.
+   */
+  sourcePinId?: string;
 };
