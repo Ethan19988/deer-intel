@@ -39,13 +39,8 @@ import {
   ClipboardIcon,
   CompassIcon,
   DeerIcon,
-  LeafIcon,
   MapIcon,
   MapPinIcon,
-  MoonIcon,
-  SunIcon,
-  SunriseIcon,
-  SunsetIcon,
   TargetIcon,
 } from "@/components/ui/FieldIcons";
 
@@ -128,8 +123,7 @@ export default function Home() {
 
   const greeting = now
     ? getGreeting(now.getHours())
-    : { label: "Welcome back", icon: "sun" as const };
-  const GreetingIcon = GREETING_ICONS[greeting.icon];
+    : { label: "Welcome back", emoji: "👋" };
   const dateLabel = now
     ? now.toLocaleDateString(undefined, {
         weekday: "long",
@@ -200,7 +194,7 @@ export default function Home() {
           <div style={heroHeadingWrapStyle}>
             <p style={heroEyebrowStyle}>
               <span style={heroEmojiStyle} aria-hidden="true">
-                <GreetingIcon size={15} />
+                {greeting.emoji}
               </span>
               <span>{greeting.label}</span>
               {dateLabel ? (
@@ -213,7 +207,7 @@ export default function Home() {
             <h1 style={briefTitleStyle}>
               Today&apos;s Brief
               <span style={heroSparkStyle} aria-hidden="true">
-                <LeafIcon size={26} />
+                🍂
               </span>
             </h1>
             {activeProperty ? (
@@ -414,21 +408,12 @@ function propertySubtitle(county?: string, acres?: string) {
     .join(" / ") || "Property workspace";
 }
 
-const GREETING_ICONS = {
-  moon: MoonIcon,
-  sunrise: SunriseIcon,
-  sun: SunIcon,
-  sunset: SunsetIcon,
-} as const;
-
-type GreetingIconKey = keyof typeof GREETING_ICONS;
-
-function getGreeting(hour: number): { label: string; icon: GreetingIconKey } {
-  if (hour < 5) return { label: "Late night", icon: "moon" };
-  if (hour < 12) return { label: "Good morning", icon: "sunrise" };
-  if (hour < 17) return { label: "Good afternoon", icon: "sun" };
-  if (hour < 20) return { label: "Golden hour", icon: "sunset" };
-  return { label: "Good evening", icon: "moon" };
+function getGreeting(hour: number): { label: string; emoji: string } {
+  if (hour < 5) return { label: "Late night", emoji: "🌙" };
+  if (hour < 12) return { label: "Good morning", emoji: "🌄" };
+  if (hour < 17) return { label: "Good afternoon", emoji: "🌤️" };
+  if (hour < 20) return { label: "Golden hour", emoji: "🌆" };
+  return { label: "Good evening", emoji: "🌙" };
 }
 
 function getHeroTagline({
@@ -524,9 +509,7 @@ const heroEyebrowStyle: CSSProperties = {
 };
 
 const heroEmojiStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  color: "var(--accent-2-text)",
+  fontSize: "1rem",
   lineHeight: 1,
 };
 
@@ -556,9 +539,7 @@ const briefTitleStyle: CSSProperties = {
 };
 
 const heroSparkStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  color: "var(--accent-2)",
+  fontSize: "1.7rem",
   transform: "rotate(8deg)",
 };
 
