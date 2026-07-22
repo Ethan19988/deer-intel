@@ -274,9 +274,14 @@ export default function PropertiesPage() {
     <PageShell maxWidth="980px">
       <header style={headerStyle}>
         <div style={headerRowStyle}>
-          <div>
-            <p style={eyebrowStyle}>Properties</p>
-            <h1 style={titleStyle}>Properties</h1>
+          <div style={headerLeadStyle}>
+            <span style={headerIconStyle} aria-hidden="true">
+              <MapPinIcon size={24} />
+            </span>
+            <div style={headerTitleWrapStyle}>
+              <p style={eyebrowStyle}>Properties</p>
+              <h1 style={titleStyle}>Properties</h1>
+            </div>
           </div>
           {properties.length > 0 ? (
             <button
@@ -315,10 +320,36 @@ const headerStyle: CSSProperties = {
 
 const headerRowStyle: CSSProperties = {
   display: "flex",
-  alignItems: "flex-end",
+  alignItems: "center",
   justifyContent: "space-between",
   gap: "1rem",
   flexWrap: "wrap",
+};
+
+const headerLeadStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.85rem",
+  minWidth: 0,
+};
+
+const headerIconStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "3rem",
+  height: "3rem",
+  flex: "none",
+  borderRadius: "14px",
+  background: "var(--accent-tint)",
+  border: "1px solid var(--accent-tint-border)",
+  color: "var(--accent-text)",
+};
+
+const headerTitleWrapStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.25rem",
+  minWidth: 0,
 };
 
 const exportButtonStyle: CSSProperties = {

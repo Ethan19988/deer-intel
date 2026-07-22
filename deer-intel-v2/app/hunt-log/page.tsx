@@ -6,7 +6,7 @@ import HuntLogList from "@/components/hunts/HuntLogList";
 import StandPinConvertList from "@/components/hunts/StandPinConvertList";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
-import { StandIcon } from "@/components/ui/FieldIcons";
+import { ClipboardIcon, StandIcon } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Tabs from "@/components/ui/Tabs";
 import {
@@ -154,8 +154,13 @@ export default function HuntLogPage() {
   return (
     <PageShell>
       <header style={headerStyle}>
-        <p style={eyebrowStyle}>Hunt Log</p>
-        <h1 style={titleStyle}>Hunt Log</h1>
+        <span style={headerIconStyle} aria-hidden="true">
+          <ClipboardIcon size={24} />
+        </span>
+        <div style={headerTitleWrapStyle}>
+          <p style={eyebrowStyle}>Hunt Log</p>
+          <h1 style={titleStyle}>Hunt Log</h1>
+        </div>
       </header>
 
       <Tabs
@@ -174,9 +179,29 @@ export default function HuntLogPage() {
 }
 
 const headerStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.35rem",
+  display: "flex",
+  alignItems: "center",
+  gap: "0.85rem",
   marginBottom: "1.5rem",
+};
+
+const headerIconStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "3rem",
+  height: "3rem",
+  flex: "none",
+  borderRadius: "14px",
+  background: "var(--accent-tint)",
+  border: "1px solid var(--accent-tint-border)",
+  color: "var(--accent-text)",
+};
+
+const headerTitleWrapStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.25rem",
+  minWidth: 0,
 };
 
 const eyebrowStyle: CSSProperties = {
