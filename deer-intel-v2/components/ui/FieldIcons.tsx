@@ -184,6 +184,25 @@ export function GearIcon(props: IconProps) {
   );
 }
 
+export function ImageIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3.5" y="5" width="17" height="14" rx="2.4" />
+      <circle cx="9" cy="10" r="1.6" />
+      <path d="M4 17l4.5-4.5a2 2 0 0 1 2.8 0L16 17M14 15l1.8-1.8a2 2 0 0 1 2.8 0L20.5 15" />
+    </Svg>
+  );
+}
+
+export function CalendarIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="4" y="5.5" width="16" height="14.5" rx="2.4" />
+      <path d="M4 9.5h16M8 3.5v3M16 3.5v3" />
+    </Svg>
+  );
+}
+
 export function TrophyIcon(props: IconProps) {
   return (
     <Svg {...props}>
