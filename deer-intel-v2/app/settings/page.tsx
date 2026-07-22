@@ -7,6 +7,15 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import PageHeader from "@/components/ui/PageHeader";
+import {
+  CameraIcon,
+  ClipboardIcon,
+  DeerIcon,
+  GearIcon,
+  ImageIcon,
+  MapPinIcon,
+  StandIcon,
+} from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
@@ -450,31 +459,43 @@ export default function SettingsPage() {
             label="Properties"
             value={state.properties.length}
             detail="Hunting properties"
+            icon={<MapPinIcon size={18} />}
+            tone="green"
           />
           <StatCard
             label="Camera Sites"
             value={state.cameras.length}
             detail={`${state.cameraChecks.length} checks saved`}
+            icon={<CameraIcon size={18} />}
+            tone="green"
           />
           <StatCard
             label="Stands"
             value={state.stands.length}
             detail="Stand workspaces"
+            icon={<StandIcon size={18} />}
+            tone="neutral"
           />
           <StatCard
             label="Hunts"
             value={state.hunts.length}
             detail="Hunt log entries"
+            icon={<ClipboardIcon size={18} />}
+            tone="neutral"
           />
           <StatCard
             label="Photo Records"
             value={state.photoRecords.length}
             detail="Camera history"
+            icon={<ImageIcon size={18} />}
+            tone="neutral"
           />
           <StatCard
             label="Deer Profiles"
             value={state.deerProfiles.length}
             detail="Tracked deer"
+            icon={<DeerIcon size={18} />}
+            tone="blaze"
           />
         </div>
       </Section>
@@ -655,6 +676,7 @@ export default function SettingsPage() {
     <PageShell>
       <Card as="section" variant="elevated" style={heroCardStyle}>
         <PageHeader
+          icon={<GearIcon size={26} />}
           eyebrow="Settings"
           title="Deer Intel Settings"
           description="Choose how Deer Intel looks, what it alerts you to, and how it stores your data. Each area has its own tab."

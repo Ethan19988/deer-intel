@@ -13,6 +13,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
+import { CameraIcon } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import {
@@ -472,6 +473,7 @@ export default function CameraImportPage() {
 
       <Card as="section" variant="elevated" style={heroCardStyle}>
         <PageHeader
+          icon={<CameraIcon size={26} />}
           eyebrow="Camera Import"
           title="Import Photos"
           description="Pick your camera photos and Deer Intel fills in the rest — date, weather, wind, moon, and the animal it sees. Check the cards, fix anything, then press Save Photos."
@@ -482,6 +484,7 @@ export default function CameraImportPage() {
       <Section eyebrow="Step 1" title="Where These Photos Belong">
         {state.properties.length === 0 ? (
           <EmptyState
+            illustration={<CameraIcon size={30} />}
             title="No properties yet"
             description="Add a property before importing camera photos."
             action={
@@ -562,6 +565,7 @@ export default function CameraImportPage() {
 
             {propertyCameras.length === 0 ? (
               <EmptyState
+                illustration={<CameraIcon size={30} />}
                 title="No camera sites for this property"
                 description="Add a camera site before importing photos."
                 action={
@@ -635,6 +639,7 @@ export default function CameraImportPage() {
       <Section eyebrow="Step 3" title="Check Your Photos">
         {drafts.length === 0 ? (
           <EmptyState
+            illustration={<CameraIcon size={30} />}
             title="No photos yet"
             description="Choose your camera photos above and they will show up here, filled in and ready to save."
           />

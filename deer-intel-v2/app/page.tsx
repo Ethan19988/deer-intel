@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import ActionCard from "@/components/ui/ActionCard";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
@@ -11,6 +16,10 @@ import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
 import PropertyPatternReport from "@/components/properties/PropertyPatternReport";
 import { buildPropertyPatternReport } from "@/lib/propertyPatterns";
 import MovementScorePanel from "@/components/weather/MovementScorePanel";
+import WindCompass from "@/components/weather/WindCompass";
+import MoonPhaseCard from "@/components/weather/MoonPhaseCard";
+import Barometer from "@/components/weather/Barometer";
+import RutRibbon from "@/components/season/RutRibbon";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import {
@@ -25,22 +34,34 @@ import TodaysPlayCard from "@/components/TodaysPlayCard";
 import { getStandWindCheck } from "@/lib/standWind";
 import { getHuntPlannerSummary, plannerHuntDate } from "@/lib/huntPlanner";
 import { formatHuntDate } from "@/lib/hunts";
+import HeroScene from "@/components/ui/HeroScene";
+import {
+  ClipboardIcon,
+  CompassIcon,
+  DeerIcon,
+  MapIcon,
+  MapPinIcon,
+  TargetIcon,
+} from "@/components/ui/FieldIcons";
 
 const HOME_ACTIONS = [
   {
     href: "/map",
     title: "Start Scouting",
     description: "Open the map, check your position, and add field pins.",
+    icon: <MapPinIcon size={22} />,
   },
   {
     href: "/hunt-log",
     title: "Start Hunt",
     description: "Review the last sit or log what happens tonight.",
+    icon: <ClipboardIcon size={22} />,
   },
   {
     href: "/map",
     title: "Open Map",
     description: "Go straight to layers, GPS, pins, and property overlays.",
+    icon: <MapIcon size={22} />,
   },
 ];
 
@@ -168,6 +189,7 @@ export default function Home() {
         stands={propertyStands}
       />
       <Card as="section" variant="elevated" style={briefStyle}>
+        <HeroScene />
         <div style={briefHeaderStyle}>
           <div style={heroHeadingWrapStyle}>
             <p style={heroEyebrowStyle}>
@@ -227,9 +249,25 @@ export default function Home() {
 
         <MovementScorePanel point={weatherPoint} />
 
+        <div style={instrumentsRowStyle}>
+          <WindCompass
+            wind={currentWind}
+            windSpeed={forecast?.current.windSpeed}
+            stands={propertyStands}
+          />
+          <MoonPhaseCard />
+          <Barometer pressure={forecast?.pressure} />
+        </div>
+
+        <RutRibbon
+          phase={seasonCtx.phase}
+          phaseLabel={seasonCtx.phaseLabel}
+          daysToPeak={seasonCtx.daysToPeak}
+        />
+
         <div style={briefGridStyle}>
           <BriefItem
-            icon="🎯"
+            icon={<TargetIcon size={18} />}
             label="Focus"
             value={
               activeProperty
@@ -239,13 +277,13 @@ export default function Home() {
             detail="Keep the plan simple before you head out."
           />
           <BriefItem
-            icon="🦌"
+            icon={<DeerIcon size={18} />}
             label="Last Hunt"
             value={plannerHuntDate(lastHunt)}
             detail={lastHunt ? planner.lastHunt.detail : "No hunt logged yet."}
           />
           <BriefItem
-            icon="🧭"
+            icon={<CompassIcon size={18} />}
             label="Next Step"
             value={activeProperty ? "Open the map" : "Add property"}
             detail={
@@ -320,6 +358,7 @@ export default function Home() {
             href={action.href}
             title={action.title}
             description={action.description}
+            icon={action.icon}
             size="large"
             tone="primary"
           />
@@ -336,7 +375,7 @@ function BriefItem({
   value,
 }: {
   detail: string;
-  icon: string;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {
@@ -406,20 +445,28 @@ function getHeroTagline({
 }
 
 const briefStyle: CSSProperties = {
+  position: "relative",
+  overflow: "hidden",
+  isolation: "isolate",
   display: "grid",
   gap: "1.1rem",
   padding: "1.75rem",
   border: "1px solid var(--border-strong)",
-  borderTop: "5px solid var(--accent-2)",
+  borderTop: "5px solid var(--accent)",
   color: "var(--camo-fg)",
   backgroundColor: "var(--camo-ink)",
+  // Cooler golden-hour wash: a pale-gold low sun top-right, a sage-green rise
+  // bottom-left, over a cool sage scrim (keeps the dark --camo-fg text legible
+  // on every theme, since --camo-fg is dark app-wide). The camo texture stays
+  // for character.
   backgroundImage:
-    "radial-gradient(120% 85% at 100% 0%, rgba(224, 100, 42, 0.22), transparent 55%), " +
-    "radial-gradient(95% 75% at 0% 100%, rgba(47, 125, 67, 0.18), transparent 55%), " +
-    "linear-gradient(rgba(233, 226, 206, 0.5), rgba(233, 226, 206, 0.62)), var(--camo)",
+    "radial-gradient(120% 90% at 100% -5%, rgba(232, 184, 104, 0.26), transparent 55%), " +
+    "radial-gradient(100% 85% at -5% 108%, rgba(47, 125, 67, 0.24), transparent 55%), " +
+    "linear-gradient(158deg, rgba(226, 228, 210, 0.52) 0%, rgba(200, 214, 199, 0.60) 55%, rgba(186, 205, 196, 0.66) 100%), " +
+    "var(--camo)",
   backgroundSize: "cover",
   backgroundPosition: "center",
-  boxShadow: "0 18px 40px -24px rgba(36, 29, 16, 0.55)",
+  boxShadow: "0 18px 40px -24px rgba(28, 36, 26, 0.55)",
 };
 
 const briefHeaderStyle: CSSProperties = {
@@ -540,6 +587,12 @@ const selectStyle: CSSProperties = {
   color: "var(--text)",
 };
 
+const instrumentsRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: "0.8rem",
+};
+
 const briefGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
@@ -571,7 +624,7 @@ const briefItemIconStyle: CSSProperties = {
   borderRadius: "9px",
   background: "var(--accent-2-tint)",
   border: "1px solid var(--accent-2-tint-border)",
-  fontSize: "1rem",
+  color: "var(--accent-2-text)",
 };
 
 const briefValueStyle: CSSProperties = {

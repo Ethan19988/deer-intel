@@ -6,6 +6,17 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
+import {
+  AlertIcon,
+  CameraIcon,
+  ClipboardIcon,
+  CompassIcon,
+  DeerIcon,
+  ImageIcon,
+  MapPinIcon,
+  StandIcon,
+  TargetIcon,
+} from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
@@ -182,6 +193,7 @@ export default function AIPage() {
     <PageShell>
       <Card as="section" variant="elevated" style={heroCardStyle}>
         <PageHeader
+          icon={<TargetIcon size={26} />}
           eyebrow="Deer Intelligence"
           title="Deer Intelligence Hub"
           description="A simple readout for what matters right now on one property. No charts, no AI calls, just plain hunting information from your saved Deer Intel data."
@@ -197,6 +209,7 @@ export default function AIPage() {
       <Section eyebrow="Property" title="Choose Property">
         {state.properties.length === 0 ? (
           <EmptyState
+            illustration={<TargetIcon size={30} />}
             title="No properties yet"
             description="Add a property before Deer Intel can build an intelligence hub."
             action={
@@ -227,7 +240,11 @@ export default function AIPage() {
 
       {hub && selectedProperty ? (
         <>
-          <Section eyebrow="1" title="What's Happening">
+          <Section
+            eyebrow="1"
+            title="What's Happening"
+            icon={<CompassIcon size={18} />}
+          >
             <Card as="div" variant="subtle">
               <ul style={bulletListStyle}>
                 {hub.whatsHappening.map((insight) => (
@@ -239,7 +256,11 @@ export default function AIPage() {
             </Card>
           </Section>
 
-          <Section eyebrow="2" title="Best Stand">
+          <Section
+            eyebrow="2"
+            title="Best Stand"
+            icon={<StandIcon size={18} />}
+          >
             <Card as="article" variant="subtle">
               <div style={simpleHeaderStyle}>
                 <div>
@@ -259,7 +280,11 @@ export default function AIPage() {
             </Card>
           </Section>
 
-          <Section eyebrow="3" title="Recent Buck Activity">
+          <Section
+            eyebrow="3"
+            title="Recent Buck Activity"
+            icon={<DeerIcon size={18} />}
+          >
             <Card as="article" variant="subtle">
               <div style={simpleHeaderStyle}>
                 <div>
@@ -286,7 +311,11 @@ export default function AIPage() {
             </Card>
           </Section>
 
-          <Section eyebrow="4" title="Needs Attention">
+          <Section
+            eyebrow="4"
+            title="Needs Attention"
+            icon={<AlertIcon size={18} />}
+          >
             {hub.needsAttention.length === 0 ? (
               <EmptyState description="Nothing urgent stands out right now." />
             ) : (
@@ -298,32 +327,46 @@ export default function AIPage() {
             )}
           </Section>
 
-          <Section eyebrow="5" title="Property Snapshot">
+          <Section
+            eyebrow="5"
+            title="Property Snapshot"
+            icon={<MapPinIcon size={18} />}
+          >
             <div style={snapshotGridStyle}>
               <StatCard
                 label="Cameras"
                 value={hub.snapshot.cameras}
                 detail="Camera sites"
+                icon={<CameraIcon size={18} />}
+                tone="green"
               />
               <StatCard
                 label="Stands"
                 value={hub.snapshot.stands}
                 detail="Stand sites"
+                icon={<StandIcon size={18} />}
+                tone="green"
               />
               <StatCard
                 label="Deer Profiles"
                 value={hub.snapshot.deerProfiles}
                 detail="Tracked deer"
+                icon={<DeerIcon size={18} />}
+                tone="blaze"
               />
               <StatCard
                 label="Hunts"
                 value={hub.snapshot.hunts}
                 detail="Hunt log entries"
+                icon={<ClipboardIcon size={18} />}
+                tone="neutral"
               />
               <StatCard
                 label="Photos"
                 value={hub.snapshot.photos}
                 detail="Photo records"
+                icon={<ImageIcon size={18} />}
+                tone="neutral"
               />
             </div>
           </Section>
@@ -385,6 +428,7 @@ export default function AIPage() {
           >
             {!aiScoutEnabled ? (
               <EmptyState
+                illustration={<TargetIcon size={30} />}
                 title="AI Scout is turned off"
                 description="You've turned off AI Scout recommendations in Settings → AI Scout. The rule-based insights above keep working. Turn it back on there whenever you want LLM recommendations."
               />
@@ -394,6 +438,7 @@ export default function AIPage() {
               </Card>
             ) : aiScoutConfigured === false ? (
               <EmptyState
+                illustration={<TargetIcon size={30} />}
                 title="AI Scout isn't turned on yet"
                 description="This property's saved data hasn't changed — AI Scout just needs an ANTHROPIC_API_KEY set as an environment variable on the server (see the README) before it can make real recommendations. Everything else above keeps working without it."
               />

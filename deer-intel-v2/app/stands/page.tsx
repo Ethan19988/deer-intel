@@ -4,7 +4,15 @@ import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import StandCard from "@/components/stands/StandCard";
 import EmptyState from "@/components/ui/EmptyState";
+import {
+  ClipboardIcon,
+  CompassIcon,
+  DeerIcon,
+  PlusIcon,
+  StandIcon,
+} from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
+import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
 import Tabs from "@/components/ui/Tabs";
 import {
@@ -94,12 +102,18 @@ export default function StandsPage() {
     return (
       <PageShell>
         <header style={headerStyle}>
-          <div>
-            <p style={eyebrowStyle}>Stands</p>
-            <h1 style={titleStyle}>Stands</h1>
+          <div style={headerLeadStyle}>
+            <span style={headerIconStyle} aria-hidden="true">
+              <StandIcon size={24} />
+            </span>
+            <div style={headerTitleWrapStyle}>
+              <p style={eyebrowStyle}>Stands</p>
+              <h1 style={titleStyle}>Stands</h1>
+            </div>
           </div>
         </header>
         <EmptyState
+          illustration={<StandIcon size={30} />}
           title="No properties yet"
           description="Add a property before saving stand sites."
           action={
@@ -116,6 +130,7 @@ export default function StandsPage() {
     <div style={listStyle}>
       {propertyStands.length === 0 ? (
         <EmptyState
+          illustration={<StandIcon size={30} />}
           title="No stands for this property"
           description="Open the property command center to add stand type, wind notes, access, exit, and notes."
           action={
@@ -128,25 +143,48 @@ export default function StandsPage() {
           }
         />
       ) : (
-        propertyStands.map((stand) => {
-          const intelligence = getStandIntelligenceSummary({
-            stand,
-            propertyId: selectedPropertyId,
-            cameras: propertyCameras,
-            cameraChecks: propertyCameraChecks,
-            hunts: propertyHunts,
-            pins: propertyPins,
-          });
+        <>
+          {todayWind ? (
+            <div style={windBannerStyle}>
+              <span style={windIconStyle} aria-hidden="true">
+                <CompassIcon size={20} />
+              </span>
+              <span>
+                <b>Today&apos;s wind: {todayWind}</b> — check each stand&apos;s
+                wind fit below before you pick your sit.
+              </span>
+            </div>
+          ) : null}
 
-          return (
-            <StandCard
-              key={stand.id}
-              stand={stand}
-              intelligence={intelligence}
-              todayWind={todayWind}
-            />
-          );
-        })
+          <Section
+            eyebrow="On this property"
+            title="Stand Sites"
+            icon={<StandIcon size={18} />}
+            style={sectionStyle}
+          >
+            <div style={listStyle}>
+              {propertyStands.map((stand) => {
+                const intelligence = getStandIntelligenceSummary({
+                  stand,
+                  propertyId: selectedPropertyId,
+                  cameras: propertyCameras,
+                  cameraChecks: propertyCameraChecks,
+                  hunts: propertyHunts,
+                  pins: propertyPins,
+                });
+
+                return (
+                  <StandCard
+                    key={stand.id}
+                    stand={stand}
+                    intelligence={intelligence}
+                    todayWind={todayWind}
+                  />
+                );
+              })}
+            </div>
+          </Section>
+        </>
       )}
     </div>
   );
@@ -157,16 +195,22 @@ export default function StandsPage() {
         label="Stand Sites"
         value={propertyStands.length}
         detail="Saved stand locations"
+        icon={<StandIcon size={18} />}
+        tone="green"
       />
       <StatCard
         label="Hunted Stands"
         value={huntedStandCount}
         detail={`${propertyHunts.length} hunts logged`}
+        icon={<DeerIcon size={18} />}
+        tone="blaze"
       />
       <StatCard
         label="Wind Notes"
         value={standsWithWindNotes}
         detail="Stands with wind guidance"
+        icon={<CompassIcon size={18} />}
+        tone="neutral"
       />
     </div>
   );
@@ -175,8 +219,15 @@ export default function StandsPage() {
     <PageShell>
       <header style={headerStyle}>
         <div style={headerLeadStyle}>
-          <p style={eyebrowStyle}>Stands</p>
-          <h1 style={titleStyle}>{selectedProperty?.name ?? "Stands"}</h1>
+          <span style={headerIconStyle} aria-hidden="true">
+            <StandIcon size={24} />
+          </span>
+          <div style={headerTitleWrapStyle}>
+            <p style={eyebrowStyle}>Stands</p>
+            <h1 style={titleStyle}>{selectedProperty?.name ?? "Stands"}</h1>
+          </div>
+        </div>
+        <div style={headerRightStyle}>
           <label style={pickerStyle}>
             <span style={pickerLabelStyle}>Property</span>
             <select
@@ -191,17 +242,19 @@ export default function StandsPage() {
               ))}
             </select>
           </label>
-        </div>
-        <div style={headerActionsStyle}>
-          <Link href="/hunt-log" style={secondaryLinkStyle}>
-            Log Hunt
-          </Link>
-          <Link
-            href={`/properties/${selectedPropertyId}#stand-sites`}
-            style={primaryLinkStyle}
-          >
-            Add Stand
-          </Link>
+          <div style={headerActionsStyle}>
+            <Link href="/hunt-log" style={secondaryLinkStyle}>
+              <ClipboardIcon size={17} />
+              Log Hunt
+            </Link>
+            <Link
+              href={`/properties/${selectedPropertyId}#stand-sites`}
+              style={primaryLinkStyle}
+            >
+              <PlusIcon size={17} />
+              Add Stand
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -222,17 +275,44 @@ export default function StandsPage() {
 
 const headerStyle: CSSProperties = {
   display: "flex",
-  alignItems: "flex-end",
+  alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: "1rem",
+  gap: "1rem 1.25rem",
   flexWrap: "wrap",
   marginBottom: "1.5rem",
 };
 
 const headerLeadStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.5rem",
+  display: "flex",
+  alignItems: "center",
+  gap: "0.85rem",
   minWidth: 0,
+};
+
+const headerIconStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "3rem",
+  height: "3rem",
+  flex: "none",
+  borderRadius: "14px",
+  background: "var(--accent-tint)",
+  border: "1px solid var(--accent-tint-border)",
+  color: "var(--accent-text)",
+};
+
+const headerTitleWrapStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.25rem",
+  minWidth: 0,
+};
+
+const headerRightStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-end",
+  gap: "0.7rem",
 };
 
 const eyebrowStyle: CSSProperties = {
@@ -291,12 +371,44 @@ const listStyle: CSSProperties = {
   gap: "1rem",
 };
 
+const sectionStyle: CSSProperties = {
+  marginTop: "0.25rem",
+};
+
+const windBannerStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.7rem",
+  padding: "0.85rem 1rem",
+  border: "1px solid var(--accent-tint-border)",
+  borderLeft: "4px solid var(--accent)",
+  borderRadius: "12px",
+  background: "var(--accent-tint)",
+  color: "var(--accent-text)",
+  fontWeight: 700,
+  lineHeight: 1.5,
+};
+
+const windIconStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "2.1rem",
+  height: "2.1rem",
+  flex: "none",
+  borderRadius: "10px",
+  background: "var(--surface)",
+  border: "1px solid var(--accent-tint-border)",
+  color: "var(--accent-text)",
+};
+
 const primaryLinkStyle: CSSProperties = {
   display: "inline-flex",
   minHeight: "44px",
   alignItems: "center",
   justifyContent: "center",
-  padding: "0.7rem 0.9rem",
+  gap: "0.4rem",
+  padding: "0.7rem 0.95rem",
   border: "1px solid var(--accent)",
   borderRadius: "var(--radius-sm)",
   background: "var(--accent)",
@@ -310,7 +422,8 @@ const secondaryLinkStyle: CSSProperties = {
   minHeight: "44px",
   alignItems: "center",
   justifyContent: "center",
-  padding: "0.7rem 0.9rem",
+  gap: "0.4rem",
+  padding: "0.7rem 0.95rem",
   border: "1px solid var(--border-strong)",
   borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
