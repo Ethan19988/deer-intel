@@ -3,6 +3,13 @@
 import Link from "next/link";
 import { Suspense, type CSSProperties, type ReactNode } from "react";
 import Sidebar from "@/components/ui/Sidebar";
+import {
+  CameraIcon,
+  ClipboardIcon,
+  HomeIcon,
+  MapIcon,
+  MapPinIcon,
+} from "@/components/ui/FieldIcons";
 
 type PageShellProps = {
   children: ReactNode;
@@ -15,11 +22,11 @@ type PageShellProps = {
 };
 
 const mobileNavLinks = [
-  { href: "/", label: "Today" },
-  { href: "/map", label: "Map" },
-  { href: "/properties", label: "Properties" },
-  { href: "/cameras", label: "Cameras" },
-  { href: "/hunt-log", label: "Hunts" },
+  { href: "/", label: "Today", icon: <HomeIcon size={20} /> },
+  { href: "/map", label: "Map", icon: <MapIcon size={20} /> },
+  { href: "/properties", label: "Properties", icon: <MapPinIcon size={20} /> },
+  { href: "/cameras", label: "Cameras", icon: <CameraIcon size={20} /> },
+  { href: "/hunt-log", label: "Hunts", icon: <ClipboardIcon size={20} /> },
 ];
 
 export default function PageShell({
@@ -71,6 +78,9 @@ export default function PageShell({
       <nav className="di-mobile-nav" aria-label="Primary">
         {mobileNavLinks.map((link) => (
           <Link key={link.href} href={link.href}>
+            <span className="di-mobile-nav-icon" aria-hidden="true">
+              {link.icon}
+            </span>
             {link.label}
           </Link>
         ))}

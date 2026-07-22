@@ -319,14 +319,30 @@ h3 {
 }
 
 .di-sidebar-brand {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   padding: 1.15rem;
   border-bottom: 1px solid rgba(0, 0, 0, 0.18);
   color: var(--camo-fg);
-  font-size: 1.15rem;
-  font-weight: 900;
-  letter-spacing: 0.01em;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   text-decoration: none;
+}
+
+.di-sidebar-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: 0 4px 12px -6px rgba(47, 125, 67, 0.7);
 }
 
 .di-sidebar-nav {
@@ -359,6 +375,7 @@ h3 {
 .di-sidebar-link {
   display: flex;
   align-items: center;
+  gap: 0.65rem;
   min-height: 42px;
   padding: 0.5rem 0.65rem;
   border: 1px solid transparent;
@@ -367,6 +384,19 @@ h3 {
   font-size: 0.95rem;
   font-weight: 700;
   text-decoration: none;
+}
+
+.di-sidebar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--text-faint);
+}
+
+.di-sidebar-link:hover .di-sidebar-icon,
+.di-sidebar-link[aria-current="page"] .di-sidebar-icon {
+  color: inherit;
 }
 
 .di-sidebar-link:hover {
@@ -782,16 +812,29 @@ textarea {
 
   .di-mobile-nav a {
     display: inline-flex;
-    min-height: 52px;
+    min-height: 54px;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 0.15rem;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--surface-2);
-    color: var(--text);
-    font-size: 0.92rem;
+    color: var(--text-muted);
+    font-size: 0.66rem;
     font-weight: 800;
+    letter-spacing: 0.01em;
     text-decoration: none;
+  }
+
+  .di-mobile-nav a[aria-current="page"] {
+    background: var(--accent-tint);
+    border-color: var(--accent-tint-border);
+    color: var(--accent-text);
+  }
+
+  .di-mobile-nav-icon {
+    display: inline-flex;
   }
 
   .di-card,

@@ -2,33 +2,49 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 import AccountNavControl from "@/components/auth/AccountNavControl";
+import {
+  CameraIcon,
+  ClipboardIcon,
+  DeerIcon,
+  GearIcon,
+  HomeIcon,
+  MapIcon,
+  MapPinIcon,
+  StandIcon,
+  TargetIcon,
+} from "@/components/ui/FieldIcons";
 
-type NavLink = { href: string; label: string };
+type NavLink = { href: string; label: string; icon: ReactNode };
 type NavGroup = { heading?: string; links: NavLink[] };
+
+const ICON_SIZE = 18;
 
 // Navigation grouped by what the hunter is doing, not by data type.
 const NAV_GROUPS: NavGroup[] = [
-  { links: [{ href: "/", label: "Today" }] },
+  { links: [{ href: "/", label: "Today", icon: <HomeIcon size={ICON_SIZE} /> }] },
   {
     heading: "Scout the land",
     links: [
-      { href: "/map", label: "Map" },
-      { href: "/properties", label: "Properties" },
-      { href: "/cameras", label: "Cameras" },
-      { href: "/stands", label: "Stands" },
+      { href: "/map", label: "Map", icon: <MapIcon size={ICON_SIZE} /> },
+      { href: "/properties", label: "Properties", icon: <MapPinIcon size={ICON_SIZE} /> },
+      { href: "/cameras", label: "Cameras", icon: <CameraIcon size={ICON_SIZE} /> },
+      { href: "/stands", label: "Stands", icon: <StandIcon size={ICON_SIZE} /> },
     ],
   },
   {
     heading: "Plan the hunt",
     links: [
-      { href: "/ai", label: "Hunt Plan" },
-      { href: "/hunt-log", label: "Hunt Log" },
+      { href: "/ai", label: "Hunt Plan", icon: <TargetIcon size={ICON_SIZE} /> },
+      { href: "/hunt-log", label: "Hunt Log", icon: <ClipboardIcon size={ICON_SIZE} /> },
     ],
   },
 ];
 
-const FOOTER_LINKS: NavLink[] = [{ href: "/settings", label: "Settings" }];
+const FOOTER_LINKS: NavLink[] = [
+  { href: "/settings", label: "Settings", icon: <GearIcon size={ICON_SIZE} /> },
+];
 
 function isActive(pathname: string, href: string) {
   const [path] = href.split("?");
@@ -44,6 +60,9 @@ export default function Sidebar() {
   return (
     <aside className="di-sidebar" aria-label="Primary">
       <Link href="/" className="di-camo-band di-sidebar-brand">
+        <span className="di-sidebar-mark" aria-hidden="true">
+          <DeerIcon size={22} />
+        </span>
         Deer Intel
       </Link>
 
@@ -62,6 +81,9 @@ export default function Sidebar() {
                   isActive(pathname, link.href) ? "page" : undefined
                 }
               >
+                <span className="di-sidebar-icon" aria-hidden="true">
+                  {link.icon}
+                </span>
                 {link.label}
               </Link>
             ))}

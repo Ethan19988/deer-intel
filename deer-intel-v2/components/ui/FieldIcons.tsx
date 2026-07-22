@@ -165,3 +165,31 @@ export function PlusIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function HomeIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 11.5 12 4.5l8 7" />
+      <path d="M5.5 10.2V19a1 1 0 0 0 1 1H10v-5h4v5h3.5a1 1 0 0 0 1-1v-8.8" />
+    </Svg>
+  );
+}
+
+export function GearIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 2.6v2.3M12 19.1v2.3M4.2 6.6l1.6 1.6M18.2 15.8l1.6 1.6M2.6 12h2.3M19.1 12h2.3M4.2 17.4l1.6-1.6M18.2 8.2l1.6-1.6" />
+    </Svg>
+  );
+}
+
+export function TrophyIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M7 4h10v4a5 5 0 0 1-10 0z" />
+      <path d="M7 5H4.5a2.5 2.5 0 0 0 3 2.4M17 5h2.5a2.5 2.5 0 0 1-3 2.4" />
+      <path d="M12 13v3M9 20h6M9.5 20a2.5 2.5 0 0 1 5 0" />
+    </Svg>
+  );
+}

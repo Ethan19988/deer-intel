@@ -6,6 +6,8 @@ type PageHeaderProps = {
   description?: string;
   meta?: ReactNode;
   action?: ReactNode;
+  /** Optional line-icon shown in a tinted badge left of the title block. */
+  icon?: ReactNode;
 };
 
 export default function PageHeader({
@@ -14,12 +16,22 @@ export default function PageHeader({
   description,
   meta,
   action,
+  icon,
 }: PageHeaderProps) {
   return (
     <header className="di-page-header" style={headerStyle}>
       <div className="di-page-header-text" style={textStyle}>
-        {eyebrow ? <p style={eyebrowStyle}>{eyebrow}</p> : null}
-        <h1 className="di-page-title" style={titleStyle}>{title}</h1>
+        <div style={topRowStyle}>
+          {icon ? (
+            <span style={iconBadgeStyle} aria-hidden="true">
+              {icon}
+            </span>
+          ) : null}
+          <div>
+            {eyebrow ? <p style={eyebrowStyle}>{eyebrow}</p> : null}
+            <h1 className="di-page-title" style={titleStyle}>{title}</h1>
+          </div>
+        </div>
         {meta ? <div style={metaStyle}>{meta}</div> : null}
         {description ? <p style={descriptionStyle}>{description}</p> : null}
       </div>
@@ -39,6 +51,25 @@ const headerStyle: CSSProperties = {
 
 const textStyle: CSSProperties = {
   flex: "1 1 420px",
+};
+
+const topRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.85rem",
+};
+
+const iconBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "3rem",
+  height: "3rem",
+  flex: "none",
+  borderRadius: "14px",
+  background: "var(--accent-tint)",
+  border: "1px solid var(--accent-tint-border)",
+  color: "var(--accent-text)",
 };
 
 const eyebrowStyle: CSSProperties = {
