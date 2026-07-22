@@ -315,6 +315,8 @@ function normalizeStand(value: unknown): Stand | null {
 
   if (!id || !propertyId || !name) return null;
 
+  const sourcePinId = optionalStringValue(value.sourcePinId);
+
   return {
     id,
     propertyId,
@@ -325,6 +327,7 @@ function normalizeStand(value: unknown): Stand | null {
     accessRouteNotes: stringValue(value.accessRouteNotes),
     exitRouteNotes: stringValue(value.exitRouteNotes),
     notes: stringValue(value.notes, "No notes yet."),
+    ...(sourcePinId ? { sourcePinId } : {}),
   };
 }
 
@@ -638,6 +641,12 @@ function normalizeState(value: unknown): DeerIntelState | null {
     documents,
   };
 
+  // Collapse duplicate stand sites created from the same map pin. Rapid taps on
+  // "Save as stand site" before the UI refreshed could promote one pin several
+  // times; this heals any store that already carries those copies. Runs on
+  // every load so affected devices self-correct on the next visit.
+  const deduped = dedupeStandsFromPins(normalized);
+
   // A store written before version 2 may still carry the old seeded sample
   // properties. Run the one-time cleanup only when upgrading from an older
   // version; states already at the current version are left untouched.
@@ -645,8 +654,47 @@ function normalizeState(value: unknown): DeerIntelState | null {
     typeof value.version === "number" ? value.version : 1;
 
   return incomingVersion < CURRENT_STATE_VERSION
-    ? removeUntouchedLegacyProperties(normalized)
-    : normalized;
+    ? removeUntouchedLegacyProperties(deduped)
+    : deduped;
+}
+
+/**
+ * Remove duplicate stand sites that were promoted from the same map pin,
+ * keeping the first one. Any hunts logged against a removed duplicate are
+ * repointed to the kept stand so no history is lost. Stands without a
+ * sourcePinId (added by hand) are never merged.
+ */
+function dedupeStandsFromPins(state: DeerIntelState): DeerIntelState {
+  const keptStandByPin = new Map<string, string>();
+  const removedStandIdToKeptId = new Map<string, string>();
+  const stands: Stand[] = [];
+
+  for (const stand of state.stands) {
+    if (!stand.sourcePinId) {
+      stands.push(stand);
+      continue;
+    }
+
+    const existingKeptId = keptStandByPin.get(stand.sourcePinId);
+
+    if (existingKeptId) {
+      removedStandIdToKeptId.set(stand.id, existingKeptId);
+      continue;
+    }
+
+    keptStandByPin.set(stand.sourcePinId, stand.id);
+    stands.push(stand);
+  }
+
+  if (removedStandIdToKeptId.size === 0) return state;
+
+  const hunts = state.hunts.map((hunt) => {
+    const keptId = removedStandIdToKeptId.get(hunt.standId);
+
+    return keptId ? { ...hunt, standId: keptId } : hunt;
+  });
+
+  return { ...state, stands, hunts };
 }
 
 /**

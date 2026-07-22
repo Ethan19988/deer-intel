@@ -97,14 +97,31 @@ export default function HuntLogPage() {
       pin,
     });
 
-    updateDeerIntelStore((currentState) => ({
-      ...currentState,
-      stands: [...currentState.stands, newStand],
-    }));
+    // Guard against double-taps: if this pin was already promoted (even by a
+    // tap that hasn't re-rendered yet), reuse that stand instead of adding a
+    // duplicate. The check runs inside the updater so it sees the latest state.
+    let standIdToSelect = newStand.id;
+
+    updateDeerIntelStore((currentState) => {
+      const existingStand = currentState.stands.find(
+        (stand) => stand.sourcePinId === pin.id,
+      );
+
+      if (existingStand) {
+        standIdToSelect = existingStand.id;
+        return currentState;
+      }
+
+      return {
+        ...currentState,
+        stands: [...currentState.stands, newStand],
+      };
+    });
+
     setHuntValues((currentValues) => ({
       ...currentValues,
       propertyId: newStand.propertyId,
-      standId: newStand.id,
+      standId: standIdToSelect,
     }));
   }
 
