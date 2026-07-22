@@ -7,6 +7,7 @@ import type { Camera, CameraStatus, CameraType } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { DeerProfile } from "@/types/deerProfile";
 import type { DeerIntelState } from "@/types/deerIntelStore";
+import type { DocumentRecord } from "@/types/document";
 import type { HuntLogEntry } from "@/types/hunt";
 import { PIN_TYPES, type MapPin, type PinType } from "@/types/mapPin";
 import type { PhotoRecord } from "@/types/photo";
@@ -70,6 +71,7 @@ const DEFAULT_STATE: DeerIntelState = {
   photoRecords: [],
   deerProfiles: [],
   walkTracks: [],
+  documents: [],
 };
 
 const listeners = new Set<() => void>();
@@ -526,6 +528,35 @@ function normalizeWalkTrack(value: unknown): WalkTrack | null {
   };
 }
 
+function normalizeDocument(value: unknown): DocumentRecord | null {
+  if (!isRecord(value)) return null;
+
+  const id =
+    typeof value.id === "string" || typeof value.id === "number"
+      ? String(value.id)
+      : "";
+  const propertyId =
+    typeof value.propertyId === "string" || typeof value.propertyId === "number"
+      ? String(value.propertyId)
+      : "";
+
+  if (!id || !propertyId) return null;
+
+  const fileName = stringValue(value.fileName);
+
+  return {
+    id,
+    propertyId,
+    label: stringValue(value.label) || fileName || "Document",
+    fileName,
+    fileType: stringValue(value.fileType),
+    fileSize: countValue(value.fileSize),
+    fileId: stringValue(value.fileId),
+    notes: stringValue(value.notes),
+    createdAt: stringValue(value.createdAt),
+  };
+}
+
 function createState(properties: Property[]): DeerIntelState {
   return {
     ...DEFAULT_STATE,
@@ -581,6 +612,11 @@ function normalizeState(value: unknown): DeerIntelState | null {
         .map(normalizeWalkTrack)
         .filter((track): track is WalkTrack => track !== null)
     : [];
+  const documents = Array.isArray(value.documents)
+    ? value.documents
+        .map(normalizeDocument)
+        .filter((document): document is DocumentRecord => document !== null)
+    : [];
   const selectedPropertyId = properties.some(
     (property) => property.id === value.selectedPropertyId,
   )
@@ -599,6 +635,7 @@ function normalizeState(value: unknown): DeerIntelState | null {
     photoRecords,
     deerProfiles,
     walkTracks,
+    documents,
   };
 
   // A store written before version 2 may still carry the old seeded sample
@@ -655,6 +692,7 @@ function removeUntouchedLegacyProperties(
   for (const photo of state.photoRecords) referencedPropertyIds.add(photo.propertyId);
   for (const profile of state.deerProfiles) referencedPropertyIds.add(profile.propertyId);
   for (const track of state.walkTracks) referencedPropertyIds.add(track.propertyId);
+  for (const document of state.documents) referencedPropertyIds.add(document.propertyId);
 
   const remainingProperties = state.properties.filter((property) => {
     // Keep anything the hunter made their own, or that has data attached.

@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ChangeEvent, type CSSProperties } from "react";
+import {
+  useRef,
+  useState,
+  type ChangeEvent,
+  type CSSProperties,
+} from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -62,6 +67,7 @@ export default function PinImportPage() {
   const [drafts, setDrafts] = useState<PinDraft[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedDrafts = drafts.filter((draft) => draft.selected);
   const canImport = Boolean(propertyId) && selectedDrafts.length > 0;
@@ -232,21 +238,30 @@ export default function PinImportPage() {
 
       <Section eyebrow="Upload" title="Add a GPX, KML, or KMZ File">
         <Card as="div" variant="subtle">
-          <label style={uploadBoxStyle}>
+          {/* The whole tile is the tap target so it's obvious where to press. */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".gpx,.kml,.kmz,application/gpx+xml,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/xml,text/xml"
+            onChange={handleFileChange}
+            style={hiddenInputStyle}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            style={uploadButtonStyle}
+          >
+            <span style={uploadIconStyle} aria-hidden="true">
+              +
+            </span>
             <span style={uploadTitleStyle}>Choose GPX, KML, or KMZ files</span>
-            <span style={mutedTextStyle}>
+            <span style={uploadHintStyle}>
               Deer Intel reads point waypoints (markers) and suggests a pin type
               from each waypoint&apos;s name. Lines and areas are skipped. You
               can select more than one file.
             </span>
-            <input
-              type="file"
-              multiple
-              accept=".gpx,.kml,.kmz,application/gpx+xml,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/xml,text/xml"
-              onChange={handleFileChange}
-              style={fileInputStyle}
-            />
-          </label>
+          </button>
 
           {drafts.length > 0 ? (
             <div style={buttonRowStyle}>
@@ -459,24 +474,49 @@ const assignmentTextStyle: CSSProperties = {
   lineHeight: 1.55,
 };
 
-const uploadBoxStyle: CSSProperties = {
+const hiddenInputStyle: CSSProperties = {
+  display: "none",
+};
+
+const uploadButtonStyle: CSSProperties = {
   display: "grid",
+  justifyItems: "center",
   gap: "0.5rem",
-  padding: "1rem",
-  border: "1px dashed var(--border)",
-  borderRadius: "8px",
+  width: "100%",
+  padding: "2rem 1.4rem",
+  border: "2px dashed var(--accent)",
+  borderRadius: "12px",
   background: "var(--surface-2)",
+  color: "var(--text)",
+  textAlign: "center",
   cursor: "pointer",
+};
+
+const uploadIconStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "3rem",
+  height: "3rem",
+  borderRadius: "999px",
+  background: "var(--accent)",
+  color: "white",
+  fontSize: "1.8rem",
+  fontWeight: 800,
+  lineHeight: 1,
 };
 
 const uploadTitleStyle: CSSProperties = {
   color: "var(--text)",
-  fontSize: "1.1rem",
+  fontSize: "1.15rem",
   fontWeight: 850,
 };
 
-const fileInputStyle: CSSProperties = {
-  marginTop: "0.5rem",
+const uploadHintStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontSize: "0.9rem",
+  lineHeight: 1.45,
+  maxWidth: "34rem",
 };
 
 const buttonRowStyle: CSSProperties = {

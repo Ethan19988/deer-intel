@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type CSSProperties,
+} from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -148,6 +154,7 @@ export default function CameraImportPage() {
   const [message, setMessage] = useState("");
   const [savedCameraId, setSavedCameraId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const units = useUnitPreferences();
   const selectedDrafts = drafts.filter((draft) => draft.selected);
   const missingRequirements: string[] = [];
@@ -602,21 +609,30 @@ export default function CameraImportPage() {
 
       <Section eyebrow="Step 2" title="Add Your Photos">
         <Card as="div" variant="subtle">
-          <label style={uploadBoxStyle}>
+          {/* The whole tile is the tap target so it's obvious where to press. */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleFileChange}
+            style={hiddenInputStyle}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            style={uploadButtonStyle}
+          >
+            <span style={uploadIconStyle} aria-hidden="true">
+              +
+            </span>
             <span style={uploadTitleStyle}>Choose camera photos</span>
-            <span style={mutedTextStyle}>
+            <span style={uploadHintStyle}>
               Pick one or more photos. Deer Intel reads each one and fills in
               the date, weather, wind, moon, and the animal it sees for you —
               just check the cards below and press Save Photos.
             </span>
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={handleFileChange}
-              style={fileInputStyle}
-            />
-          </label>
+          </button>
         </Card>
       </Section>
 
@@ -1214,24 +1230,49 @@ const newBuckButtonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-const uploadBoxStyle: CSSProperties = {
+const hiddenInputStyle: CSSProperties = {
+  display: "none",
+};
+
+const uploadButtonStyle: CSSProperties = {
   display: "grid",
+  justifyItems: "center",
   gap: "0.5rem",
-  padding: "1rem",
-  border: "1px dashed var(--border)",
-  borderRadius: "8px",
+  width: "100%",
+  padding: "2rem 1.4rem",
+  border: "2px dashed var(--accent)",
+  borderRadius: "12px",
   background: "var(--surface-2)",
+  color: "var(--text)",
+  textAlign: "center",
   cursor: "pointer",
+};
+
+const uploadIconStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "3rem",
+  height: "3rem",
+  borderRadius: "999px",
+  background: "var(--accent)",
+  color: "white",
+  fontSize: "1.8rem",
+  fontWeight: 800,
+  lineHeight: 1,
 };
 
 const uploadTitleStyle: CSSProperties = {
   color: "var(--text)",
-  fontSize: "1.1rem",
+  fontSize: "1.15rem",
   fontWeight: 850,
 };
 
-const fileInputStyle: CSSProperties = {
-  marginTop: "0.5rem",
+const uploadHintStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontSize: "0.9rem",
+  lineHeight: 1.45,
+  maxWidth: "34rem",
 };
 
 const buttonRowStyle: CSSProperties = {
@@ -1309,12 +1350,6 @@ const draftFormGridStyle: CSSProperties = {
   marginTop: "1rem",
   paddingTop: "1rem",
   borderTop: "1px solid var(--border)",
-};
-
-const mutedTextStyle: CSSProperties = {
-  margin: "0.45rem 0 0",
-  color: "var(--text-muted)",
-  lineHeight: 1.55,
 };
 
 const primaryLinkStyle: CSSProperties = {

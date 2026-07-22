@@ -585,6 +585,20 @@ export default function SettingsPage() {
         </Card>
       </Section>
 
+      <Section eyebrow="Documents" title="Add a Document or Photo">
+        <Card as="div" variant="subtle">
+          <p style={mutedTextStyle}>
+            Keep your leases, permits, licenses, tags, regulations, and printed
+            maps on the property. Attach a PDF, an image, or any other file — a
+            big, clearly-marked button shows exactly where to tap. Everything
+            stays on this device.
+          </p>
+          <Link href="/documents/import" style={primaryLinkStyle}>
+            Open Document Importer
+          </Link>
+        </Card>
+      </Section>
+
     </>
   );
 
