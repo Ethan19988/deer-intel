@@ -86,6 +86,7 @@ export default function CamerasPage() {
           </div>
         </header>
         <EmptyState
+          illustration={<CameraIcon size={30} />}
           title="No properties yet"
           description="Add a property before setting camera sites."
           action={

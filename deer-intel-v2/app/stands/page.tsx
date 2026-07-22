@@ -101,6 +101,7 @@ export default function StandsPage() {
           </div>
         </header>
         <EmptyState
+          illustration={<StandIcon size={30} />}
           title="No properties yet"
           description="Add a property before saving stand sites."
           action={

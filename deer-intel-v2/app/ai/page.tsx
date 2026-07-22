@@ -6,6 +6,7 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
+import { TargetIcon } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
@@ -182,6 +183,7 @@ export default function AIPage() {
     <PageShell>
       <Card as="section" variant="elevated" style={heroCardStyle}>
         <PageHeader
+          icon={<TargetIcon size={26} />}
           eyebrow="Deer Intelligence"
           title="Deer Intelligence Hub"
           description="A simple readout for what matters right now on one property. No charts, no AI calls, just plain hunting information from your saved Deer Intel data."
@@ -197,6 +199,7 @@ export default function AIPage() {
       <Section eyebrow="Property" title="Choose Property">
         {state.properties.length === 0 ? (
           <EmptyState
+            illustration={<TargetIcon size={30} />}
             title="No properties yet"
             description="Add a property before Deer Intel can build an intelligence hub."
             action={
@@ -385,6 +388,7 @@ export default function AIPage() {
           >
             {!aiScoutEnabled ? (
               <EmptyState
+                illustration={<TargetIcon size={30} />}
                 title="AI Scout is turned off"
                 description="You've turned off AI Scout recommendations in Settings → AI Scout. The rule-based insights above keep working. Turn it back on there whenever you want LLM recommendations."
               />
@@ -394,6 +398,7 @@ export default function AIPage() {
               </Card>
             ) : aiScoutConfigured === false ? (
               <EmptyState
+                illustration={<TargetIcon size={30} />}
                 title="AI Scout isn't turned on yet"
                 description="This property's saved data hasn't changed — AI Scout just needs an ANTHROPIC_API_KEY set as an environment variable on the server (see the README) before it can make real recommendations. Everything else above keeps working without it."
               />

@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
+import { MapPinIcon } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import {
@@ -180,6 +181,7 @@ export default function PinImportPage() {
 
       <Card as="section" variant="elevated" style={heroCardStyle}>
         <PageHeader
+          icon={<MapPinIcon size={26} />}
           eyebrow="Import Pins"
           title="Import Pins from Other Apps"
           description="Bring your saved waypoints in from onX Hunt, HuntStand, BaseMap, Spartan Forge, Garmin, or Google Earth. Export them as a GPX, KML, or KMZ file, upload it here, review the pins, and add them to a property. Everything stays on this device."
@@ -195,6 +197,7 @@ export default function PinImportPage() {
       <Section eyebrow="Destination" title="Which Property Gets These Pins">
         {state.properties.length === 0 ? (
           <EmptyState
+            illustration={<MapPinIcon size={30} />}
             title="No properties yet"
             description="Add a property before importing pins."
             action={
@@ -292,6 +295,7 @@ export default function PinImportPage() {
       <Section eyebrow="Review" title="Pins Ready to Import">
         {drafts.length === 0 ? (
           <EmptyState
+            illustration={<MapPinIcon size={30} />}
             title="No pins staged yet"
             description="Upload a GPX or KML file above to see its waypoints here before importing."
           />

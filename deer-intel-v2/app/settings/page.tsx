@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import PageHeader from "@/components/ui/PageHeader";
+import { GearIcon } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
@@ -641,6 +642,7 @@ export default function SettingsPage() {
     <PageShell>
       <Card as="section" variant="elevated" style={heroCardStyle}>
         <PageHeader
+          icon={<GearIcon size={26} />}
           eyebrow="Settings"
           title="Deer Intel Settings"
           description="Choose how Deer Intel looks, what it alerts you to, and how it stores your data. Each area has its own tab."
