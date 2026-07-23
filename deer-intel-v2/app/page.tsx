@@ -248,8 +248,6 @@ export default function Home() {
           }
         />
 
-        <MovementScorePanel point={weatherPoint} />
-
         <div style={instrumentsRowStyle}>
           <WindCompass
             wind={currentWind}
@@ -294,6 +292,8 @@ export default function Home() {
             }
           />
         </div>
+
+        <MovementScorePanel point={weatherPoint} />
       </Card>
 
       <Section eyebrow="Property" title="Active Property">
