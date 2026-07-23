@@ -472,12 +472,28 @@ button {
 }
 
 a:focus-visible,
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
+button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+}
+
+/* Form fields get a green focus border and a soft ring instead of a bare
+   outline, so the active field is obvious and matches the button treatment.
+   border-color needs !important to beat the inline `border` many fields set;
+   the ring uses accent-tint-border so it reads on both light and dark (and on
+   the dark map controls, where we deliberately don't touch the fill). */
+input,
+select,
+textarea {
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-tint-border);
+  outline: none;
 }
 
 /* Shared buttons feel tappable: a soft lift + deeper shadow on hover and a
