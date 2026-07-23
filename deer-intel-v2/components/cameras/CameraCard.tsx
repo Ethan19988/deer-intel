@@ -52,7 +52,7 @@ export default function CameraCard({
   const stampParts = latestPhoto ? buildStampParts(latestPhoto) : [];
 
   return (
-    <Card style={cardStyle}>
+    <Card className="di-card-lift" style={cardStyle}>
       {photos ? (
         <div style={coverWrapStyle}>
           {latestPhoto?.imageId ? (

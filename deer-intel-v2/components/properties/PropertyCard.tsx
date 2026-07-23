@@ -29,7 +29,11 @@ export default function PropertyCard({
   onDelete,
 }: PropertyCardProps) {
   return (
-    <Card as="div" style={cardStyle}>
+    <Card
+      as="div"
+      className={isEditing ? undefined : "di-card-lift"}
+      style={cardStyle}
+    >
       {isEditing ? (
         <>
           <div className="di-property-card-header" style={cardHeaderStyle}>

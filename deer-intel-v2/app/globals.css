@@ -543,6 +543,31 @@ textarea:focus-visible {
   }
 }
 
+/* Entity cards (camera sites, stands, properties) lift on hover so the grid
+   reads as a set of tappable tiles — the same feel as the dashboard action
+   cards. Opt-in via this class so static content cards and the hero don't move.
+   Uses !important on the hover shadow to win over Card's inline base shadow. */
+.di-card-lift {
+  transition: transform 160ms ease, box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.di-card-lift:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent-tint-border);
+  box-shadow: 0 18px 34px -18px rgba(36, 29, 16, 0.5) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .di-card-lift {
+    transition: none;
+  }
+
+  .di-card-lift:hover {
+    transform: none;
+  }
+}
+
 button,
 input,
 select {

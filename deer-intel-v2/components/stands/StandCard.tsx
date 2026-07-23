@@ -34,7 +34,7 @@ export default function StandCard({
       : null;
 
   return (
-    <Card style={cardStyle}>
+    <Card className="di-card-lift" style={cardStyle}>
       <div style={headerStyle}>
         <div style={leadStyle}>
           <span style={iconBadgeStyle} aria-hidden="true">
