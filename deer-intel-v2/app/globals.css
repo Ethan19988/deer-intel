@@ -511,6 +511,38 @@ textarea:focus-visible {
   }
 }
 
+/* Navigation links that are styled as buttons (Open Site, Open Stand, Open
+   Property, deer/camera links, etc.) share the same tappable feel as the shared
+   Button — a lift + deeper shadow on hover and a press-down on click — without
+   the full-width mobile treatment, since many are compact in-card actions. The
+   outline/fill still comes from each link's own style; this only adds motion. */
+.di-navbtn {
+  transition: transform 120ms ease, box-shadow 120ms ease,
+    filter 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.di-navbtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px -12px rgba(28, 36, 26, 0.55);
+  filter: brightness(1.02);
+}
+
+.di-navbtn:active {
+  transform: translateY(0);
+  filter: brightness(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .di-navbtn {
+    transition: none;
+  }
+
+  .di-navbtn:hover,
+  .di-navbtn:active {
+    transform: none;
+  }
+}
+
 button,
 input,
 select {
