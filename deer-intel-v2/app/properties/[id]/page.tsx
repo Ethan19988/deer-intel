@@ -21,6 +21,19 @@ import WorkspaceIcon, {
 } from "@/components/properties/dashboard/WorkspaceIcon";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
+import {
+  CalendarIcon,
+  CameraIcon,
+  ClipboardIcon,
+  CompassIcon,
+  DeerIcon,
+  LeafIcon,
+  MapIcon,
+  MapPinIcon,
+  StandIcon,
+  SunIcon,
+  TargetIcon,
+} from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Tabs from "@/components/ui/Tabs";
 import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
@@ -409,7 +422,7 @@ export default function PropertyWorkspacePage() {
             label: "Overview",
             content: (
               <div style={tabPanelStyle}>
-      <DashboardSection eyebrow="Command Center" title="Quick Actions">
+      <DashboardSection eyebrow="Command Center" title="Quick Actions" icon={<CompassIcon size={18} />}>
         <div style={quickActionGridStyle}>
           <DashboardCardLink
             href="#camera-sites"
@@ -462,6 +475,7 @@ export default function PropertyWorkspacePage() {
         id="map"
         eyebrow="Primary Workspace"
         title="Map"
+        icon={<MapIcon size={18} />}
       >
         <div style={mapCommandGridStyle}>
           <DashboardCardLink
@@ -479,16 +493,22 @@ export default function PropertyWorkspacePage() {
                 label="Camera Sites"
                 value={propertyCameras.length}
                 detail={`${activeCameraCount(propertyCameras)} active`}
+                icon={<CameraIcon size={18} />}
+                tone="green"
               />
               <StatCard
                 label="Stands"
                 value={standCount}
                 detail="Saved stand sites"
+                icon={<StandIcon size={18} />}
+                tone="green"
               />
               <StatCard
                 label="Assets"
                 value={propertyPins.length}
                 detail="Saved map pins"
+                icon={<MapPinIcon size={18} />}
+                tone="neutral"
               />
             </div>
             <p style={mapSummaryTextStyle}>
@@ -503,6 +523,7 @@ export default function PropertyWorkspacePage() {
         <DashboardSection
           eyebrow="Overview"
           title="Property Summary"
+          icon={<ClipboardIcon size={18} />}
           style={panelSectionStyle}
         >
           <div style={statGridStyle}>
@@ -510,26 +531,36 @@ export default function PropertyWorkspacePage() {
               label="Camera Sites"
               value={propertyCameras.length}
               detail={`${activeCameraCount(propertyCameras)} active`}
+              icon={<CameraIcon size={18} />}
+              tone="green"
             />
             <StatCard
               label="Stands"
               value={standCount}
               detail="Saved stand sites"
+              icon={<StandIcon size={18} />}
+              tone="green"
             />
             <StatCard
               label="Hunts"
               value={propertyHunts.length}
               detail="Saved hunt notes"
+              icon={<ClipboardIcon size={18} />}
+              tone="neutral"
             />
             <StatCard
               label="Deer Profiles"
               value={deerProfileCount}
               detail="Saved deer history"
+              icon={<DeerIcon size={18} />}
+              tone="blaze"
             />
             <StatCard
               label="Walks"
               value={propertyWalkTracks.length}
               detail="Recorded trails"
+              icon={<CompassIcon size={18} />}
+              tone="neutral"
             />
           </div>
         </DashboardSection>
@@ -538,6 +569,7 @@ export default function PropertyWorkspacePage() {
           id="recent-activity"
           eyebrow="Field History"
           title="Recent Activity"
+          icon={<CalendarIcon size={18} />}
           style={panelSectionStyle}
         >
           <RecentActivityList activities={recentActivity} />
@@ -548,6 +580,7 @@ export default function PropertyWorkspacePage() {
         id="key-insights"
         eyebrow="Brief"
         title="Key Insights"
+        icon={<TargetIcon size={18} />}
       >
         <div style={insightListStyle}>
           {keyInsights.map((insight) => (
@@ -571,6 +604,7 @@ export default function PropertyWorkspacePage() {
         id="walks"
         eyebrow="Field History"
         title="Saved Walks"
+        icon={<MapPinIcon size={18} />}
       >
         <WalkTracksSection
           tracks={propertyWalkTracks}
@@ -578,7 +612,7 @@ export default function PropertyWorkspacePage() {
         />
       </DashboardSection>
 
-      <DashboardSection eyebrow="Season" title="Where the Season Stands">
+      <DashboardSection eyebrow="Season" title="Where the Season Stands" icon={<LeafIcon size={18} />}>
         <SeasonRutCard
           latitude={
             hasPropertyCoordinate(property) ? property.latitude : undefined
@@ -586,25 +620,25 @@ export default function PropertyWorkspacePage() {
         />
       </DashboardSection>
 
-      <DashboardSection eyebrow="Patterns" title="What Produces Deer Here">
+      <DashboardSection eyebrow="Patterns" title="What Produces Deer Here" icon={<DeerIcon size={18} />}>
         <PropertyPatternReport report={patternReport} />
       </DashboardSection>
 
-      <DashboardSection eyebrow="Conditions" title="Today's Conditions">
+      <DashboardSection eyebrow="Conditions" title="Today's Conditions" icon={<SunIcon size={18} />}>
         <LiveWeatherPanel
           point={weatherPoint}
           emptyHint={`Add a saved location, map pins, or a camera to ${property.name} to load live weather.`}
         />
       </DashboardSection>
 
-      <DashboardSection eyebrow="Conditions" title="Recent Weather">
+      <DashboardSection eyebrow="Conditions" title="Recent Weather" icon={<CalendarIcon size={18} />}>
         <WeatherHistoryPanel
           point={weatherPoint}
           emptyHint={`Add a saved location, map pins, or a camera to ${property.name} to load weather history.`}
         />
       </DashboardSection>
 
-      <DashboardSection eyebrow="Terrain" title="High-Res Terrain (LiDAR)">
+      <DashboardSection eyebrow="Terrain" title="High-Res Terrain (LiDAR)" icon={<MapIcon size={18} />}>
         <PipelineCommandCard
           propertyName={property.name}
           center={weatherPoint}
@@ -696,6 +730,7 @@ export default function PropertyWorkspacePage() {
         id="property-timeline"
         eyebrow="Property History"
         title="Timeline"
+        icon={<CalendarIcon size={18} />}
       >
         <PropertyTimeline events={timelineEvents} />
       </DashboardSection>
@@ -704,6 +739,7 @@ export default function PropertyWorkspacePage() {
         id="hunt-planner"
         eyebrow="Hunt Planner"
         title="Property Hunt Plan"
+        icon={<TargetIcon size={18} />}
       >
         <div style={cardGridStyle}>
           <InfoCard
@@ -742,6 +778,7 @@ export default function PropertyWorkspacePage() {
         id="intelligence"
         eyebrow="Intelligence"
         title="Property Intelligence"
+        icon={<CompassIcon size={18} />}
       >
         <PropertyIntelligenceSummary cards={intelligenceCards} />
 
