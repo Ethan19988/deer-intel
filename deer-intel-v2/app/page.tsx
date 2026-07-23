@@ -456,13 +456,15 @@ const briefStyle: CSSProperties = {
   borderTop: "5px solid var(--accent)",
   color: "#f3edd9",
   backgroundColor: "var(--camo-ink)",
-  // Bold golden-hour hero, matched to the /login showcase: a warm low sun glow
-  // top-right over a deep green-to-amber scrim on the camo texture. Overlay
-  // colors are fixed & photo-safe (same rule as the login hero and map/photo
-  // overlays) so cream text stays legible on every theme.
+  // Bold, vivid golden-hour hero: a big bright low sun top-right and a green
+  // rise bottom-left over a warm green-to-amber scrim on the camo. The top-left
+  // (where the heading sits) stays dark enough for cream text, while the mid and
+  // bottom stay light so the color pops instead of going muddy. Overlay colors
+  // are fixed & photo-safe (same rule as the login hero and map/photo overlays).
   backgroundImage:
-    "radial-gradient(280px 280px at 96% -10%, rgba(240, 150, 70, 0.9), rgba(224, 100, 42, 0.25) 46%, transparent 72%), " +
-    "linear-gradient(158deg, rgba(18, 28, 14, 0.9) 0%, rgba(28, 42, 20, 0.66) 44%, rgba(150, 84, 30, 0.5) 100%), " +
+    "radial-gradient(330px 310px at 97% -8%, rgba(255, 178, 92, 0.95), rgba(230, 110, 45, 0.4) 46%, transparent 74%), " +
+    "radial-gradient(95% 80% at -12% 116%, rgba(58, 138, 74, 0.5), transparent 60%), " +
+    "linear-gradient(158deg, rgba(16, 26, 12, 0.88) 0%, rgba(34, 58, 28, 0.5) 48%, rgba(150, 82, 26, 0.42) 100%), " +
     "var(--camo)",
   backgroundSize: "cover",
   backgroundPosition: "center",
@@ -551,8 +553,9 @@ const heroPropertyLineStyle: CSSProperties = {
 };
 
 const heroPropertyStyle: CSSProperties = {
-  color: "#f4c489",
-  fontWeight: 850,
+  color: "#ffce80",
+  fontWeight: 900,
+  textShadow: "0 0 18px rgba(240, 165, 75, 0.55)",
 };
 
 const heroTaglineStyle: CSSProperties = {
