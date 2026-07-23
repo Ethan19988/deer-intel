@@ -4,6 +4,7 @@ import PhotoImage from "@/components/photos/PhotoImage";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
+import { CameraIcon } from "@/components/ui/FieldIcons";
 import {
   getPhotoSummary,
   photoRecordTime,
@@ -94,13 +95,19 @@ export default function CameraCard({
 
       <div style={bodyStyle}>
         <div style={cardHeaderStyle}>
-          <div>
-            <p style={eyebrowStyle}>{camera.cameraType} Camera Site</p>
-            <h3 style={titleStyle}>{camera.name}</h3>
-            <p style={subTextStyle}>
-              {[camera.manufacturer, camera.model].filter(Boolean).join(" ") ||
-                "Manufacturer and model not set"}
-            </p>
+          <div style={leadStyle}>
+            <span style={iconBadgeStyle} aria-hidden="true">
+              <CameraIcon size={20} />
+            </span>
+            <div>
+              <p style={eyebrowStyle}>{camera.cameraType} Camera Site</p>
+              <h3 style={titleStyle}>{camera.name}</h3>
+              <p style={subTextStyle}>
+                {[camera.manufacturer, camera.model]
+                  .filter(Boolean)
+                  .join(" ") || "Manufacturer and model not set"}
+              </p>
+            </div>
           </div>
 
           <div style={headerActionsStyle}>
@@ -294,12 +301,32 @@ const headerActionsStyle: CSSProperties = {
   flexWrap: "wrap",
 };
 
+const leadStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "0.7rem",
+  minWidth: 0,
+};
+
+const iconBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "2.5rem",
+  height: "2.5rem",
+  flex: "none",
+  borderRadius: "12px",
+  background: "var(--accent-tint)",
+  border: "1px solid var(--accent-tint-border)",
+  color: "var(--accent-text)",
+};
+
 const eyebrowStyle: CSSProperties = {
   margin: 0,
   color: "var(--accent-text)",
-  fontSize: "0.75rem",
-  fontWeight: 700,
-  letterSpacing: 0,
+  fontSize: "0.72rem",
+  fontWeight: 800,
+  letterSpacing: "0.04em",
   textTransform: "uppercase",
 };
 
