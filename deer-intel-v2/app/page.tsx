@@ -454,20 +454,19 @@ const briefStyle: CSSProperties = {
   padding: "1.75rem",
   border: "1px solid var(--border-strong)",
   borderTop: "5px solid var(--accent)",
-  color: "var(--camo-fg)",
+  color: "#f3edd9",
   backgroundColor: "var(--camo-ink)",
-  // Cooler golden-hour wash: a pale-gold low sun top-right, a sage-green rise
-  // bottom-left, over a cool sage scrim (keeps the dark --camo-fg text legible
-  // on every theme, since --camo-fg is dark app-wide). The camo texture stays
-  // for character.
+  // Bold golden-hour hero, matched to the /login showcase: a warm low sun glow
+  // top-right over a deep green-to-amber scrim on the camo texture. Overlay
+  // colors are fixed & photo-safe (same rule as the login hero and map/photo
+  // overlays) so cream text stays legible on every theme.
   backgroundImage:
-    "radial-gradient(120% 90% at 100% -5%, rgba(232, 184, 104, 0.26), transparent 55%), " +
-    "radial-gradient(100% 85% at -5% 108%, rgba(47, 125, 67, 0.24), transparent 55%), " +
-    "linear-gradient(158deg, rgba(226, 228, 210, 0.52) 0%, rgba(200, 214, 199, 0.60) 55%, rgba(186, 205, 196, 0.66) 100%), " +
+    "radial-gradient(280px 280px at 96% -10%, rgba(240, 150, 70, 0.9), rgba(224, 100, 42, 0.25) 46%, transparent 72%), " +
+    "linear-gradient(158deg, rgba(18, 28, 14, 0.9) 0%, rgba(28, 42, 20, 0.66) 44%, rgba(150, 84, 30, 0.5) 100%), " +
     "var(--camo)",
   backgroundSize: "cover",
   backgroundPosition: "center",
-  boxShadow: "0 18px 40px -24px rgba(28, 36, 26, 0.55)",
+  boxShadow: "0 24px 50px -28px rgba(12, 18, 8, 0.6)",
 };
 
 const briefHeaderStyle: CSSProperties = {
@@ -500,9 +499,9 @@ const heroEyebrowStyle: CSSProperties = {
   padding: "0.32rem 0.7rem 0.32rem 0.55rem",
   width: "fit-content",
   borderRadius: "999px",
-  border: "1px solid rgba(191, 80, 25, 0.28)",
-  background: "rgba(255, 255, 255, 0.55)",
-  color: "var(--accent-2-text)",
+  border: "1px solid rgba(243, 237, 217, 0.3)",
+  background: "rgba(243, 237, 217, 0.14)",
+  color: "#f6efd6",
   fontSize: "0.78rem",
   fontWeight: 800,
   letterSpacing: "0.04em",
@@ -522,7 +521,7 @@ const heroDotStyle: CSSProperties = {
 };
 
 const heroDateStyle: CSSProperties = {
-  color: "var(--camo-fg-muted)",
+  color: "rgba(243, 237, 217, 0.72)",
 };
 
 const briefTitleStyle: CSSProperties = {
@@ -531,12 +530,12 @@ const briefTitleStyle: CSSProperties = {
   alignItems: "center",
   gap: "0.5rem",
   margin: "0.55rem 0 0",
-  color: "var(--camo-fg)",
+  color: "#f6f0dc",
   fontSize: "2.6rem",
   fontWeight: 900,
   letterSpacing: "-0.02em",
   lineHeight: 1.02,
-  textShadow: "0 1px 0 rgba(255, 255, 255, 0.45)",
+  textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
 };
 
 const heroSparkStyle: CSSProperties = {
@@ -546,20 +545,20 @@ const heroSparkStyle: CSSProperties = {
 
 const heroPropertyLineStyle: CSSProperties = {
   margin: "0.3rem 0 0",
-  color: "var(--camo-fg-muted)",
+  color: "rgba(243, 237, 217, 0.82)",
   fontSize: "1.05rem",
   fontWeight: 600,
 };
 
 const heroPropertyStyle: CSSProperties = {
-  color: "var(--accent-text)",
+  color: "#f4c489",
   fontWeight: 850,
 };
 
 const heroTaglineStyle: CSSProperties = {
   maxWidth: "48ch",
   margin: "0.7rem 0 0",
-  color: "var(--camo-fg-muted)",
+  color: "rgba(243, 237, 217, 0.88)",
   fontSize: "1.02rem",
   fontWeight: 600,
   lineHeight: 1.5,
@@ -573,7 +572,7 @@ const pickerStyle: CSSProperties = {
 };
 
 const pickerLabelStyle: CSSProperties = {
-  color: "var(--text-muted)",
+  color: "rgba(243, 237, 217, 0.82)",
   fontSize: "0.85rem",
   fontWeight: 800,
 };
