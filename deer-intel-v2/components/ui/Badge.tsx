@@ -33,13 +33,14 @@ const baseStyle: CSSProperties = {
   padding: "0.3rem 0.55rem",
   borderRadius: "8px",
   fontSize: "0.75rem",
-  fontWeight: 700,
+  fontWeight: 800,
+  letterSpacing: "0.02em",
   lineHeight: 1,
 };
 
 const variantStyles: Record<BadgeVariant, CSSProperties> = {
   default: {
-    border: "1px solid var(--border)",
+    border: "1px solid var(--border-strong)",
     background: "var(--surface-2)",
     color: "var(--text-muted)",
   },
