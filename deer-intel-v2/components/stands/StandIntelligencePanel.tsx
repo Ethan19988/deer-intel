@@ -85,6 +85,7 @@ export default function StandIntelligencePanel({
                 key={camera.id}
                 href={`/properties/${propertyId}/assets/${camera.id}`}
                 style={itemLinkStyle}
+                className="di-navbtn"
               >
                 <span>
                   <span style={itemTitleStyle}>{camera.name}</span>

@@ -480,6 +480,69 @@ textarea:focus-visible {
   outline-offset: 3px;
 }
 
+/* Shared buttons feel tappable: a soft lift + deeper shadow on hover and a
+   press-down on click. Reads as a real control on every page since every
+   Button uses this class. Motion is dropped for reduced-motion users. */
+.di-button {
+  transition: transform 120ms ease, box-shadow 120ms ease,
+    filter 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.di-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px -12px rgba(28, 36, 26, 0.55);
+  filter: brightness(1.02);
+}
+
+.di-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+  filter: brightness(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .di-button {
+    transition: none;
+  }
+
+  .di-button:hover:not(:disabled),
+  .di-button:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* Navigation links that are styled as buttons (Open Site, Open Stand, Open
+   Property, deer/camera links, etc.) share the same tappable feel as the shared
+   Button — a lift + deeper shadow on hover and a press-down on click — without
+   the full-width mobile treatment, since many are compact in-card actions. The
+   outline/fill still comes from each link's own style; this only adds motion. */
+.di-navbtn {
+  transition: transform 120ms ease, box-shadow 120ms ease,
+    filter 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.di-navbtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px -12px rgba(28, 36, 26, 0.55);
+  filter: brightness(1.02);
+}
+
+.di-navbtn:active {
+  transform: translateY(0);
+  filter: brightness(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .di-navbtn {
+    transition: none;
+  }
+
+  .di-navbtn:hover,
+  .di-navbtn:active {
+    transform: none;
+  }
+}
+
 button,
 input,
 select {

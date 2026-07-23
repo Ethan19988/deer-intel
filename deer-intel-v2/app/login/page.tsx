@@ -107,7 +107,7 @@ export default function LoginPage() {
                 Until then, your data lives safely in this browser and you can
                 back it up from Settings.
               </p>
-              <Link href="/settings" style={linkStyle}>
+              <Link href="/settings" style={linkStyle} className="di-navbtn">
                 Go to Settings
               </Link>
             </div>
@@ -118,7 +118,7 @@ export default function LoginPage() {
           ) : status === "signed-in" ? (
             <div style={infoCardStyle}>
               <p style={infoTitleStyle}>Signed in as {user?.email}</p>
-              <Link href="/settings" style={linkStyle}>
+              <Link href="/settings" style={linkStyle} className="di-navbtn">
                 Go to Settings
               </Link>
             </div>

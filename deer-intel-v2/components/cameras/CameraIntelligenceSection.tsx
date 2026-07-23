@@ -31,7 +31,7 @@ export default function CameraIntelligenceSection({
       eyebrow="Camera Intelligence"
       title="What Your Cameras Are Telling You"
       action={
-        <Link href={addCameraHref} style={primaryLinkStyle}>
+        <Link href={addCameraHref} style={primaryLinkStyle} className="di-navbtn">
           Add Camera Site
         </Link>
       }
@@ -41,7 +41,7 @@ export default function CameraIntelligenceSection({
           title="No camera sites yet"
           description={`${propertyName} does not have camera sites yet. Add the first site to start building camera intelligence.`}
           action={
-            <Link href={addCameraHref} style={primaryLinkStyle}>
+            <Link href={addCameraHref} style={primaryLinkStyle} className="di-navbtn">
               Add Camera Site
             </Link>
           }
@@ -175,6 +175,7 @@ function AttentionPanel({
               key={`${item.cameraId}-${item.reason}`}
               href={`/properties/${propertyId}/assets/${item.cameraId}`}
               style={attentionItemStyle}
+              className="di-navbtn"
             >
               <span>
                 <strong style={attentionNameStyle}>{item.cameraName}</strong>

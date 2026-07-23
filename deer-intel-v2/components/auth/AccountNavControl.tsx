@@ -21,7 +21,7 @@ export default function AccountNavControl() {
 
   if (status !== "signed-in") {
     return (
-      <Link href="/login" style={signInStyle}>
+      <Link href="/login" style={signInStyle} className="di-navbtn">
         Sign In
       </Link>
     );
@@ -30,7 +30,7 @@ export default function AccountNavControl() {
   const tone = syncStatusTone(syncStatus);
 
   return (
-    <Link href="/settings" style={accountStyle} aria-label="Account and sync">
+    <Link href="/settings" style={accountStyle} aria-label="Account and sync" className="di-navbtn">
       <span
         style={{ ...dotStyle, background: TONE_COLORS[tone] ?? TONE_COLORS.default }}
         aria-hidden

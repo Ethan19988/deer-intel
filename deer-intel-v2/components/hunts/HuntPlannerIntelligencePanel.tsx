@@ -162,7 +162,7 @@ function PlannerItemLink({ item }: { item: HuntPlannerItem }) {
   }
 
   return (
-    <Link href={item.href} style={itemLinkStyle}>
+    <Link href={item.href} style={itemLinkStyle} className="di-navbtn">
       {content}
     </Link>
   );

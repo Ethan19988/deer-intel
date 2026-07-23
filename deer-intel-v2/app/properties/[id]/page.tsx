@@ -238,7 +238,7 @@ export default function PropertyWorkspacePage() {
             This property may have been deleted or is not saved in this browser
             yet.
           </p>
-          <Link href="/properties" style={primaryLinkStyle}>
+          <Link href="/properties" style={primaryLinkStyle} className="di-navbtn">
             Back to Properties
           </Link>
         </Card>

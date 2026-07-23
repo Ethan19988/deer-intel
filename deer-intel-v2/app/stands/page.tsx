@@ -117,7 +117,7 @@ export default function StandsPage() {
           title="No properties yet"
           description="Add a property before saving stand sites."
           action={
-            <Link href="/properties" style={primaryLinkStyle}>
+            <Link href="/properties" style={primaryLinkStyle} className="di-navbtn">
               Add Property
             </Link>
           }
@@ -137,6 +137,7 @@ export default function StandsPage() {
             <Link
               href={`/properties/${selectedPropertyId}#stand-sites`}
               style={primaryLinkStyle}
+              className="di-navbtn"
             >
               Add Stand
             </Link>
@@ -243,13 +244,14 @@ export default function StandsPage() {
             </select>
           </label>
           <div style={headerActionsStyle}>
-            <Link href="/hunt-log" style={secondaryLinkStyle}>
+            <Link href="/hunt-log" style={secondaryLinkStyle} className="di-navbtn">
               <ClipboardIcon size={17} />
               Log Hunt
             </Link>
             <Link
               href={`/properties/${selectedPropertyId}#stand-sites`}
               style={primaryLinkStyle}
+              className="di-navbtn"
             >
               <PlusIcon size={17} />
               Add Stand

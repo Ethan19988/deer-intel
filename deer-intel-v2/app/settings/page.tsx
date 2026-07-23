@@ -579,7 +579,7 @@ export default function SettingsPage() {
             bedding, scrapes, and more onto your Deer Intel map. You review
             every pin and pick a property before anything is saved.
           </p>
-          <Link href="/pins/import" style={primaryLinkStyle}>
+          <Link href="/pins/import" style={primaryLinkStyle} className="di-navbtn">
             Open Pin Importer
           </Link>
         </Card>
@@ -593,7 +593,7 @@ export default function SettingsPage() {
             big, clearly-marked button shows exactly where to tap. Everything
             stays on this device.
           </p>
-          <Link href="/documents/import" style={primaryLinkStyle}>
+          <Link href="/documents/import" style={primaryLinkStyle} className="di-navbtn">
             Open Document Importer
           </Link>
         </Card>

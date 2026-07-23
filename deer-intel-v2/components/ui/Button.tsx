@@ -47,6 +47,7 @@ const baseStyle: CSSProperties = {
   lineHeight: 1,
   cursor: "pointer",
   textAlign: "center",
+  boxShadow: "var(--shadow-sm)",
 };
 
 const variantStyles: Record<ButtonVariant, CSSProperties> = {
@@ -56,7 +57,7 @@ const variantStyles: Record<ButtonVariant, CSSProperties> = {
     color: "white",
   },
   secondary: {
-    borderColor: "var(--border)",
+    borderColor: "var(--border-strong)",
     background: "var(--surface-2)",
     color: "var(--text)",
   },
@@ -69,6 +70,7 @@ const variantStyles: Record<ButtonVariant, CSSProperties> = {
     borderColor: "transparent",
     background: "transparent",
     color: "var(--text-muted)",
+    boxShadow: "none",
   },
 };
 

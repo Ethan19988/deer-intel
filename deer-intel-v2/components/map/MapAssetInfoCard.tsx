@@ -228,7 +228,7 @@ export default function MapAssetInfoCard({
 
           <div className="di-map-card-actions" style={actionsStyle}>
             {detailRoute.href ? (
-              <Link href={detailRoute.href} style={primaryActionStyle}>
+              <Link href={detailRoute.href} style={primaryActionStyle} className="di-navbtn">
                 View Details
               </Link>
             ) : canEditPin ? null : (
@@ -263,7 +263,7 @@ export default function MapAssetInfoCard({
                 ) : null}
               </>
             ) : editRoute.href ? (
-              <Link href={editRoute.href} style={secondaryActionStyle}>
+              <Link href={editRoute.href} style={secondaryActionStyle} className="di-navbtn">
                 Edit
               </Link>
             ) : (

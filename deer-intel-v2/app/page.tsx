@@ -312,6 +312,7 @@ export default function Home() {
             <Link
               href={activeProperty ? `/properties/${activeProperty.id}` : "/properties"}
               style={propertyLinkStyle}
+              className="di-navbtn"
             >
               Open Property
             </Link>
