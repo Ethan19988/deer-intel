@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import { MapPinIcon } from "@/components/ui/FieldIcons";
 import { formatPropertyCoordinate } from "@/lib/propertyLocation";
 import type { Property } from "@/types/property";
 import PropertyForm, { type PropertyFormValues } from "./PropertyForm";
@@ -32,9 +33,14 @@ export default function PropertyCard({
       {isEditing ? (
         <>
           <div className="di-property-card-header" style={cardHeaderStyle}>
-            <div>
-              <p style={cardEyebrowStyle}>Editing</p>
-              <h3 style={cardTitleStyle}>{property.name}</h3>
+            <div style={leadStyle}>
+              <span style={iconBadgeStyle} aria-hidden="true">
+                <MapPinIcon size={20} />
+              </span>
+              <div>
+                <p style={cardEyebrowStyle}>Editing</p>
+                <h3 style={cardTitleStyle}>{property.name}</h3>
+              </div>
             </div>
           </div>
 
@@ -49,9 +55,14 @@ export default function PropertyCard({
       ) : (
         <>
           <div className="di-property-card-header" style={cardHeaderStyle}>
-            <div>
-              <p style={cardEyebrowStyle}>Property</p>
-              <h3 style={cardTitleStyle}>{property.name}</h3>
+            <div style={leadStyle}>
+              <span style={iconBadgeStyle} aria-hidden="true">
+                <MapPinIcon size={20} />
+              </span>
+              <div>
+                <p style={cardEyebrowStyle}>Property</p>
+                <h3 style={cardTitleStyle}>{property.name}</h3>
+              </div>
             </div>
 
             <div className="di-property-actions" style={buttonRowStyle}>
@@ -82,17 +93,17 @@ export default function PropertyCard({
           </div>
 
           <div style={detailsGridStyle}>
-            <div>
+            <div style={detailTileStyle}>
               <p style={detailLabelStyle}>County / Region</p>
-              <p style={detailValueStyle}>{property.county}</p>
+              <p style={detailValueStyle}>{property.county || "Not set"}</p>
             </div>
 
-            <div>
+            <div style={detailTileStyle}>
               <p style={detailLabelStyle}>Acres</p>
-              <p style={detailValueStyle}>{property.acres}</p>
+              <p style={detailValueStyle}>{property.acres || "Not set"}</p>
             </div>
 
-            <div>
+            <div style={detailTileStyle}>
               <p style={detailLabelStyle}>Center (GPS)</p>
               <p style={detailValueStyle}>
                 {formatPropertyCoordinate(property) || "Not set"}
@@ -117,12 +128,32 @@ const cardHeaderStyle: CSSProperties = {
   gap: "1rem",
 };
 
+const leadStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.7rem",
+  minWidth: 0,
+};
+
+const iconBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "2.5rem",
+  height: "2.5rem",
+  flex: "none",
+  borderRadius: "12px",
+  background: "var(--accent-tint)",
+  border: "1px solid var(--accent-tint-border)",
+  color: "var(--accent-text)",
+};
+
 const cardEyebrowStyle: CSSProperties = {
   margin: 0,
   color: "var(--accent-text)",
-  fontSize: "0.75rem",
-  fontWeight: 700,
-  letterSpacing: 0,
+  fontSize: "0.72rem",
+  fontWeight: 800,
+  letterSpacing: "0.04em",
   textTransform: "uppercase",
 };
 
@@ -175,17 +206,27 @@ const detailsGridStyle: CSSProperties = {
   borderTop: "1px solid var(--border)",
 };
 
+const detailTileStyle: CSSProperties = {
+  padding: "0.6rem 0.75rem",
+  border: "1px solid var(--border)",
+  borderRadius: "10px",
+  background: "var(--surface)",
+};
+
 const detailLabelStyle: CSSProperties = {
   margin: 0,
   color: "var(--text-faint)",
-  fontSize: "0.78rem",
-  fontWeight: 700,
+  fontSize: "0.7rem",
+  fontWeight: 800,
+  letterSpacing: "0.03em",
+  textTransform: "uppercase",
 };
 
 const detailValueStyle: CSSProperties = {
   margin: "0.25rem 0 0",
   color: "var(--text)",
   lineHeight: 1.4,
+  fontWeight: 700,
 };
 
 const notesStyle: CSSProperties = {

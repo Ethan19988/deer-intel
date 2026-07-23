@@ -4,6 +4,7 @@ import StandIntelligencePanel from "@/components/stands/StandIntelligencePanel";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
+import { StandIcon } from "@/components/ui/FieldIcons";
 import type { StandIntelligenceSummary } from "@/lib/standIntelligence";
 import { getStandWindCheck } from "@/lib/standWind";
 import type { Stand } from "@/types/stand";
@@ -35,9 +36,14 @@ export default function StandCard({
   return (
     <Card style={cardStyle}>
       <div style={headerStyle}>
-        <div>
-          <p style={eyebrowStyle}>{stand.standType} Stand</p>
-          <h3 style={titleStyle}>{stand.name}</h3>
+        <div style={leadStyle}>
+          <span style={iconBadgeStyle} aria-hidden="true">
+            <StandIcon size={20} />
+          </span>
+          <div>
+            <p style={eyebrowStyle}>{stand.standType} Stand</p>
+            <h3 style={titleStyle}>{stand.name}</h3>
+          </div>
         </div>
         <div style={actionsStyle}>
           {windVariant ? (
@@ -84,7 +90,7 @@ export default function StandCard({
 
 function StandDetail({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div style={detailTileStyle}>
       <p style={detailLabelStyle}>{label}</p>
       <p style={detailValueStyle}>{value || "Not set"}</p>
     </div>
@@ -103,6 +109,26 @@ const headerStyle: CSSProperties = {
   flexWrap: "wrap",
 };
 
+const leadStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.7rem",
+  minWidth: 0,
+};
+
+const iconBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "2.5rem",
+  height: "2.5rem",
+  flex: "none",
+  borderRadius: "12px",
+  background: "var(--accent-tint)",
+  border: "1px solid var(--accent-tint-border)",
+  color: "var(--accent-text)",
+};
+
 const actionsStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -114,9 +140,9 @@ const actionsStyle: CSSProperties = {
 const eyebrowStyle: CSSProperties = {
   margin: 0,
   color: "var(--accent-text)",
-  fontSize: "0.75rem",
-  fontWeight: 700,
-  letterSpacing: 0,
+  fontSize: "0.72rem",
+  fontWeight: 800,
+  letterSpacing: "0.04em",
   textTransform: "uppercase",
 };
 
@@ -164,15 +190,24 @@ const intelligenceWrapStyle: CSSProperties = {
   borderTop: "1px solid var(--border)",
 };
 
+const detailTileStyle: CSSProperties = {
+  padding: "0.6rem 0.75rem",
+  border: "1px solid var(--border)",
+  borderRadius: "10px",
+  background: "var(--surface)",
+};
+
 const detailLabelStyle: CSSProperties = {
   margin: 0,
   color: "var(--text-faint)",
-  fontSize: "0.78rem",
-  fontWeight: 700,
+  fontSize: "0.7rem",
+  fontWeight: 800,
+  letterSpacing: "0.03em",
+  textTransform: "uppercase",
 };
 
 const detailValueStyle: CSSProperties = {
   margin: "0.25rem 0 0",
-  color: "var(--text-muted)",
+  color: "var(--text)",
   lineHeight: 1.5,
 };
