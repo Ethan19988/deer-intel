@@ -9,6 +9,7 @@ import HuntLogList from "@/components/hunts/HuntLogList";
 import PhotoRecordForm from "@/components/photos/PhotoRecordForm";
 import PhotoRecordList from "@/components/photos/PhotoRecordList";
 import AssetHeader from "@/components/properties/assets/AssetHeader";
+import { CameraIcon, StandIcon } from "@/components/ui/FieldIcons";
 import AssetPanel from "@/components/properties/assets/AssetPanel";
 import RelationshipGroup from "@/components/relationships/RelationshipGroup";
 import StandIntelligencePanel from "@/components/stands/StandIntelligencePanel";
@@ -511,6 +512,7 @@ export default function PropertyAssetWorkspacePage() {
       </div>
 
       <AssetHeader
+        icon={<CameraIcon size={26} />}
         assetType="Camera Site"
         name={camera.name}
         propertyName={property.name}
@@ -687,6 +689,7 @@ function StandWorkspace({
       </div>
 
       <AssetHeader
+        icon={<StandIcon size={26} />}
         assetType="Stand"
         name={stand.name}
         propertyName={propertyName}

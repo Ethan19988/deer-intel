@@ -9,6 +9,8 @@ type AssetHeaderProps = {
   description: string;
   status?: string;
   children?: ReactNode;
+  /** Optional line-icon shown in a tinted badge beside the name. */
+  icon?: ReactNode;
 };
 
 export default function AssetHeader({
@@ -18,6 +20,7 @@ export default function AssetHeader({
   description,
   status,
   children,
+  icon,
 }: AssetHeaderProps) {
   return (
     <Card as="section" id="asset-overview" variant="elevated" style={cardStyle}>
@@ -27,7 +30,14 @@ export default function AssetHeader({
         {status ? <Badge>{status}</Badge> : null}
       </div>
 
-      <h1 style={titleStyle}>{name}</h1>
+      <div style={titleRowStyle}>
+        {icon ? (
+          <span style={iconBadgeStyle} aria-hidden="true">
+            {icon}
+          </span>
+        ) : null}
+        <h1 style={titleStyle}>{name}</h1>
+      </div>
       <p style={descriptionStyle}>{description}</p>
 
       {children ? <div style={detailsStyle}>{children}</div> : null}
@@ -46,8 +56,28 @@ const badgeRowStyle: CSSProperties = {
   gap: "0.5rem",
 };
 
+const titleRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.9rem",
+  marginTop: "1rem",
+};
+
+const iconBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "3.25rem",
+  height: "3.25rem",
+  flex: "none",
+  borderRadius: "16px",
+  background: "var(--accent-tint)",
+  border: "1px solid var(--accent-tint-border)",
+  color: "var(--accent-text)",
+};
+
 const titleStyle: CSSProperties = {
-  margin: "1rem 0 0",
+  margin: 0,
   color: "var(--text)",
   fontSize: "2.5rem",
   lineHeight: 1.05,
