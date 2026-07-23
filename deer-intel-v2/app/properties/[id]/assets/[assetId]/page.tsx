@@ -778,7 +778,7 @@ function NotFoundCard({
       <p style={eyebrowStyle}>Asset Workspace</p>
       <h1 style={notFoundTitleStyle}>{title}</h1>
       <p style={notFoundTextStyle}>{description}</p>
-      <Link href={href} style={primaryLinkStyle}>
+      <Link href={href} style={primaryLinkStyle} className="di-navbtn">
         {linkLabel}
       </Link>
     </Card>

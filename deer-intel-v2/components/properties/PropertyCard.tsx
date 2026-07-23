@@ -68,7 +68,7 @@ export default function PropertyCard({
             <div className="di-property-actions" style={buttonRowStyle}>
               <Link
                 href={`/properties/${property.id}`}
-                className="di-property-open"
+                className="di-property-open di-navbtn"
                 style={openPropertyButtonStyle}
               >
                 Open Property

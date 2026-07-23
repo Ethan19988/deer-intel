@@ -488,7 +488,7 @@ export default function CameraImportPage() {
             title="No properties yet"
             description="Add a property before importing camera photos."
             action={
-              <Link href="/properties" style={primaryLinkStyle}>
+              <Link href="/properties" style={primaryLinkStyle} className="di-navbtn">
                 Add Property
               </Link>
             }
@@ -572,6 +572,7 @@ export default function CameraImportPage() {
                   <Link
                     href={propertyId ? `/properties/${propertyId}#camera-sites` : "/properties"}
                     style={primaryLinkStyle}
+                    className="di-navbtn"
                   >
                     Add Camera Site
                   </Link>
@@ -880,6 +881,7 @@ export default function CameraImportPage() {
             <Link
               href={`/properties/${propertyId}/assets/${savedCameraId}`}
               style={{ ...primaryLinkStyle, marginTop: "0.75rem" }}
+              className="di-navbtn"
             >
               View Saved Photos
             </Link>

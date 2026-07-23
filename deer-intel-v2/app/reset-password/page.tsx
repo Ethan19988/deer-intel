@@ -93,7 +93,7 @@ export default function ResetPasswordPage() {
             Password resets are handled by the cloud account system, which is
             turned off in local-only mode.
           </p>
-          <Link href="/settings" style={linkStyle}>
+          <Link href="/settings" style={linkStyle} className="di-navbtn">
             Go to Settings
           </Link>
         </div>
@@ -115,7 +115,7 @@ export default function ResetPasswordPage() {
           <p style={mutedStyle}>
             Your password has been changed. Taking you to Settings…
           </p>
-          <Link href="/settings" style={linkStyle}>
+          <Link href="/settings" style={linkStyle} className="di-navbtn">
             Go to Settings
           </Link>
         </div>
@@ -130,7 +130,7 @@ export default function ResetPasswordPage() {
             Your password reset link may have expired or already been used. Head
             back to the login page and request a new one.
           </p>
-          <Link href="/login" style={linkStyle}>
+          <Link href="/login" style={linkStyle} className="di-navbtn">
             Back to Login
           </Link>
         </div>

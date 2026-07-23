@@ -53,6 +53,7 @@ export default function StandCard({
           <Link
             href={`/properties/${stand.propertyId}/assets/${stand.id}`}
             style={openLinkStyle}
+            className="di-navbtn"
           >
             Open Stand
           </Link>

@@ -213,7 +213,7 @@ export default function AIPage() {
             title="No properties yet"
             description="Add a property before Deer Intel can build an intelligence hub."
             action={
-              <Link href="/properties" style={primaryLinkStyle}>
+              <Link href="/properties" style={primaryLinkStyle} className="di-navbtn">
                 Add Property
               </Link>
             }
@@ -273,7 +273,7 @@ export default function AIPage() {
               </div>
               <p style={mutedTextStyle}>{hub.bestStand.reason}</p>
               {hub.bestStand.href ? (
-                <Link href={hub.bestStand.href} style={primaryLinkStyle}>
+                <Link href={hub.bestStand.href} style={primaryLinkStyle} className="di-navbtn">
                   Open Stand
                 </Link>
               ) : null}
@@ -304,7 +304,7 @@ export default function AIPage() {
               </div>
               <p style={mutedTextStyle}>{hub.recentBuckActivity.detail}</p>
               {hub.recentBuckActivity.href ? (
-                <Link href={hub.recentBuckActivity.href} style={primaryLinkStyle}>
+                <Link href={hub.recentBuckActivity.href} style={primaryLinkStyle} className="di-navbtn">
                   Open Camera
                 </Link>
               ) : null}
@@ -410,7 +410,7 @@ export default function AIPage() {
                     </li>
                   ))}
                 </ol>
-                <Link href="/map" style={primaryLinkStyle}>
+                <Link href="/map" style={primaryLinkStyle} className="di-navbtn">
                   Open Terrain Map
                 </Link>
               </Card>
@@ -568,7 +568,7 @@ export default function AIPage() {
           </Section>
 
           <div style={footerActionStyle}>
-            <Link href={`/properties/${selectedProperty.id}`} style={primaryLinkStyle}>
+            <Link href={`/properties/${selectedProperty.id}`} style={primaryLinkStyle} className="di-navbtn">
               Open Property Command Center
             </Link>
           </div>
@@ -602,7 +602,7 @@ function AttentionCard({ item }: { item: DeerHubItem }) {
   }
 
   return (
-    <Link href={item.href} style={attentionLinkStyle}>
+    <Link href={item.href} style={attentionLinkStyle} className="di-navbtn">
       {content}
     </Link>
   );

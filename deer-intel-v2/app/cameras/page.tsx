@@ -103,7 +103,7 @@ export default function CamerasPage() {
           title="No properties yet"
           description="Add a property before setting camera sites."
           action={
-            <Link href="/properties" style={primaryLinkStyle}>
+            <Link href="/properties" style={primaryLinkStyle} className="di-navbtn">
               Add Property
             </Link>
           }
@@ -123,6 +123,7 @@ export default function CamerasPage() {
             <Link
               href={`/properties/${selectedPropertyId}#camera-sites`}
               style={primaryLinkStyle}
+              className="di-navbtn"
             >
               Add Camera Site
             </Link>
@@ -258,13 +259,14 @@ export default function CamerasPage() {
             </select>
           </label>
           <div style={headerActionsStyle}>
-            <Link href="/cameras/import" style={secondaryLinkStyle}>
+            <Link href="/cameras/import" style={secondaryLinkStyle} className="di-navbtn">
               <CameraIcon size={17} />
               Import Photos
             </Link>
             <Link
               href={`/properties/${selectedPropertyId}#camera-sites`}
               style={primaryLinkStyle}
+              className="di-navbtn"
             >
               <PlusIcon size={17} />
               Add Camera Site

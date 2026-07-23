@@ -207,7 +207,7 @@ export default function PinImportPage() {
             title="No properties yet"
             description="Add a property before importing pins."
             action={
-              <Link href="/properties" style={primaryLinkStyle}>
+              <Link href="/properties" style={primaryLinkStyle} className="di-navbtn">
                 Add Property
               </Link>
             }

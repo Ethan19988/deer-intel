@@ -117,6 +117,7 @@ export default function CameraCard({
             <Link
               href={`/properties/${camera.propertyId}/assets/${camera.id}`}
               style={openSiteLinkStyle}
+              className="di-navbtn"
             >
               Open Site
             </Link>
@@ -124,6 +125,7 @@ export default function CameraCard({
               <Link
                 href={`/properties/${camera.propertyId}/assets/${camera.id}#photos`}
                 style={photosLinkStyle}
+                className="di-navbtn"
               >
                 Photos ({photoSummary.totalPhotoRecords})
               </Link>
