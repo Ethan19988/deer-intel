@@ -14,6 +14,13 @@ import MoonPhaseIcon from "@/components/weather/MoonPhaseIcon";
 type LiveWeatherPanelProps = {
   point: WeatherPoint | null;
   emptyHint?: string;
+  /**
+   * Drop the Wind / Moon / Pressure tiles and the barometer cue. Used on the
+   * Today dashboard, where dedicated instrument widgets (wind compass, moon
+   * phase, barometer) already show those — so the panel here is just the
+   * headline temperature, shooting light, and forecast, with no duplication.
+   */
+  essentialsOnly?: boolean;
 };
 
 type PanelState =
@@ -29,6 +36,7 @@ type PanelState =
 export default function LiveWeatherPanel({
   point,
   emptyHint = "Add map pins or a camera location to this property to load live weather.",
+  essentialsOnly = false,
 }: LiveWeatherPanelProps) {
   const [state, setState] = useState<PanelState>({ status: "idle" });
   const units = useUnitPreferences();
@@ -92,38 +100,42 @@ export default function LiveWeatherPanel({
           </div>
 
           <div style={statRowStyle}>
-            <WeatherStat
-              label="Wind"
-              value={
-                [
-                  state.forecast.current.windDirection,
-                  state.forecast.current.windSpeed,
-                ]
-                  .filter(Boolean)
-                  .join(" ") || "—"
-              }
-            />
-            <WeatherStat
-              label="Moon"
-              value={
-                moon ? (
-                  <span style={moonStatStyle}>
-                    <MoonPhaseIcon
-                      illumination={moon.illumination}
-                      waxing={moon.waxing}
-                      phase={moon.phase}
-                      size={30}
-                    />
-                    <span>{moon.illumination}% lit</span>
-                  </span>
-                ) : (
-                  "—"
-                )
-              }
-            />
+            {!essentialsOnly ? (
+              <WeatherStat
+                label="Wind"
+                value={
+                  [
+                    state.forecast.current.windDirection,
+                    state.forecast.current.windSpeed,
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || "—"
+                }
+              />
+            ) : null}
+            {!essentialsOnly ? (
+              <WeatherStat
+                label="Moon"
+                value={
+                  moon ? (
+                    <span style={moonStatStyle}>
+                      <MoonPhaseIcon
+                        illumination={moon.illumination}
+                        waxing={moon.waxing}
+                        phase={moon.phase}
+                        size={30}
+                      />
+                      <span>{moon.illumination}% lit</span>
+                    </span>
+                  ) : (
+                    "—"
+                  )
+                }
+              />
+            ) : null}
             <WeatherStat label="Sunrise" value={state.forecast.sunrise || "—"} />
             <WeatherStat label="Sunset" value={state.forecast.sunset || "—"} />
-            {state.forecast.pressure ? (
+            {!essentialsOnly && state.forecast.pressure ? (
               <WeatherStat
                 label="Pressure"
                 value={`${state.forecast.pressure.value} ${trendArrow(
@@ -133,7 +145,7 @@ export default function LiveWeatherPanel({
             ) : null}
           </div>
 
-          {state.forecast.pressure ? (
+          {!essentialsOnly && state.forecast.pressure ? (
             <p
               style={{
                 ...cueStyle,
