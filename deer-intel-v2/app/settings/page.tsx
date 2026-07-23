@@ -589,12 +589,13 @@ export default function SettingsPage() {
         <Card as="div" variant="subtle">
           <p style={mutedTextStyle}>
             Keep your leases, permits, licenses, tags, regulations, and printed
-            maps on the property. Attach a PDF, an image, or any other file — a
-            big, clearly-marked button shows exactly where to tap. Everything
+            maps on the property. A big, clearly-marked button shows exactly
+            where to tap to insert a PDF or image, and everything you add is
+            listed right there. Also in the sidebar under Documents. Everything
             stays on this device.
           </p>
-          <Link href="/documents/import" style={primaryLinkStyle}>
-            Open Document Importer
+          <Link href="/documents" style={primaryLinkStyle}>
+            Open Documents
           </Link>
         </Card>
       </Section>

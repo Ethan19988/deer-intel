@@ -8,6 +8,7 @@ import {
   CameraIcon,
   ClipboardIcon,
   DeerIcon,
+  FileIcon,
   GearIcon,
   HomeIcon,
   MapIcon,
@@ -31,6 +32,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/properties", label: "Properties", icon: <MapPinIcon size={ICON_SIZE} /> },
       { href: "/cameras", label: "Cameras", icon: <CameraIcon size={ICON_SIZE} /> },
       { href: "/stands", label: "Stands", icon: <StandIcon size={ICON_SIZE} /> },
+      { href: "/documents", label: "Documents", icon: <FileIcon size={ICON_SIZE} /> },
     ],
   },
   {

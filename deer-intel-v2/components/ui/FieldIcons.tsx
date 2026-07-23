@@ -203,6 +203,16 @@ export function ImageIcon(props: IconProps) {
   );
 }
 
+export function FileIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z" />
+      <path d="M13 3v6h6" />
+      <path d="M8.5 13h7M8.5 16.5h4.5" />
+    </Svg>
+  );
+}
+
 export function CalendarIcon(props: IconProps) {
   return (
     <Svg {...props}>
