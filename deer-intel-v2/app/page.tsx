@@ -240,6 +240,7 @@ export default function Home() {
 
         <LiveWeatherPanel
           point={weatherPoint}
+          essentialsOnly
           emptyHint={
             activeProperty
               ? "Add map pins or a camera location to this property to load live weather."

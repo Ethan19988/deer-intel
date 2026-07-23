@@ -8,6 +8,7 @@ type DashboardSectionProps = {
   action?: ReactNode;
   children: ReactNode;
   style?: CSSProperties;
+  icon?: ReactNode;
 };
 
 export default function DashboardSection(props: DashboardSectionProps) {
