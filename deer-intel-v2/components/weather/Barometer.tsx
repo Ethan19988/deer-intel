@@ -82,11 +82,14 @@ function buildPath(series: number[]): {
   const min = Math.min(...series);
   const max = Math.max(...series);
   const span = max - min || 1;
-  const stepX = W / (series.length - 1);
   const pad = 6;
+  // Inset horizontally too, so the end-of-series marker dot (r=3.2) and the line
+  // stroke aren't clipped at the SVG edges.
+  const padX = 4;
+  const stepX = (W - padX * 2) / (series.length - 1);
 
   const points = series.map((value, index) => {
-    const x = index * stepX;
+    const x = padX + index * stepX;
     const y = pad + (1 - (value - min) / span) * (H - pad * 2);
     return { x, y };
   });
@@ -94,8 +97,9 @@ function buildPath(series: number[]): {
   const line = points
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
     .join(" ");
+  const first = points[0];
   const last = points[points.length - 1];
-  const area = `${line} L ${W} ${H} L 0 ${H} Z`;
+  const area = `${line} L ${last.x.toFixed(1)} ${H} L ${first.x.toFixed(1)} ${H} Z`;
 
   return { line, area, lastX: last.x, lastY: last.y };
 }

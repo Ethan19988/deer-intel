@@ -26,8 +26,10 @@ const PHASES: Array<{ key: RutPhase; short: string }> = [
 
 function peakCaption(phase: RutPhase, daysToPeak: number): string {
   if (phase === "off-season") return "Season's a way out";
-  if (daysToPeak > 1) return `Peak in ~${daysToPeak} days`;
-  if (daysToPeak >= -1) return "Peak is on";
+  // Key the "on" state off the phase itself so the caption never disagrees with
+  // the lit segment (the peak phase spans daysToPeak -2..2).
+  if (phase === "peak") return "Peak is on";
+  if (daysToPeak > 0) return `Peak in ~${daysToPeak} days`;
   return `Peak was ~${Math.abs(daysToPeak)} days ago`;
 }
 
