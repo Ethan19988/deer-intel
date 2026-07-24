@@ -2050,10 +2050,17 @@ export default function HuntingMap() {
   }
 
   function startAim() {
-    if (!selectedAsset || selectedAsset.layerId !== "cameras") return;
+    // Cameras and stands can be pointed; both carry a facingDirection.
+    if (
+      !selectedAsset ||
+      (selectedAsset.layerId !== "cameras" &&
+        selectedAsset.layerId !== "stands")
+    ) {
+      return;
+    }
 
-    // Seed the preview with the saved direction, so re-opening Point Camera
-    // shows where the lens currently looks — the only time the beam draws.
+    // Seed the preview with the saved direction, so re-opening the aim mode
+    // shows where it currently looks — the only time the beam draws.
     const savedFacing =
       (selectedAsset.source === "camera"
         ? propertyCameras.find(
@@ -3235,14 +3242,21 @@ export default function HuntingMap() {
               editRoute={getAssetEditHref(selectedAsset, selectedPropertyId)}
               pin={selectedPin}
               propertyName={selectedProperty.name}
-              cameraFacing={
+              facing={
                 selectedAsset.layerId === "cameras"
                   ? ((selectedAsset.source === "camera"
                       ? propertyCameras.find(
                           (camera) => camera.id === selectedAsset.sourceId,
                         )?.facingDirection
                       : selectedPin?.facingDirection) ?? "")
-                  : undefined
+                  : selectedAsset.layerId === "stands"
+                    ? (selectedPin?.facingDirection ?? "")
+                    : undefined
+              }
+              aimLabel={
+                selectedAsset.layerId === "stands"
+                  ? "Point Stand"
+                  : "Point Camera"
               }
               onCenter={centerOnAsset}
               onClose={() => setSelectedAssetId(null)}
@@ -3254,7 +3268,10 @@ export default function HuntingMap() {
               }
               onStartMove={selectedPin ? startPinMove : undefined}
               onStartAim={
-                selectedAsset.layerId === "cameras" ? startAim : undefined
+                selectedAsset.layerId === "cameras" ||
+                selectedAsset.layerId === "stands"
+                  ? startAim
+                  : undefined
               }
             />
           ) : null}
