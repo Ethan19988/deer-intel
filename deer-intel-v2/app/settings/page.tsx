@@ -790,7 +790,7 @@ const unitSegmentGroupStyle: CSSProperties = {
 };
 
 const unitSegmentStyle: CSSProperties = {
-  minHeight: "40px",
+  minHeight: "44px",
   minWidth: "56px",
   padding: "0.4rem 0.9rem",
   border: "1px solid transparent",
@@ -926,7 +926,7 @@ const eyebrowStyle: CSSProperties = {
   color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 800,
-  letterSpacing: 0,
+  letterSpacing: "0.04em",
   textTransform: "uppercase",
 };
 

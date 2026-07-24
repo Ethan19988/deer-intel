@@ -1200,10 +1200,10 @@ const facingWarningStyle: CSSProperties = {
   gap: "0.5rem",
   margin: "1rem 0 0",
   padding: "0.85rem 1rem",
-  border: "1px solid var(--accent-2)",
-  borderLeft: "4px solid var(--accent-2)",
+  border: "1px solid var(--warning-border)",
+  borderLeft: "4px solid var(--warning-text)",
   borderRadius: "8px",
-  background: "var(--surface-2)",
+  background: "var(--warning-bg)",
   color: "var(--text)",
   lineHeight: 1.5,
 };
@@ -1221,7 +1221,7 @@ const facingWarningLinkStyle: CSSProperties = {
 
 const newBuckButtonStyle: CSSProperties = {
   justifySelf: "start",
-  minHeight: "40px",
+  minHeight: "44px",
   padding: "0.45rem 0.7rem",
   border: "1px solid var(--accent)",
   borderRadius: "8px",

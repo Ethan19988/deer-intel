@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
@@ -506,17 +507,15 @@ export default function AIPage() {
                   />
                 </label>
 
-                <button
+                <Button
                   type="button"
-                  style={{
-                    ...primaryButtonStyle,
-                    ...(aiScoutStatus === "loading" ? disabledButtonStyle : null),
-                  }}
+                  variant="primary"
                   onClick={askAiScout}
                   disabled={aiScoutStatus === "loading"}
+                  style={{ marginTop: "1.1rem" }}
                 >
                   {aiScoutStatus === "loading" ? "Asking AI Scout…" : "Ask AI Scout"}
-                </button>
+                </Button>
 
                 {aiScoutStatus === "error" ? (
                   <p style={aiScoutErrorStyle}>{aiScoutError}</p>
@@ -668,7 +667,7 @@ const eyebrowStyle: CSSProperties = {
   color: "var(--accent-text)",
   fontSize: "0.78rem",
   fontWeight: 800,
-  letterSpacing: 0,
+  letterSpacing: "0.04em",
   textTransform: "uppercase",
 };
 
@@ -787,26 +786,6 @@ const textareaStyle: CSSProperties = {
   color: "var(--text)",
   fontFamily: "inherit",
   resize: "vertical",
-};
-
-const primaryButtonStyle: CSSProperties = {
-  display: "inline-flex",
-  minHeight: "44px",
-  alignItems: "center",
-  justifyContent: "center",
-  marginTop: "1.1rem",
-  padding: "0.7rem 1.1rem",
-  border: "1px solid var(--accent)",
-  borderRadius: "8px",
-  background: "var(--accent)",
-  color: "white",
-  fontWeight: 800,
-  cursor: "pointer",
-};
-
-const disabledButtonStyle: CSSProperties = {
-  opacity: 0.65,
-  cursor: "not-allowed",
 };
 
 const aiScoutErrorStyle: CSSProperties = {
