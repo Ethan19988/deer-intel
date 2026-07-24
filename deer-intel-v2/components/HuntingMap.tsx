@@ -34,11 +34,9 @@ import WindThermalBadge, {
 import MovementLayer from "@/components/map/MovementLayer";
 import MovementBadge from "@/components/map/MovementBadge";
 import TerrainMovementLayer from "@/components/map/TerrainMovementLayer";
-import TerrainLegend from "@/components/map/TerrainLegend";
-import LandCoverLegend from "@/components/map/LandCoverLegend";
+import MapLegend from "@/components/map/MapLegend";
 import CameraHeatLayer from "@/components/map/CameraHeatLayer";
 import DeerHeatLayer from "@/components/map/DeerHeatLayer";
-import DeerHeatLegend from "@/components/map/DeerHeatLegend";
 import ScoutPicksPanel from "@/components/map/ScoutPicksPanel";
 import type { LatLng } from "@/lib/terrainMovement";
 import {
@@ -3041,31 +3039,13 @@ export default function HuntingMap() {
             ) : null}
           </MapContainer>
 
-          {showSlope ? (
-            <div className="di-slope-legend" aria-label="Slope angle key">
-              <span className="di-slope-legend-title">Slope angle</span>
-              <div className="di-slope-legend-bar" />
-              <div className="di-slope-legend-ticks">
-                <span>Flat</span>
-                <span>15°</span>
-                <span>30°</span>
-                <span>45°+</span>
-              </div>
-            </div>
-          ) : null}
-
-          {showTerrain && terrainReview && !mapKeysHidden ? <TerrainLegend /> : null}
-
-          {showLandcover && !mapKeysHidden ? (
-            <LandCoverLegend raised={showTerrain && !!terrainReview} />
-          ) : null}
-
-          {showDeerHeat && !mapKeysHidden ? (
-            <DeerHeatLegend
+          {!mapKeysHidden ? (
+            <MapLegend
+              showSlope={showSlope}
+              showTerrain={showTerrain && !!terrainReview}
+              showLandcover={showLandcover}
+              showDeerHeat={showDeerHeat}
               period={movementPeriod}
-              lift={
-                (showTerrain && terrainReview ? 1 : 0) + (showLandcover ? 1 : 0)
-              }
             />
           ) : null}
 

@@ -173,12 +173,12 @@ export default function MapTopBar({
 const barStyle: CSSProperties = {
   position: "absolute",
   top: "1rem",
-  // Anchored in the band between the top-left search icon and the top-right
-  // Layers button + zoom/GPS cluster, so a wide bar can't slide under them.
-  // Content stays centered when it fits and scrolls (from the start) when it
-  // doesn't — "safe center" keeps the leading base-map buttons reachable.
-  left: "4.75rem",
-  right: "11rem",
+  // Now that search moved to the top-right by the Layers gear, the bar owns the
+  // freed top-left and runs the full width up to the search + gear + zoom
+  // cluster. Content stays centered when it fits and scrolls (from the start)
+  // when it doesn't — "safe center" keeps the leading base-map buttons reachable.
+  left: "1rem",
+  right: "14rem",
   zIndex: 1050,
   display: "flex",
   alignItems: "center",
