@@ -125,7 +125,7 @@ export default function MapLayerManager({
           </button>
         </header>
 
-        <div style={contentStyle}>
+        <div className="di-layer-manager-content" style={contentStyle}>
           {hasFieldTools ? (
             <>
               <GroupHeader icon={<TentIcon />} label="In the field" />

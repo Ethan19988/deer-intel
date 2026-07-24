@@ -1167,6 +1167,13 @@ textarea {
     transform: translateY(0);
   }
 
+  /* The fixed bottom nav (z 2200) floats over the drawer, so pad the scroll
+     area past it — otherwise the last section is trapped behind the nav and
+     can't be scrolled into view. */
+  .di-layer-manager-content {
+    padding-bottom: calc(5.75rem + env(safe-area-inset-bottom)) !important;
+  }
+
   .di-map-frame .leaflet-control-scale {
     margin-bottom: 4.8rem;
     margin-left: 0.75rem;
