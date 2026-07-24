@@ -27,7 +27,8 @@ export type Stand = {
   notes: string;
   /**
    * Id of the map pin this stand site was promoted from, if any. Lets the hunt
-   * log hide an already-converted pin so it can't be saved as a site twice.
+   * log hide an already-converted pin so it can't be saved as a site twice, and
+   * lets the store collapse duplicates promoted from the same pin.
    */
   sourcePinId?: string;
 };

@@ -661,28 +661,40 @@ function normalizeState(value: unknown): DeerIntelState | null {
 /**
  * Remove duplicate stand sites that were promoted from the same map pin,
  * keeping the first one. Any hunts logged against a removed duplicate are
- * repointed to the kept stand so no history is lost. Stands without a
- * sourcePinId (added by hand) are never merged.
+ * repointed to the kept stand so no history is lost.
+ *
+ * Duplicates are matched by sourcePinId, or — for stands promoted before pins
+ * were tracked — by the identical auto-generated "map pin at" note (same
+ * property, name, and location line). Stands added by hand (no pin origin) are
+ * never merged, even when they share a name.
  */
 function dedupeStandsFromPins(state: DeerIntelState): DeerIntelState {
-  const keptStandByPin = new Map<string, string>();
+  const keptStandByKey = new Map<string, string>();
   const removedStandIdToKeptId = new Map<string, string>();
   const stands: Stand[] = [];
 
   for (const stand of state.stands) {
-    if (!stand.sourcePinId) {
+    // Only stands that came from a map pin can be duplicates of each other:
+    // a sourcePinId, or the note signature left by createStandFromPin.
+    const dedupeKey = stand.sourcePinId
+      ? `pin:${stand.sourcePinId}`
+      : stand.notes.includes("map pin at ")
+        ? `sig:${stand.propertyId}|${stand.name.toLowerCase()}|${stand.notes}`
+        : null;
+
+    if (!dedupeKey) {
       stands.push(stand);
       continue;
     }
 
-    const existingKeptId = keptStandByPin.get(stand.sourcePinId);
+    const existingKeptId = keptStandByKey.get(dedupeKey);
 
     if (existingKeptId) {
       removedStandIdToKeptId.set(stand.id, existingKeptId);
       continue;
     }
 
-    keptStandByPin.set(stand.sourcePinId, stand.id);
+    keptStandByKey.set(dedupeKey, stand.id);
     stands.push(stand);
   }
 

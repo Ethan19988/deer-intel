@@ -18,7 +18,7 @@ import {
   EMPTY_HUNT_FORM_VALUES,
 } from "@/lib/huntFormValues";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
-import { createStandFromPin, getStandPins } from "@/lib/standPins";
+import { createStandFromPin, findStandForPin, getStandPins } from "@/lib/standPins";
 import type { MapPin } from "@/types/mapPin";
 
 export default function HuntLogPage() {
@@ -92,6 +92,19 @@ export default function HuntLogPage() {
   }
 
   function convertPinToStand(pin: MapPin) {
+    // A double-tap (common on mobile before the list re-renders) must not save
+    // the same pin as a stand twice — reuse the existing stand if there is one.
+    const existingStand = findStandForPin(state.stands, pin.id);
+
+    if (existingStand) {
+      setHuntValues((currentValues) => ({
+        ...currentValues,
+        propertyId: existingStand.propertyId,
+        standId: existingStand.id,
+      }));
+      return;
+    }
+
     const newStand = createStandFromPin({
       id: createDeerIntelId("stand"),
       pin,
@@ -103,12 +116,10 @@ export default function HuntLogPage() {
     let standIdToSelect = newStand.id;
 
     updateDeerIntelStore((currentState) => {
-      const existingStand = currentState.stands.find(
-        (stand) => stand.sourcePinId === pin.id,
-      );
+      const alreadyPromoted = findStandForPin(currentState.stands, pin.id);
 
-      if (existingStand) {
-        standIdToSelect = existingStand.id;
+      if (alreadyPromoted) {
+        standIdToSelect = alreadyPromoted.id;
         return currentState;
       }
 

@@ -66,3 +66,14 @@ export function createStandFromPin({
     sourcePinId: pin.id,
   };
 }
+
+/**
+ * Find a stand that was already promoted from this pin, so the same pin can't be
+ * saved as a stand twice (guards against double-taps on "Save as stand site").
+ */
+export function findStandForPin(
+  stands: Stand[],
+  pinId: string,
+): Stand | undefined {
+  return stands.find((stand) => stand.sourcePinId === pinId);
+}
