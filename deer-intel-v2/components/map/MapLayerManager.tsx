@@ -60,6 +60,7 @@ export default function MapLayerManager({
   const visibleCount = Object.values(visibleAssetLayers).filter(
     Boolean,
   ).length;
+  const activeToolCount = Object.values(mapTools).filter(Boolean).length;
   const hasFieldTools = Boolean(
     pinBoxSection || trackingSection || offlineSection,
   );
@@ -141,10 +142,13 @@ export default function MapLayerManager({
               ) : null}
 
               {offlineSection ? (
-                <section style={cardStyle}>
-                  <h4 style={cardTitleStyle}>Offline maps</h4>
+                <CollapsibleSection
+                  title="Offline maps"
+                  description="Save tiles for no-signal use"
+                  style={collapsibleCardStyle}
+                >
                   {offlineSection}
-                </section>
+                </CollapsibleSection>
               ) : null}
             </>
           ) : null}
@@ -154,6 +158,7 @@ export default function MapLayerManager({
           <CollapsibleSection
             title="Pin visibility"
             description={`${visibleCount} of ${ASSET_LAYERS.length} shown`}
+            name="di-map-onmap"
             style={collapsibleCardStyle}
           >
             <div style={toggleListStyle}>
@@ -169,8 +174,12 @@ export default function MapLayerManager({
             </div>
           </CollapsibleSection>
 
-          <section style={cardStyle}>
-            <h4 style={cardTitleStyle}>Map tools</h4>
+          <CollapsibleSection
+            title="Map tools"
+            description={`${activeToolCount} of ${MAP_TOOL_LABELS.length} on`}
+            name="di-map-onmap"
+            style={collapsibleCardStyle}
+          >
             <div style={toggleListStyle}>
               {MAP_TOOL_LABELS.map((tool, index) => (
                 <ToggleRow
@@ -182,12 +191,15 @@ export default function MapLayerManager({
                 />
               ))}
             </div>
-          </section>
+          </CollapsibleSection>
 
           <GroupHeader icon={<ClockIcon />} label="Coming soon" />
 
-          <section style={{ ...cardStyle, opacity: 0.72 }}>
-            <h4 style={cardTitleStyle}>Future layers</h4>
+          <CollapsibleSection
+            title="Future layers"
+            description={`${FUTURE_LAYER_LABELS.length} planned`}
+            style={{ ...collapsibleCardStyle, opacity: 0.72 }}
+          >
             <div style={toggleListStyle}>
               {FUTURE_LAYER_LABELS.map((label, index) => (
                 <ToggleRow
@@ -200,7 +212,7 @@ export default function MapLayerManager({
                 />
               ))}
             </div>
-          </section>
+          </CollapsibleSection>
         </div>
       </aside>
     </>
