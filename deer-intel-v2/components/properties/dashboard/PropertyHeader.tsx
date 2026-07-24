@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
 import Badge from "@/components/ui/Badge";
-import Card from "@/components/ui/Card";
 import type { AiConfidence } from "@/lib/propertyDashboard";
 import type { Property } from "@/types/property";
 import ScoreCard from "./ScoreCard";
@@ -17,7 +16,7 @@ export default function PropertyHeader({
   aiConfidence,
 }: PropertyHeaderProps) {
   return (
-    <Card as="section" id="overview" variant="elevated" style={heroStyle}>
+    <section id="overview" className="di-section-hero" style={heroStyle}>
       <div style={headerTextStyle}>
         <div style={badgeRowStyle}>
           <Badge variant="success">Property Home</Badge>
@@ -40,10 +39,12 @@ export default function PropertyHeader({
           description={aiConfidence.description}
         />
       </div>
-    </Card>
+    </section>
   );
 }
 
+// Layout only — the golden-hour band (bg, border, padding, cream text) comes
+// from the shared .di-section-hero class.
 const heroStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
@@ -51,8 +52,6 @@ const heroStyle: CSSProperties = {
   justifyContent: "space-between",
   gap: "1.25rem",
   marginTop: "1rem",
-  padding: "1.5rem",
-  background: "var(--surface)",
 };
 
 const headerTextStyle: CSSProperties = {
@@ -68,16 +67,17 @@ const badgeRowStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: "1rem 0 0",
-  color: "var(--text)",
+  color: "#f6f0dc",
   fontSize: "3rem",
   lineHeight: 1,
   fontWeight: 850,
+  textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
 };
 
 const notesStyle: CSSProperties = {
   maxWidth: "760px",
   margin: "1rem 0 0",
-  color: "var(--text-muted)",
+  color: "rgba(243, 237, 217, 0.9)",
   fontSize: "1.08rem",
   lineHeight: 1.65,
 };
