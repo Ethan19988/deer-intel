@@ -419,14 +419,21 @@ function renderHeatOverlay(
       }
     }
   }
-  const floor = floorByte / 255;
+  // A fully-saturated surface (dense stacked predictions all hit byte 255) can
+  // push the budget cut to the very top bin, floorByte === 255. That would make
+  // `1 - floor` zero, so every surviving pixel's `t` is 0/0 = NaN — which sends
+  // rampColor an out-of-range index and crashes the whole map. Cap the floor
+  // just below the top so the span is always positive and the hottest ground
+  // still grades to full red.
+  const floor = Math.min(floorByte, 254) / 255;
+  const span = 1 - floor;
   for (let i = 0; i < data.length; i += 4) {
     const value = data[i] / 255;
     if (value < floor) {
       data[i + 3] = 0;
       continue;
     }
-    const t = Math.pow(Math.min(1, (value - floor) / (1 - floor)), 0.7);
+    const t = Math.pow(Math.min(1, Math.max(0, (value - floor) / span)), 0.7);
     const [r, g, b] = rampColor(t);
     data[i] = r;
     data[i + 1] = g;
@@ -455,8 +462,11 @@ const RAMP_STOPS = [
 ];
 
 function rampColor(t: number): [number, number, number] {
-  const x = Math.min(1, Math.max(0, t)) * (RAMP_STOPS.length - 1);
-  const i = Math.floor(x);
+  // Clamp to [0,1] and treat a non-finite t as fully hot, so a bad input can
+  // never index RAMP_STOPS out of bounds (Math.floor(NaN) is NaN → undefined).
+  const safeT = Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : 1;
+  const x = safeT * (RAMP_STOPS.length - 1);
+  const i = Math.min(RAMP_STOPS.length - 1, Math.max(0, Math.floor(x)));
   const f = x - i;
   const a = RAMP_STOPS[i];
   const b = RAMP_STOPS[Math.min(i + 1, RAMP_STOPS.length - 1)];
