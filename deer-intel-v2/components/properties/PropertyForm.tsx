@@ -222,6 +222,6 @@ const helpTextStyle: CSSProperties = {
 
 const locationMessageStyle: CSSProperties = {
   margin: "0.5rem 0 0",
-  color: "#9fd18a",
+  color: "var(--success-text)",
   fontSize: "0.85rem",
 };

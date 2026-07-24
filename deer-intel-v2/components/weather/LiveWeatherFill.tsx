@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
+import Button from "@/components/ui/Button";
 import {
   fetchHistoricalWeather,
   fetchLiveWeather,
@@ -117,8 +118,9 @@ export default function LiveWeatherFill({
 
   return (
     <div style={containerStyle}>
-      <button
+      <Button
         type="button"
+        variant="secondary"
         onClick={handleFetch}
         disabled={status === "loading"}
         style={buttonStyle}
@@ -130,12 +132,15 @@ export default function LiveWeatherFill({
           : usesHistory
             ? "Use weather from that day"
             : "Use live weather"}
-      </button>
+      </Button>
       {message ? (
         <p
           style={{
             ...messageStyle,
-            color: status === "error" ? "#f0a3a3" : "#9fd18a",
+            color:
+              status === "error"
+                ? "var(--danger-text)"
+                : "var(--success-text)",
           }}
         >
           {message}
@@ -183,18 +188,10 @@ const containerStyle: CSSProperties = {
   marginBottom: "1rem",
 };
 
+// The shared Button carries the themed colors, radius, and hover/press; we only
+// keep it left-aligned within the grid container.
 const buttonStyle: CSSProperties = {
   justifySelf: "start",
-  minHeight: "42px",
-  padding: "0.55rem 1rem",
-  borderRadius: "8px",
-  border: "1px solid #3a5a3a",
-  background: "#14231400",
-  backgroundColor: "#16261699",
-  color: "#cfe8c8",
-  fontSize: "0.95rem",
-  fontWeight: 700,
-  cursor: "pointer",
 };
 
 const messageStyle: CSSProperties = {

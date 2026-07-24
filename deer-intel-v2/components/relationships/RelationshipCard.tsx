@@ -22,7 +22,7 @@ export default function RelationshipCard({
 
   if (relationship.href) {
     return (
-      <Link href={relationship.href} style={cardStyle}>
+      <Link href={relationship.href} className="di-card-lift" style={cardStyle}>
         {content}
       </Link>
     );
@@ -35,7 +35,7 @@ const cardStyle: CSSProperties = {
   display: "block",
   padding: "1rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
   color: "var(--text)",
   textDecoration: "none",
