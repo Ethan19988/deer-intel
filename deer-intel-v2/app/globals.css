@@ -584,6 +584,44 @@ textarea:focus {
   }
 }
 
+/* Golden-hour section-page header (Cameras / Stands / Properties), matched to
+   the Today's Brief hero so those pages pop with the same warm color. The band
+   uses fixed photo-safe colors over the camo, so the cream text on it stays
+   legible in light, dark, and night. Page code supplies the layout (flex/grid)
+   and recolors the inner eyebrow/title/controls to cream. */
+.di-section-hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  padding: clamp(1.1rem, 3vw, 1.5rem);
+  border-radius: 16px;
+  border: 1px solid var(--border-strong);
+  border-top: 5px solid var(--accent);
+  color: #f3edd9;
+  background-color: var(--camo-ink);
+  background-image: radial-gradient(
+      300px 300px at 98% -20%,
+      rgba(255, 178, 92, 0.9),
+      rgba(230, 110, 45, 0.35) 46%,
+      transparent 74%
+    ),
+    radial-gradient(
+      90% 90% at -10% 120%,
+      rgba(58, 138, 74, 0.5),
+      transparent 60%
+    ),
+    linear-gradient(
+      158deg,
+      rgba(16, 26, 12, 0.9) 0%,
+      rgba(34, 58, 28, 0.55) 48%,
+      rgba(150, 82, 26, 0.45) 100%
+    ),
+    var(--camo);
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 24px 50px -30px rgba(12, 18, 8, 0.6);
+}
+
 button,
 input,
 select {
