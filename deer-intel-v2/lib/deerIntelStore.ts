@@ -111,6 +111,17 @@ function optionalNumberValue(value: unknown): number | undefined {
   return Number.isFinite(parsedValue) ? parsedValue : undefined;
 }
 
+// Reject an out-of-range coordinate (e.g. a fat-fingered "5000") so a camera
+// can't be stored off-map with a silently-failing weather lookup; an invalid
+// value is treated as "not set" rather than clamped to a wrong-but-valid point.
+function coordinateInRange(
+  value: number | undefined,
+  max: number,
+): number | undefined {
+  if (value === undefined) return undefined;
+  return Math.abs(value) <= max ? value : undefined;
+}
+
 function countValue(value: unknown): number {
   const parsedValue =
     typeof value === "number"
@@ -244,8 +255,11 @@ function normalizeCamera(value: unknown): Camera | null {
     manufacturer: stringValue(value.manufacturer),
     model: stringValue(value.model),
     status,
-    latitude: optionalNumberValue(value.latitude ?? value.lat),
-    longitude: optionalNumberValue(value.longitude ?? value.lng),
+    latitude: coordinateInRange(optionalNumberValue(value.latitude ?? value.lat), 90),
+    longitude: coordinateInRange(
+      optionalNumberValue(value.longitude ?? value.lng),
+      180,
+    ),
     facingDirection: optionalStringValue(value.facingDirection),
     locationNotes: stringValue(value.locationNotes),
     notes: stringValue(value.notes, "No notes yet."),

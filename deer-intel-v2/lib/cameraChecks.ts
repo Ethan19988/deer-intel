@@ -47,7 +47,16 @@ export function getCameraCheckSummary(
 export function formatCameraCheckDate(date: string | undefined) {
   if (!date) return "Not checked yet";
 
-  const time = Date.parse(date);
+  // A date-only "YYYY-MM-DD" must be read in local time; Date.parse treats it as
+  // UTC midnight, which formats a day early for negative-offset (US) users.
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  const time = dateOnly
+    ? new Date(
+        Number(dateOnly[1]),
+        Number(dateOnly[2]) - 1,
+        Number(dateOnly[3]),
+      ).getTime()
+    : Date.parse(date);
 
   if (Number.isNaN(time)) return date;
 

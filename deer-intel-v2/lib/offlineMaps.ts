@@ -334,12 +334,19 @@ function openOfflineTileCache(): Promise<Cache> {
   return offlineTileCachePromise;
 }
 
+// Downloads store every tile under the "a" subdomain (see fillTemplate), but the
+// live layer round-robins the {s} placeholder across a/b/c, so ~2/3 of lookups
+// would otherwise miss the cache. Normalize the lookup to the stored key.
+function normalizeTileUrl(url: string): string {
+  return url.replace(/:\/\/[abc]\.tile\./, "://a.tile.");
+}
+
 export async function matchOfflineTile(url: string): Promise<string | null> {
   if (!offlineCachesSupported()) return null;
 
   try {
     const cache = await openOfflineTileCache();
-    const response = await cache.match(url);
+    const response = await cache.match(normalizeTileUrl(url));
     if (!response) return null;
 
     const blob = await response.blob();

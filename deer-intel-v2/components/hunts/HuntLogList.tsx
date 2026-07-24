@@ -97,8 +97,8 @@ const eyebrowStyle: CSSProperties = {
   margin: 0,
   color: "var(--accent-text)",
   fontSize: "0.78rem",
-  fontWeight: 700,
-  letterSpacing: 0,
+  fontWeight: 800,
+  letterSpacing: "0.04em",
   textTransform: "uppercase",
 };
 
