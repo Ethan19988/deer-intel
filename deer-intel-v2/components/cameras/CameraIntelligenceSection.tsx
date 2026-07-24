@@ -197,19 +197,19 @@ const sectionStackStyle: CSSProperties = {
 
 const insightGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))",
   gap: "1rem",
 };
 
 const statGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))",
   gap: "1rem",
 };
 
 const attentionGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))",
   gap: "1rem",
 };
 

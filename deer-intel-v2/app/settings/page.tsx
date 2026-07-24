@@ -830,14 +830,14 @@ const inlineCodeStyle: CSSProperties = {
 
 const mapLayerGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))",
   gap: "0.6rem",
   marginTop: "1rem",
 };
 
 const seasonFieldRowStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))",
   gap: "0.75rem",
   margin: "1rem 0",
 };
@@ -877,13 +877,13 @@ const mapLayerOptionActiveStyle: CSSProperties = {
 
 const settingsGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))",
   gap: "1rem",
 };
 
 const optionGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))",
   gap: "0.75rem",
   marginTop: "1rem",
 };
@@ -922,7 +922,7 @@ const optionDescStyle: CSSProperties = {
 
 const statGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 100%), 1fr))",
   gap: "1rem",
 };
 

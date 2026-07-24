@@ -75,6 +75,9 @@ export default function Tabs({
 
 const wrapStyle: CSSProperties = {
   display: "grid",
+  // Constrain the column so the tablist (which scrolls) and a wide tabpanel
+  // child can't stretch the page wider than the viewport on mobile.
+  gridTemplateColumns: "minmax(0, 1fr)",
   gap: "1.15rem",
 };
 

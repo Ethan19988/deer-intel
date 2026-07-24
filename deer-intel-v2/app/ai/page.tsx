@@ -691,7 +691,7 @@ const mutedTextStyle: CSSProperties = {
 
 const detailGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(140px, 100%), 1fr))",
   gap: "1rem",
   marginTop: "1rem",
   paddingTop: "1rem",
@@ -713,7 +713,7 @@ const detailValueStyle: CSSProperties = {
 
 const attentionGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))",
   gap: "1rem",
 };
 
@@ -736,7 +736,7 @@ const attentionLinkStyle: CSSProperties = {
 
 const snapshotGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))",
   gap: "1rem",
 };
 
@@ -761,7 +761,7 @@ const primaryLinkStyle: CSSProperties = {
 
 const conditionsGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))",
   gap: "0.9rem",
   marginTop: "1.1rem",
 };

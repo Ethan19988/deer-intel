@@ -887,6 +887,9 @@ const backTextLinkStyle: CSSProperties = {
 
 const tabPanelStyle: CSSProperties = {
   display: "grid",
+  // Constrain the column so section content (grids/widgets) can't size this to
+  // its max-content and push the whole page wider than the viewport on mobile.
+  gridTemplateColumns: "minmax(0, 1fr)",
   gap: "1.5rem",
 };
 
@@ -904,7 +907,7 @@ const primaryLinkStyle: CSSProperties = {
 
 const cardGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))",
   gap: "1rem",
 };
 
@@ -914,13 +917,13 @@ const plannerIntelligenceWrapStyle: CSSProperties = {
 
 const quickActionGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(210px, 100%), 1fr))",
   gap: "1rem",
 };
 
 const mapCommandGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))",
   gap: "1rem",
   alignItems: "stretch",
 };
@@ -951,7 +954,7 @@ const advancedToolsStyle: CSSProperties = {
 
 const overviewGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))",
   gap: "1.25rem",
   alignItems: "start",
 };
@@ -962,13 +965,13 @@ const panelSectionStyle: CSSProperties = {
 
 const statGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))",
   gap: "1rem",
 };
 
 const moduleGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(240px, 100%), 1fr))",
   gap: "1rem",
 };
 

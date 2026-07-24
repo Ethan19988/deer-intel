@@ -257,7 +257,7 @@ const formStyle: CSSProperties = {
 
 const formGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(140px, 100%), 1fr))",
   gap: "1rem",
 };
 

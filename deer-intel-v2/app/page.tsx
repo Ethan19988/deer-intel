@@ -593,13 +593,13 @@ const selectStyle: CSSProperties = {
 
 const instrumentsRowStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))",
   gap: "0.8rem",
 };
 
 const briefGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))",
   gap: "0.8rem",
 };
 

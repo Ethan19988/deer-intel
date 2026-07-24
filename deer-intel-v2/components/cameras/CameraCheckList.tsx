@@ -182,7 +182,7 @@ const titleStyle: CSSProperties = {
 
 const detailsGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(110px, 100%), 1fr))",
   gap: "1rem",
   marginTop: "1rem",
   paddingTop: "1rem",
