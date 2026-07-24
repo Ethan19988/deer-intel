@@ -185,7 +185,7 @@ const badgeStyle: CSSProperties = {
 const historyRowStyle: CSSProperties = {
   display: "grid",
   gridAutoFlow: "column",
-  gridAutoColumns: "minmax(104px, 1fr)",
+  gridAutoColumns: "minmax(min(104px, 100%), 1fr)",
   gap: "0.6rem",
   overflowX: "auto",
   paddingBottom: "0.15rem",

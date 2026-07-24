@@ -100,7 +100,7 @@ const descriptionStyle: CSSProperties = {
 // details sit in a solid light panel on the band rather than directly on it.
 const detailsStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 100%), 1fr))",
   gap: "1rem",
   marginTop: "1.25rem",
   padding: "1rem 1.15rem",

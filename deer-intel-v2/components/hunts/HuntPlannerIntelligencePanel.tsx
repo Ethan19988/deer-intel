@@ -175,19 +175,19 @@ const panelStyle: CSSProperties = {
 
 const emptyStateGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))",
   gap: "1rem",
 };
 
 const candidateGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(230px, 100%), 1fr))",
   gap: "1rem",
 };
 
 const listGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(250px, 100%), 1fr))",
   gap: "1rem",
 };
 

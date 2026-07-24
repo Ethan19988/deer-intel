@@ -306,7 +306,7 @@ const conditionStyle: CSSProperties = {
 
 const statRowStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(120px, 100%), 1fr))",
   gap: "0.6rem",
 };
 

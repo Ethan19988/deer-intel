@@ -829,6 +829,10 @@ textarea {
 
 .di-main-content {
   display: grid;
+  /* Constrain the single column to the viewport (min 0, not min-content) so a
+     wide descendant scrolls/wraps inside its own box instead of widening the
+     whole page — which on mobile forced a zoom-out to see everything. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
 }
 

@@ -581,7 +581,7 @@ const draftMetaStyle: CSSProperties = {
 
 const draftFormGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))",
   gap: "1rem",
   marginTop: "1rem",
   paddingTop: "1rem",
@@ -590,7 +590,7 @@ const draftFormGridStyle: CSSProperties = {
 
 const providerGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))",
   gap: "1rem",
 };
 

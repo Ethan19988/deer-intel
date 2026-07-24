@@ -84,7 +84,7 @@ const notesStyle: CSSProperties = {
 
 const scoreGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))",
   gap: "1rem",
   flex: "1 1 360px",
 };

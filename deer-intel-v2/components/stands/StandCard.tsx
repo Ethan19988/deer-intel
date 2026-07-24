@@ -170,7 +170,7 @@ const openLinkStyle: CSSProperties = {
 
 const detailsGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))",
   gap: "1rem",
   marginTop: "1rem",
   paddingTop: "1rem",
