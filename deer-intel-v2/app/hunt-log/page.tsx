@@ -179,7 +179,7 @@ export default function HuntLogPage() {
 
   return (
     <PageShell>
-      <header style={headerStyle}>
+      <header className="di-section-hero" style={headerStyle}>
         <span style={headerIconStyle} aria-hidden="true">
           <ClipboardIcon size={24} />
         </span>
@@ -219,9 +219,9 @@ const headerIconStyle: CSSProperties = {
   height: "3rem",
   flex: "none",
   borderRadius: "14px",
-  background: "var(--accent-tint)",
-  border: "1px solid var(--accent-tint-border)",
-  color: "var(--accent-text)",
+  background: "rgba(243, 237, 217, 0.15)",
+  border: "1px solid rgba(243, 237, 217, 0.35)",
+  color: "#f6efd6",
 };
 
 const headerTitleWrapStyle: CSSProperties = {
@@ -232,7 +232,7 @@ const headerTitleWrapStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "var(--accent-text)",
+  color: "rgba(243, 237, 217, 0.82)",
   fontSize: "0.78rem",
   fontWeight: 800,
   letterSpacing: "0.04em",
@@ -241,8 +241,10 @@ const eyebrowStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: 0,
+  color: "#f6f0dc",
   fontSize: "2rem",
   lineHeight: 1.1,
+  textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
 };
 
 const formCardStyle: CSSProperties = {

@@ -19,7 +19,7 @@ export default function PageHeader({
   icon,
 }: PageHeaderProps) {
   return (
-    <header className="di-page-header" style={headerStyle}>
+    <header className="di-page-header di-section-hero" style={headerStyle}>
       <div className="di-page-header-text" style={textStyle}>
         <div style={topRowStyle}>
           {icon ? (
@@ -67,14 +67,14 @@ const iconBadgeStyle: CSSProperties = {
   height: "3rem",
   flex: "none",
   borderRadius: "14px",
-  background: "var(--accent-tint)",
-  border: "1px solid var(--accent-tint-border)",
-  color: "var(--accent-text)",
+  background: "rgba(243, 237, 217, 0.15)",
+  border: "1px solid rgba(243, 237, 217, 0.35)",
+  color: "#f6efd6",
 };
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "var(--accent-text)",
+  color: "rgba(243, 237, 217, 0.82)",
   fontSize: "0.78rem",
   fontWeight: 800,
   letterSpacing: "0.04em",
@@ -83,8 +83,10 @@ const eyebrowStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: "0.25rem 0 0",
+  color: "#f6f0dc",
   fontSize: "2.1rem",
   lineHeight: 1.1,
+  textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
 };
 
 const metaStyle: CSSProperties = {
@@ -92,14 +94,14 @@ const metaStyle: CSSProperties = {
   gap: "0.75rem",
   flexWrap: "wrap",
   marginTop: "0.85rem",
-  color: "var(--text-muted)",
+  color: "rgba(243, 237, 217, 0.85)",
   fontWeight: 700,
 };
 
 const descriptionStyle: CSSProperties = {
   maxWidth: "720px",
   margin: "0.85rem 0 0",
-  color: "var(--text-muted)",
+  color: "rgba(243, 237, 217, 0.9)",
   fontSize: "1.02rem",
   lineHeight: 1.6,
 };

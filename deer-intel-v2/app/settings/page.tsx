@@ -757,8 +757,13 @@ function UnitSetting<T extends string>({
   );
 }
 
+// The PageHeader now carries the golden-hour band itself (di-section-hero), so
+// this wrapper card just passes through without its own surface/padding.
 const heroCardStyle: CSSProperties = {
-  padding: "1.5rem",
+  padding: 0,
+  border: "none",
+  background: "transparent",
+  boxShadow: "none",
 };
 
 const unitSettingsStyle: CSSProperties = {
