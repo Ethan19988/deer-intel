@@ -94,7 +94,7 @@ function buildTool(unit: PhotoStampUnit, knownBucks: KnownBuckSummary[]) {
           type: "string",
           enum: [...SPECIES_VALUES, ""],
           description:
-            'The main animal visible in the photo. "Buck" is a deer with visible antlers, "Doe" an adult deer without antlers, "Fawn" a young deer. Use "Other" for any other animal or a person/vehicle. Empty string if no animal is clearly visible.',
+            'The main animal visible in the photo. A deer showing antlers of any kind — including the thin, dark, or velvet-covered ones that are easy to miss in grayscale night-vision shots — is a "Buck"; scan above and beside the head before deciding. "Doe" is an adult deer you can positively see has NO antlers and a slender doe build; do not fall back to "Doe" just because antlers are hard to make out. "Fawn" is a young deer (small body, possibly spotted). Use "Other" for any other animal or a person/vehicle. Empty string if no animal is clearly visible.',
         },
         behavior: {
           type: "string",
@@ -158,7 +158,9 @@ const SYSTEM_PROMPT = `You analyze trail camera photos for a hunting app. Your j
 
 1. Read the data overlay the camera printed onto the photo — usually a bar along the bottom edge showing the date, time, temperature, moon phase, and sometimes wind, humidity, camera name, or barometric pressure. Extract ONLY values that are clearly legible, and report the time exactly as printed (keep AM/PM; never convert it). Do not infer or guess a value that is not printed. If there is no printed overlay, report found = false.
 
-2. Identify the main animal in the frame, if any. A whitetail deer with visible antlers is a "Buck"; an adult deer without visible antlers is a "Doe"; a young deer (small body, possibly spotted) is a "Fawn". Report "Other" for any animal outside the list (or a person/vehicle), and an empty species if nothing is clearly visible.
+2. Identify the main animal in the frame, if any. A whitetail deer with antlers is a "Buck"; an adult deer with no antlers and a doe's build is a "Doe"; a young deer (small body, possibly spotted) is a "Fawn". Report "Other" for any animal outside the list (or a person/vehicle), and an empty species if nothing is clearly visible.
+
+Do NOT default to "Doe". Most trail-camera frames are grayscale night-vision or low-contrast, and antlers are easy to miss in them: they can read as thin, dark, or washed-out lines, they blur into the brush and branches behind the head, and in summer they are velvet-covered and rounded rather than sharp. Before calling a deer a "Doe", look closely above and to the sides of the head for any tine or beam, even a faint one. Also weigh body shape, which stays visible when antlers don't: a buck carries a heavier, more muscular frame, a thicker neck (very swollen in the fall rut), and a blockier, squarer head, while a doe has a slender neck and a narrow, wedge-shaped head. Call "Doe" only when you can positively see a deer that has no antlers — not merely because you cannot make antlers out.
 
 3. Read the animal's BEHAVIOR — this is the intel a hunter patterns deer with. Classify it (Traveling / Feeding / Chasing / At scrape or rub / Bedded / Alert) from body language: head down grazing = Feeding; steady purposeful walk, head level = Traveling; neck extended low behind another deer, running posture = Chasing (rut); working an overhanging branch or pawing dirt = At scrape or rub; lying down = Bedded; head up, ears forward, staring = Alert.
 
