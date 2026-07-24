@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import AuthGate from "@/components/auth/AuthGate";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
+import StoragePersistenceBanner from "@/components/StoragePersistenceBanner";
 import ThemeManager from "@/components/ThemeManager";
 
 // Runs before first paint to set <html data-theme> from the saved preference,
@@ -67,6 +68,7 @@ export default function RootLayout({
         <AuthProvider>
           <AuthGate>{children}</AuthGate>
         </AuthProvider>
+        <StoragePersistenceBanner />
       </body>
     </html>
   );

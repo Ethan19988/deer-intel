@@ -886,7 +886,11 @@ export function saveDeerIntelStore(nextState: DeerIntelState) {
   memoryState = normalizedState;
   cachedStorage = null;
 
-  writeStorageValue(STORAGE_KEY, JSON.stringify(normalizedState));
+  // The in-memory state above keeps the current session working; but if the
+  // write fails (localStorage quota exhausted), the change won't survive a
+  // reload. Track that so the UI can warn instead of silently losing data.
+  const persisted = writeStorageValue(STORAGE_KEY, JSON.stringify(normalizedState));
+  setStoragePersistenceFailed(!persisted);
 
   notifyListeners();
 }
@@ -895,6 +899,38 @@ export function updateDeerIntelStore(
   updater: (currentState: DeerIntelState) => DeerIntelState,
 ) {
   saveDeerIntelStore(updater(getSnapshot()));
+}
+
+// --- Storage-persistence signal ---------------------------------------------
+// True once a save couldn't be written to localStorage (quota full). A small
+// global banner subscribes to this so the hunter learns their changes aren't
+// being saved rather than losing them silently on the next reload.
+let storagePersistenceFailed = false;
+const persistenceListeners = new Set<() => void>();
+
+function setStoragePersistenceFailed(failed: boolean) {
+  if (storagePersistenceFailed === failed) return;
+  storagePersistenceFailed = failed;
+  persistenceListeners.forEach((listener) => listener());
+}
+
+function subscribeToStoragePersistence(listener: () => void) {
+  persistenceListeners.add(listener);
+  return () => {
+    persistenceListeners.delete(listener);
+  };
+}
+
+function getStoragePersistenceFailed() {
+  return storagePersistenceFailed;
+}
+
+export function useStoragePersistenceFailed(): boolean {
+  return useSyncExternalStore(
+    subscribeToStoragePersistence,
+    getStoragePersistenceFailed,
+    () => false,
+  );
 }
 
 export function createDeerIntelId(prefix: string) {
