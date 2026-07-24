@@ -271,7 +271,7 @@ const attentionNameStyle: CSSProperties = {
 
 const attentionReasonStyle: CSSProperties = {
   marginLeft: "0.5rem",
-  color: "#d3b66b",
+  color: "var(--warning-text)",
   fontSize: "0.88rem",
   fontWeight: 800,
 };

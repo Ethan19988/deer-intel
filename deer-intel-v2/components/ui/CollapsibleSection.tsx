@@ -97,7 +97,7 @@ const titleStyle: CSSProperties = {
 };
 
 const descriptionStyle: CSSProperties = {
-  color: "#aebaaa",
+  color: "var(--text-muted)",
   fontSize: "0.88rem",
   lineHeight: 1.4,
 };
