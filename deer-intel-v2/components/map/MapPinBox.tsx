@@ -69,22 +69,47 @@ export default function MapPinBox({
         </div>
       </div>
 
-      <label className="di-map-pin-box-field" style={fieldStyle}>
+      <div className="di-map-pin-box-field" style={fieldStyle}>
         <span style={labelStyle}>Select Pin Type</span>
-        <select
+        <div
+          role="radiogroup"
           aria-label="Select Pin Type"
-          value={pinType}
-          disabled={disabled}
-          style={selectStyle}
-          onChange={(event) => onPinTypeChange(event.target.value as PinType)}
+          style={chipGridStyle}
         >
-          {PROPERTY_ASSET_PIN_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
-      </label>
+          {PROPERTY_ASSET_PIN_TYPES.map((type) => {
+            const style = getPinStyle(type);
+            const isActive = type === pinType;
+
+            return (
+              <button
+                key={type}
+                type="button"
+                role="radio"
+                aria-checked={isActive}
+                disabled={disabled}
+                style={{
+                  ...chipStyle,
+                  ...(isActive ? activeChipStyle : null),
+                  ...(disabled ? disabledChipStyle : null),
+                }}
+                onClick={() => onPinTypeChange(type)}
+              >
+                <span
+                  style={{
+                    ...chipDotStyle,
+                    background: style.background,
+                    borderColor: style.color,
+                    color: style.color,
+                  }}
+                >
+                  {style.shortLabel}
+                </span>
+                <span style={chipLabelStyle}>{type}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <button
         type="button"
@@ -123,6 +148,9 @@ function getPinStyle(pinType: PinType) {
 
 const pinBoxStyle: CSSProperties = {
   display: "grid",
+  // Definite single column so the nested chip grid can resolve its own width
+  // (auto-fit collapses to one column inside an auto-sized parent track).
+  gridTemplateColumns: "minmax(0, 1fr)",
   gap: "0.65rem",
 };
 
@@ -166,6 +194,7 @@ const pinPreviewStyle: CSSProperties = {
 
 const fieldStyle: CSSProperties = {
   display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr)",
   gap: "0.4rem",
 };
 
@@ -175,15 +204,58 @@ const labelStyle: CSSProperties = {
   fontWeight: 800,
 };
 
-const selectStyle: CSSProperties = {
-  width: "100%",
-  minHeight: "48px",
-  padding: "0.65rem 0.75rem",
+const chipGridStyle: CSSProperties = {
+  display: "grid",
+  // Pack into a compact multi-column grid (2 columns even on a narrow phone)
+  // so the picker stays short instead of a long single-column list.
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(104px, 100%), 1fr))",
+  gap: "0.45rem",
+};
+
+const chipStyle: CSSProperties = {
+  display: "inline-flex",
+  minHeight: "46px",
+  minWidth: 0,
+  alignItems: "center",
+  gap: "0.45rem",
+  padding: "0.45rem 0.55rem",
   border: "1px solid rgba(17, 23, 17, 0.16)",
   borderRadius: "8px",
   background: "white",
   color: "#111711",
-  fontSize: "0.98rem",
+  cursor: "pointer",
+  fontSize: "0.86rem",
+  fontWeight: 800,
+  textAlign: "left",
+};
+
+const activeChipStyle: CSSProperties = {
+  borderColor: "#3b6843",
+  background: "#eef6ea",
+  boxShadow: "inset 0 0 0 1px #3b6843",
+};
+
+const disabledChipStyle: CSSProperties = {
+  opacity: 0.55,
+  cursor: "not-allowed",
+};
+
+const chipDotStyle: CSSProperties = {
+  display: "inline-flex",
+  width: "26px",
+  height: "26px",
+  flex: "0 0 auto",
+  alignItems: "center",
+  justifyContent: "center",
+  border: "2px solid",
+  borderRadius: "999px",
+  fontSize: "0.62rem",
+  fontWeight: 900,
+};
+
+const chipLabelStyle: CSSProperties = {
+  minWidth: 0,
+  lineHeight: 1.2,
 };
 
 const placeButtonStyle: CSSProperties = {

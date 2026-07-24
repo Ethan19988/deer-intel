@@ -1167,6 +1167,13 @@ textarea {
     transform: translateY(0);
   }
 
+  /* The fixed bottom nav (z 2200) floats over the drawer, so pad the scroll
+     area past it — otherwise the last section is trapped behind the nav and
+     can't be scrolled into view. */
+  .di-layer-manager-content {
+    padding-bottom: calc(5.75rem + env(safe-area-inset-bottom)) !important;
+  }
+
   .di-map-frame .leaflet-control-scale {
     margin-bottom: 4.8rem;
     margin-left: 0.75rem;
@@ -1179,8 +1186,11 @@ textarea {
     bottom: auto !important;
     left: 0.75rem !important;
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) auto !important;
-    align-items: end !important;
+    /* Stack field over button (full width) so the pin chip grid can use the
+       whole width and wrap into a compact multi-column grid rather than being
+       squeezed into a narrow left column. */
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: stretch !important;
     gap: 0.55rem !important;
     width: auto !important;
     margin-right: -0.85rem !important;
