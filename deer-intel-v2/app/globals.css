@@ -1186,8 +1186,11 @@ textarea {
     bottom: auto !important;
     left: 0.75rem !important;
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) auto !important;
-    align-items: end !important;
+    /* Stack field over button (full width) so the pin chip grid can use the
+       whole width and wrap into a compact multi-column grid rather than being
+       squeezed into a narrow left column. */
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: stretch !important;
     gap: 0.55rem !important;
     width: auto !important;
     margin-right: -0.85rem !important;

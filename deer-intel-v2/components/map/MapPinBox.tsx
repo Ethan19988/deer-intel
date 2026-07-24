@@ -148,6 +148,9 @@ function getPinStyle(pinType: PinType) {
 
 const pinBoxStyle: CSSProperties = {
   display: "grid",
+  // Definite single column so the nested chip grid can resolve its own width
+  // (auto-fit collapses to one column inside an auto-sized parent track).
+  gridTemplateColumns: "minmax(0, 1fr)",
   gap: "0.65rem",
 };
 
@@ -191,6 +194,7 @@ const pinPreviewStyle: CSSProperties = {
 
 const fieldStyle: CSSProperties = {
   display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr)",
   gap: "0.4rem",
 };
 
@@ -202,8 +206,10 @@ const labelStyle: CSSProperties = {
 
 const chipGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(140px, 100%), 1fr))",
-  gap: "0.5rem",
+  // Pack into a compact multi-column grid (2 columns even on a narrow phone)
+  // so the picker stays short instead of a long single-column list.
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(104px, 100%), 1fr))",
+  gap: "0.45rem",
 };
 
 const chipStyle: CSSProperties = {
@@ -211,14 +217,14 @@ const chipStyle: CSSProperties = {
   minHeight: "46px",
   minWidth: 0,
   alignItems: "center",
-  gap: "0.55rem",
-  padding: "0.5rem 0.6rem",
+  gap: "0.45rem",
+  padding: "0.45rem 0.55rem",
   border: "1px solid rgba(17, 23, 17, 0.16)",
   borderRadius: "8px",
   background: "white",
   color: "#111711",
   cursor: "pointer",
-  fontSize: "0.9rem",
+  fontSize: "0.86rem",
   fontWeight: 800,
   textAlign: "left",
 };
@@ -236,22 +242,20 @@ const disabledChipStyle: CSSProperties = {
 
 const chipDotStyle: CSSProperties = {
   display: "inline-flex",
-  width: "28px",
-  height: "28px",
+  width: "26px",
+  height: "26px",
   flex: "0 0 auto",
   alignItems: "center",
   justifyContent: "center",
   border: "2px solid",
   borderRadius: "999px",
-  fontSize: "0.65rem",
+  fontSize: "0.62rem",
   fontWeight: 900,
 };
 
 const chipLabelStyle: CSSProperties = {
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
   minWidth: 0,
+  lineHeight: 1.2,
 };
 
 const placeButtonStyle: CSSProperties = {
