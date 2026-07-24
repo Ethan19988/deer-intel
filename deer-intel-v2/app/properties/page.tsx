@@ -272,7 +272,7 @@ export default function PropertiesPage() {
 
   return (
     <PageShell maxWidth="980px">
-      <header style={headerStyle}>
+      <header className="di-section-hero" style={headerStyle}>
         <div style={headerRowStyle}>
           <div style={headerLeadStyle}>
             <span style={headerIconStyle} aria-hidden="true">
@@ -341,9 +341,9 @@ const headerIconStyle: CSSProperties = {
   height: "3rem",
   flex: "none",
   borderRadius: "14px",
-  background: "var(--accent-tint)",
-  border: "1px solid var(--accent-tint-border)",
-  color: "var(--accent-text)",
+  background: "rgba(243, 237, 217, 0.15)",
+  border: "1px solid rgba(243, 237, 217, 0.35)",
+  color: "#f6efd6",
 };
 
 const headerTitleWrapStyle: CSSProperties = {
@@ -355,24 +355,24 @@ const headerTitleWrapStyle: CSSProperties = {
 const exportButtonStyle: CSSProperties = {
   minHeight: "44px",
   padding: "0.6rem 0.95rem",
-  border: "1px solid var(--border-strong)",
+  border: "1px solid rgba(243, 237, 217, 0.32)",
   borderRadius: "8px",
-  background: "var(--surface-2)",
-  color: "var(--text)",
+  background: "rgba(243, 237, 217, 0.14)",
+  color: "#f6efd6",
   fontWeight: 800,
   cursor: "pointer",
 };
 
 const exportMessageStyle: CSSProperties = {
   margin: 0,
-  color: "var(--text-muted)",
+  color: "rgba(243, 237, 217, 0.82)",
   fontSize: "0.88rem",
   lineHeight: 1.5,
 };
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "var(--accent-text)",
+  color: "rgba(243, 237, 217, 0.82)",
   fontSize: "0.78rem",
   fontWeight: 800,
   letterSpacing: "0.04em",
@@ -381,8 +381,10 @@ const eyebrowStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: 0,
+  color: "#f6f0dc",
   fontSize: "2rem",
   lineHeight: 1.1,
+  textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
 };
 
 const addCardStyle: CSSProperties = {

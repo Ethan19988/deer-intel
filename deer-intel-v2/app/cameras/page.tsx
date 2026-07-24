@@ -87,7 +87,7 @@ export default function CamerasPage() {
   if (state.properties.length === 0) {
     return (
       <PageShell>
-        <header style={headerStyle}>
+        <header className="di-section-hero" style={headerStyle}>
           <div style={headerLeadStyle}>
             <span style={headerIconStyle} aria-hidden="true">
               <CameraIcon size={24} />
@@ -233,7 +233,7 @@ export default function CamerasPage() {
 
   return (
     <PageShell>
-      <header style={headerStyle}>
+      <header className="di-section-hero" style={headerStyle}>
         <div style={headerLeadStyle}>
           <span style={headerIconStyle} aria-hidden="true">
             <CameraIcon size={24} />
@@ -322,9 +322,9 @@ const headerIconStyle: CSSProperties = {
   height: "3rem",
   flex: "none",
   borderRadius: "14px",
-  background: "var(--accent-tint)",
-  border: "1px solid var(--accent-tint-border)",
-  color: "var(--accent-text)",
+  background: "rgba(243, 237, 217, 0.15)",
+  border: "1px solid rgba(243, 237, 217, 0.35)",
+  color: "#f6efd6",
 };
 
 const headerTitleWrapStyle: CSSProperties = {
@@ -342,7 +342,7 @@ const headerRightStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "var(--accent-text)",
+  color: "rgba(243, 237, 217, 0.82)",
   fontSize: "0.78rem",
   fontWeight: 800,
   letterSpacing: "0.04em",
@@ -351,8 +351,10 @@ const eyebrowStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: 0,
+  color: "#f6f0dc",
   fontSize: "2rem",
   lineHeight: 1.1,
+  textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
 };
 
 const pickerStyle: CSSProperties = {
@@ -363,7 +365,7 @@ const pickerStyle: CSSProperties = {
 };
 
 const pickerLabelStyle: CSSProperties = {
-  color: "var(--text-muted)",
+  color: "rgba(243, 237, 217, 0.82)",
   fontSize: "0.85rem",
   fontWeight: 800,
 };
@@ -372,10 +374,10 @@ const selectStyle: CSSProperties = {
   minHeight: "42px",
   minWidth: "180px",
   padding: "0.5rem 0.65rem",
-  border: "1px solid var(--border)",
+  border: "1px solid rgba(243, 237, 217, 0.3)",
   borderRadius: "var(--radius-sm)",
-  background: "var(--surface)",
-  color: "var(--text)",
+  background: "rgba(243, 237, 217, 0.14)",
+  color: "#f6efd6",
 };
 
 const headerActionsStyle: CSSProperties = {
@@ -460,10 +462,10 @@ const secondaryLinkStyle: CSSProperties = {
   justifyContent: "center",
   gap: "0.4rem",
   padding: "0.7rem 0.95rem",
-  border: "1px solid var(--border-strong)",
+  border: "1px solid rgba(243, 237, 217, 0.32)",
   borderRadius: "var(--radius-sm)",
-  background: "var(--surface-2)",
-  color: "var(--text)",
+  background: "rgba(243, 237, 217, 0.14)",
+  color: "#f6efd6",
   fontWeight: 800,
   textDecoration: "none",
 };
