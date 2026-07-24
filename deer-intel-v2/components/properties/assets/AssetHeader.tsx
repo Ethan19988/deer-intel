@@ -1,6 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
 import Badge from "@/components/ui/Badge";
-import Card from "@/components/ui/Card";
 
 type AssetHeaderProps = {
   assetType: string;
@@ -23,7 +22,11 @@ export default function AssetHeader({
   icon,
 }: AssetHeaderProps) {
   return (
-    <Card as="section" id="asset-overview" variant="elevated" style={cardStyle}>
+    <section
+      id="asset-overview"
+      className="di-section-hero"
+      style={cardStyle}
+    >
       <div style={badgeRowStyle}>
         <Badge variant="success">{assetType}</Badge>
         <Badge>{propertyName}</Badge>
@@ -41,13 +44,13 @@ export default function AssetHeader({
       <p style={descriptionStyle}>{description}</p>
 
       {children ? <div style={detailsStyle}>{children}</div> : null}
-    </Card>
+    </section>
   );
 }
 
+// Layout/spacing only — the golden-hour band comes from .di-section-hero.
 const cardStyle: CSSProperties = {
   marginTop: "1rem",
-  padding: "1.5rem",
 };
 
 const badgeRowStyle: CSSProperties = {
@@ -71,32 +74,37 @@ const iconBadgeStyle: CSSProperties = {
   height: "3.25rem",
   flex: "none",
   borderRadius: "16px",
-  background: "var(--accent-tint)",
-  border: "1px solid var(--accent-tint-border)",
-  color: "var(--accent-text)",
+  background: "rgba(243, 237, 217, 0.15)",
+  border: "1px solid rgba(243, 237, 217, 0.35)",
+  color: "#f6efd6",
 };
 
 const titleStyle: CSSProperties = {
   margin: 0,
-  color: "var(--text)",
+  color: "#f6f0dc",
   fontSize: "2.5rem",
   lineHeight: 1.05,
   fontWeight: 850,
+  textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
 };
 
 const descriptionStyle: CSSProperties = {
   maxWidth: "760px",
   margin: "0.9rem 0 0",
-  color: "var(--text-muted)",
+  color: "rgba(243, 237, 217, 0.9)",
   fontSize: "1.05rem",
   lineHeight: 1.6,
 };
 
+// The facts (AssetFact) are shared with body panels and use dark tokens, so the
+// details sit in a solid light panel on the band rather than directly on it.
 const detailsStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
   gap: "1rem",
   marginTop: "1.25rem",
-  paddingTop: "1.25rem",
-  borderTop: "1px solid var(--border)",
+  padding: "1rem 1.15rem",
+  borderRadius: "12px",
+  border: "1px solid var(--border)",
+  background: "var(--surface)",
 };
