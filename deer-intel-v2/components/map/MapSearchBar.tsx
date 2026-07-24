@@ -275,7 +275,9 @@ export default function MapSearchBar({
 const collapsedWrapStyle: CSSProperties = {
   position: "absolute",
   top: "1rem",
-  left: "1rem",
+  // Grouped with the Layers gear on the top-right so the top-left stays clear
+  // for the base-map/overlay bar and more of the map shows through.
+  right: "10.5rem",
   zIndex: 1060,
 };
 
@@ -296,7 +298,9 @@ const iconButtonStyle: CSSProperties = {
 const searchWrapStyle: CSSProperties = {
   position: "absolute",
   top: "1rem",
-  left: "1rem",
+  // Expands from the top-right (by the gear) and grows leftward; the results
+  // panel drops beneath it.
+  right: "1rem",
   zIndex: 1080,
   width: "min(430px, calc(100% - 2rem))",
 };
