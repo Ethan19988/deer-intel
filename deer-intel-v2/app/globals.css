@@ -1093,7 +1093,7 @@ textarea {
      Layers button (which in turn sits left of the fixed Settings gear). Shrinking
      it out of a full-width bar frees the top row and lets the overlay bar rise. */
   .di-map-search.di-map-search-collapsed {
-    right: 9.5rem !important;
+    right: 11.25rem !important;
     left: auto !important;
     width: auto !important;
   }

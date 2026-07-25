@@ -3057,6 +3057,18 @@ export default function HuntingMap() {
             open={layersOpen}
             onOpenChange={setLayersOpen}
             mapTools={mapTools}
+            activeOverlayCount={
+              [
+                showContours,
+                showSlope,
+                showLandcover,
+                showCameraHeat,
+                showDeerHeat,
+                showWind,
+                showMovement,
+                showTerrain,
+              ].filter(Boolean).length
+            }
             pinBoxSection={
               <MapPinBox
                 disabled={pinBoxDisabled}

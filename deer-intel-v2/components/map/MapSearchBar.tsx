@@ -276,8 +276,9 @@ const collapsedWrapStyle: CSSProperties = {
   position: "absolute",
   top: "1rem",
   // Grouped with the Layers gear on the top-right so the top-left stays clear
-  // for the base-map/overlay bar and more of the map shows through.
-  right: "10.5rem",
+  // for the base-map/overlay bar and more of the map shows through. Offset leaves
+  // room for the Layers button at its widest (with the overlay-count badge).
+  right: "12.5rem",
   zIndex: 1060,
 };
 
