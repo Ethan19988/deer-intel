@@ -1485,3 +1485,11 @@ textarea {
     animation: none;
   }
 }
+
+/* Hide the browser's native search-clear glyph — the map search renders its own
+   round clear button, which also wipes the results panel, so we avoid a double-x. */
+.di-map-search input[type="search"]::-webkit-search-cancel-button,
+.di-map-search input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}

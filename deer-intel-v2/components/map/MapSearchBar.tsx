@@ -30,6 +30,24 @@ function SearchIcon() {
   );
 }
 
+function ClearIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="18" y1="6" x2="6" y2="18" />
+    </svg>
+  );
+}
+
 function PinIcon() {
   return (
     <svg
@@ -60,6 +78,7 @@ type MapSearchBarProps = {
   onCreateAssetHere: () => void;
   onSearch: (query: string) => void;
   onSelectResult: (result: AddressSearchPlace) => void;
+  onClear: () => void;
 };
 
 export default function MapSearchBar({
@@ -73,6 +92,7 @@ export default function MapSearchBar({
   onCreateAssetHere,
   onSearch,
   onSelectResult,
+  onClear,
 }: MapSearchBarProps) {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -136,6 +156,16 @@ export default function MapSearchBar({
     onSearch(text);
   }
 
+  // Empty the field and wipe the parent's results/message + the searched-place
+  // marker, but keep the search open and focused so the user can type again.
+  function handleClear() {
+    setQuery("");
+    setSuggestions([]);
+    setShowSuggestions(false);
+    onClear();
+    inputRef.current?.focus();
+  }
+
   // Picking a result flies the map there — collapse so the map is unobstructed.
   function handleSelectResult(result: AddressSearchPlace) {
     setShowSuggestions(false);
@@ -188,6 +218,16 @@ export default function MapSearchBar({
           }}
           style={searchInputStyle}
         />
+        {query ? (
+          <button
+            type="button"
+            aria-label="Clear search"
+            style={clearButtonStyle}
+            onClick={handleClear}
+          >
+            <ClearIcon />
+          </button>
+        ) : null}
         <button type="submit" style={searchButtonStyle}>
           {isSearching ? "Searching" : "Search"}
         </button>
@@ -334,6 +374,24 @@ const searchInputStyle: CSSProperties = {
   padding: "0 0.75rem",
   fontSize: "1rem",
   outline: "none",
+};
+
+// Small round clear affordance inside the field (distinct from the full-height
+// close button that dismisses the whole search). Only shown when there's text.
+const clearButtonStyle: CSSProperties = {
+  flex: "0 0 auto",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "26px",
+  height: "26px",
+  marginRight: "0.4rem",
+  padding: 0,
+  border: 0,
+  borderRadius: "999px",
+  background: "rgba(17, 23, 17, 0.1)",
+  color: "#3f4a3f",
+  cursor: "pointer",
 };
 
 const closeButtonStyle: CSSProperties = {
