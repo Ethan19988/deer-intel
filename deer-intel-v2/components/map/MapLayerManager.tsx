@@ -11,6 +11,9 @@ type MapLayerManagerProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mapTools: MapToolState;
+  // Number of map overlays currently lit (from the top overlay bar), surfaced as
+  // a badge on the button so you can tell what's on without scrolling the bar.
+  activeOverlayCount?: number;
   pinBoxSection?: ReactNode;
   offlineSection?: ReactNode;
   trackingSection?: ReactNode;
@@ -49,6 +52,7 @@ export default function MapLayerManager({
   open,
   onOpenChange,
   mapTools,
+  activeOverlayCount = 0,
   pinBoxSection,
   offlineSection,
   trackingSection,
@@ -90,6 +94,17 @@ export default function MapLayerManager({
         }}
       >
         Layers
+        {activeOverlayCount > 0 ? (
+          <span
+            className="di-layer-manager-count"
+            style={layersCountStyle}
+            aria-label={`${activeOverlayCount} overlay${
+              activeOverlayCount === 1 ? "" : "s"
+            } on`}
+          >
+            {activeOverlayCount}
+          </span>
+        ) : null}
       </button>
 
       <div
@@ -355,6 +370,24 @@ const layersButtonStyle: CSSProperties = {
   fontSize: "0.95rem",
   fontWeight: 900,
   boxShadow: "0 10px 24px rgba(0, 0, 0, 0.22)",
+};
+
+// Blaze-orange count pill (matches the unified overlay "on" color) so the
+// button reads "Layers 2" when two overlays are lit.
+const layersCountStyle: CSSProperties = {
+  display: "inline-flex",
+  minWidth: "20px",
+  height: "20px",
+  marginLeft: "0.45rem",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0 0.3rem",
+  borderRadius: "999px",
+  background: "#c2571c",
+  color: "white",
+  fontSize: "0.74rem",
+  fontWeight: 900,
+  lineHeight: 1,
 };
 
 const backdropStyle: CSSProperties = {

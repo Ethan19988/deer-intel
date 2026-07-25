@@ -86,7 +86,7 @@ export default function MapTopBar({
         type="button"
         role="switch"
         aria-checked={showContours}
-        style={{ ...pillStyle, ...(showContours ? activeSegmentStyle : null) }}
+        style={{ ...pillStyle, ...(showContours ? activeOverlayPillStyle : null) }}
         onClick={onToggleContours}
       >
         Contours
@@ -101,7 +101,7 @@ export default function MapTopBar({
         type="button"
         role="switch"
         aria-checked={showSlope}
-        style={{ ...pillStyle, ...(showSlope ? activePillStyle : null) }}
+        style={{ ...pillStyle, ...(showSlope ? activeOverlayPillStyle : null) }}
         onClick={onToggleSlope}
       >
         Slope Angle
@@ -111,7 +111,7 @@ export default function MapTopBar({
         type="button"
         role="switch"
         aria-checked={showLandcover}
-        style={{ ...pillStyle, ...(showLandcover ? activeLandcoverPillStyle : null) }}
+        style={{ ...pillStyle, ...(showLandcover ? activeOverlayPillStyle : null) }}
         onClick={onToggleLandcover}
       >
         Food &amp; Cover
@@ -121,7 +121,7 @@ export default function MapTopBar({
         type="button"
         role="switch"
         aria-checked={showCameraHeat}
-        style={{ ...pillStyle, ...(showCameraHeat ? activeCameraHeatPillStyle : null) }}
+        style={{ ...pillStyle, ...(showCameraHeat ? activeOverlayPillStyle : null) }}
         onClick={onToggleCameraHeat}
       >
         Camera Heat
@@ -131,7 +131,7 @@ export default function MapTopBar({
         type="button"
         role="switch"
         aria-checked={showDeerHeat}
-        style={{ ...pillStyle, ...(showDeerHeat ? activeDeerHeatPillStyle : null) }}
+        style={{ ...pillStyle, ...(showDeerHeat ? activeOverlayPillStyle : null) }}
         onClick={onToggleDeerHeat}
       >
         Deer Heat
@@ -141,7 +141,7 @@ export default function MapTopBar({
         type="button"
         role="switch"
         aria-checked={showWind}
-        style={{ ...pillStyle, ...(showWind ? activeWindPillStyle : null) }}
+        style={{ ...pillStyle, ...(showWind ? activeOverlayPillStyle : null) }}
         onClick={onToggleWind}
       >
         Wind
@@ -151,7 +151,7 @@ export default function MapTopBar({
         type="button"
         role="switch"
         aria-checked={showMovement}
-        style={{ ...pillStyle, ...(showMovement ? activeMovementPillStyle : null) }}
+        style={{ ...pillStyle, ...(showMovement ? activeOverlayPillStyle : null) }}
         onClick={onToggleMovement}
       >
         Movement
@@ -161,7 +161,7 @@ export default function MapTopBar({
         type="button"
         role="switch"
         aria-checked={showTerrain}
-        style={{ ...pillStyle, ...(showTerrain ? activeTerrainPillStyle : null) }}
+        style={{ ...pillStyle, ...(showTerrain ? activeOverlayPillStyle : null) }}
         onClick={onToggleTerrain}
       >
         Terrain
@@ -178,7 +178,7 @@ const barStyle: CSSProperties = {
   // cluster. Content stays centered when it fits and scrolls (from the start)
   // when it doesn't — "safe center" keeps the leading base-map buttons reachable.
   left: "1rem",
-  right: "14rem",
+  right: "16.5rem",
   zIndex: 1050,
   display: "flex",
   alignItems: "center",
@@ -233,45 +233,14 @@ const pillStyle: CSSProperties = {
   border: "1px solid rgba(255, 255, 255, 0.2)",
 };
 
-const activePillStyle: CSSProperties = {
-  borderColor: "rgba(245, 168, 66, 0.6)",
-  background: "#b45309",
-  color: "white",
-};
-
-const activeCameraHeatPillStyle: CSSProperties = {
-  borderColor: "rgba(239, 122, 36, 0.7)",
-  background: "#b4471b",
-  color: "white",
-};
-
-const activeDeerHeatPillStyle: CSSProperties = {
-  borderColor: "rgba(209, 53, 43, 0.7)",
-  background: "#9c231c",
-  color: "white",
-};
-
-const activeLandcoverPillStyle: CSSProperties = {
-  borderColor: "rgba(220, 217, 57, 0.65)",
-  background: "#5c6d1e",
-  color: "white",
-};
-
-const activeWindPillStyle: CSSProperties = {
-  borderColor: "rgba(149, 210, 122, 0.6)",
-  background: "#2f6d3a",
-  color: "white",
-};
-
-const activeMovementPillStyle: CSSProperties = {
-  borderColor: "rgba(168, 85, 247, 0.6)",
-  background: "#6d28d9",
-  color: "white",
-};
-
-const activeTerrainPillStyle: CSSProperties = {
-  borderColor: "rgba(224, 100, 42, 0.6)",
-  background: "#8a4b1e",
+// Every overlay toggle shares ONE "on" treatment — a photo-safe blaze-orange
+// (the app's --accent-2 accent, kept as a fixed value so it stays legible over
+// imagery in every theme). Base-map selection stays green (activeSegmentStyle),
+// so the bar reads as two clear states: which base map, and which overlays are on
+// — instead of eight competing colors.
+const activeOverlayPillStyle: CSSProperties = {
+  borderColor: "rgba(240, 150, 70, 0.6)",
+  background: "#c2571c",
   color: "white",
 };
 
