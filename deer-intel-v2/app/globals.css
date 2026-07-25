@@ -178,6 +178,122 @@
   background: rgba(10, 5, 3, 0.94);
 }
 
+/* ---- Map controls per theme ------------------------------------------------
+   The on-imagery controls ship photo-safe fixed colors (bright white buttons,
+   a dark overlay bar) tuned for the light theme. Dark theme dims the white
+   buttons to match the app's dark panels; night theme takes the whole control
+   surface red-on-black so the map never blasts your night vision. These use
+   !important to beat the components' inline styles. Light theme is unchanged. */
+
+/* Dark — cohesive dark chrome, still legible over imagery (matches the map's
+   own already-dark panels like the overlay bar and legend). */
+:root[data-theme="dark"] .di-map-control-button,
+:root[data-theme="dark"] .di-layer-manager-button,
+:root[data-theme="dark"] .di-map-search form,
+:root[data-theme="dark"] .di-map-search button {
+  background: rgba(28, 32, 22, 0.93) !important;
+  color: #ecebdc !important;
+  border-color: rgba(69, 79, 56, 0.7) !important;
+}
+
+:root[data-theme="dark"] .di-map-search input {
+  color: #ecebdc !important;
+}
+
+:root[data-theme="dark"] .di-map-search input::placeholder {
+  color: #a8b096 !important;
+}
+
+/* Keep the GPS "following" state its distinct green in dark. */
+:root[data-theme="dark"] .di-map-gps-button[aria-pressed="true"] {
+  background: #2f8a49 !important;
+  color: #f2f9f2 !important;
+  border-color: #256d38 !important;
+}
+
+:root[data-theme="dark"] .di-map-topbar {
+  background: rgba(20, 24, 16, 0.88) !important;
+  border-color: rgba(69, 79, 56, 0.6) !important;
+}
+
+/* Night — red-on-black across every control. */
+:root[data-theme="night"] .di-map-control-button,
+:root[data-theme="night"] .di-layer-manager-button,
+:root[data-theme="night"] .di-map-search form,
+:root[data-theme="night"] .di-map-search button {
+  background: rgba(22, 11, 7, 0.94) !important;
+  color: #ef8f7c !important;
+  border-color: rgba(85, 41, 26, 0.85) !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+:root[data-theme="night"] .di-map-search input {
+  color: #ef8f7c !important;
+}
+
+:root[data-theme="night"] .di-map-search input::placeholder {
+  color: #b45f50 !important;
+}
+
+/* The "following" state stays red at night — green would kill night vision. */
+:root[data-theme="night"] .di-map-gps-button[aria-pressed="true"] {
+  background: #c23a2a !important;
+  color: #ffe1d8 !important;
+  border-color: #9c2c1f !important;
+}
+
+:root[data-theme="night"] .di-map-topbar {
+  background: rgba(18, 9, 6, 0.9) !important;
+  border-color: rgba(85, 41, 26, 0.7) !important;
+}
+
+:root[data-theme="night"] .di-map-topbar button {
+  color: #d98a78 !important;
+}
+
+/* Retint the lit overlay/base-map pills from blaze orange / green to red. */
+:root[data-theme="night"] .di-map-topbar button[aria-checked="true"] {
+  background: #b03d24 !important;
+  border-color: rgba(240, 138, 106, 0.55) !important;
+  color: #ffe1d8 !important;
+}
+
+/* Warm-black + red edge on the floating info panels so they sit in the same key
+   as the controls at night. */
+:root[data-theme="night"] .di-map-legend,
+:root[data-theme="night"] .di-wind-badge,
+:root[data-theme="night"] .di-map-year {
+  background: rgba(18, 9, 6, 0.9) !important;
+  border-color: rgba(85, 41, 26, 0.6) !important;
+}
+
+/* The remaining bright chrome: the property-lines notice, the property picker +
+   Hunt Area toggle, and Leaflet's scale bar. */
+:root[data-theme="dark"] .di-map-notice,
+:root[data-theme="dark"] .di-map-scout,
+:root[data-theme="dark"] .di-map-scout > div:first-child > select,
+:root[data-theme="dark"] .di-map-scout > div:first-child > button,
+:root[data-theme="dark"] .leaflet-control-scale-line {
+  background: rgba(28, 32, 22, 0.93) !important;
+  color: #ecebdc !important;
+  border-color: rgba(69, 79, 56, 0.7) !important;
+}
+
+:root[data-theme="night"] .di-map-notice,
+:root[data-theme="night"] .di-map-scout,
+:root[data-theme="night"] .di-map-scout > div:first-child > select,
+:root[data-theme="night"] .di-map-scout > div:first-child > button,
+:root[data-theme="night"] .leaflet-control-scale-line {
+  background: rgba(22, 11, 7, 0.94) !important;
+  color: #ef8f7c !important;
+  border-color: rgba(85, 41, 26, 0.85) !important;
+}
+
+/* Night: the Layers overlay-count badge goes red instead of blaze orange. */
+:root[data-theme="night"] .di-layer-manager-count {
+  background: #b03d24 !important;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
