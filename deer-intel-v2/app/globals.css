@@ -1145,11 +1145,28 @@ textarea {
     top: 7rem !important;
   }
 
+  /* The wind badge's default top-right slot (top: 4.6rem) lands on the overlay
+     bar's row on phones and blocks the toggles behind it, so drop it below the
+     bar. It shares the row with the year stepper, but they sit on opposite
+     edges (stepper left, badge right). */
+  .di-wind-badge {
+    top: 7.75rem !important;
+    right: 0.75rem !important;
+    left: auto !important;
+    width: min(260px, calc(100% - 1.5rem)) !important;
+  }
+
   .di-map-controls {
     top: auto !important;
     bottom: 0.85rem !important;
     right: 0.75rem !important;
     gap: 0.55rem !important;
+  }
+
+  /* Phones pinch to zoom, so drop the +/- buttons and keep just the compass and
+     GPS controls. Desktop keeps the zoom buttons. */
+  .di-map-zoom-button {
+    display: none !important;
   }
 
   /* The right edge belongs to the zoom stack, so on phones the whole card column

@@ -647,7 +647,7 @@ function MapControlButtons({
       <button
         type="button"
         aria-label="Zoom in"
-        className="di-map-control-button"
+        className="di-map-control-button di-map-zoom-button"
         style={mapControlButtonStyle}
         onClick={() => map.zoomIn()}
       >
@@ -656,7 +656,7 @@ function MapControlButtons({
       <button
         type="button"
         aria-label="Zoom out"
-        className="di-map-control-button"
+        className="di-map-control-button di-map-zoom-button"
         style={mapControlButtonStyle}
         onClick={() => map.zoomOut()}
       >
