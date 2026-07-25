@@ -1,8 +1,6 @@
 import type { CSSProperties, DragEvent } from "react";
-import {
-  ASSET_LAYER_LOOKUP,
-  PIN_LAYER_LOOKUP,
-} from "@/lib/propertyMap";
+import { ASSET_LAYERS, PIN_LAYER_LOOKUP } from "@/lib/propertyMap";
+import { pinMarkerSvg } from "@/lib/mapPinIcon";
 import { PROPERTY_ASSET_PIN_TYPES, type PinType } from "@/types/mapPin";
 
 export const PIN_BOX_DRAG_DATA_TYPE = "application/x-deer-intel-pin";
@@ -12,31 +10,39 @@ type MapPinBoxProps = {
   isPlacing: boolean;
   message: string;
   pinType: PinType;
-  onCancelPlacement: () => void;
-  onPinTypeChange: (pinType: PinType) => void;
-  onStartPlacement: () => void;
+  onPlacePin: (pinType: PinType) => void;
 };
+
+// One quick-place button per property pin type, styled as the exact teardrop
+// pin that will land on the map. Tap to arm placement (the drawer closes and
+// the next map tap drops the pin); desktop users can also drag a pin onto the
+// map. The lookup keeps the button and marker in sync with ASSET_LAYERS.
+const PIN_OPTIONS = PROPERTY_ASSET_PIN_TYPES.map((type) => {
+  const layerId = PIN_LAYER_LOOKUP[type];
+  const layer =
+    layerId === "other"
+      ? { label: type, color: "#f7d17b", background: "#2f230f" }
+      : ASSET_LAYERS.find((entry) => entry.id === layerId)!;
+
+  return { type, layerId, label: layer.label, color: layer.color, background: layer.background };
+});
 
 export default function MapPinBox({
   disabled = false,
   isPlacing,
   message,
   pinType,
-  onCancelPlacement,
-  onPinTypeChange,
-  onStartPlacement,
+  onPlacePin,
 }: MapPinBoxProps) {
-  const pinStyle = getPinStyle(pinType);
-
-  function handleDragStart(event: DragEvent<HTMLDivElement>) {
+  function handleDragStart(event: DragEvent<HTMLButtonElement>, type: PinType) {
     if (disabled) {
       event.preventDefault();
       return;
     }
 
     event.dataTransfer.effectAllowed = "copy";
-    event.dataTransfer.setData(PIN_BOX_DRAG_DATA_TYPE, pinType);
-    event.dataTransfer.setData("text/plain", pinType);
+    event.dataTransfer.setData(PIN_BOX_DRAG_DATA_TYPE, type);
+    event.dataTransfer.setData("text/plain", type);
   }
 
   return (
@@ -46,84 +52,44 @@ export default function MapPinBox({
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
     >
-      <div className="di-map-pin-box-header" style={headerStyle}>
-        <div>
-          <p style={eyebrowStyle}>Pin Box</p>
-          <h3 style={titleStyle}>Place a Pin</h3>
-        </div>
-        <div
-          draggable={!disabled}
-          role="button"
-          aria-label={`Drag ${pinType} pin`}
-          tabIndex={0}
-          style={{
-            ...pinPreviewStyle,
-            background: pinStyle.background,
-            borderColor: pinStyle.color,
-            color: pinStyle.color,
-            opacity: disabled ? 0.55 : 1,
-          }}
-          onDragStart={handleDragStart}
-        >
-          {pinStyle.shortLabel}
-        </div>
-      </div>
+      <div style={gridStyle}>
+        {PIN_OPTIONS.map((option) => {
+          const active = isPlacing && option.type === pinType;
 
-      <div className="di-map-pin-box-field" style={fieldStyle}>
-        <span style={labelStyle}>Select Pin Type</span>
-        <div
-          role="radiogroup"
-          aria-label="Select Pin Type"
-          style={chipGridStyle}
-        >
-          {PROPERTY_ASSET_PIN_TYPES.map((type) => {
-            const style = getPinStyle(type);
-            const isActive = type === pinType;
-
-            return (
-              <button
-                key={type}
-                type="button"
-                role="radio"
-                aria-checked={isActive}
-                disabled={disabled}
-                style={{
-                  ...chipStyle,
-                  ...(isActive ? activeChipStyle : null),
-                  ...(disabled ? disabledChipStyle : null),
+          return (
+            <button
+              key={option.type}
+              type="button"
+              className="di-map-pin-box-option"
+              draggable={!disabled}
+              disabled={disabled}
+              aria-pressed={active}
+              aria-label={`Place ${option.label} pin`}
+              style={{
+                ...optionStyle,
+                ...(active ? activeOptionStyle : null),
+                ...(disabled ? disabledOptionStyle : null),
+              }}
+              onDragStart={(event) => handleDragStart(event, option.type)}
+              onClick={() => !disabled && onPlacePin(option.type)}
+            >
+              <span
+                aria-hidden="true"
+                style={pinPreviewStyle}
+                dangerouslySetInnerHTML={{
+                  __html: pinMarkerSvg({
+                    color: option.color,
+                    background: option.background,
+                    glyphKey: option.layerId,
+                    width: 26,
+                  }),
                 }}
-                onClick={() => onPinTypeChange(type)}
-              >
-                <span
-                  style={{
-                    ...chipDotStyle,
-                    background: style.background,
-                    borderColor: style.color,
-                    color: style.color,
-                  }}
-                >
-                  {style.shortLabel}
-                </span>
-                <span style={chipLabelStyle}>{type}</span>
-              </button>
-            );
-          })}
-        </div>
+              />
+              <span style={optionLabelStyle}>{option.label}</span>
+            </button>
+          );
+        })}
       </div>
-
-      <button
-        type="button"
-        className="di-map-pin-box-button"
-        disabled={disabled}
-        style={{
-          ...placeButtonStyle,
-          ...(isPlacing ? cancelButtonStyle : null),
-          ...(disabled ? disabledButtonStyle : null),
-        }}
-        onClick={isPlacing ? onCancelPlacement : onStartPlacement}
-      >
-        {isPlacing ? "Cancel" : "Place Pin"}
-      </button>
 
       <p className="di-map-pin-box-message" style={messageStyle}>
         {message}
@@ -132,155 +98,59 @@ export default function MapPinBox({
   );
 }
 
-function getPinStyle(pinType: PinType) {
-  const layerId = PIN_LAYER_LOOKUP[pinType];
-
-  if (layerId === "other") {
-    return {
-      shortLabel: "O",
-      color: "#f7d17b",
-      background: "#2f230f",
-    };
-  }
-
-  return ASSET_LAYER_LOOKUP[layerId];
-}
-
 const pinBoxStyle: CSSProperties = {
   display: "grid",
-  // Definite single column so the nested chip grid can resolve its own width
-  // (auto-fit collapses to one column inside an auto-sized parent track).
-  gridTemplateColumns: "minmax(0, 1fr)",
-  gap: "0.65rem",
+  gap: "0.7rem",
 };
 
-const headerStyle: CSSProperties = {
+const gridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "0.5rem",
+};
+
+const optionStyle: CSSProperties = {
   display: "flex",
+  minHeight: "78px",
+  flexDirection: "column",
   alignItems: "center",
-  justifyContent: "space-between",
-  gap: "0.75rem",
+  justifyContent: "center",
+  gap: "0.35rem",
+  padding: "0.6rem 0.3rem",
+  border: "1px solid rgba(17, 23, 17, 0.12)",
+  borderRadius: "10px",
+  background: "white",
+  color: "#1b241b",
+  cursor: "pointer",
 };
 
-const eyebrowStyle: CSSProperties = {
-  margin: 0,
-  color: "#56705a",
-  fontSize: "0.75rem",
-  fontWeight: 900,
-  letterSpacing: 0,
-  textTransform: "uppercase",
+const activeOptionStyle: CSSProperties = {
+  borderColor: "#2f6d3a",
+  background: "#eef4ea",
+  boxShadow: "0 0 0 2px rgba(47, 109, 58, 0.25)",
 };
 
-const titleStyle: CSSProperties = {
-  margin: "0.1rem 0 0",
-  color: "#111711",
-  fontSize: "1.05rem",
-  lineHeight: 1.2,
+const disabledOptionStyle: CSSProperties = {
+  cursor: "not-allowed",
+  opacity: 0.55,
 };
 
 const pinPreviewStyle: CSSProperties = {
   display: "inline-flex",
-  width: "48px",
-  minHeight: "48px",
-  flex: "0 0 auto",
   alignItems: "center",
   justifyContent: "center",
-  border: "2px solid",
-  borderRadius: "999px",
+  height: "37px",
   cursor: "grab",
-  fontSize: "0.78rem",
-  fontWeight: 900,
-  boxShadow: "0 12px 26px rgba(0, 0, 0, 0.35)",
 };
 
-const fieldStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr)",
-  gap: "0.4rem",
-};
-
-const labelStyle: CSSProperties = {
-  color: "#56705a",
-  fontSize: "0.84rem",
-  fontWeight: 800,
-};
-
-const chipGridStyle: CSSProperties = {
-  display: "grid",
-  // Pack into a compact multi-column grid (2 columns even on a narrow phone)
-  // so the picker stays short instead of a long single-column list.
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(104px, 100%), 1fr))",
-  gap: "0.45rem",
-};
-
-const chipStyle: CSSProperties = {
-  display: "inline-flex",
-  minHeight: "46px",
-  minWidth: 0,
-  alignItems: "center",
-  gap: "0.45rem",
-  padding: "0.45rem 0.55rem",
-  border: "1px solid rgba(17, 23, 17, 0.16)",
-  borderRadius: "8px",
-  background: "white",
-  color: "#111711",
-  cursor: "pointer",
-  fontSize: "0.86rem",
-  fontWeight: 800,
-  textAlign: "left",
-};
-
-const activeChipStyle: CSSProperties = {
-  borderColor: "#3b6843",
-  background: "#eef6ea",
-  boxShadow: "inset 0 0 0 1px #3b6843",
-};
-
-const disabledChipStyle: CSSProperties = {
-  opacity: 0.55,
-  cursor: "not-allowed",
-};
-
-const chipDotStyle: CSSProperties = {
-  display: "inline-flex",
-  width: "26px",
-  height: "26px",
-  flex: "0 0 auto",
-  alignItems: "center",
-  justifyContent: "center",
-  border: "2px solid",
-  borderRadius: "999px",
-  fontSize: "0.62rem",
-  fontWeight: 900,
-};
-
-const chipLabelStyle: CSSProperties = {
-  minWidth: 0,
-  lineHeight: 1.2,
-};
-
-const placeButtonStyle: CSSProperties = {
-  display: "inline-flex",
-  minHeight: "50px",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: "0.7rem 0.85rem",
-  border: "1px solid #3b6843",
-  borderRadius: "8px",
-  background: "#18351d",
-  color: "white",
-  cursor: "pointer",
-  fontSize: "0.95rem",
-  fontWeight: 900,
-};
-
-const cancelButtonStyle: CSSProperties = {
-  borderColor: "#444",
-  background: "#1b1b1b",
-};
-
-const disabledButtonStyle: CSSProperties = {
-  opacity: 0.58,
-  cursor: "not-allowed",
+const optionLabelStyle: CSSProperties = {
+  overflow: "hidden",
+  maxWidth: "100%",
+  fontSize: "0.8rem",
+  fontWeight: 750,
+  lineHeight: 1.15,
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };
 
 const messageStyle: CSSProperties = {

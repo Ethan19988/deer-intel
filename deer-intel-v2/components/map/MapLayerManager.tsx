@@ -2,6 +2,7 @@
 
 import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { ASSET_LAYERS, type AssetLayerId } from "@/lib/propertyMap";
+import { pinMarkerSvg } from "@/lib/mapPinIcon";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 
 export type MapToolId = "gps" | "compass" | "scaleBar";
@@ -19,33 +20,14 @@ type MapLayerManagerProps = {
   trackingSection?: ReactNode;
   visibleAssetLayers: Record<AssetLayerId, boolean>;
   onToggleLayer: (layerId: AssetLayerId) => void;
+  onSetAllLayers: (visible: boolean) => void;
   onToggleMapTool: (toolId: MapToolId) => void;
-};
-
-const VISIBILITY_LABELS: Record<AssetLayerId, string> = {
-  cameras: "Cameras",
-  stands: "Stands",
-  bedding: "Bedding",
-  food: "Food",
-  water: "Water",
-  scrapes: "Scrapes",
-  rubs: "Rubs",
-  trails: "Trails",
-  parking: "Parking",
-  gates: "Gates",
 };
 
 const MAP_TOOL_LABELS: Array<{ id: MapToolId; label: string }> = [
   { id: "gps", label: "GPS" },
   { id: "compass", label: "Compass" },
   { id: "scaleBar", label: "Scale Bar" },
-];
-
-const FUTURE_LAYER_LABELS = [
-  "Sun Exposure",
-  "Historical Wind",
-  "Deer Movement",
-  "Heat Map",
 ];
 
 export default function MapLayerManager({
@@ -58,16 +40,15 @@ export default function MapLayerManager({
   trackingSection,
   visibleAssetLayers,
   onToggleLayer,
+  onSetAllLayers,
   onToggleMapTool,
 }: MapLayerManagerProps) {
   const isOpen = open;
   const visibleCount = Object.values(visibleAssetLayers).filter(
     Boolean,
   ).length;
-  const activeToolCount = Object.values(mapTools).filter(Boolean).length;
-  const hasFieldTools = Boolean(
-    pinBoxSection || trackingSection || offlineSection,
-  );
+  const anyVisible = visibleCount > 0;
+  const hasFieldTools = Boolean(trackingSection || offlineSection);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -140,61 +121,47 @@ export default function MapLayerManager({
           </button>
         </header>
 
-        <div className="di-layer-manager-content" style={contentStyle}>
-          {hasFieldTools ? (
+        <div style={contentStyle}>
+          {pinBoxSection ? (
             <>
-              <GroupHeader icon={<TentIcon />} label="In the field" />
-
-              {pinBoxSection ? (
-                <section style={cardStyle}>{pinBoxSection}</section>
-              ) : null}
-
-              {trackingSection ? (
-                <section style={cardStyle}>
-                  <h4 style={cardTitleStyle}>Walk tracking</h4>
-                  {trackingSection}
-                </section>
-              ) : null}
-
-              {offlineSection ? (
-                <CollapsibleSection
-                  title="Offline maps"
-                  description="Save tiles for no-signal use"
-                  style={collapsibleCardStyle}
-                >
-                  {offlineSection}
-                </CollapsibleSection>
-              ) : null}
+              <GroupHeader icon={<PinPlusIcon />} label="Place a pin" />
+              <section style={cardStyle}>{pinBoxSection}</section>
             </>
           ) : null}
 
           <GroupHeader icon={<LayersIcon />} label="On the map" />
 
           <CollapsibleSection
-            title="Pin visibility"
+            title="Show on map"
             description={`${visibleCount} of ${ASSET_LAYERS.length} shown`}
-            name="di-map-onmap"
             style={collapsibleCardStyle}
           >
-            <div style={toggleListStyle}>
-              {ASSET_LAYERS.map((layer, index) => (
-                <ToggleRow
+            <div style={visActionRowStyle}>
+              <button
+                type="button"
+                style={visAllButtonStyle}
+                onClick={() => onSetAllLayers(!anyVisible)}
+              >
+                {anyVisible ? "Hide all" : "Show all"}
+              </button>
+            </div>
+            <div style={chipGridStyle}>
+              {ASSET_LAYERS.map((layer) => (
+                <VisibilityChip
                   key={layer.id}
-                  divider={index > 0}
-                  checked={visibleAssetLayers[layer.id]}
-                  label={VISIBILITY_LABELS[layer.id]}
+                  layerId={layer.id}
+                  label={layer.label}
+                  color={layer.color}
+                  background={layer.background}
+                  visible={visibleAssetLayers[layer.id]}
                   onToggle={() => onToggleLayer(layer.id)}
                 />
               ))}
             </div>
           </CollapsibleSection>
 
-          <CollapsibleSection
-            title="Map tools"
-            description={`${activeToolCount} of ${MAP_TOOL_LABELS.length} on`}
-            name="di-map-onmap"
-            style={collapsibleCardStyle}
-          >
+          <section style={cardStyle}>
+            <h4 style={cardTitleStyle}>Map tools</h4>
             <div style={toggleListStyle}>
               {MAP_TOOL_LABELS.map((tool, index) => (
                 <ToggleRow
@@ -206,28 +173,27 @@ export default function MapLayerManager({
                 />
               ))}
             </div>
-          </CollapsibleSection>
+          </section>
 
-          <GroupHeader icon={<ClockIcon />} label="Coming soon" />
+          {hasFieldTools ? (
+            <>
+              <GroupHeader icon={<TentIcon />} label="In the field" />
 
-          <CollapsibleSection
-            title="Future layers"
-            description={`${FUTURE_LAYER_LABELS.length} planned`}
-            style={{ ...collapsibleCardStyle, opacity: 0.72 }}
-          >
-            <div style={toggleListStyle}>
-              {FUTURE_LAYER_LABELS.map((label, index) => (
-                <ToggleRow
-                  key={label}
-                  divider={index > 0}
-                  checked={false}
-                  disabled
-                  label={label}
-                  onToggle={() => undefined}
-                />
-              ))}
-            </div>
-          </CollapsibleSection>
+              {trackingSection ? (
+                <section style={cardStyle}>
+                  <h4 style={cardTitleStyle}>Walk tracking</h4>
+                  {trackingSection}
+                </section>
+              ) : null}
+
+              {offlineSection ? (
+                <section style={cardStyle}>
+                  <h4 style={cardTitleStyle}>Offline maps</h4>
+                  {offlineSection}
+                </section>
+              ) : null}
+            </>
+          ) : null}
         </div>
       </aside>
     </>
@@ -243,6 +209,56 @@ function GroupHeader({ icon, label }: { icon: ReactNode; label: string }) {
       <span style={groupLabelStyle}>{label}</span>
       <span style={groupLineStyle} aria-hidden="true" />
     </div>
+  );
+}
+
+// A show/hide chip that carries the pin's real teardrop marker, so the same
+// pin identity you tap to place is the one you toggle on the map. Dimmed and
+// desaturated when hidden.
+function VisibilityChip({
+  layerId,
+  label,
+  color,
+  background,
+  visible,
+  onToggle,
+}: {
+  layerId: AssetLayerId;
+  label: string;
+  color: string;
+  background: string;
+  visible: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={visible}
+      aria-label={`${visible ? "Hide" : "Show"} ${label}`}
+      style={{
+        ...chipStyle,
+        ...(visible ? null : hiddenChipStyle),
+      }}
+      onClick={onToggle}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          ...chipPinStyle,
+          filter: visible ? "none" : "grayscale(1)",
+        }}
+        dangerouslySetInnerHTML={{
+          __html: pinMarkerSvg({
+            color,
+            background,
+            glyphKey: layerId,
+            width: 17,
+          }),
+        }}
+      />
+      <span>{label}</span>
+    </button>
   );
 }
 
@@ -334,7 +350,7 @@ function LayersIcon() {
   );
 }
 
-function ClockIcon() {
+function PinPlusIcon() {
   return (
     <svg
       width="14"
@@ -346,8 +362,8 @@ function ClockIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <circle cx="12" cy="12" r="8" />
-      <path d="M12 8v4l3 2" />
+      <path d="M12 21s-6-5.7-6-10a6 6 0 0 1 12 0c0 4.3-6 10-6 10Z" />
+      <path d="M12 8v5M9.5 10.5h5" />
     </svg>
   );
 }
@@ -503,6 +519,57 @@ const cardStyle: CSSProperties = {
 // Round the collapsible to match the plain cards (its border/fill already do).
 const collapsibleCardStyle: CSSProperties = {
   borderRadius: "12px",
+};
+
+const visActionRowStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  marginBottom: "0.55rem",
+};
+
+const visAllButtonStyle: CSSProperties = {
+  padding: "0.15rem 0.3rem",
+  border: 0,
+  background: "transparent",
+  color: "#2f6d3a",
+  cursor: "pointer",
+  fontSize: "0.82rem",
+  fontWeight: 800,
+};
+
+const chipGridStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.45rem",
+};
+
+const chipStyle: CSSProperties = {
+  display: "inline-flex",
+  minHeight: "34px",
+  alignItems: "center",
+  gap: "0.35rem",
+  padding: "0.28rem 0.6rem 0.28rem 0.32rem",
+  border: "1px solid rgba(47, 109, 58, 0.35)",
+  borderRadius: "999px",
+  background: "#f4f7f2",
+  color: "#1b241b",
+  cursor: "pointer",
+  fontSize: "0.84rem",
+  fontWeight: 750,
+};
+
+const hiddenChipStyle: CSSProperties = {
+  borderColor: "rgba(17, 23, 17, 0.12)",
+  background: "#eef0ec",
+  color: "#9a9f97",
+  opacity: 0.7,
+};
+
+const chipPinStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  height: "24px",
 };
 
 const cardTitleStyle: CSSProperties = {

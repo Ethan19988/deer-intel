@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { PartyProvider } from "@/components/party/PartyProvider";
+import PartyBuckSync from "@/components/party/PartyBuckSync";
+import PartyBuckPhotoSync from "@/components/party/PartyBuckPhotoSync";
 import AuthGate from "@/components/auth/AuthGate";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import StoragePersistenceBanner from "@/components/StoragePersistenceBanner";
@@ -66,7 +69,11 @@ export default function RootLayout({
         <ThemeManager />
         <ServiceWorkerRegistration />
         <AuthProvider>
-          <AuthGate>{children}</AuthGate>
+          <PartyProvider>
+            <PartyBuckSync />
+            <PartyBuckPhotoSync />
+            <AuthGate>{children}</AuthGate>
+          </PartyProvider>
         </AuthProvider>
         <StoragePersistenceBanner />
       </body>

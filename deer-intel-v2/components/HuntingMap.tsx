@@ -92,6 +92,8 @@ import OfflineMapsPanel, {
 import CameraFacingCone from "@/components/map/CameraFacingCone";
 import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
 import UserLocationMarker from "@/components/map/UserLocationMarker";
+import PartyMembersLayer from "@/components/map/PartyMembersLayer";
+import PartyPinsLayer from "@/components/map/PartyPinsLayer";
 import WalkTrackLayer from "@/components/map/WalkTrackLayer";
 import {
   createDeerIntelId,
@@ -1008,7 +1010,7 @@ export default function HuntingMap() {
   const [areaPointMessage, setAreaPointMessage] = useState("");
   const [showCoordEntry, setShowCoordEntry] = useState(false);
   const [pinBoxMessage, setPinBoxMessage] = useState(
-    "Choose a pin type, then tap Place Pin.",
+    "Tap a pin to place it, or drag it onto the map.",
   );
   const [isSearching, setIsSearching] = useState(false);
   const [searchMessage, setSearchMessage] = useState("");
@@ -1788,6 +1790,16 @@ export default function HuntingMap() {
     }));
   }
 
+  function setAllAssetLayers(visible: boolean) {
+    setVisibleAssetLayers((currentLayers) => {
+      const next = { ...currentLayers };
+      for (const key of Object.keys(next) as AssetLayerId[]) {
+        next[key] = visible;
+      }
+      return next;
+    });
+  }
+
   function toggleMapTool(toolId: MapToolId) {
     setMapTools((currentTools) => ({
       ...currentTools,
@@ -1883,19 +1895,16 @@ export default function HuntingMap() {
     setSelectedSearchResult(null);
   }
 
-  function updatePinType(type: PinType) {
-    setPinType(type);
-    setPinBoxMessage(`${type} selected. Tap Place Pin when ready.`);
-  }
-
-  function startPinPlacement() {
+  // Tapping a pin in the Layers grid arms that type and drops straight into
+  // placement in one step (no separate select + Place Pin). The drawer closes
+  // so the map is tappable for the drop.
+  function placePinType(type: PinType) {
     if (pinBoxDisabled) return;
 
+    setPinType(type);
     setMovingPin(null);
     setIsPlacingPin(true);
-    setPinBoxMessage(`Tap map to place ${pinType}`);
-    // The Pin Box lives in the Layers drawer now — close it so the map is
-    // tappable for placement.
+    setPinBoxMessage(`Tap map to place ${type}`);
     setLayersOpen(false);
   }
 
@@ -2922,6 +2931,20 @@ export default function HuntingMap() {
               heading={liveHeading}
               onUserPan={() => setFollowUser(false)}
             />
+            <PartyMembersLayer
+              areas={
+                hasHuntArea && huntArea
+                  ? [
+                      {
+                        name: selectedProperty?.name ?? "Hunt area",
+                        polygon: huntArea,
+                      },
+                    ]
+                  : []
+              }
+              heading={liveHeading}
+            />
+            <PartyPinsLayer allPins={state.pins} />
             <WalkTrackLayer
               tracks={walkTracks}
               activePoints={activeTrackPoints}
@@ -3099,9 +3122,7 @@ export default function HuntingMap() {
                 isPlacing={isPlacingPin}
                 message={currentPinBoxMessage}
                 pinType={pinType}
-                onCancelPlacement={cancelPinPlacement}
-                onPinTypeChange={updatePinType}
-                onStartPlacement={startPinPlacement}
+                onPlacePin={placePinType}
               />
             }
             trackingSection={walkTrackingSection}
@@ -3123,6 +3144,7 @@ export default function HuntingMap() {
             }
             visibleAssetLayers={visibleAssetLayers}
             onToggleLayer={toggleAssetLayer}
+            onSetAllLayers={setAllAssetLayers}
             onToggleMapTool={toggleMapTool}
           />
 

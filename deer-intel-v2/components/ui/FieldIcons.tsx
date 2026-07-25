@@ -44,6 +44,16 @@ export function DeerIcon(props: IconProps) {
   );
 }
 
+export function UsersIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19c0-3 2.5-4.8 5.5-4.8s5.5 1.8 5.5 4.8" />
+      <path d="M16 5.2a3.2 3.2 0 0 1 0 6.1M17.5 14.4c2.1.5 3.5 2 3.5 4.6" />
+    </Svg>
+  );
+}
+
 export function TargetIcon(props: IconProps) {
   return (
     <Svg {...props}>

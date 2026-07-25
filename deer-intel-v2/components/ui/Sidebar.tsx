@@ -14,6 +14,7 @@ import {
   MapPinIcon,
   StandIcon,
   TargetIcon,
+  UsersIcon,
 } from "@/components/ui/FieldIcons";
 
 type NavLink = { href: string; label: string; icon: ReactNode };
@@ -38,6 +39,8 @@ const NAV_GROUPS: NavGroup[] = [
     links: [
       { href: "/ai", label: "Hunt Plan", icon: <TargetIcon size={ICON_SIZE} /> },
       { href: "/hunt-log", label: "Hunt Log", icon: <ClipboardIcon size={ICON_SIZE} /> },
+      { href: "/hit-list", label: "Hit List", icon: <DeerIcon size={ICON_SIZE} /> },
+      { href: "/party", label: "Party", icon: <UsersIcon size={ICON_SIZE} /> },
     ],
   },
 ];

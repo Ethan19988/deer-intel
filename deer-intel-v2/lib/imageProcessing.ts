@@ -60,7 +60,47 @@ type ImageSource = {
   objectUrl?: string;
 };
 
-async function loadImageSource(file: File): Promise<ImageSource> {
+// Downscale an image blob to a small JPEG data URL, for the shared buck-photo
+// thumbnails that ride in a Postgres row (cross-user, so no per-user storage).
+// Returns null on any failure — sharing a thumbnail is always best-effort.
+export async function imageBlobToThumbnailDataUrl(
+  blob: Blob,
+  maxEdge = 360,
+  quality = 0.62,
+): Promise<string | null> {
+  try {
+    const source = await loadImageSource(blob);
+    const { width: sourceWidth, height: sourceHeight } = source;
+
+    if (!sourceWidth || !sourceHeight) {
+      releaseImageSource(source);
+      return null;
+    }
+
+    const scale = Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight));
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      releaseImageSource(source);
+      return null;
+    }
+
+    context.drawImage(source.element, 0, 0, width, height);
+    releaseImageSource(source);
+
+    return canvas.toDataURL("image/jpeg", quality);
+  } catch {
+    return null;
+  }
+}
+
+async function loadImageSource(file: Blob): Promise<ImageSource> {
   if (typeof createImageBitmap === "function") {
     try {
       const bitmap = await createImageBitmap(file, {

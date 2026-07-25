@@ -1600,6 +1600,65 @@ textarea {
   }
 }
 
+/* Live dots for other party members inside the shared hunt area. Each carries a
+   solid colour (assigned per member) plus a small name tag. Distinct from the
+   hunter's own blue location dot above. */
+.di-party-member-icon {
+  position: relative;
+}
+
+.di-party-member-dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.di-party-member-label {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.65);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Shared party pins reuse the normal teardrop marker, with a small tag above
+   the head naming who shared it, so a member's pins read as "someone else's". */
+.di-party-pin-icon {
+  position: relative;
+}
+
+.di-party-pin-tag {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translate(-50%, 4px);
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.7);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
 /* Endpoints of recorded walk trails: a start dot, an end dot, and the pulsing
    live head at the hunter's current position while a walk is being recorded. */
 .leaflet-div-icon.di-walk-endpoint-icon {
