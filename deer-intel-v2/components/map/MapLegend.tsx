@@ -5,30 +5,22 @@ import { LAND_COVER_LEGEND } from "@/lib/propertyMap";
 import { TERRAIN_STYLE, type TerrainKind } from "@/lib/terrainMovement";
 import { PERIOD_HEAT_LINE } from "@/lib/deerHeat";
 import type { MovementPeriod } from "@/lib/movementPrediction";
-import type { ThermalCue } from "@/lib/windViz";
 
-// A live "what's on" card for every active map overlay. Each overlay contributes
-// a section only while it's on, and leads with a one-line, plain-language
-// takeaway of what it's telling you *right now* (deer heat, movement odds and
-// wind are driven by the property's live weather + time of day) — the colour key
-// stays underneath as support. The corner is empty whenever nothing is overlaid.
+// A live "what's on" card for the map overlays that don't already have their own
+// dedicated badge (wind and movement have those). Each overlay contributes a
+// section only while it's on; Deer Heat leads with a plain-language takeaway of
+// what it's telling you *right now* (driven by the property's time of day), and
+// the colour key stays underneath as support. The corner is empty whenever
+// nothing is overlaid.
 const TERRAIN_ORDER: TerrainKind[] = ["bedding", "travel", "pinch", "refuge"];
-
-type WindReadout = {
-  fromCompass: string;
-  speedLabel: string;
-  thermal: ThermalCue | null;
-};
 
 type MapLegendProps = {
   showSlope: boolean;
   showTerrain: boolean;
   showLandcover: boolean;
   showDeerHeat: boolean;
-  showWind: boolean;
   showCameraHeat: boolean;
   period: MovementPeriod;
-  wind?: WindReadout | null;
 };
 
 export default function MapLegend({
@@ -36,10 +28,8 @@ export default function MapLegend({
   showTerrain,
   showLandcover,
   showDeerHeat,
-  showWind,
   showCameraHeat,
   period,
-  wind,
 }: MapLegendProps) {
   const sections: Array<{ key: string; node: React.ReactNode }> = [];
 
@@ -54,25 +44,6 @@ export default function MapLegend({
             <span style={rampStyle} aria-hidden="true" />
             <span style={swatchLabelStyle}>cooler → hotter odds</span>
           </div>
-        </div>
-      ),
-    });
-  }
-
-  if (showWind && wind) {
-    const heading = wind.fromCompass
-      ? `Out of the ${wind.fromCompass}${wind.speedLabel ? ` · ${wind.speedLabel}` : ""}`
-      : wind.speedLabel || "Wind reading unavailable";
-
-    sections.push({
-      key: "wind",
-      node: (
-        <div style={sectionStyle}>
-          <p style={titleStyle}>Wind &amp; Thermals</p>
-          <p style={liveLineStyle}>{heading}</p>
-          {wind.thermal ? (
-            <p style={takeawayStyle}>{wind.thermal.label}</p>
-          ) : null}
         </div>
       ),
     });

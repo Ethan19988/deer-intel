@@ -3040,10 +3040,8 @@ export default function HuntingMap() {
                 showTerrain={showTerrain && !!terrainReview}
                 showLandcover={showLandcover}
                 showDeerHeat={showDeerHeat}
-                showWind={showWind}
                 showCameraHeat={showCameraHeat}
                 period={movementPeriod}
-                wind={windData}
               />
             ) : null}
 

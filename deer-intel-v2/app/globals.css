@@ -777,36 +777,30 @@ textarea {
 /* Full-bleed map page: the map fills the whole viewport next to the sidebar,
    with no chrome above or below it and nothing to scroll to. Mobile keeps its
    own full-height rules below (max-width: 720px), so scope this to desktop. */
-/* The three bottom-right map cards (keys, movement outlook, terrain picks) share
-   one column on desktop so they stack instead of piling on top of each other. On
-   mobile the wrapper is transparent (display: contents), so each card keeps its
-   own placement — the legend floats bottom-left, the badges sit bottom-right. */
+/* The bottom map cards (keys, movement outlook, terrain picks) share one column
+   so they stack instead of piling on top of each other. Bottom-right on desktop;
+   the mobile override below moves the column bottom-left, above the property bar
+   and clear of the right-edge zoom controls. */
 .di-corner-stack {
-  display: contents;
+  position: absolute;
+  right: 1rem;
+  bottom: 2.25rem;
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  max-width: min(340px, calc(100% - 2rem));
+  max-height: calc(100% - 5.5rem);
+  pointer-events: none;
 }
 
-@media (min-width: 721px) {
-  .di-corner-stack {
-    display: flex;
-    position: absolute;
-    right: 1rem;
-    bottom: 2.25rem;
-    z-index: 1050;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.5rem;
-    max-width: min(340px, calc(100% - 2rem));
-    max-height: calc(100% - 5.5rem);
-    pointer-events: none;
-  }
-
-  /* Flatten each card's own absolute anchoring so they flow in the column. */
-  .di-corner-stack > * {
-    position: static !important;
-    inset: auto !important;
-    z-index: auto !important;
-    max-width: 100% !important;
-  }
+/* Flatten each card's own absolute anchoring so they flow in the column. */
+.di-corner-stack > * {
+  position: static !important;
+  inset: auto !important;
+  z-index: auto !important;
+  max-width: 100% !important;
 }
 
 @media (min-width: 721px) {
@@ -1158,14 +1152,20 @@ textarea {
     gap: 0.55rem !important;
   }
 
-  /* The bottom corners belong to the zoom stack (right) and the property
-     selector (left), so float the consolidated key above the property bar on
-     the left rather than letting it collide with the zoom controls. */
-  .di-map-legend {
-    right: auto !important;
-    left: 0.75rem !important;
-    bottom: calc(8.75rem + env(safe-area-inset-bottom)) !important;
-    max-width: min(300px, calc(100% - 1.5rem)) !important;
+  /* The right edge belongs to the zoom stack, so on phones the whole card column
+     moves bottom-left, above the property bar, and stays narrow enough to clear
+     the zoom controls. Tall stacks clip from the top (justify-content flex-end)
+     rather than overrunning the top controls. */
+  .di-corner-stack {
+    right: auto;
+    left: 0.75rem;
+    bottom: calc(8.5rem + env(safe-area-inset-bottom));
+    align-items: flex-start;
+    width: min(300px, calc(100% - 4.75rem));
+    max-width: none;
+    max-height: calc(100% - 19rem);
+    overflow: hidden;
+    justify-content: flex-end;
   }
 
   /* At the capped mobile width the two-column Food & Cover key clips its labels;
