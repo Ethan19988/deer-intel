@@ -83,6 +83,7 @@ import ParcelTilesLayer, {
 import { ownerAcresText } from "@/lib/ownerLabel";
 import MapSearchBar from "@/components/map/MapSearchBar";
 import GoldenHourFrame from "@/components/map/GoldenHourFrame";
+import WindFlowOverlay from "@/components/map/WindFlowOverlay";
 import MapSearchResultMarker from "@/components/map/MapSearchResultMarker";
 import OfflineDownloadStatus from "@/components/map/OfflineDownloadStatus";
 import OfflineMapsPanel, {
@@ -3028,6 +3029,14 @@ export default function HuntingMap() {
           </MapContainer>
 
           <GoldenHourFrame period={movementPeriod} />
+
+          {showWind && forecastStatus === "ok" && windData ? (
+            <WindFlowOverlay
+              fromCompass={windData.fromCompass}
+              speedMph={windData.speedMph}
+              thermal={windData.thermal}
+            />
+          ) : null}
 
           {/* All three bottom-right cards share one column so they stack instead
               of piling on top of each other. On mobile the wrapper is display:
