@@ -777,6 +777,38 @@ textarea {
 /* Full-bleed map page: the map fills the whole viewport next to the sidebar,
    with no chrome above or below it and nothing to scroll to. Mobile keeps its
    own full-height rules below (max-width: 720px), so scope this to desktop. */
+/* The three bottom-right map cards (keys, movement outlook, terrain picks) share
+   one column on desktop so they stack instead of piling on top of each other. On
+   mobile the wrapper is transparent (display: contents), so each card keeps its
+   own placement — the legend floats bottom-left, the badges sit bottom-right. */
+.di-corner-stack {
+  display: contents;
+}
+
+@media (min-width: 721px) {
+  .di-corner-stack {
+    display: flex;
+    position: absolute;
+    right: 1rem;
+    bottom: 2.25rem;
+    z-index: 1050;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+    max-width: min(340px, calc(100% - 2rem));
+    max-height: calc(100% - 5.5rem);
+    pointer-events: none;
+  }
+
+  /* Flatten each card's own absolute anchoring so they flow in the column. */
+  .di-corner-stack > * {
+    position: static !important;
+    inset: auto !important;
+    z-index: auto !important;
+    max-width: 100% !important;
+  }
+}
+
 @media (min-width: 721px) {
   .di-page-shell-bare {
     height: 100dvh;

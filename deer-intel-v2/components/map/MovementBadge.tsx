@@ -192,6 +192,9 @@ const badgeStyle: CSSProperties = {
   bottom: "1.4rem",
   right: "1rem",
   zIndex: 1050,
+  // Interactive card; stays clickable even when its corner-stack wrapper opts
+  // out of pointer events on desktop.
+  pointerEvents: "auto",
   width: "min(268px, calc(100% - 2rem))",
   display: "grid",
   gap: "0.5rem",
