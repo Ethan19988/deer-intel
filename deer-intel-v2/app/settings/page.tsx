@@ -28,6 +28,12 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { saveDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import { backupLocalImages } from "@/lib/imageStore";
 import {
+  buildFullBackup,
+  isFullBackup,
+  restoreFullBackupImages,
+  type FullBackupImage,
+} from "@/lib/fullBackup";
+import {
   setThemePreference,
   THEME_DESCRIPTIONS,
   THEME_LABELS,
@@ -94,11 +100,14 @@ export default function SettingsPage() {
   const [pendingImport, setPendingImport] = useState<{
     state: DeerIntelState;
     fileName: string;
+    images?: FullBackupImage[];
   } | null>(null);
   const [isBackingUpPhotos, setIsBackingUpPhotos] = useState(false);
   const [photoBackupStatus, setPhotoBackupStatus] = useState<string | null>(
     null,
   );
+  const [isExportingFull, setIsExportingFull] = useState(false);
+  const [fullExportStatus, setFullExportStatus] = useState<string | null>(null);
 
   async function handleBackupPhotos() {
     setIsBackingUpPhotos(true);
@@ -127,22 +136,62 @@ export default function SettingsPage() {
     }
   }
 
-  function handleExport() {
-    setImportError(null);
-    setImportMessage(null);
-
-    const exportPayload = JSON.stringify(state, null, 2);
-    const blob = new Blob([exportPayload], { type: "application/json" });
+  function downloadJson(payload: string, fileName: string) {
+    const blob = new Blob([payload], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    const today = new Date().toISOString().slice(0, 10);
 
     link.href = url;
-    link.download = `deer-intel-backup-${today}.json`;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  }
+
+  function handleExport() {
+    setImportError(null);
+    setImportMessage(null);
+    setFullExportStatus(null);
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    downloadJson(JSON.stringify(state, null, 2), `deer-intel-backup-${today}.json`);
+  }
+
+  async function handleFullExport() {
+    setImportError(null);
+    setImportMessage(null);
+    setIsExportingFull(true);
+    setFullExportStatus("Bundling your photos…");
+
+    try {
+      const backup = await buildFullBackup(state, (done, total) => {
+        setFullExportStatus(
+          total === 0
+            ? "Preparing backup…"
+            : `Bundling photo ${done} of ${total}…`,
+        );
+      });
+      const today = new Date().toISOString().slice(0, 10);
+
+      downloadJson(
+        JSON.stringify(backup),
+        `deer-intel-full-backup-${today}.json`,
+      );
+
+      setFullExportStatus(
+        backup.images.length === 0
+          ? "Backup downloaded. No photos are stored on this device, so it holds your records only."
+          : `Backup downloaded — ${totalRecords} records and ${backup.images.length} photo${
+              backup.images.length === 1 ? "" : "s"
+            } in one file. Keep it somewhere safe.`,
+      );
+    } catch {
+      setFullExportStatus("Couldn't build the backup right now. Please try again.");
+    } finally {
+      setIsExportingFull(false);
+    }
   }
 
   function handleImportButtonClick() {
@@ -167,6 +216,16 @@ export default function SettingsPage() {
     reader.onload = () => {
       try {
         const parsed: unknown = JSON.parse(String(reader.result));
+
+        // A full backup nests the record state and carries inline photos.
+        if (isFullBackup(parsed)) {
+          setPendingImport({
+            state: parsed.state,
+            fileName: file.name,
+            images: parsed.images,
+          });
+          return;
+        }
 
         if (
           !parsed ||
@@ -197,14 +256,32 @@ export default function SettingsPage() {
     reader.readAsText(file);
   }
 
-  function handleConfirmImport() {
+  async function handleConfirmImport() {
     if (!pendingImport) return;
 
-    saveDeerIntelStore(pendingImport.state);
-    setImportMessage(
-      `Import complete. Replaced local data with the backup from "${pendingImport.fileName}".`,
-    );
+    const { state: importState, fileName, images } = pendingImport;
+
     setPendingImport(null);
+    saveDeerIntelStore(importState);
+
+    if (images && images.length > 0) {
+      setImportMessage(
+        `Restoring ${images.length} photo${images.length === 1 ? "" : "s"}…`,
+      );
+
+      const result = await restoreFullBackupImages(images);
+
+      setImportMessage(
+        `Import complete. Replaced local data with "${fileName}" and restored ${result.restored} of ${result.total} photo${
+          result.total === 1 ? "" : "s"
+        }${result.failed ? ` — ${result.failed} couldn't be restored.` : "."}`,
+      );
+      return;
+    }
+
+    setImportMessage(
+      `Import complete. Replaced local data with the backup from "${fileName}".`,
+    );
   }
 
   function handleCancelImport() {
@@ -509,9 +586,26 @@ export default function SettingsPage() {
             Importing a backup file replaces everything currently saved in
             this browser.
           </p>
+          <p style={mutedTextStyle}>
+            <strong>Full backup</strong> puts your records <em>and</em> your
+            photos in a single file, so you can move to a new phone or browser
+            without losing pictures — no account needed. <strong>Records
+            only</strong> is a smaller file that leaves photos behind. Importing
+            either one restores whatever it contains.
+          </p>
           <div style={backupActionsStyle}>
-            <Button type="button" variant="primary" onClick={handleExport}>
-              Download Backup ({totalRecords} records)
+            <Button
+              type="button"
+              variant="primary"
+              disabled={isExportingFull}
+              onClick={handleFullExport}
+            >
+              {isExportingFull
+                ? "Preparing…"
+                : `Download Full Backup (${totalRecords} records + photos)`}
+            </Button>
+            <Button type="button" variant="secondary" onClick={handleExport}>
+              Records Only
             </Button>
             <Button
               type="button"
@@ -528,6 +622,11 @@ export default function SettingsPage() {
             onChange={handleFileSelected}
             style={hiddenInputStyle}
           />
+          {fullExportStatus ? (
+            <p style={successTextStyle} role="status">
+              {fullExportStatus}
+            </p>
+          ) : null}
           {importError ? (
             <p style={errorTextStyle} role="alert">
               {importError}
@@ -707,7 +806,17 @@ export default function SettingsPage() {
         title="Replace all local data?"
         description={
           pendingImport
-            ? `"${pendingImport.fileName}" contains ${recordCount(pendingImport.state)} records. Importing it will permanently replace the ${totalRecords} records currently saved in this browser. This can't be undone unless you have another backup.`
+            ? `"${pendingImport.fileName}" contains ${recordCount(pendingImport.state)} records${
+                pendingImport.images && pendingImport.images.length > 0
+                  ? ` and ${pendingImport.images.length} photo${
+                      pendingImport.images.length === 1 ? "" : "s"
+                    }`
+                  : ""
+              }. Importing it will permanently replace the ${totalRecords} records currently saved in this browser${
+                pendingImport.images && pendingImport.images.length > 0
+                  ? " and restore its photos to this device"
+                  : ""
+              }. This can't be undone unless you have another backup.`
             : ""
         }
         confirmLabel="Replace Data"
