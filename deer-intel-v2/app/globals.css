@@ -1163,6 +1163,12 @@ textarea {
     gap: 0.55rem !important;
   }
 
+  /* Phones pinch to zoom, so drop the +/- buttons and keep just the compass and
+     GPS controls. Desktop keeps the zoom buttons. */
+  .di-map-zoom-button {
+    display: none !important;
+  }
+
   /* The right edge belongs to the zoom stack, so on phones the whole card column
      moves bottom-left, above the property bar, and stays narrow enough to clear
      the zoom controls. Tall stacks clip from the top (justify-content flex-end)
