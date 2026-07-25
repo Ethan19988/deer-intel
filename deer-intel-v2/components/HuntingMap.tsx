@@ -82,6 +82,7 @@ import ParcelTilesLayer, {
 } from "@/components/map/ParcelTilesLayer";
 import { ownerAcresText } from "@/lib/ownerLabel";
 import MapSearchBar from "@/components/map/MapSearchBar";
+import GoldenHourFrame from "@/components/map/GoldenHourFrame";
 import MapSearchResultMarker from "@/components/map/MapSearchResultMarker";
 import OfflineDownloadStatus from "@/components/map/OfflineDownloadStatus";
 import OfflineMapsPanel, {
@@ -2623,6 +2624,11 @@ export default function HuntingMap() {
             onCreateAssetHere={createAssetFromSearchResult}
             onSearch={searchAddressOrPlace}
             onSelectResult={selectSearchResult}
+            onClear={() => {
+              setSearchMessage("");
+              setSearchResults([]);
+              setSelectedSearchResult(null);
+            }}
           />
 
           <MapTopBar
@@ -3038,6 +3044,8 @@ export default function HuntingMap() {
               />
             ) : null}
           </MapContainer>
+
+          <GoldenHourFrame period={movementPeriod} />
 
           {!mapKeysHidden ? (
             <MapLegend
