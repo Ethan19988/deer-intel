@@ -2666,24 +2666,6 @@ export default function HuntingMap() {
             />
           ) : null}
 
-          {showMovement ? (
-            <MovementBadge
-              status={forecastStatus}
-              forecast={movementOutlook}
-              corridorCount={movementCorridors.length}
-              direction={corridorDirection(movementPeriod)}
-              hasBedding={beddingPoints.length > 0}
-              hasResources={resourcePoints.length > 0}
-              personalized={movementOutlook?.personalized ?? false}
-              sampleSize={movementOutlook?.sampleSize ?? 0}
-              hotCorridorCount={hotCorridorCount}
-              phaseLabel={movementPhaseLabel(currentMovementPhase)}
-              phaseScoped={seasonalPhotos.scope === "phase"}
-              regionLabel={rutRegionLabel(propertyLatitude)}
-              rutShiftDays={rutShiftDays(propertyLatitude)}
-            />
-          ) : null}
-
           {showYearPicker ? (
             <div className="di-map-year" style={yearStepperStyle}>
               <button
@@ -3047,19 +3029,46 @@ export default function HuntingMap() {
 
           <GoldenHourFrame period={movementPeriod} />
 
-          {!mapKeysHidden ? (
-            <MapLegend
-              showSlope={showSlope}
-              showTerrain={showTerrain && !!terrainReview}
-              showLandcover={showLandcover}
-              showDeerHeat={showDeerHeat}
-              period={movementPeriod}
-            />
-          ) : null}
+          {/* All three bottom-right cards share one column so they stack instead
+              of piling on top of each other. On mobile the wrapper is display:
+              contents, so each card keeps its own placement (legend bottom-left,
+              badges bottom-right). */}
+          <div className="di-corner-stack">
+            {!mapKeysHidden ? (
+              <MapLegend
+                showSlope={showSlope}
+                showTerrain={showTerrain && !!terrainReview}
+                showLandcover={showLandcover}
+                showDeerHeat={showDeerHeat}
+                showWind={showWind}
+                showCameraHeat={showCameraHeat}
+                period={movementPeriod}
+                wind={windData}
+              />
+            ) : null}
 
-          {showTerrain ? (
-            <ScoutPicksPanel set={terrainReview} onSelect={flyToTerrainPick} />
-          ) : null}
+            {showMovement ? (
+              <MovementBadge
+                status={forecastStatus}
+                forecast={movementOutlook}
+                corridorCount={movementCorridors.length}
+                direction={corridorDirection(movementPeriod)}
+                hasBedding={beddingPoints.length > 0}
+                hasResources={resourcePoints.length > 0}
+                personalized={movementOutlook?.personalized ?? false}
+                sampleSize={movementOutlook?.sampleSize ?? 0}
+                hotCorridorCount={hotCorridorCount}
+                phaseLabel={movementPhaseLabel(currentMovementPhase)}
+                phaseScoped={seasonalPhotos.scope === "phase"}
+                regionLabel={rutRegionLabel(propertyLatitude)}
+                rutShiftDays={rutShiftDays(propertyLatitude)}
+              />
+            ) : null}
+
+            {showTerrain ? (
+              <ScoutPicksPanel set={terrainReview} onSelect={flyToTerrainPick} />
+            ) : null}
+          </div>
 
           <MapLayerManager
             open={layersOpen}

@@ -164,6 +164,8 @@ const wrapStyle: CSSProperties = {
   bottom: "1.4rem",
   right: "1rem",
   zIndex: 1050,
+  // Interactive list; stays clickable inside the corner-stack wrapper on desktop.
+  pointerEvents: "auto",
   width: "min(280px, calc(100% - 2rem))",
   border: "1px solid rgba(255, 255, 255, 0.22)",
   borderRadius: "12px",
