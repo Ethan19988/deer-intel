@@ -477,46 +477,18 @@ export default function PropertyWorkspacePage() {
         title="Map"
         icon={<MapIcon size={18} />}
       >
-        <div style={mapCommandGridStyle}>
-          <DashboardCardLink
-            href="/map"
-            title="Open Property Map"
-            description="Scout this property, place assets, check camera sites, and review stands."
-            icon={<WorkspaceIcon name="map" />}
-            size="large"
-            tone="primary"
-          />
-          <Card as="div" variant="subtle" style={mapSummaryCardStyle}>
-            <h3 style={summaryCardTitleStyle}>Mapped Summary</h3>
-            <div style={statGridStyle}>
-              <StatCard
-                label="Camera Sites"
-                value={propertyCameras.length}
-                detail={`${activeCameraCount(propertyCameras)} active`}
-                icon={<CameraIcon size={18} />}
-                tone="green"
-              />
-              <StatCard
-                label="Stands"
-                value={standCount}
-                detail="Saved stand sites"
-                icon={<StandIcon size={18} />}
-                tone="green"
-              />
-              <StatCard
-                label="Assets"
-                value={propertyPins.length}
-                detail="Saved map pins"
-                icon={<MapPinIcon size={18} />}
-                tone="neutral"
-              />
-            </div>
-            <p style={mapSummaryTextStyle}>
-              Opening the map from here keeps the active property set to{" "}
-              {property.name}.
-            </p>
-          </Card>
-        </div>
+        <DashboardCardLink
+          href="/map"
+          title="Open Property Map"
+          description="Scout this property, place assets, check camera sites, and review stands."
+          icon={<WorkspaceIcon name="map" />}
+          size="large"
+          tone="primary"
+        />
+        <p style={mapSummaryTextStyle}>
+          Opening the map from here keeps the active property set to{" "}
+          {property.name}.
+        </p>
       </DashboardSection>
 
       <div style={overviewGridStyle}>
@@ -540,6 +512,13 @@ export default function PropertyWorkspacePage() {
               detail="Saved stand sites"
               icon={<StandIcon size={18} />}
               tone="green"
+            />
+            <StatCard
+              label="Assets"
+              value={propertyPins.length}
+              detail="Saved map pins"
+              icon={<MapPinIcon size={18} />}
+              tone="neutral"
             />
             <StatCard
               label="Hunts"
@@ -921,18 +900,6 @@ const quickActionGridStyle: CSSProperties = {
   gap: "1rem",
 };
 
-const mapCommandGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))",
-  gap: "1rem",
-  alignItems: "stretch",
-};
-
-const mapSummaryCardStyle: CSSProperties = {
-  display: "grid",
-  gap: "1rem",
-};
-
 const summaryCardTitleStyle: CSSProperties = {
   margin: 0,
   color: "var(--text)",
@@ -941,7 +908,7 @@ const summaryCardTitleStyle: CSSProperties = {
 };
 
 const mapSummaryTextStyle: CSSProperties = {
-  margin: 0,
+  margin: "1rem 0 0",
   color: "var(--text-muted)",
   lineHeight: 1.5,
 };
