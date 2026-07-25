@@ -33,7 +33,11 @@ export default function WindThermalBadge({
   const downwindBearing = fromBearing === null ? null : (fromBearing + 180) % 360;
 
   return (
-    <div style={badgeStyle} onDoubleClick={(event) => event.stopPropagation()}>
+    <div
+      className="di-wind-badge"
+      style={badgeStyle}
+      onDoubleClick={(event) => event.stopPropagation()}
+    >
       <div style={headerRowStyle}>
         <span style={eyebrowStyle}>Wind &amp; Thermals</span>
       </div>
