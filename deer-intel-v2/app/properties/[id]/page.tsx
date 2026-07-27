@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Tabs from "@/components/ui/Tabs";
+import PartyPanel from "@/components/party/PartyPanel";
 import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
 import WeatherHistoryPanel from "@/components/weather/WeatherHistoryPanel";
 import SeasonRutCard from "@/components/season/SeasonRutCard";
@@ -646,6 +647,15 @@ export default function PropertyWorkspacePage() {
           />
         </div>
       </DashboardSection>
+              </div>
+            ),
+          },
+          {
+            id: "party",
+            label: "Party",
+            content: (
+              <div style={tabPanelStyle}>
+                <PartyPanel />
               </div>
             ),
           },
