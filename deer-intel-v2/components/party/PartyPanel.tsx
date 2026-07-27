@@ -100,6 +100,33 @@ export default function PartyPanel() {
     }
   }
 
+  // Invite someone by handing off the code. On phones this opens the native
+  // share sheet (text, messenger, email…); on desktop it falls back to copying
+  // the code to the clipboard.
+  async function handleShare(party: Party) {
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "";
+    const message =
+      `Join my Deer Intel hunting party "${party.name}". ` +
+      `Open the app, go to any property → Party → "Join with a code" and enter: ${party.invite_code}`;
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: "Join my Deer Intel party",
+          text: message,
+          ...(origin ? { url: origin } : {}),
+        });
+      } catch {
+        // User dismissed the share sheet — nothing to do.
+      }
+      return;
+    }
+
+    // No native share (most desktops): copy the code so they can paste it.
+    await handleCopy(party.invite_code);
+  }
+
   return (
     <>
       <Section eyebrow="Hunting party" title="Your parties">
@@ -122,6 +149,7 @@ export default function PartyPanel() {
                 party={party}
                 active={party.id === activePartyId}
                 onSelect={() => setActivePartyId(party.id)}
+                onShare={() => handleShare(party)}
                 onCopy={() => handleCopy(party.invite_code)}
                 onLeave={() => leaveParty(party.id)}
               />
@@ -227,12 +255,14 @@ function PartyRow({
   party,
   active,
   onSelect,
+  onShare,
   onCopy,
   onLeave,
 }: {
   party: Party;
   active: boolean;
   onSelect: () => void;
+  onShare: () => void;
   onCopy: () => void;
   onLeave: () => void;
 }) {
@@ -258,6 +288,9 @@ function PartyRow({
               Show on map
             </Button>
           ) : null}
+          <Button type="button" onClick={onShare}>
+            Invite a hunter
+          </Button>
           <Button type="button" variant="ghost" onClick={onCopy}>
             Copy code
           </Button>
