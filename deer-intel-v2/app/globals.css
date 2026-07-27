@@ -258,9 +258,18 @@
   color: #ffe1d8 !important;
 }
 
-/* Warm-black + red edge on the floating info panels so they sit in the same key
-   as the controls at night. */
-:root[data-theme="night"] .di-map-legend,
+/* The floating info panels (legend, movement outlook, terrain picks, wind badge,
+   year stepper) default to a neutral dark; retint their containers to each
+   theme's surface so they sit in the same key as the themed controls. Dark uses
+   the warm khaki-dark surface; night takes warm-black with a red edge. */
+:root[data-theme="dark"] .di-corner-stack > *,
+:root[data-theme="dark"] .di-wind-badge,
+:root[data-theme="dark"] .di-map-year {
+  background: rgba(24, 28, 18, 0.9) !important;
+  border-color: rgba(69, 79, 56, 0.55) !important;
+}
+
+:root[data-theme="night"] .di-corner-stack > *,
 :root[data-theme="night"] .di-wind-badge,
 :root[data-theme="night"] .di-map-year {
   background: rgba(18, 9, 6, 0.9) !important;
