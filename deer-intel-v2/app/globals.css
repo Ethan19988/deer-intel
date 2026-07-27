@@ -294,6 +294,24 @@
   background: #b03d24 !important;
 }
 
+/* Night: pull every line of text inside the floating info panels (legend,
+   movement outlook, terrain picks, wind badge, year stepper) onto the red ramp
+   so nothing reads as off-white at night. Only `color` is touched, so the
+   colour-key swatches and heat ramps (which use `background`) stay intact. */
+:root[data-theme="night"] .di-corner-stack :is(p, span, strong, h1, h2, h3, button),
+:root[data-theme="night"] .di-wind-badge :is(p, span, strong),
+:root[data-theme="night"] .di-map-year :is(span, button) {
+  color: #ef8f7c !important;
+}
+
+/* Keep the section headings a touch brighter so the panels still read as a
+   hierarchy rather than one flat block of red. */
+:root[data-theme="night"] .di-corner-stack :is(h2, h3),
+:root[data-theme="night"] .di-corner-stack p[style*="uppercase"],
+:root[data-theme="night"] .di-wind-badge p[style*="uppercase"] {
+  color: #f6a892 !important;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
