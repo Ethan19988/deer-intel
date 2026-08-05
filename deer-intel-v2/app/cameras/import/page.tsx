@@ -29,7 +29,9 @@ import {
   EMPTY_DEER_PROFILE_FORM_VALUES,
   createDeerProfileFromValues,
 } from "@/lib/deerProfileFormValues";
+import DeerProfileMultiSelect from "@/components/photos/DeerProfileMultiSelect";
 import PhotoImage from "@/components/photos/PhotoImage";
+import { resolveBuckLinks } from "@/lib/photoFormValues";
 import { processImageFile } from "@/lib/imageProcessing";
 import { deletePhotoImage, putPhotoImage } from "@/lib/imageStore";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
@@ -79,8 +81,10 @@ type ImportDraft = {
   extractedTime: string;
   metadataSource: string;
   species: string;
-  deerProfileId: string;
-  buckName: string;
+  // A photo can show more than one buck: linked deer profile ids plus loose
+  // buck names (typed in without a saved profile).
+  deerProfileIds: string[];
+  buckNames: string[];
   // What the animal was doing and the compass point it was headed — pre-filled
   // from the AI (direction converted through the camera's facing direction),
   // editable on the card before saving.
@@ -246,8 +250,7 @@ export default function CameraImportPage() {
           // The AI's identification pre-fills the species ("Other" when it
           // couldn't tell); the hunter can change it on the card before saving.
           species: stamp?.species || "Other",
-          deerProfileId: matchedProfile?.id ?? "",
-          buckName: matchedProfile?.nickname ?? "",
+          deerProfileIds: matchedProfile ? [matchedProfile.id] : [],
           behavior: stamp?.behavior ?? "",
           // The AI's frame-relative read only becomes a compass heading when
           // this camera site's facing direction is known; either way it stays
@@ -302,8 +305,11 @@ export default function CameraImportPage() {
   function createBuckFromDraft(draft: ImportDraft) {
     if (!propertyId) return;
 
+    const linkedNickname = deerProfiles.find((profile) =>
+      draft.deerProfileIds.includes(profile.id),
+    )?.nickname;
     const defaultName =
-      draft.buckName.trim() || `Buck ${deerProfiles.length + 1}`;
+      draft.buckNames[0] || linkedNickname || `Buck ${deerProfiles.length + 1}`;
     const nickname = window.prompt("Name this buck", defaultName)?.trim();
 
     if (!nickname) return;
@@ -333,11 +339,14 @@ export default function CameraImportPage() {
       deerProfiles: [...currentState.deerProfiles, profile],
     }));
 
-    // Link this photo to the new buck and mirror his name onto the card.
+    // Add the new buck to whatever this photo was already tagged with.
     setDrafts((currentDrafts) =>
       currentDrafts.map((item) =>
         item.id === draft.id
-          ? { ...item, deerProfileId: id, buckName: nickname }
+          ? {
+              ...item,
+              deerProfileIds: [...new Set([...item.deerProfileIds, id])],
+            }
           : item,
       ),
     );
@@ -417,6 +426,14 @@ export default function CameraImportPage() {
           historyCount += 1;
         }
 
+        const { deerProfileIds, buckNames } = resolveBuckLinks(
+          {
+            deerProfileIds: draft.deerProfileIds,
+            buckNames: draft.buckNames,
+          },
+          deerProfiles,
+        );
+
         return {
           id: createDeerIntelId("photo"),
           propertyId,
@@ -425,8 +442,12 @@ export default function CameraImportPage() {
           fileName: draft.fileName.trim(),
           photoDate: draft.photoDate.trim(),
           species: draft.species.trim(),
-          deerProfileId: draft.deerProfileId.trim() || undefined,
-          buckName: draft.buckName.trim() || undefined,
+          // Singular fields stay populated with the primary (first) link for
+          // backward-compatible reads; the plural fields carry the full set.
+          deerProfileId: deerProfileIds[0],
+          buckName: buckNames[0],
+          deerProfileIds: deerProfileIds.length > 0 ? deerProfileIds : undefined,
+          buckNames: buckNames.length > 0 ? buckNames : undefined,
           travelDirection: draft.travelDirection.trim() || undefined,
           behavior: draft.behavior.trim() || undefined,
           notes: buildImportNotes(draft),
@@ -792,46 +813,34 @@ export default function CameraImportPage() {
                     </select>
                   </label>
 
-                  <div style={fieldStyle}>
-                    <span style={labelStyle}>Deer Profile</span>
-                    <select
-                      aria-label="Deer profile"
-                      value={draft.deerProfileId}
-                      onChange={(event) =>
-                        updateDraft(draft.id, "deerProfileId", event.target.value)
-                      }
-                      style={inputStyle}
-                    >
-                      <option value="">Unknown / not linked</option>
-                      {deerProfiles.map((profile) => (
-                        <option key={profile.id} value={profile.id}>
-                          {profile.nickname}
-                        </option>
-                      ))}
-                    </select>
-                    {(draft.species === "Buck" || draft.aiSpecies === "Buck") &&
-                    !draft.deerProfileId ? (
-                      <button
-                        type="button"
-                        onClick={() => createBuckFromDraft(draft)}
-                        style={newBuckButtonStyle}
-                      >
-                        + New buck from this photo
-                      </button>
-                    ) : null}
-                  </div>
+                </div>
 
-                  <label style={fieldStyle}>
-                    <span style={labelStyle}>Buck Name</span>
-                    <input
-                      value={draft.buckName}
-                      onChange={(event) =>
-                        updateDraft(draft.id, "buckName", event.target.value)
-                      }
-                      placeholder="Optional"
-                      style={inputStyle}
-                    />
-                  </label>
+                <div style={buckLinkWrapStyle}>
+                  <DeerProfileMultiSelect
+                    deerProfiles={deerProfiles}
+                    selectedProfileIds={draft.deerProfileIds}
+                    buckNames={draft.buckNames}
+                    idPrefix={`import-${draft.id}`}
+                    onChange={(deerProfileIds, buckNames) =>
+                      setDrafts((currentDrafts) =>
+                        currentDrafts.map((item) =>
+                          item.id === draft.id
+                            ? { ...item, deerProfileIds, buckNames }
+                            : item,
+                        ),
+                      )
+                    }
+                  />
+                  {(draft.species === "Buck" || draft.aiSpecies === "Buck") &&
+                  draft.deerProfileIds.length === 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => createBuckFromDraft(draft)}
+                      style={newBuckButtonStyle}
+                    >
+                      + New buck from this photo
+                    </button>
+                  ) : null}
                 </div>
 
                 <label style={{ ...fieldStyle, marginTop: "1rem" }}>
@@ -926,8 +935,7 @@ async function storeImportImage(
 function createImportDraft({
   file,
   species,
-  deerProfileId,
-  buckName,
+  deerProfileIds,
   behavior,
   travelDirection,
   aiFrameDirection,
@@ -948,8 +956,7 @@ function createImportDraft({
 }: {
   file: File;
   species: string;
-  deerProfileId: string;
-  buckName: string;
+  deerProfileIds: string[];
   behavior: string;
   travelDirection: string;
   aiFrameDirection: string;
@@ -977,8 +984,8 @@ function createImportDraft({
     extractedTime: metadata.extractedTime,
     metadataSource: metadata.metadataSource,
     species,
-    deerProfileId,
-    buckName,
+    deerProfileIds,
+    buckNames: [],
     behavior,
     travelDirection,
     // Seed the notes with what the AI saw so it lands on the record; the
@@ -1373,6 +1380,12 @@ const draftFormGridStyle: CSSProperties = {
   marginTop: "1rem",
   paddingTop: "1rem",
   borderTop: "1px solid var(--border)",
+};
+
+const buckLinkWrapStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
+  marginTop: "1rem",
 };
 
 const primaryLinkStyle: CSSProperties = {

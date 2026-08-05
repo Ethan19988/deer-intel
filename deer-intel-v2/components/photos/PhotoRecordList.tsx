@@ -1,11 +1,17 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
+import DeerProfileMultiSelect from "@/components/photos/DeerProfileMultiSelect";
 import PhotoImage from "@/components/photos/PhotoImage";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
-import { formatPhotoDate, sortPhotoRecordsChronologically } from "@/lib/photos";
+import {
+  formatPhotoDate,
+  getPhotoBuckNames,
+  getPhotoDeerProfileIds,
+  sortPhotoRecordsChronologically,
+} from "@/lib/photos";
 import {
   hasWeatherSnapshot,
   weatherSnapshotDescription,
@@ -28,10 +34,16 @@ type PhotoRecordListProps = {
   moveTargets?: MoveTarget[];
   onMovePhotos?: (photoIds: string[], targetCameraId: string) => void;
   onDeletePhotos?: (photoIds: string[]) => void;
-  // When provided, buck photos get a "link to buck" control and a one-tap
-  // "New buck from this photo" that records a profile from the AI's read.
+  // When provided, buck photos get a multi-select to tag every buck in the
+  // frame and a one-tap "New buck from this photo" that records a profile from
+  // the AI's read. onSetPhotoBucks replaces the photo's whole link set with the
+  // selected profile ids plus loose names (names without a saved profile).
   onCreateBuckFromPhoto?: (photo: PhotoRecord) => void;
-  onLinkPhotoToBuck?: (photoId: string, profileId: string) => void;
+  onSetPhotoBucks?: (
+    photoId: string,
+    deerProfileIds: string[],
+    buckNames: string[],
+  ) => void;
 };
 
 export default function PhotoRecordList({
@@ -42,7 +54,7 @@ export default function PhotoRecordList({
   onMovePhotos,
   onDeletePhotos,
   onCreateBuckFromPhoto,
-  onLinkPhotoToBuck,
+  onSetPhotoBucks,
 }: PhotoRecordListProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [moveTargetId, setMoveTargetId] = useState("");
@@ -160,8 +172,18 @@ export default function PhotoRecordList({
       ) : null}
 
       {chronologicalPhotos.map((photo) => {
-        const deerProfile = deerProfiles.find(
-          (profile) => profile.id === photo.deerProfileId,
+        const linkedProfileIds = getPhotoDeerProfileIds(photo);
+        const linkedProfileNames = linkedProfileIds
+          .map((id) => deerProfiles.find((profile) => profile.id === id)?.nickname)
+          .filter((nickname): nickname is string => Boolean(nickname));
+        const buckNames = getPhotoBuckNames(photo);
+        // Names not covered by a linked profile — what the editor treats as
+        // "loose" so toggling a profile off doesn't drop its structured link.
+        const linkedNicknameKeys = new Set(
+          linkedProfileNames.map((nickname) => nickname.toLowerCase()),
+        );
+        const looseBuckNames = buckNames.filter(
+          (name) => !linkedNicknameKeys.has(name.toLowerCase()),
         );
         const weather =
           photo.weatherSnapshot && hasWeatherSnapshot(photo.weatherSnapshot)
@@ -222,19 +244,29 @@ export default function PhotoRecordList({
               </div>
             ) : null}
 
-            {deerProfile || photo.buckName || photo.notes || weather ? (
+            {linkedProfileNames.length > 0 ||
+            buckNames.length > 0 ||
+            photo.notes ||
+            weather ? (
               <div style={detailsStyle}>
                 {weather ? (
                   <PhotoDetail label="Weather" value={weather} />
                 ) : null}
-                {deerProfile ? (
+                {linkedProfileNames.length > 0 ? (
                   <PhotoDetail
-                    label="Deer Profile"
-                    value={deerProfile.nickname}
+                    label={
+                      linkedProfileNames.length === 1
+                        ? "Deer Profile"
+                        : "Deer Profiles"
+                    }
+                    value={linkedProfileNames.join(", ")}
                   />
                 ) : null}
-                {photo.buckName ? (
-                  <PhotoDetail label="Buck Name" value={photo.buckName} />
+                {buckNames.length > 0 ? (
+                  <PhotoDetail
+                    label={buckNames.length === 1 ? "Buck Name" : "Buck Names"}
+                    value={buckNames.join(", ")}
+                  />
                 ) : null}
                 {photo.notes ? (
                   <PhotoDetail label="Notes" value={photo.notes} />
@@ -243,29 +275,23 @@ export default function PhotoRecordList({
             ) : null}
 
             {photo.species === "Buck" &&
-            (onCreateBuckFromPhoto || onLinkPhotoToBuck) ? (
+            (onCreateBuckFromPhoto || onSetPhotoBucks) ? (
               <div style={buckActionsStyle}>
-                {onLinkPhotoToBuck ? (
-                  <label style={buckLinkLabelStyle}>
-                    <span style={detailLabelStyle}>Link to buck</span>
-                    <select
-                      aria-label={`Link ${photo.fileName} to a buck`}
-                      value={photo.deerProfileId || ""}
-                      onChange={(event) =>
-                        onLinkPhotoToBuck(photo.id, event.target.value)
+                {onSetPhotoBucks ? (
+                  <div style={buckLinkLabelStyle}>
+                    <span style={detailLabelStyle}>Bucks in this photo</span>
+                    <DeerProfileMultiSelect
+                      deerProfiles={deerProfiles}
+                      selectedProfileIds={linkedProfileIds}
+                      buckNames={looseBuckNames}
+                      idPrefix={`photo-${photo.id}`}
+                      onChange={(deerProfileIds, names) =>
+                        onSetPhotoBucks(photo.id, deerProfileIds, names)
                       }
-                      style={buckSelectStyle}
-                    >
-                      <option value="">Not linked</option>
-                      {deerProfiles.map((profile) => (
-                        <option key={profile.id} value={profile.id}>
-                          {profile.nickname}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                    />
+                  </div>
                 ) : null}
-                {onCreateBuckFromPhoto && !photo.deerProfileId ? (
+                {onCreateBuckFromPhoto && linkedProfileIds.length === 0 ? (
                   <button
                     type="button"
                     onClick={() => onCreateBuckFromPhoto(photo)}
@@ -394,10 +420,8 @@ const detailsStyle: CSSProperties = {
 };
 
 const buckActionsStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-end",
-  gap: "0.6rem",
-  flexWrap: "wrap",
+  display: "grid",
+  gap: "0.75rem",
   marginTop: "0.85rem",
   paddingTop: "0.85rem",
   borderTop: "1px solid var(--border)",
@@ -405,20 +429,11 @@ const buckActionsStyle: CSSProperties = {
 
 const buckLinkLabelStyle: CSSProperties = {
   display: "grid",
-  gap: "0.35rem",
-};
-
-const buckSelectStyle: CSSProperties = {
-  minHeight: "40px",
-  minWidth: "150px",
-  padding: "0.45rem 0.6rem",
-  border: "1px solid var(--border)",
-  borderRadius: "8px",
-  background: "var(--surface)",
-  color: "var(--text)",
+  gap: "0.5rem",
 };
 
 const newBuckButtonStyle: CSSProperties = {
+  justifySelf: "start",
   minHeight: "40px",
   padding: "0.45rem 0.7rem",
   border: "1px solid var(--accent)",

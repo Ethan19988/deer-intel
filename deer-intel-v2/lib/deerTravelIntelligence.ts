@@ -4,6 +4,7 @@
 // explicitly linked to the profile count — name-mention guesses would pollute
 // a pattern that stand decisions ride on.
 
+import { photoLinksProfile } from "@/lib/photos";
 import { bearingBetween, degreesToCompass, toEightWind } from "@/lib/travelDirection";
 import type { Camera } from "@/types/camera";
 import type { DeerProfile } from "@/types/deerProfile";
@@ -61,7 +62,7 @@ export function getDeerTravelIntelligence({
 }: DeerTravelInput): DeerTravelIntelligence {
   const cameraById = new Map(cameras.map((camera) => [camera.id, camera]));
   const sightings = photoRecords
-    .filter((photo) => photo.deerProfileId === profile.id)
+    .filter((photo) => photoLinksProfile(photo, profile.id))
     .map(toSighting)
     .filter((sighting): sighting is Sighting => sighting !== null)
     .sort((left, right) => left.time - right.time);

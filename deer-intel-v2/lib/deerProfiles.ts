@@ -1,5 +1,6 @@
 import type { DeerProfile } from "@/types/deerProfile";
 import type { PhotoRecord } from "@/types/photo";
+import { photoLinksProfile } from "@/lib/photos";
 
 export type DeerProfileSummary = {
   profile: DeerProfile;
@@ -18,8 +19,8 @@ export function getDeerProfileSummaries({
 }): DeerProfileSummary[] {
   return profiles
     .map((profile) => {
-      const profilePhotos = photoRecords.filter(
-        (photo) => photo.deerProfileId === profile.id,
+      const profilePhotos = photoRecords.filter((photo) =>
+        photoLinksProfile(photo, profile.id),
       );
       const sightingKeys = new Set(
         profilePhotos.map((photo) => photo.cameraCheckId || photo.photoDate),

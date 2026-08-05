@@ -49,8 +49,58 @@ export function formatPhotoDate(date: string | undefined) {
 function isBuckPhoto(photo: PhotoRecord) {
   return (
     photo.species.trim().toLowerCase().includes("buck") ||
-    Boolean(photo.buckName?.trim())
+    getPhotoBuckNames(photo).length > 0
   );
+}
+
+/**
+ * All deer-profile ids linked to a photo, merging the plural `deerProfileIds`
+ * with the legacy singular `deerProfileId`, deduped and with empties dropped.
+ */
+export function getPhotoDeerProfileIds(photo: PhotoRecord): string[] {
+  const ids = [
+    ...(photo.deerProfileIds ?? []),
+    ...(photo.deerProfileId ? [photo.deerProfileId] : []),
+  ]
+    .map((id) => id.trim())
+    .filter(Boolean);
+
+  return [...new Set(ids)];
+}
+
+/**
+ * All buck names on a photo, merging the plural `buckNames` with the legacy
+ * singular `buckName`. Deduped case-insensitively, keeping the first spelling.
+ */
+export function getPhotoBuckNames(photo: PhotoRecord): string[] {
+  const names = [
+    ...(photo.buckNames ?? []),
+    ...(photo.buckName ? [photo.buckName] : []),
+  ]
+    .map((name) => name.trim())
+    .filter(Boolean);
+
+  const seen = new Set<string>();
+  const unique: string[] = [];
+
+  for (const name of names) {
+    const key = name.toLowerCase();
+
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    unique.push(name);
+  }
+
+  return unique;
+}
+
+/** Whether a photo is linked to the given deer profile (any of its links). */
+export function photoLinksProfile(
+  photo: PhotoRecord,
+  profileId: string,
+): boolean {
+  return getPhotoDeerProfileIds(photo).includes(profileId);
 }
 
 /** Epoch time of a photo's capture date, 0 when unparseable. */
