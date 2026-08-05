@@ -43,18 +43,24 @@ export const EMPTY_PHOTO_FORM_VALUES: PhotoFormValues = {
   stampedHumidity: "",
 };
 
-/** A fresh photo form that starts on today's date (adding a photo overrides it). */
+/**
+ * A fresh photo form that starts at the current date and time (adding a photo
+ * overrides it with the photo's real capture time). The value is a
+ * datetime-local string so the exact 24hr capture time is kept, not just the day.
+ */
 export function emptyPhotoFormValues(): PhotoFormValues {
-  return { ...EMPTY_PHOTO_FORM_VALUES, photoDate: todayDateInput() };
+  return { ...EMPTY_PHOTO_FORM_VALUES, photoDate: nowDateTimeInput() };
 }
 
-function todayDateInput(): string {
+function nowDateTimeInput(): string {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
+  const hour = String(now.getHours()).padStart(2, "0");
+  const minute = String(now.getMinutes()).padStart(2, "0");
 
-  return `${year}-${month}-${day}`;
+  return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 
 type CreatePhotoRecordFromValuesInput = {

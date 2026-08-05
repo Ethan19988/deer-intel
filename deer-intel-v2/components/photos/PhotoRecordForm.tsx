@@ -77,11 +77,15 @@ export default function PhotoRecordForm({
   }));
 
   function handleImageSelected(image: SelectedPhotoImage) {
-    // The photo's own capture date (EXIF) is the most trustworthy source, then
-    // the file's date; either wins over the default so the date matches the
-    // photo. The label only auto-fills when blank so a typed label is kept.
-    const imageDate =
-      image.capturedAt.slice(0, 10) || toDateInput(image.lastModified);
+    // Only a real capture time (EXIF, or the date/time the camera printed on the
+    // photo — both in 24hr time) auto-fills the date, and it keeps the full
+    // "YYYY-MM-DDTHH:mm" so the exact time of day feeds the movement /
+    // time-of-day intelligence. We deliberately do NOT fall back to the file's
+    // date: for a cellular camera that sends photos in batches, that timestamp
+    // is when the batch arrived, not when the shot was taken. When no capture
+    // time is embedded, the existing value stays and PhotoUploadField prompts
+    // the hunter to set the real time. The label only auto-fills when blank.
+    const imageDate = image.capturedAt;
 
     onChange({
       ...values,
@@ -183,9 +187,9 @@ export default function PhotoRecordForm({
           style={{ ...formGridStyle, marginTop: "1rem" }}
         >
           <label style={fieldStyle}>
-            <span style={labelStyle}>Photo Date</span>
+            <span style={labelStyle}>Photo Date and Time</span>
             <input
-              type="date"
+              type="datetime-local"
               value={values.photoDate}
               onChange={(event) => updateField("photoDate", event.target.value)}
               style={inputStyle}
@@ -299,20 +303,6 @@ function cleanFileLabel(fileName: string) {
   const withoutExtension = fileName.replace(/\.[^./\\]+$/, "").trim();
 
   return withoutExtension || fileName.trim();
-}
-
-function toDateInput(timestamp: number) {
-  if (!Number.isFinite(timestamp) || timestamp <= 0) return "";
-
-  const date = new Date(timestamp);
-
-  if (Number.isNaN(date.getTime())) return "";
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
 }
 
 const formStyle: CSSProperties = {
