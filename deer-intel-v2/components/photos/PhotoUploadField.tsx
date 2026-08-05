@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import { createDeerIntelId } from "@/lib/deerIntelStore";
 import { isImageFile, processImageFile } from "@/lib/imageProcessing";
 import { deletePhotoImage, putPhotoImage } from "@/lib/imageStore";
+import { pickCaptureDateTime } from "@/lib/photoCaptureTime";
 import { readPhotoDateTimeInput } from "@/lib/photoExif";
 import { requestPhotoStamp } from "@/lib/photoStampClient";
 import { useUnitPreferences } from "@/lib/units";
@@ -17,8 +18,8 @@ export type SelectedPhotoImage = {
   imageHeight: number;
   fileName: string;
   lastModified: number;
-  // Capture time from EXIF when the file has it, otherwise from the printed
-  // stamp (read by AI only for metadata-stripped files), or "" if neither.
+  // True capture time: the printed stamp when the AI read one with a time,
+  // otherwise EXIF, otherwise "" (callers fall back to the file's own date).
   capturedAt: string;
   // Values read off the photo's printed info bar, or "" if none.
   stampedTemperature: string;
@@ -93,9 +94,9 @@ export default function PhotoUploadField({
       }
 
       // The AI read identifies the animal and its travel direction (what the
-      // per-buck learning trains on), so it runs on every photo. EXIF still
-      // owns the capture time below; the AI's date read is only the fallback
-      // for metadata-stripped files.
+      // per-buck learning trains on), and its printed-stamp read is the true
+      // capture time — burned into the photo, unlike EXIF, which cellular cams
+      // and app exports rewrite to the download time. So it runs on every photo.
       setStatusText("Reading photo info…");
       const stamp: PhotoStamp | null = await requestPhotoStamp(
         file,
@@ -109,7 +110,7 @@ export default function PhotoUploadField({
         imageHeight: processed.height,
         fileName: file.name,
         lastModified: file.lastModified,
-        capturedAt: exifDate || stamp?.dateTime || "",
+        capturedAt: pickCaptureDateTime(exifDate, stamp?.dateTime ?? "").dateTime,
         stampedTemperature: stamp?.temperature ?? "",
         stampedMoonPhase: stamp?.moonPhase ?? "",
         stampedWindDirection: stamp?.windDirection ?? "",
