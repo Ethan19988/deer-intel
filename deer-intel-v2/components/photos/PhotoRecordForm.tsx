@@ -77,11 +77,14 @@ export default function PhotoRecordForm({
   }));
 
   function handleImageSelected(image: SelectedPhotoImage) {
-    // The photo's own capture date (EXIF) is the most trustworthy source, then
-    // the file's date; either wins over the default so the date matches the
-    // photo. The label only auto-fills when blank so a typed label is kept.
+    // The photo's own capture time (EXIF, in 24hr time) is the most trustworthy
+    // source, then the file's date; either wins over the default so the record
+    // matches the moment the shutter fired, not when the batch was uploaded. We
+    // keep the full "YYYY-MM-DDTHH:mm" so the exact time of day is preserved for
+    // the movement/time-of-day intelligence. The label only auto-fills when
+    // blank so a typed label is kept.
     const imageDate =
-      image.capturedAt.slice(0, 10) || toDateInput(image.lastModified);
+      image.capturedAt || toDateTimeInput(image.lastModified);
 
     onChange({
       ...values,
@@ -183,9 +186,9 @@ export default function PhotoRecordForm({
           style={{ ...formGridStyle, marginTop: "1rem" }}
         >
           <label style={fieldStyle}>
-            <span style={labelStyle}>Photo Date</span>
+            <span style={labelStyle}>Photo Date and Time</span>
             <input
-              type="date"
+              type="datetime-local"
               value={values.photoDate}
               onChange={(event) => updateField("photoDate", event.target.value)}
               style={inputStyle}
@@ -301,7 +304,10 @@ function cleanFileLabel(fileName: string) {
   return withoutExtension || fileName.trim();
 }
 
-function toDateInput(timestamp: number) {
+// Falls back to the file's last-modified moment as a datetime-local value
+// ("YYYY-MM-DDTHH:mm") so the time of day is kept even when the photo has no
+// EXIF capture time to read.
+function toDateTimeInput(timestamp: number) {
   if (!Number.isFinite(timestamp) || timestamp <= 0) return "";
 
   const date = new Date(timestamp);
@@ -311,8 +317,10 @@ function toDateInput(timestamp: number) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
 
-  return `${year}-${month}-${day}`;
+  return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 
 const formStyle: CSSProperties = {
