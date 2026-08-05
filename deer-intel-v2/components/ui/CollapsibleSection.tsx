@@ -48,9 +48,12 @@ export default function CollapsibleSection({
         </span>
         <span
           aria-label={isOpen ? "Collapse section" : "Expand section"}
-          style={indicatorStyle}
+          style={{
+            ...indicatorStyle,
+            transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+          }}
         >
-          {isOpen ? "-" : "+"}
+          ›
         </span>
       </summary>
       <div className="di-collapsible-content" style={contentStyle}>
@@ -118,9 +121,10 @@ const indicatorStyle: CSSProperties = {
   borderRadius: "8px",
   background: "var(--surface-2)",
   color: "var(--text-muted)",
-  fontSize: "1.1rem",
+  fontSize: "1.35rem",
   fontWeight: 900,
   lineHeight: 1,
+  transition: "transform 0.15s ease",
 };
 
 const contentStyle: CSSProperties = {

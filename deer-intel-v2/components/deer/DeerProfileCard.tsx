@@ -27,54 +27,67 @@ export default function DeerProfileCard({
 }: DeerProfileCardProps) {
   return (
     <Card as="article" variant="subtle" style={cardStyle}>
-      <div style={headerStyle}>
+      <header style={headerStyle}>
         <div>
           <p style={eyebrowStyle}>Deer Profile</p>
           <h3 style={titleStyle}>{summary.profile.nickname}</h3>
         </div>
         <Badge>{summary.profile.estimatedAge || "Age unknown"}</Badge>
-      </div>
+      </header>
 
-      <div style={detailsGridStyle}>
-        <ProfileDetail label="First Seen" value={summary.firstSeen} />
-        <ProfileDetail label="Last Seen" value={summary.lastSeen} />
-        <ProfileDetail label="Photos" value={String(summary.photoCount)} />
-        <ProfileDetail label="Sightings" value={String(summary.sightingCount)} />
-      </div>
-
-      {summary.profile.notes ? (
-        <div style={notesStyle}>
-          <ProfileDetail label="Notes" value={summary.profile.notes} />
-        </div>
-      ) : null}
-
-      <div style={sectionStackStyle}>
-        <CollapsibleSection
-          title="Travel"
-          description="How this deer moves — where he goes and the winds he moves on"
-          defaultOpen
-        >
-          <DeerTravelPanel travel={travel} />
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title="Intelligence"
-          description="Patterns from linked photos and notes"
-        >
-          <DeerProfileIntelligencePanel intelligence={intelligence} />
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title={`Photos (${photos.length})`}
-          description="Every trail-camera photo linked to this buck"
-        >
-          <PhotoRecordList
-            photoRecords={photos}
-            deerProfiles={deerProfiles}
-            emptyDescription="No photos linked to this buck yet. Import photos on a camera check, then tag this buck to build his photo history."
+      <section style={groupStyle}>
+        <p style={groupLabelStyle}>Overview</p>
+        <div style={overviewGridStyle}>
+          <ProfileDetail label="First Seen" value={summary.firstSeen} />
+          <ProfileDetail label="Last Seen" value={summary.lastSeen} />
+          <ProfileDetail label="Photos" value={String(summary.photoCount)} />
+          <ProfileDetail
+            label="Sightings"
+            value={String(summary.sightingCount)}
           />
-        </CollapsibleSection>
-      </div>
+        </div>
+
+        {summary.profile.notes ? (
+          <div style={overviewNotesStyle}>
+            <ProfileDetail label="Notes" value={summary.profile.notes} />
+          </div>
+        ) : null}
+      </section>
+
+      <section style={groupStyle}>
+        <div style={groupHeadingStyle}>
+          <p style={groupLabelStyle}>Details</p>
+          <p style={groupHintStyle}>Tap a section to open it</p>
+        </div>
+
+        <div style={sectionStackStyle}>
+          <CollapsibleSection
+            title="Travel"
+            description="How this deer moves — where he goes and the winds he moves on"
+            defaultOpen
+          >
+            <DeerTravelPanel travel={travel} />
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            title="Intelligence"
+            description="Patterns from linked photos and notes"
+          >
+            <DeerProfileIntelligencePanel intelligence={intelligence} />
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            title={`Photos (${photos.length})`}
+            description="Every trail-camera photo linked to this buck"
+          >
+            <PhotoRecordList
+              photoRecords={photos}
+              deerProfiles={deerProfiles}
+              emptyDescription="No photos linked to this buck yet. Import photos on a camera check, then tag this buck to build his photo history."
+            />
+          </CollapsibleSection>
+        </div>
+      </section>
     </Card>
   );
 }
@@ -253,7 +266,44 @@ const detailsGridStyle: CSSProperties = {
   borderTop: "1px solid var(--border)",
 };
 
-const notesStyle: CSSProperties = {
+const groupStyle: CSSProperties = {
+  marginTop: "1.25rem",
+  paddingTop: "1.25rem",
+  borderTop: "1px solid var(--border)",
+};
+
+const groupLabelStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text-faint)",
+  fontSize: "0.78rem",
+  fontWeight: 800,
+  letterSpacing: 0,
+  textTransform: "uppercase",
+};
+
+const groupHeadingStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "space-between",
+  gap: "1rem",
+  flexWrap: "wrap",
+};
+
+const groupHintStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text-muted)",
+  fontSize: "0.82rem",
+  fontWeight: 600,
+};
+
+const overviewGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(120px, 100%), 1fr))",
+  gap: "1rem",
+  marginTop: "0.75rem",
+};
+
+const overviewNotesStyle: CSSProperties = {
   marginTop: "1rem",
   paddingTop: "1rem",
   borderTop: "1px solid var(--border)",
@@ -262,9 +312,7 @@ const notesStyle: CSSProperties = {
 const sectionStackStyle: CSSProperties = {
   display: "grid",
   gap: "0.75rem",
-  marginTop: "1rem",
-  paddingTop: "1rem",
-  borderTop: "1px solid var(--border)",
+  marginTop: "0.85rem",
 };
 
 const intelligenceStackStyle: CSSProperties = {
