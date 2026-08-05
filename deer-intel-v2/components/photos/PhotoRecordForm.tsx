@@ -77,14 +77,15 @@ export default function PhotoRecordForm({
   }));
 
   function handleImageSelected(image: SelectedPhotoImage) {
-    // The photo's own capture time (EXIF, in 24hr time) is the most trustworthy
-    // source, then the file's date; either wins over the default so the record
-    // matches the moment the shutter fired, not when the batch was uploaded. We
-    // keep the full "YYYY-MM-DDTHH:mm" so the exact time of day is preserved for
-    // the movement/time-of-day intelligence. The label only auto-fills when
-    // blank so a typed label is kept.
-    const imageDate =
-      image.capturedAt || toDateTimeInput(image.lastModified);
+    // Only a real capture time (EXIF, or the date/time the camera printed on the
+    // photo — both in 24hr time) auto-fills the date, and it keeps the full
+    // "YYYY-MM-DDTHH:mm" so the exact time of day feeds the movement /
+    // time-of-day intelligence. We deliberately do NOT fall back to the file's
+    // date: for a cellular camera that sends photos in batches, that timestamp
+    // is when the batch arrived, not when the shot was taken. When no capture
+    // time is embedded, the existing value stays and PhotoUploadField prompts
+    // the hunter to set the real time. The label only auto-fills when blank.
+    const imageDate = image.capturedAt;
 
     onChange({
       ...values,
@@ -302,25 +303,6 @@ function cleanFileLabel(fileName: string) {
   const withoutExtension = fileName.replace(/\.[^./\\]+$/, "").trim();
 
   return withoutExtension || fileName.trim();
-}
-
-// Falls back to the file's last-modified moment as a datetime-local value
-// ("YYYY-MM-DDTHH:mm") so the time of day is kept even when the photo has no
-// EXIF capture time to read.
-function toDateTimeInput(timestamp: number) {
-  if (!Number.isFinite(timestamp) || timestamp <= 0) return "";
-
-  const date = new Date(timestamp);
-
-  if (Number.isNaN(date.getTime())) return "";
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-
-  return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 
 const formStyle: CSSProperties = {
