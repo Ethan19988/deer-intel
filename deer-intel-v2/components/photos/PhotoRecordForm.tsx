@@ -1,4 +1,5 @@
 import type { CSSProperties, FormEvent } from "react";
+import DeerProfileMultiSelect from "@/components/photos/DeerProfileMultiSelect";
 import PhotoUploadField, {
   type SelectedPhotoImage,
 } from "@/components/photos/PhotoUploadField";
@@ -106,13 +107,12 @@ export default function PhotoRecordForm({
           cameraFacingDirection,
         ),
       notes: values.notes.trim() ? values.notes : image.detectedNotes,
-      deerProfileId: values.deerProfileId || image.matchedProfileId,
-      buckName:
-        values.buckName.trim() ||
-        (image.matchedProfileId
-          ? deerProfiles.find((profile) => profile.id === image.matchedProfileId)
-              ?.nickname ?? ""
-          : ""),
+      // Add the AI's matched buck to the links, but only when nothing was
+      // picked yet and it isn't already there — never clobber the hunter's set.
+      deerProfileIds:
+        values.deerProfileIds.length === 0 && image.matchedProfileId
+          ? [image.matchedProfileId]
+          : values.deerProfileIds,
     });
   }
 
@@ -245,35 +245,15 @@ export default function PhotoRecordForm({
       </CollapsibleSection>
 
       <CollapsibleSection title="Deer Link">
-        <div className="di-form-grid" style={formGridStyle}>
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Buck Name</span>
-            <input
-              placeholder="Optional"
-              value={values.buckName}
-              onChange={(event) => updateField("buckName", event.target.value)}
-              style={inputStyle}
-            />
-          </label>
-
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Deer Profile</span>
-            <select
-              value={values.deerProfileId}
-              onChange={(event) =>
-                updateField("deerProfileId", event.target.value)
-              }
-              style={inputStyle}
-            >
-              <option value="">No profile linked</option>
-              {deerProfiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.nickname}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <DeerProfileMultiSelect
+          deerProfiles={deerProfiles}
+          selectedProfileIds={values.deerProfileIds}
+          buckNames={values.buckNames}
+          idPrefix="photo-form"
+          onChange={(deerProfileIds, buckNames) =>
+            onChange({ ...values, deerProfileIds, buckNames })
+          }
+        />
       </CollapsibleSection>
 
       <CollapsibleSection title="Notes">

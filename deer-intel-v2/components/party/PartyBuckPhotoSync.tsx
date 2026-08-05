@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useActiveParty } from "@/components/party/PartyProvider";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
+import { getPhotoDeerProfileIds } from "@/lib/photos";
 import { usePartyBuckPhotos } from "@/lib/useParty";
 import { deletePartyBuckPhoto, upsertPartyBuckPhoto } from "@/lib/partyClient";
 import { getPhotoImage } from "@/lib/imageStore";
@@ -46,16 +47,19 @@ export default function PartyBuckPhotoSync() {
     const byProfile = new Map<string, PhotoTarget[]>();
 
     for (const photo of state.photoRecords) {
-      if (!photo.deerProfileId || !photo.imageId) continue;
-      const list = byProfile.get(photo.deerProfileId) ?? [];
+      // Sharing is keyed by photo id (one share per photo), so a multi-buck
+      // photo is shared under its primary (first) linked buck.
+      const primaryProfileId = getPhotoDeerProfileIds(photo)[0];
+      if (!primaryProfileId || !photo.imageId) continue;
+      const list = byProfile.get(primaryProfileId) ?? [];
       list.push({
         photoId: photo.id,
-        sourceId: photo.deerProfileId,
+        sourceId: primaryProfileId,
         imageId: photo.imageId,
         photoDate: photo.photoDate,
         caption: photo.fileName || photo.notes || "",
       });
-      byProfile.set(photo.deerProfileId, list);
+      byProfile.set(primaryProfileId, list);
     }
 
     const result: PhotoTarget[] = [];

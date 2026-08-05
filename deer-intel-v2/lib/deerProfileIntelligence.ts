@@ -4,6 +4,7 @@ import type { DeerProfile } from "@/types/deerProfile";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { MapPin } from "@/types/mapPin";
 import type { PhotoRecord } from "@/types/photo";
+import { getPhotoBuckNames, photoLinksProfile } from "@/lib/photos";
 
 export type DeerProfileNoteMention = {
   source: string;
@@ -52,15 +53,15 @@ export function getDeerProfileIntelligence({
   const cameraNameById = new Map(
     cameras.map((camera) => [camera.id, camera.name]),
   );
-  const linkedPhotos = photoRecords.filter(
-    (photo) => photo.deerProfileId === profile.id,
+  const linkedPhotos = photoRecords.filter((photo) =>
+    photoLinksProfile(photo, profile.id),
   );
   const mentionedPhotos = photoRecords.filter(
     (photo) =>
-      photo.deerProfileId !== profile.id &&
+      !photoLinksProfile(photo, profile.id) &&
       recordMentionsProfile(profile, [
         photo.fileName,
-        photo.buckName,
+        ...getPhotoBuckNames(photo),
         photo.notes,
       ]),
   );
@@ -273,7 +274,7 @@ function getMaturityStatus({
     profile.notes,
     ...sightingPhotos.flatMap((photo) => [
       photo.fileName,
-      photo.buckName,
+      ...getPhotoBuckNames(photo),
       photo.notes,
     ]),
   ]);
@@ -314,7 +315,13 @@ function getNoteMentions({
   }
 
   photoRecords.forEach((photo) => {
-    if (recordMentionsProfile(profile, [photo.fileName, photo.buckName, photo.notes])) {
+    if (
+      recordMentionsProfile(profile, [
+        photo.fileName,
+        ...getPhotoBuckNames(photo),
+        photo.notes,
+      ])
+    ) {
       mentions.push({
         source: "Photo record",
         detail: [photo.fileName, photo.notes].filter(Boolean).join(": "),

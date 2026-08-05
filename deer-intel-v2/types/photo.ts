@@ -8,8 +8,15 @@ export type PhotoRecord = {
   fileName: string;
   photoDate: string;
   species: string;
+  // A photo can show more than one buck, so links are stored as lists. The
+  // singular `deerProfileId` / `buckName` are kept as the "primary" (first)
+  // link for backward compatibility with older records and existing reads;
+  // `deerProfileIds` / `buckNames` hold the full set. Use the helpers in
+  // `lib/photos` (getPhotoDeerProfileIds / getPhotoBuckNames) to read either.
   deerProfileId?: string;
   buckName?: string;
+  deerProfileIds?: string[];
+  buckNames?: string[];
   // Compass point the animal was headed (from the AI's frame read converted
   // through the camera's facing direction, or entered by hand); unset when
   // the direction wasn't observed.
