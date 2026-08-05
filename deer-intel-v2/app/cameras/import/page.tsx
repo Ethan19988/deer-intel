@@ -35,6 +35,7 @@ import { deletePhotoImage, putPhotoImage } from "@/lib/imageStore";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { describeMoonPhase } from "@/lib/moonPhase";
 import { buildPhotoWeatherSnapshot } from "@/lib/photoWeather";
+import { pickCaptureDateTime } from "@/lib/photoCaptureTime";
 import { readPhotoDateTimeInput } from "@/lib/photoExif";
 import { requestPhotoStamp } from "@/lib/photoStampClient";
 import { COMPASS_16, frameDirectionToHeading } from "@/lib/travelDirection";
@@ -226,9 +227,10 @@ export default function CameraImportPage() {
           storeImportImage(file),
         ]);
         // The AI read identifies the animal and which way it moved through the
-        // frame — the inputs the per-buck travel learning trains on — so it runs
-        // on every photo. EXIF still owns the date (below); the AI's own date
-        // read is only a fallback for metadata-stripped files.
+        // frame — the inputs the per-buck travel learning trains on — and its
+        // printed-stamp read is the true capture time (see extractPhotoMetadata:
+        // a timed stamp beats EXIF, which app/cellular exports rewrite). So it
+        // runs on every photo.
         const stamp = await requestPhotoStamp(
           file,
           units.temperature,
@@ -999,27 +1001,41 @@ function createImportDraft({
 }
 
 function extractPhotoMetadata(file: File, exifDate: string, stampDate: string) {
-  // A trail cam writes the same local capture time into EXIF and onto the
-  // printed stamp, so EXIF — read losslessly, no OCR guesswork — is the date
-  // when present. The AI-read stamp is the fallback for metadata-stripped
-  // files (screenshots, some app exports), where EXIF is gone.
-  if (exifDate) {
-    const parsed = new Date(exifDate);
+  // The printed stamp is the camera's own capture time, burned into the pixels
+  // and immune to the EXIF rewrite that cellular cams and app/share exports do
+  // on download (they stamp DateTimeOriginal with the *download* time). So a
+  // stamp that carries a time wins; EXIF — lossless and exact for photos pulled
+  // straight off the SD card — comes next; a date-only stamp is the last
+  // structured source before falling back to the filename or file date.
+  const resolved = pickCaptureDateTime(exifDate, stampDate);
+
+  if (resolved.source === "stampTime") {
+    const parsed = new Date(resolved.dateTime);
 
     return {
-      photoDate: exifDate,
+      photoDate: resolved.dateTime,
+      extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
+      metadataSource: "Date read from photo stamp",
+    };
+  }
+
+  if (resolved.source === "exif") {
+    const parsed = new Date(resolved.dateTime);
+
+    return {
+      photoDate: resolved.dateTime,
       extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
       metadataSource: "Date read from photo (EXIF)",
     };
   }
 
-  if (stampDate) {
-    const parsed = new Date(
-      stampDate.length <= 10 ? `${stampDate}T12:00` : stampDate,
-    );
+  if (resolved.source === "stampDate") {
+    // A date-only stamp has no time; anchor it to noon for the datetime input.
+    const photoDate = `${resolved.dateTime}T12:00`;
+    const parsed = new Date(photoDate);
 
     return {
-      photoDate: stampDate.length <= 10 ? `${stampDate}T12:00` : stampDate,
+      photoDate,
       extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
       metadataSource: "Date read from photo stamp",
     };
