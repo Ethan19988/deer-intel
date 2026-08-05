@@ -71,12 +71,21 @@ const BEHAVIOR_OPTIONS = [
   "Other",
 ];
 
+// How trustworthy the auto-filled capture time is. "capture" comes from the
+// photo itself (EXIF or the printed info bar) and is the real shutter time;
+// "filename" is a date embedded in the file name; "file" is the file's
+// last-modified stamp — which, for a cellular camera that transmits in batches,
+// is when the batch arrived, not when the shot was taken; "none" means no date
+// was found at all.
+type DateConfidence = "capture" | "filename" | "file" | "none";
+
 type ImportDraft = {
   id: string;
   fileName: string;
   photoDate: string;
   extractedTime: string;
   metadataSource: string;
+  dateConfidence: DateConfidence;
   species: string;
   deerProfileId: string;
   buckName: string;
@@ -731,6 +740,11 @@ export default function CameraImportPage() {
                       }
                       style={inputStyle}
                     />
+                    {dateWarning(draft.dateConfidence) ? (
+                      <span style={dateWarnStyle}>
+                        {dateWarning(draft.dateConfidence)}
+                      </span>
+                    ) : null}
                   </label>
 
                   <label style={fieldStyle}>
@@ -974,6 +988,7 @@ function createImportDraft({
     photoDate: metadata.photoDate,
     extractedTime: metadata.extractedTime,
     metadataSource: metadata.metadataSource,
+    dateConfidence: metadata.dateConfidence,
     species,
     deerProfileId,
     buckName,
@@ -998,6 +1013,21 @@ function createImportDraft({
   };
 }
 
+// Warns when the auto-filled date is not the real capture time, so a cellular
+// camera's batch/arrival time isn't saved as if it were the shutter time.
+// Trusted sources (EXIF, printed info bar) and filename dates get no warning.
+function dateWarning(confidence: DateConfidence): string {
+  if (confidence === "file") {
+    return "This date is the file's — for a cellular camera that's when the batch came through, not when the shot was taken. Set the real capture time.";
+  }
+
+  if (confidence === "none") {
+    return "No date was found in this photo. Set the date and time the shot was actually taken.";
+  }
+
+  return "";
+}
+
 function extractPhotoMetadata(file: File, exifDate: string, stampDate: string) {
   // A trail cam writes the same local capture time into EXIF and onto the
   // printed stamp, so EXIF — read losslessly, no OCR guesswork — is the date
@@ -1010,6 +1040,7 @@ function extractPhotoMetadata(file: File, exifDate: string, stampDate: string) {
       photoDate: exifDate,
       extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
       metadataSource: "Date read from photo (EXIF)",
+      dateConfidence: "capture" as DateConfidence,
     };
   }
 
@@ -1022,6 +1053,7 @@ function extractPhotoMetadata(file: File, exifDate: string, stampDate: string) {
       photoDate: stampDate.length <= 10 ? `${stampDate}T12:00` : stampDate,
       extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
       metadataSource: "Date read from photo stamp",
+      dateConfidence: "capture" as DateConfidence,
     };
   }
 
@@ -1032,6 +1064,7 @@ function extractPhotoMetadata(file: File, exifDate: string, stampDate: string) {
       photoDate: filenameDate.photoDate,
       extractedTime: filenameDate.extractedTime,
       metadataSource: "Date read from filename",
+      dateConfidence: "filename" as DateConfidence,
     };
   }
 
@@ -1042,6 +1075,7 @@ function extractPhotoMetadata(file: File, exifDate: string, stampDate: string) {
       photoDate: toDateTimeInputValue(fileDate),
       extractedTime: timeLabel(fileDate),
       metadataSource: "Date read from file metadata",
+      dateConfidence: "file" as DateConfidence,
     };
   }
 
@@ -1049,6 +1083,7 @@ function extractPhotoMetadata(file: File, exifDate: string, stampDate: string) {
     photoDate: "",
     extractedTime: "",
     metadataSource: "No date metadata found",
+    dateConfidence: "none" as DateConfidence,
   };
 }
 
@@ -1192,6 +1227,20 @@ const readonlyFieldStyle: CSSProperties = {
   alignItems: "center",
   color: "var(--text-muted)",
   fontWeight: 700,
+};
+
+const dateWarnStyle: CSSProperties = {
+  display: "block",
+  marginTop: "0.4rem",
+  padding: "0.55rem 0.7rem",
+  border: "1px solid var(--warning-border)",
+  borderLeft: "4px solid var(--warning-text)",
+  borderRadius: "8px",
+  background: "var(--warning-bg)",
+  color: "var(--text)",
+  fontSize: "0.82rem",
+  fontWeight: 600,
+  lineHeight: 1.4,
 };
 
 const assignmentTextStyle: CSSProperties = {
