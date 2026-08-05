@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import PhotoRecordList from "@/components/photos/PhotoRecordList";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
@@ -6,17 +7,23 @@ import EmptyState from "@/components/ui/EmptyState";
 import type { DeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
 import type { DeerProfileSummary } from "@/lib/deerProfiles";
 import type { DeerTravelIntelligence } from "@/lib/deerTravelIntelligence";
+import type { DeerProfile } from "@/types/deerProfile";
+import type { PhotoRecord } from "@/types/photo";
 
 type DeerProfileCardProps = {
   summary: DeerProfileSummary;
   intelligence: DeerProfileIntelligence;
   travel: DeerTravelIntelligence;
+  photos: PhotoRecord[];
+  deerProfiles: DeerProfile[];
 };
 
 export default function DeerProfileCard({
   summary,
   intelligence,
   travel,
+  photos,
+  deerProfiles,
 }: DeerProfileCardProps) {
   return (
     <Card as="article" variant="subtle" style={cardStyle}>
@@ -41,25 +48,31 @@ export default function DeerProfileCard({
         </div>
       ) : null}
 
-      <div style={intelligenceWrapStyle}>
+      <div style={sectionStackStyle}>
+        <CollapsibleSection
+          title="Travel"
+          description="How this deer moves — where he goes and the winds he moves on"
+          defaultOpen
+        >
+          <DeerTravelPanel travel={travel} />
+        </CollapsibleSection>
+
         <CollapsibleSection
           title="Intelligence"
           description="Patterns from linked photos and notes"
-          defaultOpen={intelligence.hasSightings}
-          variant="bare"
         >
           <DeerProfileIntelligencePanel intelligence={intelligence} />
         </CollapsibleSection>
-      </div>
 
-      <div style={intelligenceWrapStyle}>
         <CollapsibleSection
-          title="Travel"
-          description="How this deer moves, learned from your photos"
-          defaultOpen={travel.hasData}
-          variant="bare"
+          title={`Photos (${photos.length})`}
+          description="Every trail-camera photo linked to this buck"
         >
-          <DeerTravelPanel travel={travel} />
+          <PhotoRecordList
+            photoRecords={photos}
+            deerProfiles={deerProfiles}
+            emptyDescription="No photos linked to this buck yet. Import photos on a camera check, then tag this buck to build his photo history."
+          />
         </CollapsibleSection>
       </div>
     </Card>
@@ -246,7 +259,9 @@ const notesStyle: CSSProperties = {
   borderTop: "1px solid var(--border)",
 };
 
-const intelligenceWrapStyle: CSSProperties = {
+const sectionStackStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
   marginTop: "1rem",
   paddingTop: "1rem",
   borderTop: "1px solid var(--border)",
