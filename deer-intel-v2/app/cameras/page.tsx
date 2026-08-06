@@ -7,7 +7,6 @@ import CameraCard from "@/components/cameras/CameraCard";
 import CameraIntelligenceSection from "@/components/cameras/CameraIntelligenceSection";
 import EmptyState from "@/components/ui/EmptyState";
 import {
-  CalendarIcon,
   CameraIcon,
   ClipboardIcon,
   DeerIcon,
@@ -23,7 +22,7 @@ import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { getCameraIntelligenceSummary } from "@/lib/cameraIntelligence";
-import { getPhotoSummary, photoRecordTime } from "@/lib/photos";
+import { photoRecordTime } from "@/lib/photos";
 import type { Camera } from "@/types/camera";
 
 // Chasing behavior seen on a photo this recent flags the rut-watch banner.
@@ -57,7 +56,6 @@ export default function CamerasPage() {
     cameraChecks: propertyChecks,
     photoRecords: propertyPhotos,
   });
-  const photoSummary = getPhotoSummary(propertyPhotos);
   // Fresh chasing behavior on a photo means the rut is on — say so up top.
   const rutPhoto = propertyPhotos.find(
     (photo) =>
@@ -131,37 +129,6 @@ export default function CamerasPage() {
         />
       ) : (
         <>
-          <div style={statGridStyle}>
-            <StatCard
-              label="Camera Sites"
-              value={propertyCameras.length}
-              detail={`${activeCameraCount} active`}
-              icon={<CameraIcon size={18} />}
-              tone="green"
-            />
-            <StatCard
-              label="Photos"
-              value={photoSummary.totalPhotoRecords}
-              detail="Saved on this property"
-              icon={<ImageIcon size={18} />}
-              tone="neutral"
-            />
-            <StatCard
-              label="Buck Photos"
-              value={photoSummary.buckPhotoRecords}
-              detail="Antlered visitors"
-              icon={<DeerIcon size={18} />}
-              tone="blaze"
-            />
-            <StatCard
-              label="Last Photo"
-              value={photoSummary.mostRecentPhotoDate}
-              detail="Most recent capture"
-              icon={<CalendarIcon size={18} />}
-              tone="neutral"
-            />
-          </div>
-
           {rutPhoto ? (
             <div style={rutBannerStyle}>
               <span style={rutIconStyle} aria-hidden="true">

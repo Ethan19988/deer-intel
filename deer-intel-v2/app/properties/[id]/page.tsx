@@ -738,15 +738,6 @@ export default function PropertyWorkspacePage() {
             content: (
               <div style={tabPanelStyle}>
       <DashboardSection
-        id="property-timeline"
-        eyebrow="Property History"
-        title="Timeline"
-        icon={<CalendarIcon size={18} />}
-      >
-        <PropertyTimeline events={timelineEvents} />
-      </DashboardSection>
-
-      <DashboardSection
         id="hunt-planner"
         eyebrow="Hunt Planner"
         title="Property Hunt Plan"
@@ -785,30 +776,37 @@ export default function PropertyWorkspacePage() {
         </div>
       </DashboardSection>
 
-      <DashboardSection
-        id="intelligence"
-        eyebrow="Intelligence"
-        title="Property Intelligence"
-        icon={<CompassIcon size={18} />}
-      >
-        <PropertyIntelligenceSummary cards={intelligenceCards} />
+      <div style={detailDropdownStackStyle}>
+        <CollapsibleSection
+          title="Timeline"
+          description="This property's history, newest first"
+        >
+          <PropertyTimeline events={timelineEvents} />
+        </CollapsibleSection>
 
-        <Card as="div" variant="subtle" style={advancedToolsStyle}>
-          <h3 style={summaryCardTitleStyle}>Advanced Tools</h3>
-          <div style={moduleGridStyle}>
-            {INTELLIGENCE_MODULES.map((module) => (
-              <DashboardCardLink
-                key={module.title}
-                href={module.href}
-                title={module.title}
-                description={module.description}
-                badge={module.badge}
-                icon={<WorkspaceIcon name={module.icon} />}
-              />
-            ))}
-          </div>
-        </Card>
-      </DashboardSection>
+        <CollapsibleSection
+          title="Property Intelligence"
+          description="Summaries and advanced tools for this property"
+        >
+          <PropertyIntelligenceSummary cards={intelligenceCards} />
+
+          <Card as="div" variant="subtle" style={advancedToolsStyle}>
+            <h3 style={summaryCardTitleStyle}>Advanced Tools</h3>
+            <div style={moduleGridStyle}>
+              {INTELLIGENCE_MODULES.map((module) => (
+                <DashboardCardLink
+                  key={module.title}
+                  href={module.href}
+                  title={module.title}
+                  description={module.description}
+                  badge={module.badge}
+                  icon={<WorkspaceIcon name={module.icon} />}
+                />
+              ))}
+            </div>
+          </Card>
+        </CollapsibleSection>
+      </div>
               </div>
             ),
           },
