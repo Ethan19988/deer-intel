@@ -13,7 +13,6 @@ import PropertyIntelligenceSummary from "@/components/properties/dashboard/Prope
 import PropertyHeader from "@/components/properties/dashboard/PropertyHeader";
 import PropertyTimeline from "@/components/properties/dashboard/PropertyTimeline";
 import RecentActivityList from "@/components/properties/dashboard/RecentActivityList";
-import StatCard from "@/components/properties/dashboard/StatCard";
 import StandSitesSection from "@/components/properties/dashboard/StandSitesSection";
 import WalkTracksSection from "@/components/properties/dashboard/WalkTracksSection";
 import WorkspaceIcon, {
@@ -499,49 +498,71 @@ export default function PropertyWorkspacePage() {
           icon={<ClipboardIcon size={18} />}
           style={panelSectionStyle}
         >
-          <div style={statGridStyle}>
-            <StatCard
-              label="Camera Sites"
-              value={propertyCameras.length}
-              detail={`${activeCameraCount(propertyCameras)} active`}
-              icon={<CameraIcon size={18} />}
-              tone="green"
-            />
-            <StatCard
-              label="Stands"
-              value={standCount}
-              detail="Saved stand sites"
-              icon={<StandIcon size={18} />}
-              tone="green"
-            />
-            <StatCard
-              label="Assets"
-              value={propertyPins.length}
-              detail="Saved map pins"
-              icon={<MapPinIcon size={18} />}
-              tone="neutral"
-            />
-            <StatCard
-              label="Hunts"
-              value={propertyHunts.length}
-              detail="Saved hunt notes"
-              icon={<ClipboardIcon size={18} />}
-              tone="neutral"
-            />
-            <StatCard
-              label="Deer Profiles"
-              value={deerProfileCount}
-              detail="Saved deer history"
-              icon={<DeerIcon size={18} />}
-              tone="blaze"
-            />
-            <StatCard
-              label="Walks"
-              value={propertyWalkTracks.length}
-              detail="Recorded trails"
-              icon={<CompassIcon size={18} />}
-              tone="neutral"
-            />
+          <div style={keyStatListStyle}>
+            {(
+              [
+                {
+                  label: "Camera Sites",
+                  value: propertyCameras.length,
+                  note: `${activeCameraCount(propertyCameras)} active`,
+                  icon: <CameraIcon size={15} />,
+                  tone: "green",
+                },
+                {
+                  label: "Stands",
+                  value: standCount,
+                  note: "",
+                  icon: <StandIcon size={15} />,
+                  tone: "green",
+                },
+                {
+                  label: "Assets",
+                  value: propertyPins.length,
+                  note: "",
+                  icon: <MapPinIcon size={15} />,
+                  tone: "neutral",
+                },
+                {
+                  label: "Hunts",
+                  value: propertyHunts.length,
+                  note: "",
+                  icon: <ClipboardIcon size={15} />,
+                  tone: "neutral",
+                },
+                {
+                  label: "Deer Profiles",
+                  value: deerProfileCount,
+                  note: "",
+                  icon: <DeerIcon size={15} />,
+                  tone: "blaze",
+                },
+                {
+                  label: "Walks",
+                  value: propertyWalkTracks.length,
+                  note: "",
+                  icon: <CompassIcon size={15} />,
+                  tone: "neutral",
+                },
+              ] as const
+            ).map((stat) => (
+              <div key={stat.label} style={keyStatRowStyle}>
+                <span style={keyStatKeyStyle}>
+                  <span
+                    style={{ ...keyStatIconStyle, ...keyStatIconTone[stat.tone] }}
+                    aria-hidden="true"
+                  >
+                    {stat.icon}
+                  </span>
+                  {stat.label}
+                </span>
+                <span style={keyStatValueWrapStyle}>
+                  {stat.note ? (
+                    <span style={keyStatNoteStyle}>{stat.note}</span>
+                  ) : null}
+                  <span style={keyStatValueStyle}>{stat.value}</span>
+                </span>
+              </div>
+            ))}
           </div>
         </DashboardSection>
 
@@ -940,10 +961,83 @@ const panelSectionStyle: CSSProperties = {
   marginTop: "1.75rem",
 };
 
-const statGridStyle: CSSProperties = {
+const keyStatListStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))",
-  gap: "1rem",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(230px, 100%), 1fr))",
+  gap: "0 1.5rem",
+};
+
+const keyStatRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  padding: "0.6rem 0",
+  borderBottom: "1px solid var(--border)",
+};
+
+const keyStatKeyStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.55rem",
+  minWidth: 0,
+  color: "var(--text-faint)",
+  fontSize: "0.82rem",
+  fontWeight: 800,
+  letterSpacing: "0.02em",
+  textTransform: "uppercase",
+};
+
+const keyStatIconStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "1.6rem",
+  height: "1.6rem",
+  borderRadius: "8px",
+  flex: "none",
+};
+
+const keyStatIconTone: Record<"green" | "neutral" | "blaze", CSSProperties> = {
+  green: {
+    background: "var(--accent-tint)",
+    border: "1px solid var(--accent-tint-border)",
+    color: "var(--accent-text)",
+  },
+  neutral: {
+    background: "var(--surface-2)",
+    border: "1px solid var(--border)",
+    color: "var(--text-muted)",
+  },
+  blaze: {
+    background: "var(--accent-2-tint)",
+    border: "1px solid var(--accent-2-tint-border)",
+    color: "var(--accent-2-text)",
+  },
+};
+
+const keyStatValueWrapStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "baseline",
+  gap: "0.5rem",
+  flex: "none",
+};
+
+const keyStatNoteStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontSize: "0.8rem",
+  fontWeight: 600,
+};
+
+const keyStatValueStyle: CSSProperties = {
+  minWidth: "1.5rem",
+  color: "var(--text)",
+  fontFamily: "var(--font-display), system-ui, sans-serif",
+  fontSize: "1.35rem",
+  fontWeight: 800,
+  lineHeight: 1,
+  fontVariantNumeric: "tabular-nums",
+  textAlign: "right",
 };
 
 const moduleGridStyle: CSSProperties = {
