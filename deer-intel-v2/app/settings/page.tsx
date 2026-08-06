@@ -8,6 +8,7 @@ import Card from "@/components/ui/Card";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import PageHeader from "@/components/ui/PageHeader";
 import { GearIcon } from "@/components/ui/FieldIcons";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import Tabs from "@/components/ui/Tabs";
@@ -283,9 +284,13 @@ export default function SettingsPage() {
   // self-contained area (look, alerts, data, offline, account) so a setting is
   // a click away instead of a hunt down the page.
   const generalTab = (
-    <>
-      <Section eyebrow="Appearance" title="Theme">
-        <Card as="div" variant="subtle">
+    <div style={settingsAccordionStyle}>
+      <CollapsibleSection
+        title="Theme"
+        description="How Deer Intel looks, including night mode for the walk in"
+        name="settings-general"
+        defaultOpen
+      >
           <p style={mutedTextStyle}>
             Choose how Deer Intel looks. Night mode uses red on black to protect
             your night vision on the walk in before first light. This is saved
@@ -316,11 +321,13 @@ export default function SettingsPage() {
               );
             })}
           </div>
-        </Card>
-      </Section>
+      </CollapsibleSection>
 
-      <Section eyebrow="Units" title="Measurement Units">
-        <Card as="div" variant="subtle">
+      <CollapsibleSection
+        title="Measurement Units"
+        description="How live weather is shown across the app"
+        name="settings-general"
+      >
           <p style={mutedTextStyle}>
             Choose how live weather is shown across the dashboard, forecast, and
             the live-weather auto-fill. Records you already saved keep the units
@@ -346,11 +353,13 @@ export default function SettingsPage() {
               ]}
             />
           </div>
-        </Card>
-      </Section>
+      </CollapsibleSection>
 
-      <Section eyebrow="Map" title="Default Map Layer">
-        <Card as="div" variant="subtle">
+      <CollapsibleSection
+        title="Default Map Layer"
+        description="Which base layer the map opens on"
+        name="settings-general"
+      >
           <p style={mutedTextStyle}>
             Choose which base layer the map opens on. A shortcut link (like the
             sidebar&apos;s LiDAR) still overrides it for that visit, and you can
@@ -376,11 +385,13 @@ export default function SettingsPage() {
               );
             })}
           </div>
-        </Card>
-      </Section>
+      </CollapsibleSection>
 
-      <Section eyebrow="Map" title="Default Overlays">
-        <Card as="div" variant="subtle">
+      <CollapsibleSection
+        title="Default Overlays"
+        description="Which data overlays the map opens with"
+        name="settings-general"
+      >
           <p style={mutedTextStyle}>
             Choose which data overlays the map opens with. These stack on top of
             the base layer, so any combination can be on. You can still toggle
@@ -407,11 +418,13 @@ export default function SettingsPage() {
               );
             })}
           </div>
-        </Card>
-      </Section>
+      </CollapsibleSection>
 
-      <Section eyebrow="Terrain" title="Sample Terrain Reads">
-        <Card as="div" variant="subtle">
+      <CollapsibleSection
+        title="Sample Terrain Reads"
+        description="Show the built-in Moore Hill & Sideling sample reads"
+        name="settings-general"
+      >
           <p style={mutedTextStyle}>
             Two example properties (Moore Hill, Sideling Hill) ship with a built-in
             high-res terrain read. Leave this on to see them near those spots. Turn
@@ -437,11 +450,13 @@ export default function SettingsPage() {
               </span>
             </button>
           </div>
-        </Card>
-      </Section>
+      </CollapsibleSection>
 
-      <Section eyebrow="Season" title="Season & Rut Calendar">
-        <Card as="div" variant="subtle">
+      <CollapsibleSection
+        title="Season & Rut Calendar"
+        description="Season opener and rut peak for where you hunt"
+        name="settings-general"
+      >
           <p style={mutedTextStyle}>
             Set your season opener and local rut peak to see where you are in the
             season — the phase, a countdown to the peak, and what deer are doing.
@@ -480,9 +495,8 @@ export default function SettingsPage() {
                 : undefined
             }
           />
-        </Card>
-      </Section>
-    </>
+      </CollapsibleSection>
+    </div>
   );
 
   const alertsTab = (
@@ -990,6 +1004,11 @@ const recordCountsSummaryStyle: CSSProperties = {
   fontSize: "0.95rem",
   fontWeight: 600,
   lineHeight: 1.6,
+};
+
+const settingsAccordionStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
 };
 
 const eyebrowStyle: CSSProperties = {
