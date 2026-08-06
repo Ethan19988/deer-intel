@@ -26,14 +26,19 @@ export function getDeerProfileSummaries({
         profilePhotos.map((photo) => photo.cameraCheckId || photo.photoDate),
       );
 
+      // First/last seen span both what you typed and what your linked photos
+      // show. Take the earliest of (manual first seen, oldest photo) and the
+      // latest of (manual last seen, newest photo) so adding a newer photo
+      // pushes "Last Seen" forward instead of being hidden by an older date
+      // typed when the profile was created.
       return {
         profile,
-        firstSeen: profile.firstSeen
-          ? formatDeerProfileDate(profile.firstSeen)
-          : formatDeerProfileDate(earliestPhotoDate(profilePhotos)),
-        lastSeen: profile.lastSeen
-          ? formatDeerProfileDate(profile.lastSeen)
-          : formatDeerProfileDate(latestPhotoDate(profilePhotos)),
+        firstSeen: formatDeerProfileDate(
+          earlierDate(profile.firstSeen, earliestPhotoDate(profilePhotos)),
+        ),
+        lastSeen: formatDeerProfileDate(
+          laterDate(profile.lastSeen, latestPhotoDate(profilePhotos)),
+        ),
         photoCount: profilePhotos.length,
         sightingCount: sightingKeys.size,
       };
@@ -55,6 +60,34 @@ export function formatDeerProfileDate(date: string | undefined) {
     day: "numeric",
     year: "numeric",
   }).format(time);
+}
+
+/** The earlier of two dates; ignores empty/unparseable values. */
+function earlierDate(left?: string, right?: string): string | undefined {
+  return pickDate(left, right, (a, b) => a <= b);
+}
+
+/** The later of two dates; ignores empty/unparseable values. */
+function laterDate(left?: string, right?: string): string | undefined {
+  return pickDate(left, right, (a, b) => a >= b);
+}
+
+function pickDate(
+  left: string | undefined,
+  right: string | undefined,
+  keepLeft: (leftTime: number, rightTime: number) => boolean,
+): string | undefined {
+  const leftTime = left ? dateInputTime(left) : Number.NaN;
+  const rightTime = right ? dateInputTime(right) : Number.NaN;
+  const leftValid = !Number.isNaN(leftTime);
+  const rightValid = !Number.isNaN(rightTime);
+
+  if (leftValid && rightValid) return keepLeft(leftTime, rightTime) ? left : right;
+  if (leftValid) return left;
+  if (rightValid) return right;
+
+  // Neither parses to a real date — keep a manually typed value if there is one.
+  return left || right || undefined;
 }
 
 function earliestPhotoDate(photoRecords: PhotoRecord[]) {
