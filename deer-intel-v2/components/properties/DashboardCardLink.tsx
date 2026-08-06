@@ -7,7 +7,7 @@ type DashboardCardLinkProps = {
   description: string;
   badge?: string;
   icon?: ReactNode;
-  size?: "default" | "large";
+  size?: "compact" | "default" | "large";
   tone?: "default" | "primary";
 };
 

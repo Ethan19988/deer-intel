@@ -27,7 +27,6 @@ import {
   ClipboardIcon,
   CompassIcon,
   DeerIcon,
-  LeafIcon,
   MapIcon,
   MapPinIcon,
   StandIcon,
@@ -430,7 +429,7 @@ export default function PropertyWorkspacePage() {
             title="Add Camera Site"
             description="Add a trail camera to this property."
             icon={<WorkspaceIcon name="cameras" />}
-            size="large"
+            size="compact"
             tone="primary"
           />
           <DashboardCardLink
@@ -438,7 +437,7 @@ export default function PropertyWorkspacePage() {
             title="Add Stand"
             description="Save a stand site, wind notes, and access notes."
             icon={<WorkspaceIcon name="stands" />}
-            size="large"
+            size="compact"
             tone="primary"
           />
           <DashboardCardLink
@@ -446,7 +445,7 @@ export default function PropertyWorkspacePage() {
             title="Add Hunt Log"
             description="Log a sit for this property."
             icon={<WorkspaceIcon name="huntLog" />}
-            size="large"
+            size="compact"
             tone="primary"
           />
           <DashboardCardLink
@@ -458,7 +457,7 @@ export default function PropertyWorkspacePage() {
                 : "Add a camera site first, then add photo records."
             }
             icon={<WorkspaceIcon name="deerHistory" />}
-            size="large"
+            size="compact"
             tone="primary"
           />
         </div>
@@ -475,13 +474,9 @@ export default function PropertyWorkspacePage() {
           title="Open Property Map"
           description="Scout this property, place assets, check camera sites, and review stands."
           icon={<WorkspaceIcon name="map" />}
-          size="large"
+          size="compact"
           tone="primary"
         />
-        <p style={mapSummaryTextStyle}>
-          Opening the map from here keeps the active property set to{" "}
-          {property.name}.
-        </p>
       </DashboardSection>
 
       <div style={overviewGridStyle}>
@@ -594,30 +589,6 @@ export default function PropertyWorkspacePage() {
         </div>
       </DashboardSection>
 
-      <DashboardSection
-        id="walks"
-        eyebrow="Field History"
-        title="Saved Walks"
-        icon={<MapPinIcon size={18} />}
-      >
-        <WalkTracksSection
-          tracks={propertyWalkTracks}
-          onDelete={deleteWalkTrack}
-        />
-      </DashboardSection>
-
-      <DashboardSection eyebrow="Season" title="Where the Season Stands" icon={<LeafIcon size={18} />}>
-        <SeasonRutCard
-          latitude={
-            hasPropertyCoordinate(property) ? property.latitude : undefined
-          }
-        />
-      </DashboardSection>
-
-      <DashboardSection eyebrow="Patterns" title="What Produces Deer Here" icon={<DeerIcon size={18} />}>
-        <PropertyPatternReport report={patternReport} />
-      </DashboardSection>
-
       <DashboardSection eyebrow="Conditions" title="Weather" icon={<SunIcon size={18} />}>
         <LiveWeatherPanel
           point={weatherPoint}
@@ -636,35 +607,68 @@ export default function PropertyWorkspacePage() {
         </div>
       </DashboardSection>
 
-      <DashboardSection eyebrow="Terrain" title="High-Res Terrain (LiDAR)" icon={<MapIcon size={18} />}>
-        <PipelineCommandCard
-          propertyName={property.name}
-          center={weatherPoint}
-          extraCoords={[
-            ...propertyPins.map((pin) => ({ lat: pin.lat, lng: pin.lng })),
-            ...propertyCameras
-              .filter(
-                (camera) =>
-                  typeof camera.latitude === "number" &&
-                  typeof camera.longitude === "number",
-              )
-              .map((camera) => ({
-                lat: camera.latitude as number,
-                lng: camera.longitude as number,
-              })),
-          ]}
-        />
-        <div style={{ marginTop: 12 }}>
-          <GenerateHighResButton
-            property={{
-              id: property.id,
-              name: property.name,
-              huntArea: property.huntArea,
-              food: propertyFood,
-            }}
+      <div style={detailDropdownStackStyle}>
+        <CollapsibleSection
+          title="Saved Walks"
+          description="Trails you've recorded on this property"
+        >
+          <WalkTracksSection
+            tracks={propertyWalkTracks}
+            onDelete={deleteWalkTrack}
           />
-        </div>
-      </DashboardSection>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="Where the Season Stands"
+          description="Rut timing for your latitude"
+        >
+          <SeasonRutCard
+            latitude={
+              hasPropertyCoordinate(property) ? property.latitude : undefined
+            }
+          />
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="What Produces Deer Here"
+          description="Patterns from your logged hunts and sightings"
+        >
+          <PropertyPatternReport report={patternReport} />
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="High-Res Terrain (LiDAR)"
+          description="Generate detailed LiDAR terrain for this property"
+        >
+          <PipelineCommandCard
+            propertyName={property.name}
+            center={weatherPoint}
+            extraCoords={[
+              ...propertyPins.map((pin) => ({ lat: pin.lat, lng: pin.lng })),
+              ...propertyCameras
+                .filter(
+                  (camera) =>
+                    typeof camera.latitude === "number" &&
+                    typeof camera.longitude === "number",
+                )
+                .map((camera) => ({
+                  lat: camera.latitude as number,
+                  lng: camera.longitude as number,
+                })),
+            ]}
+          />
+          <div style={{ marginTop: 12 }}>
+            <GenerateHighResButton
+              property={{
+                id: property.id,
+                name: property.name,
+                huntArea: property.huntArea,
+                food: propertyFood,
+              }}
+            />
+          </div>
+        </CollapsibleSection>
+      </div>
               </div>
             ),
           },
@@ -935,14 +939,14 @@ const summaryCardTitleStyle: CSSProperties = {
   lineHeight: 1.25,
 };
 
-const mapSummaryTextStyle: CSSProperties = {
-  margin: "1rem 0 0",
-  color: "var(--text-muted)",
-  lineHeight: 1.5,
-};
-
 const weatherHistoryWrapStyle: CSSProperties = {
   marginTop: "1rem",
+};
+
+const detailDropdownStackStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
+  marginTop: "1.75rem",
 };
 
 const advancedToolsStyle: CSSProperties = {
@@ -1057,6 +1061,7 @@ const insightCardStyle: CSSProperties = {
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: "1rem",
+  padding: "0.8rem 1rem",
 };
 
 const insightTitleStyle: CSSProperties = {
