@@ -7,6 +7,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import Section from "@/components/ui/Section";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import Card from "@/components/ui/Card";
+import ErrorBoundary from "@/components/ui/ErrorBoundary";
 import { DeerIcon } from "@/components/ui/FieldIcons";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useActiveParty } from "@/components/party/PartyProvider";
@@ -32,22 +33,30 @@ export default function HitListPage() {
     [state.properties],
   );
 
-  // Each tracked buck with its computed movement pattern.
+  // Each tracked buck with its computed movement pattern. A single buck whose
+  // data trips up the intelligence read is skipped rather than blanking the
+  // whole page.
   const myBucks = useMemo(
     () =>
-      state.deerProfiles.map((profile) => {
-        const propertyName = propertyNameById.get(profile.propertyId) ?? "";
-        const intel = getDeerProfileIntelligence({
-          profile,
-          propertyName,
-          cameras: state.cameras,
-          photoRecords: state.photoRecords,
-          cameraChecks: state.cameraChecks,
-          hunts: state.hunts,
-          pins: state.pins,
-        });
-        return { profile, propertyName, intel };
-      }),
+      state.deerProfiles
+        .map((profile) => {
+          try {
+            const propertyName = propertyNameById.get(profile.propertyId) ?? "";
+            const intel = getDeerProfileIntelligence({
+              profile,
+              propertyName,
+              cameras: state.cameras,
+              photoRecords: state.photoRecords,
+              cameraChecks: state.cameraChecks,
+              hunts: state.hunts,
+              pins: state.pins,
+            });
+            return { profile, propertyName, intel };
+          } catch {
+            return null;
+          }
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null),
     [state, propertyNameById],
   );
 
@@ -97,41 +106,45 @@ export default function HitListPage() {
         </CollapsibleSection>
       )}
 
-      <Section eyebrow="Your bucks" title={`Tracking ${myBucks.length} buck${myBucks.length === 1 ? "" : "s"}`}>
-        {myBucks.length === 0 ? (
-          <Card>
-            <p style={{ margin: 0, color: "var(--text-muted)" }}>
-              No bucks yet. Add deer profiles on a property and link trail-cam
-              photos — the movement pattern builds itself from there.
-            </p>
-          </Card>
-        ) : (
-          <div style={gridStyle}>
-            {myBucks.map(({ profile, propertyName, intel }) => (
-              <BuckCard
-                key={profile.id}
-                title={profile.nickname.trim() || "Unnamed buck"}
-                subtitle={propertyName}
-                badges={[profile.estimatedAge.trim(), intel.maturityStatus.title].filter(Boolean)}
-                stats={[
-                  { label: "Sightings", value: String(intel.sightingCount) },
-                  { label: "Last seen", value: intel.mostRecentSighting.title },
-                  { label: "Best time", value: intel.commonTimeOfDay.title },
-                  { label: "Common area", value: intel.commonArea.title },
-                  {
-                    label: "Cameras",
-                    value: intel.associatedCameraSites.join(", ") || "—",
-                  },
-                ]}
-                notable={profile.notes.trim()}
-              />
-            ))}
-          </div>
-        )}
-      </Section>
+      <ErrorBoundary fallbackTitle="Your buck list couldn't load">
+        <Section eyebrow="Your bucks" title={`Tracking ${myBucks.length} buck${myBucks.length === 1 ? "" : "s"}`}>
+          {myBucks.length === 0 ? (
+            <Card>
+              <p style={{ margin: 0, color: "var(--text-muted)" }}>
+                No bucks yet. Add deer profiles on a property and link trail-cam
+                photos — the movement pattern builds itself from there.
+              </p>
+            </Card>
+          ) : (
+            <div style={gridStyle}>
+              {myBucks.map(({ profile, propertyName, intel }) => (
+                <BuckCard
+                  key={profile.id}
+                  title={(profile.nickname ?? "").trim() || "Unnamed buck"}
+                  subtitle={propertyName}
+                  badges={[(profile.estimatedAge ?? "").trim(), intel.maturityStatus.title].filter(Boolean)}
+                  stats={[
+                    { label: "Sightings", value: String(intel.sightingCount) },
+                    { label: "Last seen", value: intel.mostRecentSighting.title },
+                    { label: "Best time", value: intel.commonTimeOfDay.title },
+                    { label: "Common area", value: intel.commonArea.title },
+                    {
+                      label: "Cameras",
+                      value: intel.associatedCameraSites.join(", ") || "—",
+                    },
+                  ]}
+                  notable={(profile.notes ?? "").trim()}
+                />
+              ))}
+            </div>
+          )}
+        </Section>
+      </ErrorBoundary>
 
       {activeParty ? (
-        <PartyHitList partyId={activeParty.id} partyName={activeParty.name} selfId={user?.id ?? null} />
+        <ErrorBoundary fallbackTitle="The party hit list couldn't load">
+          <PartyHitList partyId={activeParty.id} partyName={activeParty.name} selfId={user?.id ?? null} />
+        </ErrorBoundary>
       ) : null}
     </PageShell>
   );
