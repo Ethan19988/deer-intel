@@ -7,18 +7,9 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import PageHeader from "@/components/ui/PageHeader";
-import {
-  CameraIcon,
-  ClipboardIcon,
-  DeerIcon,
-  GearIcon,
-  ImageIcon,
-  MapPinIcon,
-  StandIcon,
-} from "@/components/ui/FieldIcons";
+import { GearIcon } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
-import StatCard from "@/components/ui/StatCard";
 import Tabs from "@/components/ui/Tabs";
 import AccountPanel from "@/components/auth/AccountPanel";
 import DataPrivacyManager from "@/components/settings/DataPrivacyManager";
@@ -531,50 +522,14 @@ export default function SettingsPage() {
       </Section>
 
       <Section eyebrow="Saved Data" title="Local Record Counts">
-        <div style={statGridStyle}>
-          <StatCard
-            label="Properties"
-            value={state.properties.length}
-            detail="Hunting properties"
-            icon={<MapPinIcon size={18} />}
-            tone="green"
-          />
-          <StatCard
-            label="Camera Sites"
-            value={state.cameras.length}
-            detail={`${state.cameraChecks.length} checks saved`}
-            icon={<CameraIcon size={18} />}
-            tone="green"
-          />
-          <StatCard
-            label="Stands"
-            value={state.stands.length}
-            detail="Stand workspaces"
-            icon={<StandIcon size={18} />}
-            tone="neutral"
-          />
-          <StatCard
-            label="Hunts"
-            value={state.hunts.length}
-            detail="Hunt log entries"
-            icon={<ClipboardIcon size={18} />}
-            tone="neutral"
-          />
-          <StatCard
-            label="Photo Records"
-            value={state.photoRecords.length}
-            detail="Camera history"
-            icon={<ImageIcon size={18} />}
-            tone="neutral"
-          />
-          <StatCard
-            label="Deer Profiles"
-            value={state.deerProfiles.length}
-            detail="Tracked deer"
-            icon={<DeerIcon size={18} />}
-            tone="blaze"
-          />
-        </div>
+        <Card as="div" variant="subtle">
+          <p style={recordCountsSummaryStyle}>
+            {state.properties.length} properties · {state.cameras.length} cameras
+            ({state.cameraChecks.length} checks) · {state.stands.length} stands ·{" "}
+            {state.hunts.length} hunts · {state.photoRecords.length} photos ·{" "}
+            {state.deerProfiles.length} deer profiles
+          </p>
+        </Card>
       </Section>
 
       <Section eyebrow="Backup" title="Export & Import Data">
@@ -1029,10 +984,12 @@ const optionDescStyle: CSSProperties = {
   lineHeight: 1.4,
 };
 
-const statGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 100%), 1fr))",
-  gap: "1rem",
+const recordCountsSummaryStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text-muted)",
+  fontSize: "0.95rem",
+  fontWeight: 600,
+  lineHeight: 1.6,
 };
 
 const eyebrowStyle: CSSProperties = {

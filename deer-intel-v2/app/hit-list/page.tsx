@@ -5,6 +5,7 @@ import Link from "next/link";
 import PageShell from "@/components/ui/PageShell";
 import PageHeader from "@/components/ui/PageHeader";
 import Section from "@/components/ui/Section";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import Card from "@/components/ui/Card";
 import { DeerIcon } from "@/components/ui/FieldIcons";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -60,38 +61,40 @@ export default function HitListPage() {
       />
 
       {available ? (
-        <Section eyebrow="Share" title="Share your hit list">
-          <Card>
-            <label style={toggleRowStyle}>
-              <input
-                type="checkbox"
-                checked={buckSharingEnabled}
-                onChange={(e) => setBuckSharingEnabled(e.target.checked)}
-                style={{ marginTop: "0.2rem", width: "1.1rem", height: "1.1rem" }}
-                disabled={!activeParty}
-              />
-              <span>
-                <strong>Share my buck hit list with the party</strong>
-                <span style={mutedBlockStyle}>
-                  {activeParty
-                    ? `Your bucks and their movement patterns show up on every ${activeParty.name} member's hit list. Photos stay private to your device — this shares the card and stats only.`
-                    : "Pick an active party on the Party page first, then turn this on."}
-                </span>
+        <CollapsibleSection
+          title="Share your hit list"
+          description="Show your bucks and their patterns to your party"
+        >
+          <label style={toggleRowStyle}>
+            <input
+              type="checkbox"
+              checked={buckSharingEnabled}
+              onChange={(e) => setBuckSharingEnabled(e.target.checked)}
+              style={{ marginTop: "0.2rem", width: "1.1rem", height: "1.1rem" }}
+              disabled={!activeParty}
+            />
+            <span>
+              <strong>Share my buck hit list with the party</strong>
+              <span style={mutedBlockStyle}>
+                {activeParty
+                  ? `Your bucks and their movement patterns show up on every ${activeParty.name} member's hit list. Photos stay private to your device — this shares the card and stats only.`
+                  : "Pick an active party on the Party page first, then turn this on."}
               </span>
-            </label>
-          </Card>
-        </Section>
+            </span>
+          </label>
+        </CollapsibleSection>
       ) : (
-        <Section eyebrow="Share" title="Share your hit list">
-          <Card>
-            <p style={{ margin: 0, color: "var(--text-muted)" }}>
-              <Link href="/login" style={linkStyle}>
-                Sign in
-              </Link>{" "}
-              and join a party to share your hit list with the crew.
-            </p>
-          </Card>
-        </Section>
+        <CollapsibleSection
+          title="Share your hit list"
+          description="Sign in and join a party to share with the crew"
+        >
+          <p style={{ margin: 0, color: "var(--text-muted)" }}>
+            <Link href="/login" style={linkStyle}>
+              Sign in
+            </Link>{" "}
+            and join a party to share your hit list with the crew.
+          </p>
+        </CollapsibleSection>
       )}
 
       <Section eyebrow="Your bucks" title={`Tracking ${myBucks.length} buck${myBucks.length === 1 ? "" : "s"}`}>

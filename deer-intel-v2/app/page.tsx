@@ -604,8 +604,8 @@ const briefGridStyle: CSSProperties = {
 };
 
 const briefItemStyle: CSSProperties = {
-  minHeight: "128px",
-  padding: "0.95rem",
+  minHeight: "96px",
+  padding: "0.85rem",
   border: "1px solid var(--border)",
   borderRadius: "12px",
   background: "var(--surface)",
