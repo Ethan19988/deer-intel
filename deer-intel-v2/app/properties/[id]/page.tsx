@@ -20,6 +20,7 @@ import WorkspaceIcon, {
 } from "@/components/properties/dashboard/WorkspaceIcon";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import {
   CalendarIcon,
   CameraIcon,
@@ -441,14 +442,6 @@ export default function PropertyWorkspacePage() {
             tone="primary"
           />
           <DashboardCardLink
-            href="/map"
-            title="Add Asset"
-            description="Open the map to add sign, bedding, food, water, trails, parking, or gates."
-            icon={<WorkspaceIcon name="map" />}
-            size="large"
-            tone="primary"
-          />
-          <DashboardCardLink
             href={`/hunt-log?propertyId=${propertyId}`}
             title="Add Hunt Log"
             description="Log a sit for this property."
@@ -625,18 +618,22 @@ export default function PropertyWorkspacePage() {
         <PropertyPatternReport report={patternReport} />
       </DashboardSection>
 
-      <DashboardSection eyebrow="Conditions" title="Today's Conditions" icon={<SunIcon size={18} />}>
+      <DashboardSection eyebrow="Conditions" title="Weather" icon={<SunIcon size={18} />}>
         <LiveWeatherPanel
           point={weatherPoint}
           emptyHint={`Add a saved location, map pins, or a camera to ${property.name} to load live weather.`}
         />
-      </DashboardSection>
-
-      <DashboardSection eyebrow="Conditions" title="Recent Weather" icon={<CalendarIcon size={18} />}>
-        <WeatherHistoryPanel
-          point={weatherPoint}
-          emptyHint={`Add a saved location, map pins, or a camera to ${property.name} to load weather history.`}
-        />
+        <div style={weatherHistoryWrapStyle}>
+          <CollapsibleSection
+            title="Recent Weather"
+            description="The last several days of conditions on this property"
+          >
+            <WeatherHistoryPanel
+              point={weatherPoint}
+              emptyHint={`Add a saved location, map pins, or a camera to ${property.name} to load weather history.`}
+            />
+          </CollapsibleSection>
+        </div>
       </DashboardSection>
 
       <DashboardSection eyebrow="Terrain" title="High-Res Terrain (LiDAR)" icon={<MapIcon size={18} />}>
@@ -942,6 +939,10 @@ const mapSummaryTextStyle: CSSProperties = {
   margin: "1rem 0 0",
   color: "var(--text-muted)",
   lineHeight: 1.5,
+};
+
+const weatherHistoryWrapStyle: CSSProperties = {
+  marginTop: "1rem",
 };
 
 const advancedToolsStyle: CSSProperties = {
