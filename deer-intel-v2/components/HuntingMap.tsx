@@ -91,6 +91,7 @@ import OfflineMapsPanel, {
 } from "@/components/map/OfflineMapsPanel";
 import CameraFacingCone from "@/components/map/CameraFacingCone";
 import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
+import { pinMarkerSvg } from "@/lib/mapPinIcon";
 import UserLocationMarker from "@/components/map/UserLocationMarker";
 import PartyMembersLayer from "@/components/map/PartyMembersLayer";
 import PartyPinsLayer from "@/components/map/PartyPinsLayer";
@@ -150,6 +151,8 @@ import {
   getAssetEditHref,
   geocodeAddressOrPlace,
   MAP_LAYER_BY_ID,
+  PIN_LAYER_LOOKUP,
+  ASSET_LAYER_LOOKUP,
   pinToMapAsset,
   CONTOUR_WMS_URL,
   CONTOUR_WMS_COARSE_LINES,
@@ -233,6 +236,32 @@ function huntAreaVertexIcon(pointNumber: number) {
     html: `<span class="di-area-vertex">${pointNumber}</span>`,
     iconSize: [24, 24],
     iconAnchor: [12, 12],
+  });
+}
+
+// The draggable preview marker for a press-and-hold placement: the real
+// teardrop pin for the armed type, drawn a touch larger and "selected" so it
+// reads as the active, grab-me marker while the hunter nudges it into place.
+function pendingPinIcon(type: PinType) {
+  const layerId = PIN_LAYER_LOOKUP[type];
+  const style =
+    layerId === "other"
+      ? { color: "#f7d17b", background: "#2f230f" }
+      : ASSET_LAYER_LOOKUP[layerId];
+  const width = 42;
+  const height = Math.round((width * 34) / 24);
+
+  return divIcon({
+    className: "deer-intel-map-marker di-pending-pin-icon",
+    html: pinMarkerSvg({
+      color: style.color,
+      background: style.background,
+      glyphKey: layerId,
+      width,
+      selected: true,
+    }),
+    iconSize: [width, height],
+    iconAnchor: [width / 2, height],
   });
 }
 
@@ -426,6 +455,135 @@ function ClickToAimCamera({
       onAim(event.latlng.lat, event.latlng.lng);
     },
   });
+
+  return null;
+}
+
+// How long a stationary press must be held before a pin drops, and how far a
+// finger may drift in that window before we treat the gesture as a pan instead.
+const LONG_PRESS_MS = 550;
+const LONG_PRESS_MOVE_TOLERANCE_PX = 12;
+
+// Press-and-hold anywhere on the map to drop a pending pin the hunter can then
+// drag/tap into the exact spot and confirm. A hold that pans (finger drifts) or
+// lifts early is not a placement. Right-click (contextmenu) does the same on a
+// desktop for parity and testing; the timer path and contextmenu are de-duped
+// so a mobile long-press — which raises both on some browsers — drops one pin.
+function LongPressToPlacePin({
+  enabled,
+  onLongPress,
+}: {
+  enabled: boolean;
+  onLongPress: (lat: number, lng: number) => void;
+}) {
+  const map = useMap();
+  const enabledRef = useRef(enabled);
+  const onLongPressRef = useRef(onLongPress);
+
+  useEffect(() => {
+    enabledRef.current = enabled;
+  }, [enabled]);
+
+  useEffect(() => {
+    onLongPressRef.current = onLongPress;
+  }, [onLongPress]);
+
+  useEffect(() => {
+    const container = map.getContainer();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let startClientX = 0;
+    let startClientY = 0;
+    let lastFiredAt = 0;
+
+    function clearTimer() {
+      if (timer !== null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    }
+
+    function fireAt(clientX: number, clientY: number) {
+      const rect = container.getBoundingClientRect();
+      const latlng = map.containerPointToLatLng([
+        clientX - rect.left,
+        clientY - rect.top,
+      ]);
+      lastFiredAt = Date.now();
+      onLongPressRef.current(latlng.lat, latlng.lng);
+    }
+
+    // A hold on an existing marker or a map control is not a placement — those
+    // have their own jobs. Only a hold on the bare map surface drops a pin.
+    function isMapSurface(target: EventTarget | null) {
+      return !(
+        target instanceof Element &&
+        target.closest(".leaflet-marker-icon, .leaflet-control")
+      );
+    }
+
+    function handleTouchStart(event: TouchEvent) {
+      clearTimer();
+      if (
+        !enabledRef.current ||
+        event.touches.length !== 1 ||
+        !isMapSurface(event.target)
+      ) {
+        return;
+      }
+
+      const touch = event.touches[0];
+      startClientX = touch.clientX;
+      startClientY = touch.clientY;
+      timer = setTimeout(() => {
+        timer = null;
+        fireAt(startClientX, startClientY);
+      }, LONG_PRESS_MS);
+    }
+
+    function handleTouchMove(event: TouchEvent) {
+      if (timer === null) return;
+
+      const touch = event.touches[0];
+      if (!touch) return;
+
+      if (
+        Math.abs(touch.clientX - startClientX) > LONG_PRESS_MOVE_TOLERANCE_PX ||
+        Math.abs(touch.clientY - startClientY) > LONG_PRESS_MOVE_TOLERANCE_PX
+      ) {
+        clearTimer();
+      }
+    }
+
+    function handleContextMenu(event: MouseEvent) {
+      if (!enabledRef.current || !isMapSurface(event.target)) return;
+
+      // Always swallow the browser's own context menu over the map.
+      event.preventDefault();
+
+      // A touch long-press already dropped a pin via the timer on some
+      // browsers; don't drop a second one for the contextmenu it also raises.
+      if (Date.now() - lastFiredAt < 700) return;
+
+      fireAt(event.clientX, event.clientY);
+    }
+
+    container.addEventListener("touchstart", handleTouchStart, {
+      passive: true,
+    });
+    container.addEventListener("touchmove", handleTouchMove, { passive: true });
+    container.addEventListener("touchend", clearTimer);
+    container.addEventListener("touchcancel", clearTimer);
+    container.addEventListener("contextmenu", handleContextMenu);
+
+    return () => {
+      clearTimer();
+      container.removeEventListener("touchstart", handleTouchStart);
+      container.removeEventListener("touchmove", handleTouchMove);
+      container.removeEventListener("touchend", clearTimer);
+      container.removeEventListener("touchcancel", clearTimer);
+      container.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, [map]);
 
   return null;
 }
@@ -982,6 +1140,13 @@ export default function HuntingMap() {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [isMobileAssetSheetOpen, setIsMobileAssetSheetOpen] = useState(false);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
+  // Press-and-hold placement: a pending pin dropped by a map long-press that the
+  // hunter drags/taps into the exact spot before confirming. Uses the armed
+  // pinType, so a hold "just drops a pin" without opening the Layers picker.
+  const [pendingPin, setPendingPin] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   // Pin being relocated via "Move Pin" — the next map tap becomes its new spot.
   // Point-the-camera mode: tap the map where the lens looks and the bearing
   // from the camera to that spot becomes its facing direction. Taps only move
@@ -1010,7 +1175,7 @@ export default function HuntingMap() {
   const [areaPointMessage, setAreaPointMessage] = useState("");
   const [showCoordEntry, setShowCoordEntry] = useState(false);
   const [pinBoxMessage, setPinBoxMessage] = useState(
-    "Tap a pin to place it, or drag it onto the map.",
+    "Tap a pin to place it, drag it onto the map, or press and hold the map to drop one.",
   );
   const [isSearching, setIsSearching] = useState(false);
   const [searchMessage, setSearchMessage] = useState("");
@@ -1649,6 +1814,7 @@ export default function HuntingMap() {
 
   function selectProperty(propertyId: string) {
     if (isDrawingArea) cancelAreaDraw();
+    setPendingPin(null);
 
     updateDeerIntelStore((currentState) => ({
       ...currentState,
@@ -1661,6 +1827,7 @@ export default function HuntingMap() {
 
     setIsPlacingPin(false);
     setMovingPin(null);
+    setPendingPin(null);
     setIsDrawingArea(true);
     setDraftAreaPoints(huntArea ? [...huntArea] : []);
     setAreaCoordInput("");
@@ -1903,6 +2070,7 @@ export default function HuntingMap() {
 
     setPinType(type);
     setMovingPin(null);
+    setPendingPin(null);
     setIsPlacingPin(true);
     setPinBoxMessage(`Tap map to place ${type}`);
     setLayersOpen(false);
@@ -1911,6 +2079,35 @@ export default function HuntingMap() {
   function cancelPinPlacement() {
     setIsPlacingPin(false);
     setPinBoxMessage("Pin placement canceled.");
+  }
+
+  // A map long-press drops a draggable pin of the armed type at that spot; the
+  // hunter then fine-tunes its position (drag the marker or tap a new spot) and
+  // confirms. Ignored while another map mode owns taps.
+  function startPendingPinAt(lat: number, lng: number) {
+    if (pinBoxDisabled || isPlacingPin || movingPin || aimingTarget) return;
+
+    setLayersOpen(false);
+    setPendingPin({ lat, lng });
+    setPinBoxMessage(`Drag the ${pinType} to place it, then Confirm.`);
+  }
+
+  function movePendingPin(lat: number, lng: number) {
+    setPendingPin((current) => (current ? { lat, lng } : current));
+  }
+
+  function cancelPendingPin() {
+    setPendingPin(null);
+    setPinBoxMessage("Pin placement canceled.");
+  }
+
+  function confirmPendingPin() {
+    if (!pendingPin) return;
+
+    const saved = createPinAtLocation(pinType, pendingPin.lat, pendingPin.lng);
+    setPendingPin(null);
+
+    if (!saved) setPinBoxMessage("Pin placement canceled.");
   }
 
   function createPinAtLocation(type: PinType, lat: number, lng: number) {
@@ -2043,6 +2240,7 @@ export default function HuntingMap() {
     if (!selectedPin) return;
 
     setIsPlacingPin(false);
+    setPendingPin(null);
     setMovingPin({
       id: selectedPin.id,
       label: selectedAsset?.label ?? selectedPin.type,
@@ -2091,6 +2289,7 @@ export default function HuntingMap() {
         : selectedPin?.facingDirection) ?? "";
 
     setIsPlacingPin(false);
+    setPendingPin(null);
     setAimingTarget({
       kind: selectedAsset.source,
       id: selectedAsset.sourceId,
@@ -2400,6 +2599,7 @@ export default function HuntingMap() {
     isNarrowViewport &&
     (Boolean(aimingTarget) ||
       Boolean(movingPin) ||
+      Boolean(pendingPin) ||
       isPlacingPin ||
       isDrawingArea);
 
@@ -2883,7 +3083,11 @@ export default function HuntingMap() {
                 period={movementPeriod}
                 outlookScore={movementOutlook?.score ?? null}
                 tapEnabled={
-                  !isPlacingPin && !isDrawingArea && !movingPin && !aimingTarget
+                  !isPlacingPin &&
+                  !isDrawingArea &&
+                  !movingPin &&
+                  !aimingTarget &&
+                  !pendingPin
                 }
               />
             ) : null}
@@ -2908,7 +3112,11 @@ export default function HuntingMap() {
             <ParcelTilesLayer
               enabled
               pickEnabled={
-                !isPlacingPin && !isDrawingArea && !movingPin && !aimingTarget
+                !isPlacingPin &&
+                !isDrawingArea &&
+                !movingPin &&
+                !aimingTarget &&
+                !pendingPin
               }
               onOwnerPick={handleTileOwnerPick}
             />
@@ -2967,6 +3175,22 @@ export default function HuntingMap() {
             <ClickToMovePin
               enabled={Boolean(movingPin)}
               onMovePin={movePinToLocation}
+            />
+            <LongPressToPlacePin
+              enabled={
+                !pinBoxDisabled &&
+                !isPlacingPin &&
+                !movingPin &&
+                !aimingTarget &&
+                !pendingPin
+              }
+              onLongPress={startPendingPinAt}
+            />
+            {/* While a pending pin is live, a plain map tap relocates it — the
+                second way to fine-tune its spot alongside dragging the marker. */}
+            <ClickToMovePin
+              enabled={Boolean(pendingPin)}
+              onMovePin={movePendingPin}
             />
             <ClickToAimCamera
               enabled={Boolean(aimingTarget)}
@@ -3041,6 +3265,22 @@ export default function HuntingMap() {
                 onSelect={() => selectAsset(asset.id)}
               />
             ))}
+
+            {pendingPin ? (
+              <Marker
+                position={[pendingPin.lat, pendingPin.lng]}
+                icon={pendingPinIcon(pinType)}
+                draggable
+                zIndexOffset={2000}
+                eventHandlers={{
+                  dragend: (event) => {
+                    const latlng = event.target?.getLatLng();
+                    if (!latlng) return;
+                    movePendingPin(latlng.lat, latlng.lng);
+                  },
+                }}
+              />
+            ) : null}
 
             {selectedSearchResult ? (
               <MapSearchResultMarker
@@ -3151,6 +3391,30 @@ export default function HuntingMap() {
           {mapOverlayMessages.length > 0 ? (
             <div className="di-map-notice" style={propertyLinesNoticeStyle}>
               {mapOverlayMessages.join(" ")}
+            </div>
+          ) : null}
+
+          {pendingPin && !isDrawingArea ? (
+            <div className="di-area-pill" style={drawActionBarStyle}>
+              <span style={drawActionStatusStyle}>
+                Drag the {pinType} to the right spot
+              </span>
+              <div style={drawActionButtonRowStyle}>
+                <button
+                  type="button"
+                  style={drawSecondaryButtonStyle}
+                  onClick={cancelPendingPin}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  style={drawPrimaryButtonStyle}
+                  onClick={confirmPendingPin}
+                >
+                  Confirm
+                </button>
+              </div>
             </div>
           ) : null}
 
