@@ -268,6 +268,43 @@ function routePointIcon(pointNumber: number, unsafe: boolean) {
   });
 }
 
+// Blood-trail markers: the hit site (H), each blood find (a red dot), and the
+// recovery spot (✓). All share the vertex-icon class so Leaflet's default white
+// box is cleared.
+function bloodHitIcon() {
+  return divIcon({
+    className: "di-area-vertex-icon",
+    html: `<span class="di-area-vertex" style="background:#b91c1c;border-color:#ffffff">H</span>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+}
+
+function bloodDotIcon() {
+  return divIcon({
+    className: "di-area-vertex-icon",
+    html: `<span style="display:block;width:13px;height:13px;border-radius:999px;background:#e11d48;border:2px solid #ffffff;box-shadow:0 1px 3px rgba(0,0,0,0.5)"></span>`,
+    iconSize: [17, 17],
+    iconAnchor: [8, 8],
+  });
+}
+
+function bloodRecoveredIcon() {
+  return divIcon({
+    className: "di-area-vertex-icon",
+    html: `<span class="di-area-vertex" style="background:#1f7a37;border-color:#ffffff">✓</span>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+  });
+}
+
+const BLOOD_TRAIL_PATH_OPTIONS = {
+  color: "#e11d48",
+  weight: 3,
+  opacity: 0.9,
+  dashArray: "5 6",
+};
+
 // The draggable preview marker for a press-and-hold placement: the real
 // teardrop pin for the armed type, drawn a touch larger and "selected" so it
 // reads as the active, grab-me marker while the hunter nudges it into place.
@@ -1265,6 +1302,12 @@ export default function HuntingMap() {
   // Ephemeral (a planning scratchpad), cleared when you leave the mode.
   const [isPlanningRoute, setIsPlanningRoute] = useState(false);
   const [routePoints, setRoutePoints] = useState<HuntAreaPoint[]>([]);
+  // Blood-trail / recovery mode: after a shot, mark the hit site (point 0), drop
+  // a dot at each blood find as you track, and flag recovery when the deer is
+  // found. Ephemeral — a live tracking aid for the moment, not a saved record.
+  const [isTrackingBlood, setIsTrackingBlood] = useState(false);
+  const [bloodPoints, setBloodPoints] = useState<HuntAreaPoint[]>([]);
+  const [bloodRecovered, setBloodRecovered] = useState(false);
   const [areaCoordInput, setAreaCoordInput] = useState("");
   const [areaPointMessage, setAreaPointMessage] = useState("");
   const [showCoordEntry, setShowCoordEntry] = useState(false);
@@ -1776,6 +1819,39 @@ export default function HuntingMap() {
       hasBedding: true,
     };
   }, [routePoints, beddingPoints, routeWindFrom]);
+  // Blood-trail metrics: total distance walked along the marks, straight-line
+  // distance from the hit, and the deer's travel direction — the reads that
+  // help decide where to look next and whether to back out.
+  const bloodTrailStats = useMemo(() => {
+    if (bloodPoints.length < 1) return null;
+
+    const hit = bloodPoints[0];
+    const last = bloodPoints[bloodPoints.length - 1];
+    let totalMeters = 0;
+    for (let i = 1; i < bloodPoints.length; i += 1) {
+      totalMeters += distanceBetweenMeters(
+        { lat: bloodPoints[i - 1].lat, lng: bloodPoints[i - 1].lng, at: "" },
+        { lat: bloodPoints[i].lat, lng: bloodPoints[i].lng, at: "" },
+      );
+    }
+    const straightMeters =
+      bloodPoints.length >= 2
+        ? distanceBetweenMeters(
+            { lat: hit.lat, lng: hit.lng, at: "" },
+            { lat: last.lat, lng: last.lng, at: "" },
+          )
+        : 0;
+
+    return {
+      marks: bloodPoints.length,
+      totalYards: Math.round(totalMeters * 1.09361),
+      straightYards: Math.round(straightMeters * 1.09361),
+      direction:
+        bloodPoints.length >= 2
+          ? degreesToCompass(bearingBetween(hit.lat, hit.lng, last.lat, last.lng))
+          : null,
+    };
+  }, [bloodPoints]);
   // Don't leave the undo-toast timer running after the map unmounts.
   useEffect(
     () => () => {
@@ -2085,6 +2161,7 @@ export default function HuntingMap() {
     if (isDrawingArea) cancelAreaDraw();
     setPendingPin(null);
     exitRoutePlan();
+    exitBloodTrail();
 
     updateDeerIntelStore((currentState) => ({
       ...currentState,
@@ -2099,6 +2176,7 @@ export default function HuntingMap() {
     setMovingPin(null);
     setPendingPin(null);
     exitRoutePlan();
+    exitBloodTrail();
     setIsDrawingArea(true);
     setDraftAreaPoints(huntArea ? [...huntArea] : []);
     setAreaCoordInput("");
@@ -2116,6 +2194,7 @@ export default function HuntingMap() {
     setPendingPin(null);
     setAimingTarget(null);
     setIsDrawingArea(false);
+    exitBloodTrail();
     setRoutePoints([]);
     setIsPlanningRoute(true);
     setLayersOpen(false);
@@ -2153,6 +2232,70 @@ export default function HuntingMap() {
   function exitRoutePlan() {
     setIsPlanningRoute(false);
     setRoutePoints([]);
+  }
+
+  // Blood-trail / recovery mode (ephemeral). First mark is the hit site.
+  function startBloodTrail() {
+    if (!selectedPropertyId) return;
+
+    setIsPlacingPin(false);
+    setMovingPin(null);
+    setPendingPin(null);
+    setAimingTarget(null);
+    setIsDrawingArea(false);
+    exitRoutePlan();
+    setBloodPoints([]);
+    setBloodRecovered(false);
+    setIsTrackingBlood(true);
+    setLayersOpen(false);
+  }
+
+  function addBloodPoint(lat: number, lng: number) {
+    if (bloodRecovered) return;
+    buzz(14);
+    setBloodPoints((current) => [...current, { lat, lng }]);
+  }
+
+  function moveBloodPoint(index: number, lat: number, lng: number) {
+    setBloodPoints((current) =>
+      current.map((point, pointIndex) =>
+        pointIndex === index ? { lat, lng } : point,
+      ),
+    );
+  }
+
+  function undoBloodPoint() {
+    setBloodRecovered(false);
+    setBloodPoints((current) => current.slice(0, -1));
+  }
+
+  function addBloodPointFromLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    if (bloodRecovered) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        buzz(14);
+        setBloodPoints((current) => [
+          ...current,
+          { lat: position.coords.latitude, lng: position.coords.longitude },
+        ]);
+      },
+      undefined,
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
+    );
+  }
+
+  function markRecovery() {
+    if (bloodPoints.length === 0) return;
+    buzz([14, 60, 14]);
+    setBloodRecovered(true);
+  }
+
+  function exitBloodTrail() {
+    setIsTrackingBlood(false);
+    setBloodPoints([]);
+    setBloodRecovered(false);
   }
 
   function addAreaPoint(lat: number, lng: number) {
@@ -2392,6 +2535,7 @@ export default function HuntingMap() {
     setMovingPin(null);
     setPendingPin(null);
     exitRoutePlan();
+    exitBloodTrail();
     setIsPlacingPin(true);
     setPinBoxMessage(`Tap map to place ${type}`);
     setLayersOpen(false);
@@ -2407,7 +2551,7 @@ export default function HuntingMap() {
   // confirms. Ignored while another map mode owns taps.
   function startPendingPinAt(lat: number, lng: number) {
     if (pinBoxDisabled || isPlacingPin || movingPin || aimingTarget) return;
-    if (isPlanningRoute) return;
+    if (isPlanningRoute || isTrackingBlood) return;
 
     // A short buzz confirms the drop without the hunter having to look.
     buzz(18);
@@ -2684,6 +2828,7 @@ export default function HuntingMap() {
     setIsPlacingPin(false);
     setPendingPin(null);
     exitRoutePlan();
+    exitBloodTrail();
     setMovingPin({
       id: selectedPin.id,
       label: selectedAsset?.label ?? selectedPin.type,
@@ -2734,6 +2879,7 @@ export default function HuntingMap() {
     setIsPlacingPin(false);
     setPendingPin(null);
     exitRoutePlan();
+    exitBloodTrail();
     setAimingTarget({
       kind: selectedAsset.source,
       id: selectedAsset.sourceId,
@@ -3046,7 +3192,8 @@ export default function HuntingMap() {
       Boolean(pendingPin) ||
       isPlacingPin ||
       isDrawingArea ||
-      isPlanningRoute);
+      isPlanningRoute ||
+      isTrackingBlood);
 
   return (
     <div className="di-map-layout" style={mapLayoutStyle}>
@@ -3537,7 +3684,8 @@ export default function HuntingMap() {
                   !movingPin &&
                   !aimingTarget &&
                   !pendingPin &&
-                  !isPlanningRoute
+                  !isPlanningRoute &&
+                  !isTrackingBlood
                 }
               />
             ) : null}
@@ -3567,7 +3715,8 @@ export default function HuntingMap() {
                 !movingPin &&
                 !aimingTarget &&
                 !pendingPin &&
-                !isPlanningRoute
+                !isPlanningRoute &&
+                !isTrackingBlood
               }
               onOwnerPick={handleTileOwnerPick}
             />
@@ -3634,7 +3783,8 @@ export default function HuntingMap() {
                 !movingPin &&
                 !aimingTarget &&
                 !pendingPin &&
-                !isPlanningRoute
+                !isPlanningRoute &&
+                !isTrackingBlood
               }
               onLongPress={startPendingPinAt}
             />
@@ -3661,6 +3811,11 @@ export default function HuntingMap() {
             <ClickToDrawArea
               enabled={isPlanningRoute}
               onAddPoint={addRoutePoint}
+            />
+            {/* Tap to drop the hit site / each blood find while tracking. */}
+            <ClickToDrawArea
+              enabled={isTrackingBlood}
+              onAddPoint={addBloodPoint}
             />
 
             {/* Access route: each leg colored by scent safety (red = your scent
@@ -3709,6 +3864,42 @@ export default function HuntingMap() {
                     }}
                   />
                 ))
+              : null}
+
+            {/* Blood trail: hit → each find → recovery, with draggable marks. */}
+            {isTrackingBlood && bloodPoints.length >= 2 ? (
+              <Polyline
+                positions={bloodPoints.map((point) => [point.lat, point.lng])}
+                pathOptions={BLOOD_TRAIL_PATH_OPTIONS}
+              />
+            ) : null}
+
+            {isTrackingBlood
+              ? bloodPoints.map((point, index) => {
+                  const isHit = index === 0;
+                  const isLast = index === bloodPoints.length - 1;
+                  const icon = isHit
+                    ? bloodHitIcon()
+                    : isLast && bloodRecovered
+                      ? bloodRecoveredIcon()
+                      : bloodDotIcon();
+
+                  return (
+                    <Marker
+                      key={`blood-${index}`}
+                      position={[point.lat, point.lng]}
+                      icon={icon}
+                      draggable
+                      eventHandlers={{
+                        dragend: (event) => {
+                          const latlng = event.target?.getLatLng();
+                          if (!latlng) return;
+                          moveBloodPoint(index, latlng.lat, latlng.lng);
+                        },
+                      }}
+                    />
+                  );
+                })
               : null}
 
             {hasHuntArea && huntArea && !isDrawingArea ? (
@@ -3930,6 +4121,20 @@ export default function HuntingMap() {
                   </p>
                   <Button type="button" onClick={startRoutePlan}>
                     Plan access route
+                  </Button>
+                </div>
+              ) : null
+            }
+            recoverySection={
+              selectedPropertyId ? (
+                <div style={routeEntryStyle}>
+                  <p style={helpTextStyle}>
+                    After a shot: mark the hit, then drop a mark at each blood
+                    find as you track. Shows trail length and the deer&rsquo;s
+                    direction of travel.
+                  </p>
+                  <Button type="button" onClick={startBloodTrail}>
+                    Start blood trail
                   </Button>
                 </div>
               ) : null
@@ -4164,6 +4369,85 @@ export default function HuntingMap() {
                   type="button"
                   style={drawPrimaryButtonStyle}
                   onClick={exitRoutePlan}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {isTrackingBlood ? (
+            <div className="di-area-pill" style={drawActionBarStyle}>
+              <span style={drawActionStatusStyle}>
+                {bloodPoints.length === 0
+                  ? "Tap the map to mark the hit site"
+                  : bloodRecovered
+                    ? "Recovered 🦌"
+                    : `Blood trail · ${bloodPoints.length} mark${
+                        bloodPoints.length === 1 ? "" : "s"
+                      }`}
+              </span>
+              {bloodTrailStats && bloodPoints.length >= 2 ? (
+                <span style={pendingWindNoteStyle}>
+                  {bloodTrailStats.totalYards} yd trail · {bloodTrailStats.straightYards} yd
+                  {bloodTrailStats.direction
+                    ? ` ${bloodTrailStats.direction}`
+                    : ""}{" "}
+                  from hit
+                </span>
+              ) : null}
+              <div
+                style={{
+                  ...drawActionButtonRowStyle,
+                  flexWrap: "wrap",
+                  justifyContent: "center",
+                }}
+              >
+                <button
+                  type="button"
+                  style={
+                    bloodRecovered
+                      ? { ...drawSecondaryButtonStyle, ...drawDisabledButtonStyle }
+                      : drawSecondaryButtonStyle
+                  }
+                  onClick={addBloodPointFromLocation}
+                  disabled={bloodRecovered}
+                >
+                  📍 Drop here
+                </button>
+                <button
+                  type="button"
+                  style={
+                    bloodPoints.length === 0
+                      ? { ...drawSecondaryButtonStyle, ...drawDisabledButtonStyle }
+                      : drawSecondaryButtonStyle
+                  }
+                  onClick={undoBloodPoint}
+                  disabled={bloodPoints.length === 0}
+                >
+                  Undo
+                </button>
+                {!bloodRecovered ? (
+                  <button
+                    type="button"
+                    style={
+                      bloodPoints.length === 0
+                        ? {
+                            ...drawSecondaryButtonStyle,
+                            ...drawDisabledButtonStyle,
+                          }
+                        : drawSecondaryButtonStyle
+                    }
+                    onClick={markRecovery}
+                    disabled={bloodPoints.length === 0}
+                  >
+                    Found!
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  style={drawPrimaryButtonStyle}
+                  onClick={exitBloodTrail}
                 >
                   Done
                 </button>
