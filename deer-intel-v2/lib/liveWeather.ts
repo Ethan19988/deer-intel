@@ -76,6 +76,41 @@ export type LiveForecast = {
   pressure?: PressureReading;
 };
 
+// A falling barometer alone is noise; a real cold front is a *sustained* drop.
+// ~0.06 inHg over the recent window (about 2 hPa) is a solid front signal
+// without firing on every wobble.
+export const COLD_FRONT_DROP_INHG = 0.06;
+
+export type ColdFrontStatus = {
+  /** A genuine front — a falling barometer with a meaningful sustained drop. */
+  isFront: boolean;
+  /** Drop across the recent window in inHg (positive when falling), or null. */
+  dropInHg: number | null;
+};
+
+/**
+ * Read the pressure trace for a cold front — the single biggest deer-movement
+ * trigger. Uses the recent hourly series when present (first → now) for the
+ * drop magnitude, and falls back to the coarse trend when it isn't.
+ */
+export function coldFrontStatus(pressure?: PressureReading): ColdFrontStatus {
+  if (!pressure) return { isFront: false, dropInHg: null };
+
+  const series = pressure.series;
+  const dropInHg =
+    series && series.length >= 2
+      ? Number((series[0] - series[series.length - 1]).toFixed(2))
+      : null;
+
+  const meaningfulDrop =
+    dropInHg !== null ? dropInHg >= COLD_FRONT_DROP_INHG : pressure.trend === "falling";
+
+  return {
+    isFront: pressure.trend === "falling" && meaningfulDrop,
+    dropInHg,
+  };
+}
+
 export type LiveForecastResult =
   | { status: "ok"; point: WeatherPoint; forecast: LiveForecast }
   | { status: "error"; message: string };
