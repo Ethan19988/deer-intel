@@ -283,9 +283,10 @@ function angularDiff(a: number, b: number): number {
   return diff > 180 ? 360 - diff : diff;
 }
 
-// Pin types that carry a scent/wind story worth previewing while placing: a
-// stand you sit and a camera you'll walk to both put your scent on the ground.
-const WIND_SENSITIVE_LAYERS = new Set<AssetLayerId | "other">([
+// Directional assets: a stand you sit and a camera you aim both point a way and
+// both put your scent on the ground. They get the scent-plume preview while
+// placing and a second "aim it" step before saving.
+const DIRECTIONAL_LAYERS = new Set<AssetLayerId | "other">([
   "stands",
   "cameras",
 ]);
@@ -1191,6 +1192,10 @@ export default function HuntingMap() {
     lat: number;
     lng: number;
   } | null>(null);
+  // Placement is two steps for directional pins (camera/stand): first "place"
+  // the spot, then "aim" which way it faces. Non-directional pins skip "aim".
+  const [pendingStep, setPendingStep] = useState<"place" | "aim">("place");
+  const [pendingFacing, setPendingFacing] = useState<string | null>(null);
   // One-tap "undo" for a just-saved pin, so a mis-drop is a single tap to
   // remove instead of tap → delete → confirm. Auto-dismisses after a few sec.
   const [undoToast, setUndoToast] = useState<{
@@ -1586,8 +1591,14 @@ export default function HuntingMap() {
   // A pending stand/camera pin wants live wind for its scent-plume preview, even
   // when the wind overlay isn't on — so the placement bar can show a verdict.
   const pendingLayerId = pendingPin ? PIN_LAYER_LOOKUP[pinType] : null;
-  const pendingWantsWind =
-    pendingLayerId !== null && WIND_SENSITIVE_LAYERS.has(pendingLayerId);
+  // Cameras and stands both point a direction and carry a scent story.
+  const pendingIsDirectional =
+    pendingLayerId !== null && DIRECTIONAL_LAYERS.has(pendingLayerId);
+  const pendingWantsWind = pendingIsDirectional;
+  const pendingColor =
+    pendingLayerId && pendingLayerId !== "other"
+      ? ASSET_LAYER_LOOKUP[pendingLayerId].color
+      : "#7ec2ff";
   // Where your scent drifts from a pending stand/camera (downwind = opposite of
   // the wind's source), and whether that plume points at known bedding — the
   // real question when picking a stand. Half-angle/range match the drawn cone.
@@ -2196,6 +2207,8 @@ export default function HuntingMap() {
     buzz(18);
     dismissUndoToast();
     setLayersOpen(false);
+    setPendingStep("place");
+    setPendingFacing(null);
     setPendingPin({ lat, lng });
     setPinBoxMessage(`Drag the ${pinType} to place it, then Confirm.`);
   }
@@ -2223,32 +2236,83 @@ export default function HuntingMap() {
           id: Date.now(),
           zoom: Math.max(latestMapZoomRef.current, 17),
         });
-        setPinBoxMessage(`${pinType} set to your location — Confirm to save.`);
+        setPinBoxMessage(`${pinType} set to your location.`);
       },
       () => setPinBoxMessage("Couldn't read your location. Check GPS access."),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
     );
   }
 
-  function cancelPendingPin() {
+  function resetPendingPin() {
     setPendingPin(null);
+    setPendingStep("place");
+    setPendingFacing(null);
+  }
+
+  function cancelPendingPin() {
+    resetPendingPin();
     setPinBoxMessage("Pin placement canceled.");
   }
 
+  // Each tap in the aim step re-points the preview; the bearing from the pin to
+  // the tapped spot is which way a camera lens looks / a stand faces.
+  function aimPendingPin(lat: number, lng: number) {
+    if (!pendingPin) return;
+
+    setPendingFacing(
+      degreesToCompass(
+        bearingBetween(pendingPin.lat, pendingPin.lng, lat, lng),
+      ),
+    );
+  }
+
+  function backToPlaceStep() {
+    setPendingStep("place");
+    setPinBoxMessage(`Drag the ${pinType} to place it.`);
+  }
+
+  // "Confirm" on a camera/stand first advances to the aim step; on anything else
+  // (or once already aiming) it saves.
   function confirmPendingPin() {
     if (!pendingPin) return;
 
-    const saved = createPinAtLocation(pinType, pendingPin.lat, pendingPin.lng);
-    setPendingPin(null);
+    if (pendingIsDirectional && pendingStep === "place") {
+      setPendingStep("aim");
+      buzz(18);
+      setPinBoxMessage(`Tap the map where the ${pinType} looks.`);
+      return;
+    }
 
-    if (!saved) {
+    savePendingPin();
+  }
+
+  function savePendingPin() {
+    if (!pendingPin) return;
+
+    const pinId = createPinAtLocation(pinType, pendingPin.lat, pendingPin.lng);
+
+    if (!pinId) {
+      resetPendingPin();
       setPinBoxMessage("Pin placement canceled.");
       return;
     }
 
+    // Persist the aimed direction alongside the new pin (cameras and stand pins
+    // both carry facingDirection, same field the aim tool writes).
+    if (pendingFacing) {
+      const facing = pendingFacing;
+      updateDeerIntelStore((currentState) => ({
+        ...currentState,
+        pins: currentState.pins.map((pin) =>
+          pin.id === pinId ? { ...pin, facingDirection: facing } : pin,
+        ),
+      }));
+    }
+
     // Two quick pulses = saved. Offer a one-tap undo for a few seconds.
     buzz([14, 60, 14]);
-    showUndoToast(saved, pinType);
+    showUndoToast(pinId, pinType);
+    resetPendingPin();
   }
 
   function showUndoToast(pinId: string, label: string) {
@@ -3349,11 +3413,16 @@ export default function HuntingMap() {
               }
               onLongPress={startPendingPinAt}
             />
-            {/* While a pending pin is live, a plain map tap relocates it — the
-                second way to fine-tune its spot alongside dragging the marker. */}
+            {/* In the place step, a plain map tap relocates the pending pin —
+                the second way to fine-tune its spot alongside dragging it. */}
             <ClickToMovePin
-              enabled={Boolean(pendingPin)}
+              enabled={Boolean(pendingPin) && pendingStep === "place"}
               onMovePin={movePendingPin}
+            />
+            {/* In the aim step, a tap points the pending camera/stand instead. */}
+            <ClickToAimCamera
+              enabled={Boolean(pendingPin) && pendingStep === "aim"}
+              onAim={aimPendingPin}
             />
             <ClickToAimCamera
               enabled={Boolean(aimingTarget)}
@@ -3429,10 +3498,11 @@ export default function HuntingMap() {
               />
             ))}
 
-            {/* Scent plume for a pending stand/camera: a wide cone blowing
-                downwind (where your scent carries), colored by whether it points
-                at bedding. Updates live as you drag the pin or the wind shifts. */}
-            {pendingPin && pendingScent ? (
+            {/* Scent plume for a pending stand/camera while positioning it: a
+                wide cone blowing downwind (where your scent carries), colored by
+                whether it points at bedding. Hidden in the aim step so the
+                narrow facing cone reads cleanly. */}
+            {pendingPin && pendingScent && pendingStep === "place" ? (
               <CameraFacingCone
                 lat={pendingPin.lat}
                 lng={pendingPin.lng}
@@ -3445,11 +3515,24 @@ export default function HuntingMap() {
               />
             ) : null}
 
+            {/* Facing cone in the aim step: the narrow direction a camera lens
+                looks / a stand faces, from the tap. */}
+            {pendingPin && pendingStep === "aim" && pendingFacing ? (
+              <CameraFacingCone
+                lat={pendingPin.lat}
+                lng={pendingPin.lng}
+                degrees={compassToDegrees(pendingFacing) ?? 0}
+                color={pendingColor}
+              />
+            ) : null}
+
             {pendingPin ? (
               <Marker
                 position={[pendingPin.lat, pendingPin.lng]}
                 icon={pendingPinIcon(pinType)}
-                draggable
+                // Draggable only while positioning; in the aim step a drag would
+                // fight the tap-to-point gesture.
+                draggable={pendingStep === "place"}
                 zIndexOffset={2000}
                 eventHandlers={{
                   dragend: (event) => {
@@ -3576,7 +3659,11 @@ export default function HuntingMap() {
           {pendingPin && !isDrawingArea ? (
             <div className="di-area-pill" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
-                {pinType} — drag to place, or pick a type
+                {pendingStep === "aim"
+                  ? pendingFacing
+                    ? `Facing ${pendingFacing} — tap to adjust`
+                    : `Tap where the ${pinType} looks`
+                  : `${pinType} — drag to place, or pick a type`}
               </span>
               {pendingWantsWind ? (
                 <span
@@ -3598,50 +3685,62 @@ export default function HuntingMap() {
                     : "Reading wind…"}
                 </span>
               ) : null}
-              <div style={pendingTypeRowStyle}>
-                {PENDING_PIN_TYPE_OPTIONS.map((option) => {
-                  const active = option.type === pinType;
+              {pendingStep === "place" ? (
+                <div style={pendingTypeRowStyle}>
+                  {PENDING_PIN_TYPE_OPTIONS.map((option) => {
+                    const active = option.type === pinType;
 
-                  return (
-                    <button
-                      key={option.type}
-                      type="button"
-                      aria-pressed={active}
-                      aria-label={`Use ${option.label} pin`}
-                      title={option.label}
-                      style={{
-                        ...pendingTypeChipStyle,
-                        ...(active ? pendingTypeChipActiveStyle : null),
-                      }}
-                      onClick={() => setPinType(option.type)}
-                    >
-                      <span
-                        aria-hidden="true"
-                        style={pendingTypeChipIconStyle}
-                        dangerouslySetInnerHTML={{
-                          __html: pinMarkerSvg({
-                            color: option.color,
-                            background: option.background,
-                            glyphKey: option.layerId,
-                            width: 22,
-                          }),
+                    return (
+                      <button
+                        key={option.type}
+                        type="button"
+                        aria-pressed={active}
+                        aria-label={`Use ${option.label} pin`}
+                        title={option.label}
+                        style={{
+                          ...pendingTypeChipStyle,
+                          ...(active ? pendingTypeChipActiveStyle : null),
                         }}
-                      />
-                      <span style={pendingTypeChipLabelStyle}>
-                        {option.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                        onClick={() => setPinType(option.type)}
+                      >
+                        <span
+                          aria-hidden="true"
+                          style={pendingTypeChipIconStyle}
+                          dangerouslySetInnerHTML={{
+                            __html: pinMarkerSvg({
+                              color: option.color,
+                              background: option.background,
+                              glyphKey: option.layerId,
+                              width: 22,
+                            }),
+                          }}
+                        />
+                        <span style={pendingTypeChipLabelStyle}>
+                          {option.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
               <div style={drawActionButtonRowStyle}>
-                <button
-                  type="button"
-                  style={drawSecondaryButtonStyle}
-                  onClick={pinAtMyLocation}
-                >
-                  📍 My spot
-                </button>
+                {pendingStep === "aim" ? (
+                  <button
+                    type="button"
+                    style={drawSecondaryButtonStyle}
+                    onClick={backToPlaceStep}
+                  >
+                    Back
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    style={drawSecondaryButtonStyle}
+                    onClick={pinAtMyLocation}
+                  >
+                    📍 My spot
+                  </button>
+                )}
                 <button
                   type="button"
                   style={drawSecondaryButtonStyle}
@@ -3654,7 +3753,9 @@ export default function HuntingMap() {
                   style={drawPrimaryButtonStyle}
                   onClick={confirmPendingPin}
                 >
-                  Confirm
+                  {pendingStep === "place" && pendingIsDirectional
+                    ? "Next: aim"
+                    : "Confirm"}
                 </button>
               </div>
             </div>
