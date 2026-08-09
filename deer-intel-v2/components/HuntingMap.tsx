@@ -241,6 +241,33 @@ function huntAreaVertexIcon(pointNumber: number) {
   });
 }
 
+// Access-route legs: green when the walk-in keeps your scent off bedding, red
+// on a leg that blows into it.
+const ROUTE_SAFE_PATH_OPTIONS = {
+  color: "#4ade80",
+  weight: 4,
+  opacity: 0.9,
+};
+
+const ROUTE_UNSAFE_PATH_OPTIONS = {
+  color: "#ff5f56",
+  weight: 4,
+  opacity: 0.95,
+  dashArray: "8 6",
+};
+
+// Numbered route waypoint, tinted red when your scent there reaches bedding.
+function routePointIcon(pointNumber: number, unsafe: boolean) {
+  return divIcon({
+    className: "di-area-vertex-icon",
+    html: `<span class="di-area-vertex" style="background:${
+      unsafe ? "#c0453b" : "#1f7a37"
+    }">${pointNumber}</span>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+}
+
 // The draggable preview marker for a press-and-hold placement: the real
 // teardrop pin for the armed type, drawn a touch larger and "selected" so it
 // reads as the active, grab-me marker while the hunter nudges it into place.
@@ -1233,6 +1260,11 @@ export default function HuntingMap() {
   const isNarrowViewport = useIsNarrowMapViewport();
   const [isDrawingArea, setIsDrawingArea] = useState(false);
   const [draftAreaPoints, setDraftAreaPoints] = useState<HuntAreaPoint[]>([]);
+  // Scent-safe access planning: tap out a walk-in route and each leg is checked
+  // against the live wind — a leg that blows your scent into bedding is flagged.
+  // Ephemeral (a planning scratchpad), cleared when you leave the mode.
+  const [isPlanningRoute, setIsPlanningRoute] = useState(false);
+  const [routePoints, setRoutePoints] = useState<HuntAreaPoint[]>([]);
   const [areaCoordInput, setAreaCoordInput] = useState("");
   const [areaPointMessage, setAreaPointMessage] = useState("");
   const [showCoordEntry, setShowCoordEntry] = useState(false);
@@ -1642,6 +1674,8 @@ export default function HuntingMap() {
   // "Today's play" lives in the layers drawer and needs the live wind to rank —
   // load it whenever the drawer is open on a property that has stands.
   const wantsWindForPlay = layersOpen && propertyStands.length > 0;
+  // Route planning needs the live wind to flag scent-into-bedding legs.
+  const wantsWindForRoute = isPlanningRoute;
   const pendingColor =
     pendingLayerId && pendingLayerId !== "other"
       ? ASSET_LAYER_LOOKUP[pendingLayerId].color
@@ -1704,6 +1738,44 @@ export default function HuntingMap() {
     }
     return best;
   }, [pendingPin, visibleAssets]);
+  // Per-point scent safety for a planned access route: a point is flagged when
+  // your scent there blows into bedding (bedding downwind within range) — the
+  // same test the pin's scent cone uses, applied along the walk-in.
+  const routeWindFrom = windData?.fromCompass;
+  const routeSafety = useMemo(() => {
+    const fromDeg = routeWindFrom ? compassToDegrees(routeWindFrom) : null;
+
+    if (fromDeg === null || beddingPoints.length === 0) {
+      return {
+        compromised: routePoints.map(() => false),
+        flagged: 0,
+        windKnown: fromDeg !== null,
+        hasBedding: beddingPoints.length > 0,
+      };
+    }
+
+    const downwindDeg = (fromDeg + 180) % 360;
+    const compromised = routePoints.map((point) =>
+      beddingPoints.some((bed) => {
+        const bearing = bearingBetween(point.lat, point.lng, bed.lat, bed.lng);
+        const meters = distanceBetweenMeters(
+          { lat: point.lat, lng: point.lng, at: "" },
+          { lat: bed.lat, lng: bed.lng, at: "" },
+        );
+        return (
+          meters <= SCENT_RANGE_METERS &&
+          angularDiff(bearing, downwindDeg) <= SCENT_CONE_HALF_ANGLE
+        );
+      }),
+    );
+
+    return {
+      compromised,
+      flagged: compromised.filter(Boolean).length,
+      windKnown: true,
+      hasBedding: true,
+    };
+  }, [routePoints, beddingPoints, routeWindFrom]);
   // Don't leave the undo-toast timer running after the map unmounts.
   useEffect(
     () => () => {
@@ -1806,7 +1878,8 @@ export default function HuntingMap() {
       !showMovement &&
       !showDeerHeat &&
       !pendingWantsWind &&
-      !wantsWindForPlay
+      !wantsWindForPlay &&
+      !wantsWindForRoute
     )
       return;
 
@@ -1866,6 +1939,7 @@ export default function HuntingMap() {
     showDeerHeat,
     pendingWantsWind,
     wantsWindForPlay,
+    wantsWindForRoute,
     selectedPropertyId,
   ]);
 
@@ -2010,6 +2084,7 @@ export default function HuntingMap() {
   function selectProperty(propertyId: string) {
     if (isDrawingArea) cancelAreaDraw();
     setPendingPin(null);
+    exitRoutePlan();
 
     updateDeerIntelStore((currentState) => ({
       ...currentState,
@@ -2023,11 +2098,61 @@ export default function HuntingMap() {
     setIsPlacingPin(false);
     setMovingPin(null);
     setPendingPin(null);
+    exitRoutePlan();
     setIsDrawingArea(true);
     setDraftAreaPoints(huntArea ? [...huntArea] : []);
     setAreaCoordInput("");
     setAreaPointMessage("");
     setShowCoordEntry(false);
+  }
+
+  // Scent-safe access route planning (ephemeral). Starting it clears the other
+  // map modes so taps go to laying the route.
+  function startRoutePlan() {
+    if (!selectedPropertyId) return;
+
+    setIsPlacingPin(false);
+    setMovingPin(null);
+    setPendingPin(null);
+    setAimingTarget(null);
+    setIsDrawingArea(false);
+    setRoutePoints([]);
+    setIsPlanningRoute(true);
+    setLayersOpen(false);
+  }
+
+  function addRoutePoint(lat: number, lng: number) {
+    setRoutePoints((current) => [...current, { lat, lng }]);
+  }
+
+  function moveRoutePoint(index: number, lat: number, lng: number) {
+    setRoutePoints((current) =>
+      current.map((point, pointIndex) =>
+        pointIndex === index ? { lat, lng } : point,
+      ),
+    );
+  }
+
+  function undoRoutePoint() {
+    setRoutePoints((current) => current.slice(0, -1));
+  }
+
+  function addRoutePointFromLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        buzz(14);
+        addRoutePoint(position.coords.latitude, position.coords.longitude);
+      },
+      undefined,
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
+    );
+  }
+
+  function exitRoutePlan() {
+    setIsPlanningRoute(false);
+    setRoutePoints([]);
   }
 
   function addAreaPoint(lat: number, lng: number) {
@@ -2266,6 +2391,7 @@ export default function HuntingMap() {
     setPinType(type);
     setMovingPin(null);
     setPendingPin(null);
+    exitRoutePlan();
     setIsPlacingPin(true);
     setPinBoxMessage(`Tap map to place ${type}`);
     setLayersOpen(false);
@@ -2281,6 +2407,7 @@ export default function HuntingMap() {
   // confirms. Ignored while another map mode owns taps.
   function startPendingPinAt(lat: number, lng: number) {
     if (pinBoxDisabled || isPlacingPin || movingPin || aimingTarget) return;
+    if (isPlanningRoute) return;
 
     // A short buzz confirms the drop without the hunter having to look.
     buzz(18);
@@ -2556,6 +2683,7 @@ export default function HuntingMap() {
 
     setIsPlacingPin(false);
     setPendingPin(null);
+    exitRoutePlan();
     setMovingPin({
       id: selectedPin.id,
       label: selectedAsset?.label ?? selectedPin.type,
@@ -2605,6 +2733,7 @@ export default function HuntingMap() {
 
     setIsPlacingPin(false);
     setPendingPin(null);
+    exitRoutePlan();
     setAimingTarget({
       kind: selectedAsset.source,
       id: selectedAsset.sourceId,
@@ -2916,7 +3045,8 @@ export default function HuntingMap() {
       Boolean(movingPin) ||
       Boolean(pendingPin) ||
       isPlacingPin ||
-      isDrawingArea);
+      isDrawingArea ||
+      isPlanningRoute);
 
   return (
     <div className="di-map-layout" style={mapLayoutStyle}>
@@ -3406,7 +3536,8 @@ export default function HuntingMap() {
                   !isDrawingArea &&
                   !movingPin &&
                   !aimingTarget &&
-                  !pendingPin
+                  !pendingPin &&
+                  !isPlanningRoute
                 }
               />
             ) : null}
@@ -3435,7 +3566,8 @@ export default function HuntingMap() {
                 !isDrawingArea &&
                 !movingPin &&
                 !aimingTarget &&
-                !pendingPin
+                !pendingPin &&
+                !isPlanningRoute
               }
               onOwnerPick={handleTileOwnerPick}
             />
@@ -3501,7 +3633,8 @@ export default function HuntingMap() {
                 !isPlacingPin &&
                 !movingPin &&
                 !aimingTarget &&
-                !pendingPin
+                !pendingPin &&
+                !isPlanningRoute
               }
               onLongPress={startPendingPinAt}
             />
@@ -3524,6 +3657,59 @@ export default function HuntingMap() {
               enabled={isDrawingArea}
               onAddPoint={addAreaPoint}
             />
+            {/* Tap to lay the access route while planning it. */}
+            <ClickToDrawArea
+              enabled={isPlanningRoute}
+              onAddPoint={addRoutePoint}
+            />
+
+            {/* Access route: each leg colored by scent safety (red = your scent
+                blows into bedding on that leg), with draggable vertices so you
+                can nudge the line to a clean approach. */}
+            {isPlanningRoute
+              ? routePoints.slice(0, -1).map((point, index) => {
+                  const next = routePoints[index + 1];
+                  const unsafe =
+                    routeSafety.compromised[index] ||
+                    routeSafety.compromised[index + 1];
+
+                  return (
+                    <Polyline
+                      key={`route-leg-${index}`}
+                      positions={[
+                        [point.lat, point.lng],
+                        [next.lat, next.lng],
+                      ]}
+                      pathOptions={
+                        unsafe
+                          ? ROUTE_UNSAFE_PATH_OPTIONS
+                          : ROUTE_SAFE_PATH_OPTIONS
+                      }
+                    />
+                  );
+                })
+              : null}
+
+            {isPlanningRoute
+              ? routePoints.map((point, index) => (
+                  <Marker
+                    key={`route-point-${index}`}
+                    position={[point.lat, point.lng]}
+                    icon={routePointIcon(
+                      index + 1,
+                      routeSafety.compromised[index] ?? false,
+                    )}
+                    draggable
+                    eventHandlers={{
+                      dragend: (event) => {
+                        const latlng = event.target?.getLatLng();
+                        if (!latlng) return;
+                        moveRoutePoint(index, latlng.lat, latlng.lng);
+                      },
+                    }}
+                  />
+                ))
+              : null}
 
             {hasHuntArea && huntArea && !isDrawingArea ? (
               <Polygon
@@ -3737,6 +3923,19 @@ export default function HuntingMap() {
                 />
               ) : null
             }
+            routeSection={
+              selectedPropertyId ? (
+                <div style={routeEntryStyle}>
+                  <p style={helpTextStyle}>
+                    Tap out your walk-in path; a leg that blows your scent into
+                    bedding turns red so you can find a clean approach.
+                  </p>
+                  <Button type="button" onClick={startRoutePlan}>
+                    Plan access route
+                  </Button>
+                </div>
+              ) : null
+            }
             trackingSection={walkTrackingSection}
             offlineSection={
               <OfflineMapsPanel
@@ -3907,6 +4106,68 @@ export default function HuntingMap() {
                   onClick={dismissUndoToast}
                 >
                   Dismiss
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {isPlanningRoute ? (
+            <div className="di-area-pill" style={drawActionBarStyle}>
+              <span style={drawActionStatusStyle}>
+                {routePoints.length === 0
+                  ? "Tap the map to start your walk-in route"
+                  : `Access route · ${routePoints.length} point${
+                      routePoints.length === 1 ? "" : "s"
+                    }`}
+              </span>
+              {routePoints.length >= 1 ? (
+                <span
+                  style={{
+                    ...pendingWindNoteStyle,
+                    ...(routeSafety.flagged > 0
+                      ? pendingWindWarnStyle
+                      : routeSafety.hasBedding && routeSafety.windKnown
+                        ? pendingWindGoodStyle
+                        : null),
+                  }}
+                >
+                  {!routeSafety.windKnown
+                    ? "Reading wind…"
+                    : !routeSafety.hasBedding
+                      ? "Add bedding pins to check scent"
+                      : routeSafety.flagged > 0
+                        ? `⚠ ${routeSafety.flagged} spot${
+                            routeSafety.flagged === 1 ? "" : "s"
+                          } blow into bedding`
+                        : "Scent-safe — clear of bedding"}
+                </span>
+              ) : null}
+              <div style={drawActionButtonRowStyle}>
+                <button
+                  type="button"
+                  style={drawSecondaryButtonStyle}
+                  onClick={addRoutePointFromLocation}
+                >
+                  📍 Add my spot
+                </button>
+                <button
+                  type="button"
+                  style={
+                    routePoints.length === 0
+                      ? { ...drawSecondaryButtonStyle, ...drawDisabledButtonStyle }
+                      : drawSecondaryButtonStyle
+                  }
+                  onClick={undoRoutePoint}
+                  disabled={routePoints.length === 0}
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  style={drawPrimaryButtonStyle}
+                  onClick={exitRoutePlan}
+                >
+                  Done
                 </button>
               </div>
             </div>
@@ -4699,6 +4960,12 @@ const pendingWindNoteStyle: CSSProperties = {
 
 const pendingWindGoodStyle: CSSProperties = {
   color: "#8fe6a1",
+};
+
+// Drawer entry block for access-route planning.
+const routeEntryStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.55rem",
 };
 
 // Muted one-liner under the status text — e.g. distance to the nearest asset.
