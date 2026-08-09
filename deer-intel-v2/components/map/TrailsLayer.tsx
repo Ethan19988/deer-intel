@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Polyline, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import {
   TRAILS_MIN_ZOOM,
-  TRAILS_OVERPASS_ENDPOINT,
+  TRAILS_OVERPASS_ENDPOINTS,
 } from "@/lib/propertyMap";
 
 type TrailsLayerProps = {
@@ -37,6 +37,9 @@ const CASING_COLOR = "rgba(20, 24, 18, 0.55)";
 
 const DEBOUNCE_MS = 500;
 const OVERPASS_TIMEOUT_S = 25;
+// Give each mirror this long before we give up on it and try the next one, so a
+// hung endpoint can't leave the layer stuck on "Finding trails…" forever.
+const PER_ENDPOINT_TIMEOUT_MS = 12000;
 
 // Every OSM highway class you travel on foot, not by vehicle:
 //  - track      unpaved dirt / two-track / old logging roads (often gated)
@@ -57,6 +60,34 @@ function overpassQuery(bounds: string): string {
     `way["highway"~"${HIGHWAY_FILTER}"](${bounds});` +
     `out geom;`
   );
+}
+
+// POST the query to one endpoint with its own timeout, while still honoring the
+// outer abort (a newer fetch superseding this one). Throws on non-2xx, timeout,
+// or abort so the caller can fall through to the next mirror.
+async function fetchOverpass(
+  endpoint: string,
+  body: string,
+  outerSignal: AbortSignal,
+): Promise<Response> {
+  const controller = new AbortController();
+  const relayAbort = () => controller.abort();
+  outerSignal.addEventListener("abort", relayAbort);
+  const timer = window.setTimeout(() => controller.abort(), PER_ENDPOINT_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=UTF-8" },
+      body,
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`Overpass ${response.status}`);
+    return response;
+  } finally {
+    window.clearTimeout(timer);
+    outerSignal.removeEventListener("abort", relayAbort);
+  }
 }
 
 type OverpassElement = {
@@ -187,34 +218,43 @@ export default function TrailsLayer({ enabled, onStatus }: TrailsLayerProps) {
     if (fetchedBoxRef.current === null) setTrails([]);
     report("Finding trails…");
 
-    try {
-      const response = await fetch(TRAILS_OVERPASS_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=UTF-8" },
-        body: overpassQuery(padded.query),
-        signal: controller.signal,
-      });
+    const body = overpassQuery(padded.query);
 
-      if (!response.ok) throw new Error(`Overpass ${response.status}`);
-
-      const data = (await response.json()) as { elements?: OverpassElement[] };
-      const next = (data.elements ?? [])
-        .map(elementToTrail)
-        .filter((trail): trail is Trail => trail !== null);
-
-      fetchedBoxRef.current = {
-        south: padded.south,
-        west: padded.west,
-        north: padded.north,
-        east: padded.east,
-      };
-      setTrails(next);
-      report(next.length === 0 ? "No mapped trails in this view." : null);
-    } catch {
+    // Try each mirror in turn; the first that answers wins. Only after every one
+    // has failed do we surface an error.
+    for (let i = 0; i < TRAILS_OVERPASS_ENDPOINTS.length; i += 1) {
       if (controller.signal.aborted) return;
-      fetchedBoxRef.current = null;
-      report("Trails are unavailable right now — try again in a moment.");
+
+      try {
+        const response = await fetchOverpass(
+          TRAILS_OVERPASS_ENDPOINTS[i],
+          body,
+          controller.signal,
+        );
+        const data = (await response.json()) as { elements?: OverpassElement[] };
+        const next = (data.elements ?? [])
+          .map(elementToTrail)
+          .filter((trail): trail is Trail => trail !== null);
+
+        fetchedBoxRef.current = {
+          south: padded.south,
+          west: padded.west,
+          north: padded.north,
+          east: padded.east,
+        };
+        setTrails(next);
+        report(next.length === 0 ? "No mapped trails in this view." : null);
+        return;
+      } catch {
+        // Superseded by a newer fetch — stop silently, don't flag an error.
+        if (controller.signal.aborted) return;
+        // Otherwise this mirror failed/timed out; fall through to the next one.
+      }
     }
+
+    // Every mirror failed.
+    fetchedBoxRef.current = null;
+    report("Trails are unavailable right now — try again in a moment.");
   }, [map, report]);
 
   const queueFetch = useCallback(() => {
