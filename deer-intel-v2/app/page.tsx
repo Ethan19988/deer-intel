@@ -23,6 +23,8 @@ import RutRibbon from "@/components/season/RutRibbon";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
 import ColdFrontBanner from "@/components/ColdFrontBanner";
 import HuntWindowsPanel from "@/components/HuntWindowsPanel";
+import BackupReminderBanner from "@/components/BackupReminderBanner";
+import { countRecords } from "@/lib/backupReminder";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import {
   fetchLiveForecast,
@@ -199,6 +201,10 @@ export default function Home() {
         propertyName={activeProperty?.name ?? "This property"}
         point={weatherPoint}
         stands={propertyStands}
+      />
+      <BackupReminderBanner
+        currentRecordCount={countRecords(state)}
+        nowMs={now ? now.getTime() : null}
       />
       <ColdFrontBanner
         propertyName={activeProperty?.name ?? "this property"}

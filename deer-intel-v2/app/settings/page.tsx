@@ -25,6 +25,7 @@ import {
   restoreFullBackupImages,
   type FullBackupImage,
 } from "@/lib/fullBackup";
+import { countRecords as recordCount, recordBackup } from "@/lib/backupReminder";
 import {
   setThemePreference,
   THEME_DESCRIPTIONS,
@@ -55,19 +56,6 @@ import { hasPropertyCoordinate } from "@/lib/propertyLocation";
 import SeasonRutCard from "@/components/season/SeasonRutCard";
 import { MAP_LAYERS, MAP_OVERLAYS } from "@/lib/propertyMap";
 import type { DeerIntelState } from "@/types/deerIntelStore";
-
-function recordCount(candidate: DeerIntelState) {
-  return (
-    candidate.properties.length +
-    candidate.cameras.length +
-    candidate.cameraChecks.length +
-    candidate.stands.length +
-    candidate.pins.length +
-    candidate.hunts.length +
-    candidate.photoRecords.length +
-    candidate.deerProfiles.length
-  );
-}
 
 export default function SettingsPage() {
   const state = useDeerIntelStore();
@@ -149,6 +137,7 @@ export default function SettingsPage() {
     const today = new Date().toISOString().slice(0, 10);
 
     downloadJson(JSON.stringify(state, null, 2), `deer-intel-backup-${today}.json`);
+    recordBackup(totalRecords);
   }
 
   async function handleFullExport() {
@@ -171,6 +160,7 @@ export default function SettingsPage() {
         JSON.stringify(backup),
         `deer-intel-full-backup-${today}.json`,
       );
+      recordBackup(totalRecords);
 
       setFullExportStatus(
         backup.images.length === 0
