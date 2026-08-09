@@ -91,6 +91,7 @@ import OfflineMapsPanel, {
 } from "@/components/map/OfflineMapsPanel";
 import CameraFacingCone from "@/components/map/CameraFacingCone";
 import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
+import TodaysPlayPanel from "@/components/map/TodaysPlayPanel";
 import { pinMarkerSvg } from "@/lib/mapPinIcon";
 import UserLocationMarker from "@/components/map/UserLocationMarker";
 import PartyMembersLayer from "@/components/map/PartyMembersLayer";
@@ -1394,6 +1395,44 @@ export default function HuntingMap() {
     return { good, avoid, matched };
   }, [windStandPoints]);
 
+  // "Today's play": rank the property's stands for the wind right now — good
+  // wind first, wrong wind last — so the answer to "where do I sit?" is one
+  // glance. Each stand is matched to its map pin (by name, like windStandPoints)
+  // so tapping a row flies there.
+  const todaysPlay = useMemo(() => {
+    const currentWind = windData?.fromCompass;
+    const standAssetByName = new Map(
+      visibleAssets
+        .filter((asset) => asset.layerId === "stands")
+        .map((asset) => [asset.label.trim().toLowerCase(), asset]),
+    );
+    const order: Record<string, number> = {
+      good: 0,
+      marginal: 1,
+      unknown: 2,
+      avoid: 3,
+    };
+
+    return propertyStands
+      .map((stand) => {
+        const check = getStandWindCheck(stand, currentWind);
+        const asset = standAssetByName.get(stand.name.trim().toLowerCase());
+        return {
+          id: stand.id,
+          name: stand.name || "Unnamed stand",
+          standType: stand.standType,
+          status: check.status,
+          label: check.label,
+          accessNote: stand.accessRouteNotes.trim(),
+          assetId: asset?.id ?? null,
+        };
+      })
+      .sort(
+        (a, b) =>
+          order[a.status] - order[b.status] || a.name.localeCompare(b.name),
+      );
+  }, [propertyStands, visibleAssets, windData?.fromCompass]);
+
   // Movement prediction: corridors are bedding→food/water links from the
   // property's own pins; direction and the outlook rating come from the shared
   // live-weather fetch.
@@ -1595,6 +1634,9 @@ export default function HuntingMap() {
   const pendingIsDirectional =
     pendingLayerId !== null && DIRECTIONAL_LAYERS.has(pendingLayerId);
   const pendingWantsWind = pendingIsDirectional;
+  // "Today's play" lives in the layers drawer and needs the live wind to rank —
+  // load it whenever the drawer is open on a property that has stands.
+  const wantsWindForPlay = layersOpen && propertyStands.length > 0;
   const pendingColor =
     pendingLayerId && pendingLayerId !== "other"
       ? ASSET_LAYER_LOOKUP[pendingLayerId].color
@@ -1752,7 +1794,14 @@ export default function HuntingMap() {
   // (and re-fetch when the property changes) so panning never spams the API —
   // the point comes from refs, and Open-Meteo responses are cached per point.
   useEffect(() => {
-    if (!showWind && !showMovement && !showDeerHeat && !pendingWantsWind) return;
+    if (
+      !showWind &&
+      !showMovement &&
+      !showDeerHeat &&
+      !pendingWantsWind &&
+      !wantsWindForPlay
+    )
+      return;
 
     const {
       selectedProperty: property,
@@ -1804,7 +1853,14 @@ export default function HuntingMap() {
     return () => {
       cancelled = true;
     };
-  }, [showWind, showMovement, showDeerHeat, pendingWantsWind, selectedPropertyId]);
+  }, [
+    showWind,
+    showMovement,
+    showDeerHeat,
+    pendingWantsWind,
+    wantsWindForPlay,
+    selectedPropertyId,
+  ]);
 
   function toggleWind() {
     setShowWind((current) => !current);
@@ -3651,6 +3707,22 @@ export default function HuntingMap() {
                 pinType={pinType}
                 onPlacePin={placePinType}
               />
+            }
+            playSection={
+              selectedPropertyId ? (
+                <TodaysPlayPanel
+                  windFromCompass={windData?.fromCompass ?? ""}
+                  plays={todaysPlay}
+                  onSelect={(assetId) => {
+                    const asset = visibleAssets.find(
+                      (candidate) => candidate.id === assetId,
+                    );
+                    if (!asset) return;
+                    selectAssetAndCenter(asset);
+                    setLayersOpen(false);
+                  }}
+                />
+              ) : null
             }
             trackingSection={walkTrackingSection}
             offlineSection={

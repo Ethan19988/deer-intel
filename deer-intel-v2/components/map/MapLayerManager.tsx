@@ -16,6 +16,7 @@ type MapLayerManagerProps = {
   // a badge on the button so you can tell what's on without scrolling the bar.
   activeOverlayCount?: number;
   pinBoxSection?: ReactNode;
+  playSection?: ReactNode;
   offlineSection?: ReactNode;
   trackingSection?: ReactNode;
   visibleAssetLayers: Record<AssetLayerId, boolean>;
@@ -36,6 +37,7 @@ export default function MapLayerManager({
   mapTools,
   activeOverlayCount = 0,
   pinBoxSection,
+  playSection,
   offlineSection,
   trackingSection,
   visibleAssetLayers,
@@ -126,6 +128,13 @@ export default function MapLayerManager({
             <>
               <GroupHeader icon={<PinPlusIcon />} label="Place a pin" />
               <section style={cardStyle}>{pinBoxSection}</section>
+            </>
+          ) : null}
+
+          {playSection ? (
+            <>
+              <GroupHeader icon={<TentIcon />} label="Today's play" />
+              <section style={cardStyle}>{playSection}</section>
             </>
           ) : null}
 
