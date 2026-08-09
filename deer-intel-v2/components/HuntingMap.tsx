@@ -265,6 +265,31 @@ function pendingPinIcon(type: PinType) {
   });
 }
 
+// Short haptic pulse on supported devices — reassurance in the field without
+// looking at the screen. A no-op where the Vibration API is absent (e.g. iOS
+// Safari), so callers never need to guard.
+function buzz(pattern: number | number[]) {
+  if (
+    typeof navigator !== "undefined" &&
+    typeof navigator.vibrate === "function"
+  ) {
+    navigator.vibrate(pattern);
+  }
+}
+
+// Smallest angle between two compass bearings (0–180°).
+function angularDiff(a: number, b: number): number {
+  const diff = Math.abs(a - b) % 360;
+  return diff > 180 ? 360 - diff : diff;
+}
+
+// Pin types that carry a scent/wind story worth previewing while placing: a
+// stand you sit and a camera you'll walk to both put your scent on the ground.
+const WIND_SENSITIVE_LAYERS = new Set<AssetLayerId | "other">([
+  "stands",
+  "cameras",
+]);
+
 // The pin types offered in the long-press action bar's type picker, each with
 // the color/label/glyph its real teardrop uses — so switching a pending pin's
 // type shows the exact marker that will be saved. Mirrors MapPinBox's grid.
@@ -1166,6 +1191,13 @@ export default function HuntingMap() {
     lat: number;
     lng: number;
   } | null>(null);
+  // One-tap "undo" for a just-saved pin, so a mis-drop is a single tap to
+  // remove instead of tap → delete → confirm. Auto-dismisses after a few sec.
+  const [undoToast, setUndoToast] = useState<{
+    pinId: string;
+    label: string;
+  } | null>(null);
+  const undoToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Pin being relocated via "Move Pin" — the next map tap becomes its new spot.
   // Point-the-camera mode: tap the map where the lens looks and the bearing
   // from the camera to that spot becomes its facing direction. Taps only move
@@ -1551,6 +1583,60 @@ export default function HuntingMap() {
     ? pins.find((pin) => pin.id === selectedAsset.pinId)
     : undefined;
   const pinBoxDisabled = !selectedPropertyId || isDrawingArea;
+  // A pending stand/camera pin wants live wind for its scent-plume preview, even
+  // when the wind overlay isn't on — so the placement bar can show a verdict.
+  const pendingLayerId = pendingPin ? PIN_LAYER_LOOKUP[pinType] : null;
+  const pendingWantsWind =
+    pendingLayerId !== null && WIND_SENSITIVE_LAYERS.has(pendingLayerId);
+  // Where your scent drifts from a pending stand/camera (downwind = opposite of
+  // the wind's source), and whether that plume points at known bedding — the
+  // real question when picking a stand. Half-angle/range match the drawn cone.
+  const SCENT_CONE_HALF_ANGLE = 34;
+  const SCENT_RANGE_METERS = 400;
+  const pendingScent = useMemo(() => {
+    if (!pendingPin || !pendingWantsWind || !windData?.fromCompass) return null;
+
+    const fromDeg = compassToDegrees(windData.fromCompass);
+    if (fromDeg === null) return null;
+
+    const downwindDeg = (fromDeg + 180) % 360;
+    const drift = degreesToCompass(downwindDeg);
+
+    const towardBedding = beddingPoints.some((bed) => {
+      const bearing = bearingBetween(
+        pendingPin.lat,
+        pendingPin.lng,
+        bed.lat,
+        bed.lng,
+      );
+      // Reuse the canonical distance helper (its point type carries an unused
+      // timestamp, so pass an empty one).
+      const meters = distanceBetweenMeters(
+        { lat: pendingPin.lat, lng: pendingPin.lng, at: "" },
+        { lat: bed.lat, lng: bed.lng, at: "" },
+      );
+      return (
+        meters <= SCENT_RANGE_METERS &&
+        angularDiff(bearing, downwindDeg) <= SCENT_CONE_HALF_ANGLE
+      );
+    });
+
+    const verdict =
+      beddingPoints.length === 0
+        ? null
+        : towardBedding
+          ? { tone: "warn" as const, text: "drifts toward bedding" }
+          : { tone: "good" as const, text: "clear of bedding" };
+
+    return { downwindDeg, drift, verdict };
+  }, [pendingPin, pendingWantsWind, windData?.fromCompass, beddingPoints]);
+  // Don't leave the undo-toast timer running after the map unmounts.
+  useEffect(
+    () => () => {
+      if (undoToastTimerRef.current) clearTimeout(undoToastTimerRef.current);
+    },
+    [],
+  );
   const huntArea = selectedProperty?.huntArea;
   const hasHuntArea = huntAreaIsValid(huntArea);
   const draftAreaAcresLabel = formatHuntAreaAcres(draftAreaPoints);
@@ -1639,7 +1725,7 @@ export default function HuntingMap() {
   // (and re-fetch when the property changes) so panning never spams the API —
   // the point comes from refs, and Open-Meteo responses are cached per point.
   useEffect(() => {
-    if (!showWind && !showMovement && !showDeerHeat) return;
+    if (!showWind && !showMovement && !showDeerHeat && !pendingWantsWind) return;
 
     const {
       selectedProperty: property,
@@ -1691,7 +1777,7 @@ export default function HuntingMap() {
     return () => {
       cancelled = true;
     };
-  }, [showWind, showMovement, showDeerHeat, selectedPropertyId]);
+  }, [showWind, showMovement, showDeerHeat, pendingWantsWind, selectedPropertyId]);
 
   function toggleWind() {
     setShowWind((current) => !current);
@@ -2106,6 +2192,9 @@ export default function HuntingMap() {
   function startPendingPinAt(lat: number, lng: number) {
     if (pinBoxDisabled || isPlacingPin || movingPin || aimingTarget) return;
 
+    // A short buzz confirms the drop without the hunter having to look.
+    buzz(18);
+    dismissUndoToast();
     setLayersOpen(false);
     setPendingPin({ lat, lng });
     setPinBoxMessage(`Drag the ${pinType} to place it, then Confirm.`);
@@ -2113,6 +2202,32 @@ export default function HuntingMap() {
 
   function movePendingPin(lat: number, lng: number) {
     setPendingPin((current) => (current ? { lat, lng } : current));
+  }
+
+  // Snap the pending pin to the hunter's exact GPS fix — for marking the very
+  // tree/spot they're standing at rather than eyeballing it on the imagery.
+  function pinAtMyLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setPinBoxMessage("GPS isn't available on this device.");
+      return;
+    }
+
+    setPinBoxMessage("Getting your GPS fix…");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        buzz(18);
+        setPendingPin({ lat: latitude, lng: longitude });
+        setSearchTarget({
+          center: [latitude, longitude],
+          id: Date.now(),
+          zoom: Math.max(latestMapZoomRef.current, 17),
+        });
+        setPinBoxMessage(`${pinType} set to your location — Confirm to save.`);
+      },
+      () => setPinBoxMessage("Couldn't read your location. Check GPS access."),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
+    );
   }
 
   function cancelPendingPin() {
@@ -2126,7 +2241,36 @@ export default function HuntingMap() {
     const saved = createPinAtLocation(pinType, pendingPin.lat, pendingPin.lng);
     setPendingPin(null);
 
-    if (!saved) setPinBoxMessage("Pin placement canceled.");
+    if (!saved) {
+      setPinBoxMessage("Pin placement canceled.");
+      return;
+    }
+
+    // Two quick pulses = saved. Offer a one-tap undo for a few seconds.
+    buzz([14, 60, 14]);
+    showUndoToast(saved, pinType);
+  }
+
+  function showUndoToast(pinId: string, label: string) {
+    if (undoToastTimerRef.current) clearTimeout(undoToastTimerRef.current);
+    setUndoToast({ pinId, label });
+    undoToastTimerRef.current = setTimeout(() => setUndoToast(null), 6000);
+  }
+
+  function dismissUndoToast() {
+    if (undoToastTimerRef.current) clearTimeout(undoToastTimerRef.current);
+    setUndoToast(null);
+  }
+
+  function undoLastPin() {
+    if (!undoToast) return;
+
+    deletePin(undoToast.pinId);
+    setSelectedAssetId((current) =>
+      current === `pin-${undoToast.pinId}` ? null : current,
+    );
+    dismissUndoToast();
+    setPinBoxMessage("Pin removed.");
   }
 
   function createPinAtLocation(type: PinType, lat: number, lng: number) {
@@ -3285,6 +3429,22 @@ export default function HuntingMap() {
               />
             ))}
 
+            {/* Scent plume for a pending stand/camera: a wide cone blowing
+                downwind (where your scent carries), colored by whether it points
+                at bedding. Updates live as you drag the pin or the wind shifts. */}
+            {pendingPin && pendingScent ? (
+              <CameraFacingCone
+                lat={pendingPin.lat}
+                lng={pendingPin.lng}
+                degrees={pendingScent.downwindDeg}
+                color={
+                  pendingScent.verdict?.tone === "warn" ? "#ff5f56" : "#ffb347"
+                }
+                halfAngle={SCENT_CONE_HALF_ANGLE}
+                radius={84}
+              />
+            ) : null}
+
             {pendingPin ? (
               <Marker
                 position={[pendingPin.lat, pendingPin.lng]}
@@ -3418,6 +3578,26 @@ export default function HuntingMap() {
               <span style={drawActionStatusStyle}>
                 {pinType} — drag to place, or pick a type
               </span>
+              {pendingWantsWind ? (
+                <span
+                  style={{
+                    ...pendingWindNoteStyle,
+                    ...(pendingScent?.verdict?.tone === "warn"
+                      ? pendingWindWarnStyle
+                      : pendingScent?.verdict?.tone === "good"
+                        ? pendingWindGoodStyle
+                        : null),
+                  }}
+                >
+                  {pendingScent && windData
+                    ? `Wind ${windData.fromCompass} ${windData.speedLabel} · scent → ${pendingScent.drift}${
+                        pendingScent.verdict
+                          ? ` · ${pendingScent.verdict.text}`
+                          : ""
+                      }`
+                    : "Reading wind…"}
+                </span>
+              ) : null}
               <div style={pendingTypeRowStyle}>
                 {PENDING_PIN_TYPE_OPTIONS.map((option) => {
                   const active = option.type === pinType;
@@ -3458,6 +3638,13 @@ export default function HuntingMap() {
                 <button
                   type="button"
                   style={drawSecondaryButtonStyle}
+                  onClick={pinAtMyLocation}
+                >
+                  📍 My spot
+                </button>
+                <button
+                  type="button"
+                  style={drawSecondaryButtonStyle}
                   onClick={cancelPendingPin}
                 >
                   Cancel
@@ -3468,6 +3655,33 @@ export default function HuntingMap() {
                   onClick={confirmPendingPin}
                 >
                   Confirm
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {undoToast &&
+          !pendingPin &&
+          !movingPin &&
+          !aimingTarget &&
+          !isPlacingPin &&
+          !isDrawingArea ? (
+            <div className="di-area-pill" style={undoToastStyle}>
+              <span style={drawActionStatusStyle}>{undoToast.label} saved</span>
+              <div style={drawActionButtonRowStyle}>
+                <button
+                  type="button"
+                  style={drawPrimaryButtonStyle}
+                  onClick={undoLastPin}
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  style={drawSecondaryButtonStyle}
+                  onClick={dismissUndoToast}
+                >
+                  Dismiss
                 </button>
               </div>
             </div>
@@ -4245,6 +4459,34 @@ const pendingTypeChipLabelStyle: CSSProperties = {
   textAlign: "center",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
+};
+
+// Live wind/scent readout line in the pending-pin bar. Neutral by default,
+// tinted green when scent stays clear of bedding and amber-red when it doesn't.
+const pendingWindNoteStyle: CSSProperties = {
+  maxWidth: "min(86vw, 420px)",
+  color: "#bcd3ea",
+  fontSize: "0.76rem",
+  fontWeight: 700,
+  lineHeight: 1.25,
+  textAlign: "center",
+};
+
+const pendingWindGoodStyle: CSSProperties = {
+  color: "#8fe6a1",
+};
+
+const pendingWindWarnStyle: CSSProperties = {
+  color: "#ff9d7a",
+};
+
+// The "pin saved · Undo" toast reuses the action-bar look so bottom pills feel
+// like one family.
+const undoToastStyle: CSSProperties = {
+  ...drawActionBarStyle,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: "0.7rem",
 };
 
 const drawSecondaryButtonStyle: CSSProperties = {
