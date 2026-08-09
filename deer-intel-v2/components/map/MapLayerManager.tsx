@@ -17,6 +17,7 @@ type MapLayerManagerProps = {
   activeOverlayCount?: number;
   pinBoxSection?: ReactNode;
   playSection?: ReactNode;
+  routeSection?: ReactNode;
   offlineSection?: ReactNode;
   trackingSection?: ReactNode;
   visibleAssetLayers: Record<AssetLayerId, boolean>;
@@ -38,6 +39,7 @@ export default function MapLayerManager({
   activeOverlayCount = 0,
   pinBoxSection,
   playSection,
+  routeSection,
   offlineSection,
   trackingSection,
   visibleAssetLayers,
@@ -135,6 +137,13 @@ export default function MapLayerManager({
             <>
               <GroupHeader icon={<TentIcon />} label="Today's play" />
               <section style={cardStyle}>{playSection}</section>
+            </>
+          ) : null}
+
+          {routeSection ? (
+            <>
+              <GroupHeader icon={<TentIcon />} label="Access route" />
+              <section style={cardStyle}>{routeSection}</section>
             </>
           ) : null}
 
