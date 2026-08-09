@@ -18,6 +18,7 @@ type MapLayerManagerProps = {
   pinBoxSection?: ReactNode;
   playSection?: ReactNode;
   routeSection?: ReactNode;
+  recoverySection?: ReactNode;
   offlineSection?: ReactNode;
   trackingSection?: ReactNode;
   visibleAssetLayers: Record<AssetLayerId, boolean>;
@@ -40,6 +41,7 @@ export default function MapLayerManager({
   pinBoxSection,
   playSection,
   routeSection,
+  recoverySection,
   offlineSection,
   trackingSection,
   visibleAssetLayers,
@@ -144,6 +146,13 @@ export default function MapLayerManager({
             <>
               <GroupHeader icon={<TentIcon />} label="Access route" />
               <section style={cardStyle}>{routeSection}</section>
+            </>
+          ) : null}
+
+          {recoverySection ? (
+            <>
+              <GroupHeader icon={<TentIcon />} label="After the shot" />
+              <section style={cardStyle}>{recoverySection}</section>
             </>
           ) : null}
 
