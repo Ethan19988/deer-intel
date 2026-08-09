@@ -1641,6 +1641,22 @@ export default function HuntingMap() {
 
     return { downwindDeg, drift, verdict };
   }, [pendingPin, pendingWantsWind, windData?.fromCompass, beddingPoints]);
+  // Nearest existing asset to the pending pin, in yards — for spacing cameras
+  // and stands and judging range while positioning a new one.
+  const pendingNearest = useMemo(() => {
+    if (!pendingPin) return null;
+
+    let best: { yards: number; label: string } | null = null;
+    for (const asset of visibleAssets) {
+      const meters = distanceBetweenMeters(
+        { lat: pendingPin.lat, lng: pendingPin.lng, at: "" },
+        { lat: asset.lat, lng: asset.lng, at: "" },
+      );
+      const yards = Math.round(meters * 1.09361);
+      if (!best || yards < best.yards) best = { yards, label: asset.label };
+    }
+    return best;
+  }, [pendingPin, visibleAssets]);
   // Don't leave the undo-toast timer running after the map unmounts.
   useEffect(
     () => () => {
@@ -2269,6 +2285,15 @@ export default function HuntingMap() {
   function backToPlaceStep() {
     setPendingStep("place");
     setPinBoxMessage(`Drag the ${pinType} to place it.`);
+  }
+
+  // One-tap suggestion: point the asset into the wind (toward where the wind
+  // comes from) so your scent blows behind you. A starting point, still
+  // adjustable by tapping the map.
+  function aimIntoWind() {
+    if (!windData?.fromCompass) return;
+    buzz(14);
+    setPendingFacing(windData.fromCompass);
   }
 
   // "Confirm" on a camera/stand first advances to the aim step; on anything else
@@ -3685,6 +3710,20 @@ export default function HuntingMap() {
                     : "Reading wind…"}
                 </span>
               ) : null}
+              {pendingStep === "place" && pendingNearest ? (
+                <span style={pendingHintStyle}>
+                  {pendingNearest.yards} yd from {pendingNearest.label}
+                </span>
+              ) : null}
+              {pendingStep === "aim" && windData?.fromCompass ? (
+                <button
+                  type="button"
+                  style={pendingSuggestButtonStyle}
+                  onClick={aimIntoWind}
+                >
+                  🧭 Face into wind ({windData.fromCompass})
+                </button>
+              ) : null}
               {pendingStep === "place" ? (
                 <div style={pendingTypeRowStyle}>
                   {PENDING_PIN_TYPE_OPTIONS.map((option) => {
@@ -4575,6 +4614,28 @@ const pendingWindNoteStyle: CSSProperties = {
 
 const pendingWindGoodStyle: CSSProperties = {
   color: "#8fe6a1",
+};
+
+// Muted one-liner under the status text — e.g. distance to the nearest asset.
+const pendingHintStyle: CSSProperties = {
+  color: "#9fb4c9",
+  fontSize: "0.72rem",
+  fontWeight: 600,
+  lineHeight: 1.2,
+};
+
+// The "face into wind" quick suggestion in the aim step.
+const pendingSuggestButtonStyle: CSSProperties = {
+  alignSelf: "center",
+  minHeight: "34px",
+  padding: "0.3rem 0.7rem",
+  borderRadius: "8px",
+  border: "1px solid #4a6f4f",
+  background: "#183a1f",
+  color: "#c9e8cf",
+  fontSize: "0.78rem",
+  fontWeight: 700,
+  cursor: "pointer",
 };
 
 const pendingWindWarnStyle: CSSProperties = {
