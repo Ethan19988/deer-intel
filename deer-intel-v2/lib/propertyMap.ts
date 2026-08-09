@@ -360,10 +360,11 @@ export const TRAILS_ATTRIBUTION = "Trails &copy; OpenStreetMap contributors";
 // current view; if it's unreachable the layer just falls back to OSM alone.
 export const TRAILS_USGS_BASE =
   "https://carto.nationalmap.gov/arcgis/rest/services/transportation/MapServer";
-// Show trails at a normal property-overview zoom, not just when you're zoomed
-// all the way in. The query is always clipped to the current viewport, so a
-// lower gate here only means a slightly wider box, not a county-wide blanket.
-export const TRAILS_MIN_ZOOM = 13;
+// Show trails at a wide property-overview zoom, not just when you're zoomed all
+// the way in. (Higher zoom = more zoomed in, so this is the most zoomed-OUT
+// level trails still draw at.) The query is always clipped to the current
+// viewport, so a lower gate here only means a wider box, not a county blanket.
+export const TRAILS_MIN_ZOOM = 12;
 
 // USGS/MRLC National Land Cover Database — crop fields, pasture, grass openings
 // and forest TYPE (deciduous mast vs. evergreen thermal bedding cover), the food
