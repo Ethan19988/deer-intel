@@ -265,6 +265,25 @@ function pendingPinIcon(type: PinType) {
   });
 }
 
+// The pin types offered in the long-press action bar's type picker, each with
+// the color/label/glyph its real teardrop uses — so switching a pending pin's
+// type shows the exact marker that will be saved. Mirrors MapPinBox's grid.
+const PENDING_PIN_TYPE_OPTIONS = PROPERTY_ASSET_PIN_TYPES.map((type) => {
+  const layerId = PIN_LAYER_LOOKUP[type];
+  const layer =
+    layerId === "other"
+      ? { label: type, color: "#f7d17b", background: "#2f230f" }
+      : ASSET_LAYER_LOOKUP[layerId];
+
+  return {
+    type,
+    layerId,
+    label: layer.label,
+    color: layer.color,
+    background: layer.background,
+  };
+});
+
 // Extra card lines from the tapped parcel's county record. The vector tile only
 // carries { owner, acres, pub }, so the county ArcGIS service is what supplies
 // the parcel ID and situs address. Plenty of counties have no live point-query
@@ -3397,8 +3416,44 @@ export default function HuntingMap() {
           {pendingPin && !isDrawingArea ? (
             <div className="di-area-pill" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
-                Drag the {pinType} to the right spot
+                {pinType} — drag to place, or pick a type
               </span>
+              <div style={pendingTypeRowStyle}>
+                {PENDING_PIN_TYPE_OPTIONS.map((option) => {
+                  const active = option.type === pinType;
+
+                  return (
+                    <button
+                      key={option.type}
+                      type="button"
+                      aria-pressed={active}
+                      aria-label={`Use ${option.label} pin`}
+                      title={option.label}
+                      style={{
+                        ...pendingTypeChipStyle,
+                        ...(active ? pendingTypeChipActiveStyle : null),
+                      }}
+                      onClick={() => setPinType(option.type)}
+                    >
+                      <span
+                        aria-hidden="true"
+                        style={pendingTypeChipIconStyle}
+                        dangerouslySetInnerHTML={{
+                          __html: pinMarkerSvg({
+                            color: option.color,
+                            background: option.background,
+                            glyphKey: option.layerId,
+                            width: 22,
+                          }),
+                        }}
+                      />
+                      <span style={pendingTypeChipLabelStyle}>
+                        {option.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
               <div style={drawActionButtonRowStyle}>
                 <button
                   type="button"
@@ -4138,6 +4193,58 @@ const drawActionStatusStyle: CSSProperties = {
 const drawActionButtonRowStyle: CSSProperties = {
   display: "flex",
   gap: "0.5rem",
+};
+
+// Horizontally scrollable row of pin-type chips in the long-press action bar,
+// so the hunter can switch a pending pin's type before confirming. Capped in
+// width so the 10 types scroll on a phone instead of stretching the pill.
+const pendingTypeRowStyle: CSSProperties = {
+  display: "flex",
+  gap: "0.35rem",
+  maxWidth: "min(86vw, 420px)",
+  overflowX: "auto",
+  padding: "0.15rem 0.1rem 0.3rem",
+  WebkitOverflowScrolling: "touch",
+};
+
+const pendingTypeChipStyle: CSSProperties = {
+  flex: "0 0 auto",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: "0.2rem",
+  width: "54px",
+  padding: "0.35rem 0.2rem",
+  borderRadius: "8px",
+  border: "1px solid #35506e",
+  background: "#12233a",
+  color: "#cfe2f5",
+  cursor: "pointer",
+};
+
+const pendingTypeChipActiveStyle: CSSProperties = {
+  borderColor: "#2f8f4a",
+  background: "#173a24",
+  boxShadow: "0 0 0 2px rgba(47, 143, 74, 0.4)",
+};
+
+const pendingTypeChipIconStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  height: "31px",
+};
+
+const pendingTypeChipLabelStyle: CSSProperties = {
+  overflow: "hidden",
+  maxWidth: "100%",
+  fontSize: "0.62rem",
+  fontWeight: 700,
+  lineHeight: 1.1,
+  textAlign: "center",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };
 
 const drawSecondaryButtonStyle: CSSProperties = {
