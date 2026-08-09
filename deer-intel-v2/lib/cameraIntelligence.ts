@@ -25,6 +25,78 @@ export type CameraActivityCounts = {
   fawns: number;
 };
 
+// A single camera's own pattern, mined from its photo timestamps + weather
+// snapshots: when it fires most, the wind it fires most on, and the buck/doe
+// split. This is the read that turns a pile of photos into "sit here on a NW
+// wind at last light."
+export type CameraActivityProfile = {
+  sampleSize: number;
+  /** Most common time window (e.g. "Evening (3–8pm)"), or null if untimed. */
+  peakWindow: string | null;
+  peakShare: number;
+  /** Wind direction the camera fires most on, or null if none recorded. */
+  topWind: string | null;
+  topWindShare: number;
+  bucks: number;
+  does: number;
+};
+
+// Minimum photos before a per-camera pattern is worth showing — fewer than this
+// is anecdote, not a pattern.
+const CAMERA_PROFILE_MIN_PHOTOS = 3;
+
+const ACTIVITY_WINDOW_LABEL: Record<string, string> = {
+  Morning: "Morning (5–10am)",
+  Midday: "Midday (11am–2pm)",
+  Evening: "Evening (3–8pm)",
+  Night: "Night (9pm–4am)",
+};
+
+export function getCameraActivityProfile(
+  photoRecords: PhotoRecord[],
+): CameraActivityProfile | null {
+  if (photoRecords.length < CAMERA_PROFILE_MIN_PHOTOS) return null;
+
+  const windowCounts = new Map<string, number>();
+  let windowTotal = 0;
+  const windCounts = new Map<string, number>();
+  let windTotal = 0;
+  let bucks = 0;
+  let does = 0;
+
+  for (const photo of photoRecords) {
+    const bucket = photoTimeBucket(photo.photoDate);
+    if (bucket) {
+      windowCounts.set(bucket, (windowCounts.get(bucket) ?? 0) + 1);
+      windowTotal += 1;
+    }
+
+    const wind = photo.weatherSnapshot?.windDirection?.trim();
+    if (wind) {
+      windCounts.set(wind, (windCounts.get(wind) ?? 0) + 1);
+      windTotal += 1;
+    }
+
+    if (isBuckPhoto(photo)) bucks += 1;
+    else if (speciesIncludes(photo.species, "doe")) does += 1;
+  }
+
+  const topWindow = [...windowCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const topWind = [...windCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+
+  return {
+    sampleSize: photoRecords.length,
+    peakWindow: topWindow
+      ? (ACTIVITY_WINDOW_LABEL[topWindow[0]] ?? topWindow[0])
+      : null,
+    peakShare: topWindow && windowTotal ? topWindow[1] / windowTotal : 0,
+    topWind: topWind ? topWind[0] : null,
+    topWindShare: topWind && windTotal ? topWind[1] / windTotal : 0,
+    bucks,
+    does,
+  };
+}
+
 export type CameraIntelligenceSummary = {
   hasCameraSites: boolean;
   hasCameraChecks: boolean;
