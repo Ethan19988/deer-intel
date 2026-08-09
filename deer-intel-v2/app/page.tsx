@@ -22,6 +22,7 @@ import Barometer from "@/components/weather/Barometer";
 import RutRibbon from "@/components/season/RutRibbon";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
 import ColdFrontBanner from "@/components/ColdFrontBanner";
+import HuntWindowsPanel from "@/components/HuntWindowsPanel";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import {
   fetchLiveForecast,
@@ -299,6 +300,7 @@ export default function Home() {
         </div>
 
         <MovementScorePanel point={weatherPoint} />
+        <HuntWindowsPanel days={forecast?.days ?? []} stands={propertyStands} />
       </Card>
 
       <Section eyebrow="Property" title="Active Property">
