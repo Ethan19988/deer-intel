@@ -339,12 +339,21 @@ export const WATER_ATTRIBUTION = "Hydrography &copy; USGS NHD";
 // way to slip into a stand — so these are prime access + travel intel. Like the
 // water and property-line layers, this is a permanent reference layer (always
 // on, no toggle), gated only by zoom.
-export const TRAILS_OVERPASS_ENDPOINT =
-  "https://overpass-api.de/api/interpreter";
+// Overpass is a free, community-run service and any single instance is often
+// slow or rate-limited (429/504) — which for us looks like "no trails ever
+// showed up." So we keep a list of CORS-enabled mirrors and fail over to the
+// next one whenever a request times out or errors.
+export const TRAILS_OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+];
 export const TRAILS_ATTRIBUTION = "Trails &copy; OpenStreetMap contributors";
-// Paths get dense fast; below this zoom the query would blanket the county and
-// the lines would smear together, so gate it like the property lines.
-export const TRAILS_MIN_ZOOM = 14;
+// Show trails at a normal property-overview zoom, not just when you're zoomed
+// all the way in. The query is always clipped to the current viewport, so a
+// lower gate here only means a slightly wider box, not a county-wide blanket.
+export const TRAILS_MIN_ZOOM = 13;
 
 // USGS/MRLC National Land Cover Database — crop fields, pasture, grass openings
 // and forest TYPE (deciduous mast vs. evergreen thermal bedding cover), the food
