@@ -5,6 +5,7 @@ import { Polyline, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import {
   TRAILS_MIN_ZOOM,
   TRAILS_OVERPASS_ENDPOINTS,
+  TRAILS_USGS_BASE,
 } from "@/lib/propertyMap";
 
 type TrailsLayerProps = {
@@ -22,7 +23,8 @@ type TrailsLayerProps = {
 type TrailKind = "foot" | "track";
 
 type Trail = {
-  id: number;
+  // Source-prefixed so OSM and USGS ids can't collide ("osm-123", "usgs-37-…").
+  id: string;
   kind: TrailKind;
   label: string;
   detail: string;
@@ -37,9 +39,17 @@ const CASING_COLOR = "rgba(20, 24, 18, 0.55)";
 
 const DEBOUNCE_MS = 500;
 const OVERPASS_TIMEOUT_S = 25;
-// Give each mirror this long before we give up on it and try the next one, so a
-// hung endpoint can't leave the layer stuck on "Finding trails…" forever.
-const PER_ENDPOINT_TIMEOUT_MS = 12000;
+// Give each request this long before we give up on it, so a hung endpoint can't
+// leave the layer stuck on "Finding trails…" forever.
+const PER_REQUEST_TIMEOUT_MS = 12000;
+
+// The USGS National Map transportation sublayers that are walk-in, non-public-
+// vehicle ways. Merged with OSM to fill gaps (esp. on public land).
+const USGS_TRAIL_LAYERS: Array<{ id: number; kind: TrailKind; noun: string }> = [
+  { id: 37, kind: "foot", noun: "Trail" }, // Trails
+  { id: 35, kind: "track", noun: "4WD road" }, // 4WD Roads
+  { id: 36, kind: "track", noun: "Closed / gated road" }, // Closed Roads
+];
 
 // Every OSM highway class you travel on foot, not by vehicle:
 //  - track      unpaved dirt / two-track / old logging roads (often gated)
@@ -62,33 +72,32 @@ function overpassQuery(bounds: string): string {
   );
 }
 
-// POST the query to one endpoint with its own timeout, while still honoring the
-// outer abort (a newer fetch superseding this one). Throws on non-2xx, timeout,
-// or abort so the caller can fall through to the next mirror.
-async function fetchOverpass(
-  endpoint: string,
-  body: string,
+// fetch() with its own timeout that still honors an outer abort (a newer fetch
+// superseding this one). Throws on non-2xx, timeout, or abort.
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
   outerSignal: AbortSignal,
 ): Promise<Response> {
   const controller = new AbortController();
   const relayAbort = () => controller.abort();
   outerSignal.addEventListener("abort", relayAbort);
-  const timer = window.setTimeout(() => controller.abort(), PER_ENDPOINT_TIMEOUT_MS);
+  const timer = window.setTimeout(
+    () => controller.abort(),
+    PER_REQUEST_TIMEOUT_MS,
+  );
 
   try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=UTF-8" },
-      body,
-      signal: controller.signal,
-    });
-    if (!response.ok) throw new Error(`Overpass ${response.status}`);
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response;
   } finally {
     window.clearTimeout(timer);
     outerSignal.removeEventListener("abort", relayAbort);
   }
 }
+
+// --- OpenStreetMap (Overpass) source ---------------------------------------
 
 type OverpassElement = {
   type: string;
@@ -97,11 +106,11 @@ type OverpassElement = {
   geometry?: Array<{ lat: number; lon: number }>;
 };
 
-function classifyKind(highway: string | undefined): TrailKind {
+function osmKind(highway: string | undefined): TrailKind {
   return highway === "track" ? "track" : "foot";
 }
 
-function kindNoun(kind: TrailKind, highway: string | undefined): string {
+function osmNoun(kind: TrailKind, highway: string | undefined): string {
   if (kind === "track") return "Track / two-track road";
   if (highway === "bridleway") return "Bridleway";
   if (highway === "steps") return "Steps";
@@ -110,7 +119,7 @@ function kindNoun(kind: TrailKind, highway: string | undefined): string {
   return "Foot path";
 }
 
-function surfaceDetail(tags: Record<string, string>): string {
+function osmSurfaceDetail(tags: Record<string, string>): string {
   const parts: string[] = [];
   if (tags.surface) parts.push(tags.surface.replace(/_/g, " "));
   if (tags.tracktype) parts.push(tags.tracktype);
@@ -125,21 +134,138 @@ function elementToTrail(el: OverpassElement): Trail | null {
   // Squares/plazas mapped as filled areas aren't routes — skip so they don't
   // draw as a stray closed outline.
   if (tags.area === "yes") return null;
-  const kind = classifyKind(tags.highway);
-  const noun = kindNoun(kind, tags.highway);
+  const kind = osmKind(tags.highway);
+  const noun = osmNoun(kind, tags.highway);
 
   return {
-    id: el.id,
+    id: `osm-${el.id}`,
     kind,
     label: tags.name ? tags.name : noun,
-    detail: tags.name ? noun : surfaceDetail(tags),
+    detail: tags.name ? noun : osmSurfaceDetail(tags),
     positions: el.geometry.map((point) => [point.lat, point.lon]),
   };
 }
 
-// A padded bbox string ("S,W,N,E") for Overpass, and a check for whether the
-// current view is already inside the last fetched area so a small pan doesn't
-// refire the query.
+// Try each Overpass mirror in turn; the first that answers wins. Throws only if
+// every mirror fails (so the caller can still fall back to the USGS source).
+async function fetchOsmTrails(
+  overpassBody: string,
+  signal: AbortSignal,
+): Promise<Trail[]> {
+  let lastError: unknown;
+
+  for (const endpoint of TRAILS_OVERPASS_ENDPOINTS) {
+    if (signal.aborted) throw new DOMException("aborted", "AbortError");
+    try {
+      const response = await fetchWithTimeout(
+        endpoint,
+        {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=UTF-8" },
+          body: overpassBody,
+        },
+        signal,
+      );
+      const data = (await response.json()) as { elements?: OverpassElement[] };
+      return (data.elements ?? [])
+        .map(elementToTrail)
+        .filter((trail): trail is Trail => trail !== null);
+    } catch (error) {
+      if (signal.aborted) throw error;
+      lastError = error; // this mirror failed; try the next
+    }
+  }
+
+  throw lastError ?? new Error("all Overpass mirrors failed");
+}
+
+// --- USGS National Map source ----------------------------------------------
+
+type GeoJsonLine = {
+  type: "LineString" | "MultiLineString" | string;
+  coordinates: number[][] | number[][][];
+};
+
+type UsgsFeature = {
+  geometry?: GeoJsonLine | null;
+  properties?: Record<string, unknown> | null;
+};
+
+function asString(value: unknown): string {
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function usgsFeatureToTrails(
+  feature: UsgsFeature,
+  layer: { id: number; kind: TrailKind; noun: string },
+): Trail[] {
+  const geometry = feature.geometry;
+  if (!geometry) return [];
+
+  const props = feature.properties ?? {};
+  const oid =
+    (props.objectid as number | undefined) ??
+    (props.OBJECTID as number | undefined) ??
+    0;
+  const name = asString(props.name) || asString(props.maplabel);
+  const surface = asString(props.trailsurface);
+  const type = asString(props.trailtype);
+  const label = name || layer.noun;
+  const detail = name
+    ? layer.noun
+    : [surface, type].filter(Boolean).join(" · ");
+
+  // Normalize LineString and MultiLineString to a list of coordinate rings.
+  const rings: number[][][] =
+    geometry.type === "LineString"
+      ? [geometry.coordinates as number[][]]
+      : geometry.type === "MultiLineString"
+        ? (geometry.coordinates as number[][][])
+        : [];
+
+  return rings
+    .map((ring, index) => ({
+      id: `usgs-${layer.id}-${oid}-${index}`,
+      kind: layer.kind,
+      label,
+      detail,
+      positions: ring
+        .filter((c) => Array.isArray(c) && c.length >= 2)
+        .map((c) => [c[1], c[0]] as [number, number]),
+    }))
+    .filter((trail) => trail.positions.length >= 2);
+}
+
+// Best-effort: each layer is queried independently and a failing one simply
+// contributes nothing, so USGS never breaks the OSM result.
+async function fetchUsgsTrails(
+  envelope: string,
+  signal: AbortSignal,
+): Promise<Trail[]> {
+  const perLayer = await Promise.all(
+    USGS_TRAIL_LAYERS.map(async (layer) => {
+      const url =
+        `${TRAILS_USGS_BASE}/${layer.id}/query?` +
+        `geometry=${envelope}&geometryType=esriGeometryEnvelope&inSR=4326` +
+        `&outSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*` +
+        `&returnGeometry=true&f=geojson`;
+      try {
+        const response = await fetchWithTimeout(url, { method: "GET" }, signal);
+        const data = (await response.json()) as { features?: UsgsFeature[] };
+        return (data.features ?? []).flatMap((feature) =>
+          usgsFeatureToTrails(feature, layer),
+        );
+      } catch {
+        return [] as Trail[];
+      }
+    }),
+  );
+
+  return perLayer.flat();
+}
+
+// A padded bbox for both sources: an Overpass "S,W,N,E" string and the same box
+// as numbers, so a small pan doesn't refire the query.
 function padBounds(
   south: number,
   west: number,
@@ -218,43 +344,46 @@ export default function TrailsLayer({ enabled, onStatus }: TrailsLayerProps) {
     if (fetchedBoxRef.current === null) setTrails([]);
     report("Finding trails…");
 
-    const body = overpassQuery(padded.query);
+    const overpassBody = overpassQuery(padded.query);
+    // ArcGIS envelope is xmin,ymin,xmax,ymax = W,S,E,N.
+    const envelope = `${padded.west},${padded.south},${padded.east},${padded.north}`;
 
-    // Try each mirror in turn; the first that answers wins. Only after every one
-    // has failed do we surface an error.
-    for (let i = 0; i < TRAILS_OVERPASS_ENDPOINTS.length; i += 1) {
-      if (controller.signal.aborted) return;
+    // Pull both sources at once and merge whatever comes back — OSM for its
+    // informal/urban paths, USGS for the forest-road and agency trail coverage
+    // OSM is thin on. We only error if BOTH fail.
+    const [osmResult, usgsResult] = await Promise.allSettled([
+      fetchOsmTrails(overpassBody, controller.signal),
+      fetchUsgsTrails(envelope, controller.signal),
+    ]);
 
-      try {
-        const response = await fetchOverpass(
-          TRAILS_OVERPASS_ENDPOINTS[i],
-          body,
-          controller.signal,
-        );
-        const data = (await response.json()) as { elements?: OverpassElement[] };
-        const next = (data.elements ?? [])
-          .map(elementToTrail)
-          .filter((trail): trail is Trail => trail !== null);
+    // Superseded by a newer fetch — stop silently.
+    if (controller.signal.aborted) return;
 
-        fetchedBoxRef.current = {
-          south: padded.south,
-          west: padded.west,
-          north: padded.north,
-          east: padded.east,
-        };
-        setTrails(next);
-        report(next.length === 0 ? "No mapped trails in this view." : null);
-        return;
-      } catch {
-        // Superseded by a newer fetch — stop silently, don't flag an error.
-        if (controller.signal.aborted) return;
-        // Otherwise this mirror failed/timed out; fall through to the next one.
-      }
+    const merged: Trail[] = [];
+    let anySourceOk = false;
+    if (osmResult.status === "fulfilled") {
+      anySourceOk = true;
+      merged.push(...osmResult.value);
+    }
+    if (usgsResult.status === "fulfilled") {
+      anySourceOk = true;
+      merged.push(...usgsResult.value);
     }
 
-    // Every mirror failed.
-    fetchedBoxRef.current = null;
-    report("Trails are unavailable right now — try again in a moment.");
+    if (!anySourceOk) {
+      fetchedBoxRef.current = null;
+      report("Trails are unavailable right now — try again in a moment.");
+      return;
+    }
+
+    fetchedBoxRef.current = {
+      south: padded.south,
+      west: padded.west,
+      north: padded.north,
+      east: padded.east,
+    };
+    setTrails(merged);
+    report(merged.length === 0 ? "No mapped trails in this view." : null);
   }, [map, report]);
 
   const queueFetch = useCallback(() => {
