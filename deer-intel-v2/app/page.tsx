@@ -21,6 +21,7 @@ import MoonPhaseCard from "@/components/weather/MoonPhaseCard";
 import Barometer from "@/components/weather/Barometer";
 import RutRibbon from "@/components/season/RutRibbon";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
+import ColdFrontBanner from "@/components/ColdFrontBanner";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import {
   fetchLiveForecast,
@@ -187,6 +188,10 @@ export default function Home() {
         propertyName={activeProperty?.name ?? "This property"}
         point={weatherPoint}
         stands={propertyStands}
+      />
+      <ColdFrontBanner
+        propertyName={activeProperty?.name ?? "this property"}
+        pressure={forecast?.pressure}
       />
       <Card as="section" variant="elevated" style={briefStyle}>
         <HeroScene />
