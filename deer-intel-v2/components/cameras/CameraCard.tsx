@@ -10,6 +10,7 @@ import {
   photoRecordTime,
   sortPhotoRecordsChronologically,
 } from "@/lib/photos";
+import { getCameraActivityProfile } from "@/lib/cameraIntelligence";
 import type { Camera } from "@/types/camera";
 import type { PhotoRecord } from "@/types/photo";
 
@@ -50,6 +51,8 @@ export default function CameraCard({
     quietDays >= QUIET_CAMERA_DAYS;
   const coverChip = latestPhoto ? buildCoverChip(latestPhoto) : "";
   const stampParts = latestPhoto ? buildStampParts(latestPhoto) : [];
+  // This camera's own pattern (peak time + wind bias) once it has enough photos.
+  const activityProfile = photos ? getCameraActivityProfile(photos) : null;
 
   return (
     <Card className="di-card-lift" style={cardStyle}>
@@ -159,6 +162,22 @@ export default function CameraCard({
               : "Not set"}
           </p>
         )}
+
+        {activityProfile &&
+        (activityProfile.peakWindow || activityProfile.topWind) ? (
+          <p style={profileLineStyle}>
+            <span aria-hidden="true">📈</span>{" "}
+            {activityProfile.peakWindow
+              ? `Most active ${activityProfile.peakWindow} · ${Math.round(
+                  activityProfile.peakShare * 100,
+                )}%`
+              : null}
+            {activityProfile.peakWindow && activityProfile.topWind ? " · " : ""}
+            {activityProfile.topWind
+              ? `fires most on a ${activityProfile.topWind} wind`
+              : null}
+          </p>
+        ) : null}
 
         {isQuiet ? (
           <p style={quietLineStyle}>
@@ -392,4 +411,12 @@ const quietLineStyle: CSSProperties = {
   color: "var(--accent-2-text)",
   fontSize: "0.9rem",
   fontWeight: 700,
+};
+
+const profileLineStyle: CSSProperties = {
+  margin: "0.5rem 0 0",
+  color: "var(--accent-text)",
+  fontSize: "0.86rem",
+  fontWeight: 700,
+  lineHeight: 1.45,
 };
