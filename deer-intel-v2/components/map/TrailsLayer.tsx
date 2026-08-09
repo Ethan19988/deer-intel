@@ -38,11 +38,18 @@ const CASING_COLOR = "rgba(20, 24, 18, 0.55)";
 const DEBOUNCE_MS = 500;
 const OVERPASS_TIMEOUT_S = 25;
 
-// Non-motor ways worth walking in on. `track` covers unpaved dirt/logging roads
-// (often gated to the public), `path`/`footway`/`bridleway`/`steps` are foot
-// and horse trails. Public paved roads are other highway classes, so they're
-// simply not requested here.
-const HIGHWAY_FILTER = "^(path|footway|track|bridleway|steps)$";
+// Every OSM highway class you travel on foot, not by vehicle:
+//  - track      unpaved dirt / two-track / old logging roads (often gated)
+//  - path       the catch-all trail, incl. informal deer/social trails
+//  - footway    built walkways and sidewalks
+//  - bridleway  horse trails (walkable)
+//  - steps      stairs / step runs
+//  - cycleway   bike paths and rail-trails (walkable)
+//  - pedestrian foot-only ways (area plazas are filtered out below)
+// Public vehicle roads (residential/service/unclassified/…) are other highway
+// classes and are deliberately not requested.
+const HIGHWAY_FILTER =
+  "^(track|path|footway|bridleway|steps|cycleway|pedestrian)$";
 
 function overpassQuery(bounds: string): string {
   return (
@@ -68,6 +75,7 @@ function kindNoun(kind: TrailKind, highway: string | undefined): string {
   if (highway === "bridleway") return "Bridleway";
   if (highway === "steps") return "Steps";
   if (highway === "footway") return "Footway";
+  if (highway === "cycleway") return "Cycleway / rail-trail";
   return "Foot path";
 }
 
@@ -83,6 +91,9 @@ function elementToTrail(el: OverpassElement): Trail | null {
   if (el.type !== "way" || !el.geometry || el.geometry.length < 2) return null;
 
   const tags = el.tags ?? {};
+  // Squares/plazas mapped as filled areas aren't routes — skip so they don't
+  // draw as a stray closed outline.
+  if (tags.area === "yes") return null;
   const kind = classifyKind(tags.highway);
   const noun = kindNoun(kind, tags.highway);
 

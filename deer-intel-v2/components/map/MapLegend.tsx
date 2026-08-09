@@ -18,7 +18,6 @@ type MapLegendProps = {
   showSlope: boolean;
   showTerrain: boolean;
   showLandcover: boolean;
-  showTrails: boolean;
   showDeerHeat: boolean;
   showCameraHeat: boolean;
   period: MovementPeriod;
@@ -28,7 +27,6 @@ export default function MapLegend({
   showSlope,
   showTerrain,
   showLandcover,
-  showTrails,
   showDeerHeat,
   showCameraHeat,
   period,
@@ -110,31 +108,6 @@ export default function MapLegend({
             <span>15°</span>
             <span>30°</span>
             <span>45°+</span>
-          </div>
-        </div>
-      ),
-    });
-  }
-
-  if (showTrails) {
-    sections.push({
-      key: "trails",
-      node: (
-        <div style={sectionStyle}>
-          <p style={titleStyle}>Trails</p>
-          <p style={takeawayStyle}>
-            Walk-in routes a vehicle can&apos;t take — quiet access, and travel
-            lanes deer share.
-          </p>
-          <div style={swatchRowsStyle}>
-            <div style={swatchRowStyle}>
-              <span style={footLineStyle} aria-hidden="true" />
-              <span style={swatchLabelStyle}>Foot path</span>
-            </div>
-            <div style={swatchRowStyle}>
-              <span style={trackLineStyle} aria-hidden="true" />
-              <span style={swatchLabelStyle}>Track / logging road</span>
-            </div>
           </div>
         </div>
       ),
@@ -274,22 +247,6 @@ const swatchStyle: CSSProperties = {
   height: "13px",
   borderRadius: "4px",
   boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.25)",
-};
-
-// Dashed line samples that mirror the two on-map trail styles (amber tight-dash
-// foot path, brown long-dash track).
-const footLineStyle: CSSProperties = {
-  flex: "0 0 auto",
-  width: "26px",
-  height: "0",
-  borderTop: "2.4px dashed #f2c14e",
-};
-
-const trackLineStyle: CSSProperties = {
-  flex: "0 0 auto",
-  width: "26px",
-  height: "0",
-  borderTop: "3px dashed #c98a3c",
 };
 
 const swatchLabelStyle: CSSProperties = {

@@ -29,7 +29,6 @@ export type MapOverlayId =
   | "contours"
   | "slope"
   | "landcover"
-  | "trails"
   | "cameraHeat"
   | "deerHeat"
   | "wind"
@@ -72,12 +71,6 @@ export const MAP_OVERLAYS: Array<{
     id: "landcover",
     label: "Food & Cover",
     description: "Crop fields, pasture, grass and forest type (NLCD).",
-  },
-  {
-    id: "trails",
-    label: "Trails",
-    description:
-      "Foot paths, tracks and old logging roads a vehicle can't drive — walk-in access.",
   },
   {
     id: "cameraHeat",
@@ -339,11 +332,13 @@ export const WATER_TILE_URL =
 export const WATER_ATTRIBUTION = "Hydrography &copy; USGS NHD";
 
 // OpenStreetMap non-vehicle ways — foot paths, tracks (dirt/logging roads),
-// bridleways and steps: the walk-in routes a truck can't take. Pulled live from
-// the Overpass API for the current view (vector, so no XYZ tile source), then
-// drawn as dashed lines. Deer follow the same low-resistance ground people cut
-// trails along, and an old logging road is a quiet, scent-safe way to slip into
-// a stand — so these are prime access + travel intel for a property.
+// bridleways, steps and cycleways: the walk-in routes a truck can't take.
+// Pulled live from the Overpass API for the current view (vector, so no XYZ
+// tile source), then drawn as dashed lines. Deer follow the same low-resistance
+// ground people cut trails along, and an old logging road is a quiet, scent-safe
+// way to slip into a stand — so these are prime access + travel intel. Like the
+// water and property-line layers, this is a permanent reference layer (always
+// on, no toggle), gated only by zoom.
 export const TRAILS_OVERPASS_ENDPOINT =
   "https://overpass-api.de/api/interpreter";
 export const TRAILS_ATTRIBUTION = "Trails &copy; OpenStreetMap contributors";
