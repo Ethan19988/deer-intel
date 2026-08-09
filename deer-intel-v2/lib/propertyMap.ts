@@ -350,6 +350,16 @@ export const TRAILS_OVERPASS_ENDPOINTS = [
   "https://overpass.private.coffee/api/interpreter",
 ];
 export const TRAILS_ATTRIBUTION = "Trails &copy; OpenStreetMap contributors";
+
+// USGS National Map "Transportation" service — a second, additive trail source
+// merged with OSM. It carries foot trails, 4WD roads and closed/gated forest
+// roads that OpenStreetMap frequently hasn't mapped, INCLUDING state-forest and
+// state-game-land trails contributed by state agencies (e.g. the PA Game
+// Commission). That's exactly the walk-in ground OSM is thin on, so it fills
+// most of the gaps on public hunting land. Queried per-layer as GeoJSON for the
+// current view; if it's unreachable the layer just falls back to OSM alone.
+export const TRAILS_USGS_BASE =
+  "https://carto.nationalmap.gov/arcgis/rest/services/transportation/MapServer";
 // Show trails at a normal property-overview zoom, not just when you're zoomed
 // all the way in. The query is always clipped to the current viewport, so a
 // lower gate here only means a slightly wider box, not a county-wide blanket.
