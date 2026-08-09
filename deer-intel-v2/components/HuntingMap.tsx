@@ -84,6 +84,7 @@ import { ownerAcresText } from "@/lib/ownerLabel";
 import MapSearchBar from "@/components/map/MapSearchBar";
 import GoldenHourFrame from "@/components/map/GoldenHourFrame";
 import WindFlowOverlay from "@/components/map/WindFlowOverlay";
+import TrailsLayer from "@/components/map/TrailsLayer";
 import MapSearchResultMarker from "@/components/map/MapSearchResultMarker";
 import OfflineDownloadStatus from "@/components/map/OfflineDownloadStatus";
 import OfflineMapsPanel, {
@@ -1107,6 +1108,10 @@ export default function HuntingMap() {
   const [showContours, setShowContours] = useState(defaultOverlays.contours);
   const [showSlope, setShowSlope] = useState(defaultOverlays.slope);
   const [showLandcover, setShowLandcover] = useState(defaultOverlays.landcover);
+  const [showTrails, setShowTrails] = useState(defaultOverlays.trails);
+  // Status line from the trails overlay (zoom hint / loading / empty), surfaced
+  // in the shared map notice bar like the parcel-layer messages.
+  const [trailsMessage, setTrailsMessage] = useState<string | null>(null);
   const [showCameraHeat, setShowCameraHeat] = useState(defaultOverlays.cameraHeat);
   const [showDeerHeat, setShowDeerHeat] = useState(defaultOverlays.deerHeat);
   const [showWind, setShowWind] = useState(defaultOverlays.wind);
@@ -1668,9 +1673,11 @@ export default function HuntingMap() {
         ? "Zoom in further for owner names — tap any parcel to see who owns it."
         : "";
 
-  const mapOverlayMessages = [parcelLayerState?.message, parcelZoomHint].filter(
-    (message): message is string => Boolean(message),
-  );
+  const mapOverlayMessages = [
+    parcelLayerState?.message,
+    parcelZoomHint,
+    showTrails ? trailsMessage : null,
+  ].filter((message): message is string => Boolean(message));
 
   const saveMapState = useCallback((center: MapCenter, zoom: number) => {
     latestMapZoomRef.current = zoom;
@@ -3074,6 +3081,7 @@ export default function HuntingMap() {
             contourNeedsZoomIn={showContours && mapZoom < CONTOUR_MIN_ZOOM}
             showSlope={showSlope}
             showLandcover={showLandcover}
+            showTrails={showTrails}
             showCameraHeat={showCameraHeat}
             showDeerHeat={showDeerHeat}
             showWind={showWind}
@@ -3083,6 +3091,7 @@ export default function HuntingMap() {
             onToggleContours={() => setShowContours((current) => !current)}
             onToggleSlope={() => setShowSlope((current) => !current)}
             onToggleLandcover={() => setShowLandcover((current) => !current)}
+            onToggleTrails={() => setShowTrails((current) => !current)}
             onToggleCameraHeat={() => setShowCameraHeat((current) => !current)}
             onToggleDeerHeat={() => setShowDeerHeat((current) => !current)}
             onToggleWind={toggleWind}
@@ -3205,6 +3214,8 @@ export default function HuntingMap() {
               updateWhenZooming={false}
               keepBuffer={1}
             />
+
+            <TrailsLayer enabled={showTrails} onStatus={setTrailsMessage} />
 
             {showSlope ? (
               <WMSTileLayer
@@ -3573,6 +3584,7 @@ export default function HuntingMap() {
                 showSlope={showSlope}
                 showTerrain={showTerrain && !!terrainReview}
                 showLandcover={showLandcover}
+                showTrails={showTrails}
                 showDeerHeat={showDeerHeat}
                 showCameraHeat={showCameraHeat}
                 period={movementPeriod}
@@ -3611,6 +3623,7 @@ export default function HuntingMap() {
                 showContours,
                 showSlope,
                 showLandcover,
+                showTrails,
                 showCameraHeat,
                 showDeerHeat,
                 showWind,

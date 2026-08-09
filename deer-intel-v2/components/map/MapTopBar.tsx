@@ -9,6 +9,7 @@ type MapTopBarProps = {
   contourNeedsZoomIn: boolean;
   showSlope: boolean;
   showLandcover: boolean;
+  showTrails: boolean;
   showCameraHeat: boolean;
   showDeerHeat: boolean;
   showWind: boolean;
@@ -18,6 +19,7 @@ type MapTopBarProps = {
   onToggleContours: () => void;
   onToggleSlope: () => void;
   onToggleLandcover: () => void;
+  onToggleTrails: () => void;
   onToggleCameraHeat: () => void;
   onToggleDeerHeat: () => void;
   onToggleWind: () => void;
@@ -41,6 +43,7 @@ export default function MapTopBar({
   contourNeedsZoomIn,
   showSlope,
   showLandcover,
+  showTrails,
   showCameraHeat,
   showDeerHeat,
   showWind,
@@ -50,6 +53,7 @@ export default function MapTopBar({
   onToggleContours,
   onToggleSlope,
   onToggleLandcover,
+  onToggleTrails,
   onToggleCameraHeat,
   onToggleDeerHeat,
   onToggleWind,
@@ -115,6 +119,16 @@ export default function MapTopBar({
         onClick={onToggleLandcover}
       >
         Food &amp; Cover
+      </button>
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={showTrails}
+        style={{ ...pillStyle, ...(showTrails ? activeOverlayPillStyle : null) }}
+        onClick={onToggleTrails}
+      >
+        Trails
       </button>
 
       <button
