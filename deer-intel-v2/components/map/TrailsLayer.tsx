@@ -35,7 +35,9 @@ type Trail = {
 // green/gray satellite, and clear of the blaze-orange used for pins/overlays.
 const FOOT_COLOR = "#f2c14e";
 const TRACK_COLOR = "#c98a3c";
-const CASING_COLOR = "rgba(20, 24, 18, 0.55)";
+// A soft, light casing — just enough separation from bright ground to keep the
+// line readable, without the heavy dark outline reading as a bold mark.
+const CASING_COLOR = "rgba(24, 28, 22, 0.35)";
 
 const DEBOUNCE_MS = 500;
 const OVERPASS_TIMEOUT_S = 25;
@@ -464,13 +466,15 @@ export default function TrailsLayer({ enabled, onStatus }: TrailsLayerProps) {
 
         return (
           <Fragment key={trail.id}>
-            {/* Dark casing so a pale trail reads over bright fields/gravel. */}
+            {/* Light casing — a soft edge so a pale trail still reads over
+                bright fields/gravel, kept thin and faint so it's noticeable
+                but not a bold outline. */}
             <Polyline
               positions={trail.positions}
               pathOptions={{
                 color: CASING_COLOR,
-                weight: weight + 2,
-                opacity: 0.5,
+                weight: weight + 1.2,
+                opacity: 0.28,
                 lineCap: "round",
               }}
               interactive={false}
@@ -480,7 +484,7 @@ export default function TrailsLayer({ enabled, onStatus }: TrailsLayerProps) {
               pathOptions={{
                 color,
                 weight,
-                opacity: 0.95,
+                opacity: 0.8,
                 dashArray,
                 lineCap: "round",
               }}
