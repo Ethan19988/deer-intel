@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import AccountNavControl from "@/components/auth/AccountNavControl";
 import {
+  CalendarIcon,
   CameraIcon,
   ClipboardIcon,
   DeerIcon,
@@ -39,6 +40,7 @@ const NAV_GROUPS: NavGroup[] = [
     links: [
       { href: "/ai", label: "Hunt Plan", icon: <TargetIcon size={ICON_SIZE} /> },
       { href: "/hunt-log", label: "Hunt Log", icon: <ClipboardIcon size={ICON_SIZE} /> },
+      { href: "/calendar", label: "Calendar", icon: <CalendarIcon size={ICON_SIZE} /> },
       { href: "/hit-list", label: "Hit List", icon: <DeerIcon size={ICON_SIZE} /> },
       { href: "/party", label: "Party", icon: <UsersIcon size={ICON_SIZE} /> },
     ],
