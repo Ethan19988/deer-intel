@@ -6,6 +6,7 @@ import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import { CalendarIcon } from "@/components/ui/FieldIcons";
 import MonthCalendar from "@/components/calendar/MonthCalendar";
+import CalendarDayList from "@/components/calendar/CalendarDayList";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
 import {
   buildCalendarEvents,
@@ -232,28 +233,7 @@ export default function CalendarPage() {
             description="Log a hunt, check a camera, tag a photo, or drop a map pin and it will show up here."
           />
         ) : (
-          <ul style={eventListStyle}>
-            {selectedDayEvents.map((event) => (
-              <li key={event.id} style={eventRowStyle}>
-                <span
-                  style={{
-                    ...eventDotStyle,
-                    background: CALENDAR_KIND_META[event.kind].color,
-                  }}
-                  aria-hidden="true"
-                />
-                <div style={eventTextStyle}>
-                  <span style={eventTitleStyle}>{event.title}</span>
-                  {event.detail ? (
-                    <span style={eventDetailStyle}>{event.detail}</span>
-                  ) : null}
-                </div>
-                <span style={eventKindStyle}>
-                  {CALENDAR_KIND_META[event.kind].label}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <CalendarDayList events={selectedDayEvents} />
         )}
       </Card>
     </PageShell>
@@ -430,60 +410,3 @@ const dayTitleStyle: CSSProperties = {
   color: "var(--text)",
 };
 
-const eventListStyle: CSSProperties = {
-  listStyle: "none",
-  margin: 0,
-  padding: 0,
-  display: "grid",
-  gap: "0.4rem",
-};
-
-const eventRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.6rem",
-  padding: "0.55rem 0.6rem",
-  border: "1px solid var(--border)",
-  borderRadius: "10px",
-  background: "var(--surface)",
-};
-
-const eventDotStyle: CSSProperties = {
-  flex: "none",
-  width: "10px",
-  height: "10px",
-  borderRadius: "999px",
-};
-
-const eventTextStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "0.1rem",
-  minWidth: 0,
-  flex: 1,
-};
-
-const eventTitleStyle: CSSProperties = {
-  overflow: "hidden",
-  color: "var(--text)",
-  fontSize: "0.92rem",
-  fontWeight: 750,
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
-
-const eventDetailStyle: CSSProperties = {
-  overflow: "hidden",
-  color: "var(--text-muted)",
-  fontSize: "0.78rem",
-  fontWeight: 600,
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
-
-const eventKindStyle: CSSProperties = {
-  flex: "none",
-  color: "var(--text-muted)",
-  fontSize: "0.72rem",
-  fontWeight: 700,
-};
