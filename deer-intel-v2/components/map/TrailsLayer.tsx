@@ -31,13 +31,15 @@ type Trail = {
   positions: Array<[number, number]>;
 };
 
-// Amber for foot paths, saddle-brown for tracks — both warm and legible over
-// green/gray satellite, and clear of the blaze-orange used for pins/overlays.
-const FOOT_COLOR = "#f2c14e";
-const TRACK_COLOR = "#c98a3c";
-// A soft, light casing — just enough separation from bright ground to keep the
-// line readable, without the heavy dark outline reading as a bold mark.
-const CASING_COLOR = "rgba(24, 28, 22, 0.35)";
+// A soft, faint brown for both — earthy and understated over satellite rather
+// than a bright mark. Tracks run a shade darker than foot paths so the two are
+// still tellable apart (helped by the dash pattern), and both stay clear of the
+// blaze-orange used for pins/overlays.
+const FOOT_COLOR = "#9c6b40";
+const TRACK_COLOR = "#7f5530";
+// A very light casing — just enough separation from bright ground to keep the
+// faint line readable, without a dark outline making it look bold.
+const CASING_COLOR = "rgba(28, 24, 18, 0.28)";
 
 const DEBOUNCE_MS = 400;
 const OVERPASS_TIMEOUT_S = 20;
@@ -509,8 +511,8 @@ export default function TrailsLayer({ enabled, onStatus }: TrailsLayerProps) {
               positions={trail.positions}
               pathOptions={{
                 color: CASING_COLOR,
-                weight: weight + 1.4,
-                opacity: 0.34,
+                weight: weight + 1.2,
+                opacity: 0.24,
                 lineCap: "round",
               }}
               interactive={false}
@@ -520,7 +522,7 @@ export default function TrailsLayer({ enabled, onStatus }: TrailsLayerProps) {
               pathOptions={{
                 color,
                 weight,
-                opacity: 0.92,
+                opacity: 0.75,
                 dashArray,
                 lineCap: "round",
               }}
