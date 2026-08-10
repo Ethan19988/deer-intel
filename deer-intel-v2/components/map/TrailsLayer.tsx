@@ -39,11 +39,11 @@ const TRACK_COLOR = "#c98a3c";
 // line readable, without the heavy dark outline reading as a bold mark.
 const CASING_COLOR = "rgba(24, 28, 22, 0.35)";
 
-const DEBOUNCE_MS = 500;
-const OVERPASS_TIMEOUT_S = 25;
-// Give each request this long before we give up on it, so a hung endpoint can't
-// leave the layer stuck on "Finding trails…" forever.
-const PER_REQUEST_TIMEOUT_MS = 12000;
+const DEBOUNCE_MS = 400;
+const OVERPASS_TIMEOUT_S = 20;
+// Give each request this long before we give up on it, so a slow/hung endpoint
+// fails over quickly instead of stalling the layer.
+const PER_REQUEST_TIMEOUT_MS = 8000;
 
 // The USGS National Map transportation sublayers that are walk-in, non-public-
 // vehicle ways. Merged with OSM to fill gaps (esp. on public land).
@@ -293,6 +293,12 @@ export default function TrailsLayer({ enabled, onStatus }: TrailsLayerProps) {
 
   const debounceRef = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Each source's latest results are held separately so we can paint whichever
+  // one lands first (USGS is usually quick; Overpass can be slow) instead of
+  // waiting on the slower one. A generation counter drops stale async results.
+  const genRef = useRef(0);
+  const osmRef = useRef<Trail[]>([]);
+  const usgsRef = useRef<Trail[]>([]);
   // The padded bounds the current `trails` were fetched for. A view still inside
   // this box needs no new request.
   const fetchedBoxRef = useRef<{
@@ -340,52 +346,82 @@ export default function TrailsLayer({ enabled, onStatus }: TrailsLayerProps) {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+    const gen = (genRef.current += 1);
 
     // A fresh area (no prior box) starts clean; within-box pans keep the current
     // lines up while the next batch loads instead of flashing empty.
-    if (fetchedBoxRef.current === null) setTrails([]);
+    if (fetchedBoxRef.current === null) {
+      osmRef.current = [];
+      usgsRef.current = [];
+      setTrails([]);
+    }
     report("Finding trails…");
 
     const overpassBody = overpassQuery(padded.query);
     // ArcGIS envelope is xmin,ymin,xmax,ymax = W,S,E,N.
     const envelope = `${padded.west},${padded.south},${padded.east},${padded.north}`;
-
-    // Pull both sources at once and merge whatever comes back — OSM for its
-    // informal/urban paths, USGS for the forest-road and agency trail coverage
-    // OSM is thin on. We only error if BOTH fail.
-    const [osmResult, usgsResult] = await Promise.allSettled([
-      fetchOsmTrails(overpassBody, controller.signal),
-      fetchUsgsTrails(envelope, controller.signal),
-    ]);
-
-    // Superseded by a newer fetch — stop silently.
-    if (controller.signal.aborted) return;
-
-    const merged: Trail[] = [];
-    let anySourceOk = false;
-    if (osmResult.status === "fulfilled") {
-      anySourceOk = true;
-      merged.push(...osmResult.value);
-    }
-    if (usgsResult.status === "fulfilled") {
-      anySourceOk = true;
-      merged.push(...usgsResult.value);
-    }
-
-    if (!anySourceOk) {
-      fetchedBoxRef.current = null;
-      report("Trails are unavailable right now — try again in a moment.");
-      return;
-    }
-
-    fetchedBoxRef.current = {
+    const fetchBox = {
       south: padded.south,
       west: padded.west,
       north: padded.north,
       east: padded.east,
     };
-    setTrails(merged);
-    report(merged.length === 0 ? "No mapped trails in this view." : null);
+
+    // Paint whatever's arrived so far; drop the "finding" note once anything is
+    // on the map.
+    const paint = () => {
+      if (gen !== genRef.current || controller.signal.aborted) return;
+      const merged = [...usgsRef.current, ...osmRef.current];
+      setTrails(merged);
+      if (merged.length > 0) report(null);
+    };
+
+    // Once BOTH sources have settled, record the fetched box and give a final
+    // read (nothing found, or nothing reachable).
+    let osmSettled = false;
+    let usgsSettled = false;
+    let osmOk = false;
+    let usgsOk = false;
+    const settle = () => {
+      if (gen !== genRef.current || controller.signal.aborted) return;
+      if (!osmSettled || !usgsSettled) return;
+      if (!osmOk && !usgsOk) {
+        fetchedBoxRef.current = null;
+        report("Trails are unavailable right now — try again in a moment.");
+        return;
+      }
+      fetchedBoxRef.current = fetchBox;
+      const total = usgsRef.current.length + osmRef.current.length;
+      if (total === 0) report("No mapped trails in this view.");
+    };
+
+    // Fire both independently so the slower one (usually Overpass) never holds
+    // up drawing the faster one. USGS is the richer source on hunting ground.
+    void fetchUsgsTrails(envelope, controller.signal)
+      .then((list) => {
+        if (gen !== genRef.current) return;
+        usgsRef.current = list;
+        usgsOk = true;
+        paint();
+      })
+      .catch(() => {})
+      .finally(() => {
+        usgsSettled = true;
+        settle();
+      });
+
+    void fetchOsmTrails(overpassBody, controller.signal)
+      .then((list) => {
+        if (gen !== genRef.current) return;
+        osmRef.current = list;
+        osmOk = true;
+        paint();
+      })
+      .catch(() => {})
+      .finally(() => {
+        osmSettled = true;
+        settle();
+      });
   }, [map, report]);
 
   const queueFetch = useCallback(() => {
@@ -461,7 +497,7 @@ export default function TrailsLayer({ enabled, onStatus }: TrailsLayerProps) {
         if (!inView) return null;
 
         const color = trail.kind === "track" ? TRACK_COLOR : FOOT_COLOR;
-        const weight = trail.kind === "track" ? 3 : 2.4;
+        const weight = trail.kind === "track" ? 3.4 : 2.8;
         const dashArray = trail.kind === "track" ? "10 6" : "2 6";
 
         return (
@@ -473,8 +509,8 @@ export default function TrailsLayer({ enabled, onStatus }: TrailsLayerProps) {
               positions={trail.positions}
               pathOptions={{
                 color: CASING_COLOR,
-                weight: weight + 1.2,
-                opacity: 0.28,
+                weight: weight + 1.4,
+                opacity: 0.34,
                 lineCap: "round",
               }}
               interactive={false}
@@ -484,7 +520,7 @@ export default function TrailsLayer({ enabled, onStatus }: TrailsLayerProps) {
               pathOptions={{
                 color,
                 weight,
-                opacity: 0.8,
+                opacity: 0.92,
                 dashArray,
                 lineCap: "round",
               }}
