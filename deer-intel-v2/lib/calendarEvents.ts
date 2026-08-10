@@ -19,6 +19,12 @@ export type CalendarEvent = {
   title: string;
   detail: string;
   propertyId: string;
+  /** Optional secondary line (hunt time + weather, the camera a photo is from). */
+  meta?: string;
+  /** Stored image id for a trail-cam sighting, so the day shows the actual deer. */
+  imageId?: string;
+  /** Deep link into the full record this event came from. */
+  href?: string;
 };
 
 export const CALENDAR_KINDS: CalendarEventKind[] = [
@@ -106,6 +112,13 @@ export function buildCalendarEvents(
   for (const hunt of scope(state.hunts)) {
     const dayKey = toDayKey(hunt.date);
     if (!dayKey) continue;
+    const timeRange = [hunt.startTime?.trim(), hunt.endTime?.trim()]
+      .filter(Boolean)
+      .join("–");
+    const conditions = [
+      hunt.temperature?.trim() ? `${hunt.temperature.trim()}°` : "",
+      hunt.windDirection?.trim(),
+    ].filter(Boolean);
     events.push({
       id: `hunt-${hunt.id}`,
       dayKey,
@@ -118,6 +131,8 @@ export function buildCalendarEvents(
         hunt.harvest,
         hunt.shotOpportunity,
       ),
+      meta: [timeRange, ...conditions].filter(Boolean).join(" · ") || undefined,
+      href: "/hunt-log",
       propertyId: hunt.propertyId,
     });
   }
@@ -134,6 +149,9 @@ export function buildCalendarEvents(
       kind: "camera",
       title: cameraName.get(check.cameraId)?.trim() || "Camera check",
       detail: wildlifeDetail(check),
+      href: check.cameraId
+        ? `/properties/${check.propertyId}/assets/${check.cameraId}`
+        : undefined,
       propertyId: check.propertyId,
     });
   }
@@ -141,12 +159,18 @@ export function buildCalendarEvents(
   for (const photo of scope(state.photoRecords)) {
     const dayKey = toDayKey(photo.photoDate);
     if (!dayKey) continue;
+    const camera = cameraName.get(photo.cameraSiteId)?.trim();
     events.push({
       id: `sighting-${photo.id}`,
       dayKey,
       kind: "sighting",
       title: photo.buckName?.trim() || photo.species?.trim() || "Sighting",
       detail: photo.behavior?.trim() || photo.travelDirection?.trim() || "",
+      meta: camera || undefined,
+      imageId: photo.imageId,
+      href: photo.cameraSiteId
+        ? `/properties/${photo.propertyId}/assets/${photo.cameraSiteId}#photos`
+        : undefined,
       propertyId: photo.propertyId,
     });
   }
