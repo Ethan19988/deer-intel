@@ -96,10 +96,14 @@ export default function Home() {
   const propertyCameraChecks = state.cameraChecks.filter(
     (check) => check.propertyId === activePropertyId,
   );
+  const propertyPhotoRecords = state.photoRecords.filter(
+    (photo) => photo.propertyId === activePropertyId,
+  );
   const patternReport = buildPropertyPatternReport(
     propertyHunts,
     propertyCameraChecks,
     propertyCameras,
+    propertyPhotoRecords,
   );
   const hasPatternSignal =
     patternReport.conditionInsights.length > 0 || Boolean(patternReport.hottestCamera);

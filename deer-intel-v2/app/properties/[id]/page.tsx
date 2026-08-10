@@ -140,13 +140,14 @@ export default function PropertyWorkspacePage() {
   const propertyCameraChecks = state.cameraChecks.filter(
     (check) => check.propertyId === params.id,
   );
+  const propertyPhotoRecords = state.photoRecords.filter(
+    (photo) => photo.propertyId === params.id,
+  );
   const patternReport = buildPropertyPatternReport(
     propertyHunts,
     propertyCameraChecks,
     propertyCameras,
-  );
-  const propertyPhotoRecords = state.photoRecords.filter(
-    (photo) => photo.propertyId === params.id,
+    propertyPhotoRecords,
   );
   const propertyDeerProfiles = state.deerProfiles.filter(
     (profile) => profile.propertyId === params.id,
