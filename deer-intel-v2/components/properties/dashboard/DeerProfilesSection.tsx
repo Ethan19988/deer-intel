@@ -9,6 +9,7 @@ import Card from "@/components/ui/Card";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import EmptyState from "@/components/ui/EmptyState";
 import type { DeerProfileFormValues } from "@/lib/deerProfileFormValues";
+import { getDeerConditionInsights } from "@/lib/deerConditionInsights";
 import { getDeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
 import type { DeerProfileSummary } from "@/lib/deerProfiles";
 import { getDeerTravelIntelligence } from "@/lib/deerTravelIntelligence";
@@ -189,6 +190,10 @@ function SelectedBuck({
     cameras,
     photoRecords,
   });
+  const conditions = getDeerConditionInsights({
+    profile: summary.profile,
+    photoRecords,
+  });
   const buckPhotos = photoRecords.filter((photo) =>
     photoLinksProfile(photo, summary.profile.id),
   );
@@ -198,6 +203,7 @@ function SelectedBuck({
       summary={summary}
       intelligence={intelligence}
       travel={travel}
+      conditions={conditions}
       photos={buckPhotos}
       deerProfiles={deerProfiles}
     />

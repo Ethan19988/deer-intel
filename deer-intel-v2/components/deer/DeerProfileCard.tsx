@@ -1,9 +1,20 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import PhotoRecordList from "@/components/photos/PhotoRecordList";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import EmptyState from "@/components/ui/EmptyState";
+import StatCard from "@/components/ui/StatCard";
+import {
+  CompassIcon,
+  LeafIcon,
+  SunIcon,
+  SunriseIcon,
+} from "@/components/ui/FieldIcons";
+import type {
+  ConditionInsight,
+  DeerConditionInsights,
+} from "@/lib/deerConditionInsights";
 import type { DeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
 import type { DeerProfileSummary } from "@/lib/deerProfiles";
 import type { DeerTravelIntelligence } from "@/lib/deerTravelIntelligence";
@@ -14,6 +25,7 @@ type DeerProfileCardProps = {
   summary: DeerProfileSummary;
   intelligence: DeerProfileIntelligence;
   travel: DeerTravelIntelligence;
+  conditions: DeerConditionInsights;
   photos: PhotoRecord[];
   deerProfiles: DeerProfile[];
 };
@@ -22,6 +34,7 @@ export default function DeerProfileCard({
   summary,
   intelligence,
   travel,
+  conditions,
   photos,
   deerProfiles,
 }: DeerProfileCardProps) {
@@ -53,6 +66,16 @@ export default function DeerProfileCard({
           </div>
         ) : null}
       </section>
+
+      {conditions.hasData ? (
+        <section style={groupStyle}>
+          <div style={groupHeadingStyle}>
+            <p style={groupLabelStyle}>Key Insights</p>
+            <p style={groupHintStyle}>The conditions he moves on most</p>
+          </div>
+          <KeyInsightsGrid insights={conditions.insights} />
+        </section>
+      ) : null}
 
       <section style={groupStyle}>
         <div style={groupHeadingStyle}>
@@ -89,6 +112,31 @@ export default function DeerProfileCard({
         </div>
       </section>
     </Card>
+  );
+}
+
+const INSIGHT_ICON: Record<ConditionInsight["kind"], ReactNode> = {
+  wind: <CompassIcon />,
+  temperature: <SunIcon />,
+  time: <SunriseIcon />,
+  humidity: <LeafIcon />,
+};
+
+function KeyInsightsGrid({ insights }: { insights: ConditionInsight[] }) {
+  return (
+    <div style={insightsGridStyle}>
+      {insights.map((insight, index) => (
+        <StatCard
+          key={insight.kind}
+          // Alternate the accent so the tiles read as a set, not a wall.
+          tone={index % 2 === 0 ? "green" : "blaze"}
+          icon={INSIGHT_ICON[insight.kind]}
+          label={`${insight.label} · ${insight.value}`}
+          value={`${insight.percent}%`}
+          detail={`${insight.count} of ${insight.sampleSize} sightings`}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -294,6 +342,13 @@ const groupHintStyle: CSSProperties = {
   color: "var(--text-muted)",
   fontSize: "0.82rem",
   fontWeight: 600,
+};
+
+const insightsGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))",
+  gap: "0.75rem",
+  marginTop: "0.85rem",
 };
 
 const overviewGridStyle: CSSProperties = {
