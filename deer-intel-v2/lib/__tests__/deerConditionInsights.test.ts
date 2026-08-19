@@ -127,6 +127,20 @@ describe("getDeerConditionInsights", () => {
     expect(humidity?.count).toBe(2);
   });
 
+  it("folds moon-phase wording variants into one canonical bucket", () => {
+    const photos = [
+      photo("a", "2026-10-01T06:30", { moonPhase: "Full" }),
+      photo("b", "2026-10-02T06:30", { moonPhase: "Full Moon" }),
+      photo("c", "2026-10-03T06:30", { moonPhase: "Waning gibbous" }),
+    ];
+
+    const moon = insightFor("moon", photos);
+
+    expect(moon?.value).toBe("Full moon");
+    expect(moon?.count).toBe(2);
+    expect(moon?.sampleSize).toBe(3);
+  });
+
   it("requires at least two sightings before an insight surfaces", () => {
     const single = insightFor("wind", [
       photo("a", "2026-10-01T06:30", { windDirection: "SW" }),

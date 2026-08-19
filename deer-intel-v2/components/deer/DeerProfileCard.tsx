@@ -8,6 +8,7 @@ import StatCard from "@/components/ui/StatCard";
 import {
   CompassIcon,
   LeafIcon,
+  MoonIcon,
   SunIcon,
   SunriseIcon,
 } from "@/components/ui/FieldIcons";
@@ -120,6 +121,7 @@ const INSIGHT_ICON: Record<ConditionInsight["kind"], ReactNode> = {
   temperature: <SunIcon />,
   time: <SunriseIcon />,
   humidity: <LeafIcon />,
+  moon: <MoonIcon />,
 };
 
 function KeyInsightsGrid({ insights }: { insights: ConditionInsight[] }) {

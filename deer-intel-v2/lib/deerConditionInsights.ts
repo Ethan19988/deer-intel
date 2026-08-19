@@ -9,7 +9,12 @@ import { toEightWind } from "@/lib/travelDirection";
 import type { DeerProfile } from "@/types/deerProfile";
 import type { PhotoRecord } from "@/types/photo";
 
-export type ConditionKind = "wind" | "temperature" | "time" | "humidity";
+export type ConditionKind =
+  | "wind"
+  | "temperature"
+  | "time"
+  | "humidity"
+  | "moon";
 
 export type ConditionInsight = {
   kind: ConditionKind;
@@ -52,12 +57,14 @@ export function getDeerConditionInsights({
   const temps = collect(linked, temperatureValue);
   const times = collect(linked, timeValue);
   const humidities = collect(linked, humidityValue);
+  const moons = collect(linked, moonValue);
 
   const insights = [
     buildInsight("wind", "Wind", winds),
     buildInsight("temperature", "Temperature", temps),
     buildInsight("time", "Time of Day", times),
     buildInsight("humidity", "Humidity", humidities),
+    buildInsight("moon", "Moon Phase", moons),
   ]
     .filter((insight): insight is ConditionInsight => insight !== null)
     // Lead with the strongest signal; break ties on the larger sample.
@@ -149,6 +156,34 @@ function humidityValue(photo: PhotoRecord): string {
   if (value < 70) return "Moderate humidity (40–69%)";
 
   return "High humidity (70%+)";
+}
+
+function moonValue(photo: PhotoRecord): string {
+  const raw = (photo.weatherSnapshot?.moonPhase ?? "").trim().toLowerCase();
+
+  if (!raw) return "";
+
+  const waning = raw.includes("wan");
+
+  // Fold the many ways a phase can be written (stamp text, weather history,
+  // "Full Moon" vs "Full") into one canonical label so a pattern doesn't split.
+  if (raw.includes("new")) return "New moon";
+  if (raw.includes("full")) return "Full moon";
+  if (raw.includes("gibbous")) {
+    return waning ? "Waning gibbous" : "Waxing gibbous";
+  }
+  if (raw.includes("crescent")) {
+    return waning ? "Waning crescent" : "Waxing crescent";
+  }
+  if (raw.includes("first quarter")) return "First quarter";
+  if (raw.includes("last quarter") || raw.includes("third quarter")) {
+    return "Last quarter";
+  }
+  if (raw.includes("quarter")) {
+    return waning ? "Last quarter" : "First quarter";
+  }
+
+  return "";
 }
 
 function parseNumber(raw: string | undefined): number | null {
