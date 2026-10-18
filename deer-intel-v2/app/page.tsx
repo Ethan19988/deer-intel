@@ -17,6 +17,8 @@ import RutRibbon from "@/components/season/RutRibbon";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
 import ColdFrontBanner from "@/components/ColdFrontBanner";
 import StandWindGrid from "@/components/StandWindGrid";
+import BuckSlideshow from "@/components/BuckSlideshow";
+import { buildHitListSlides } from "@/lib/hitListSlides";
 import DeerHoursChart from "@/components/DeerHoursChart";
 import { buildHourlyActivity, isBuckRecord } from "@/lib/hourlyActivity";
 import StandCheckPanel from "@/components/StandCheckPanel";
@@ -196,6 +198,19 @@ export default function Home() {
     now ?? HYDRATION_SAFE_NOW,
   );
 
+  const hitListSlides = activeProperty
+    ? buildHitListSlides({
+        propertyId: activeProperty.id,
+        propertyName: activeProperty.name,
+        profiles: state.deerProfiles,
+        photos: state.photoRecords,
+        cameras: state.cameras,
+        cameraChecks: state.cameraChecks,
+        hunts: state.hunts,
+        pins: state.pins,
+      })
+    : [];
+
   const cameraName = (cameraId: string) =>
     propertyCameras.find((camera) => camera.id === cameraId)?.name ?? "Camera";
   const recentPhotos = propertyPhotoRecords
@@ -274,6 +289,8 @@ export default function Home() {
           moon={moon}
           pressure={forecast?.pressure}
         />
+
+        <BuckSlideshow slides={hitListSlides} />
 
         <RutRibbon
           phase={seasonCtx.phase}
