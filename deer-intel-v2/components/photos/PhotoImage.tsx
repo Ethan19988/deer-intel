@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
-import { getPhotoImage } from "@/lib/imageStore";
+import { getDisplayPhotoUrl } from "@/lib/photoCrop";
 
 type PhotoImageProps = {
   imageId: string;
@@ -32,23 +32,16 @@ export default function PhotoImage({
 
   useEffect(() => {
     let active = true;
-    let createdUrl: string | null = null;
 
-    getPhotoImage(imageId).then((blob) => {
+    // Screenshots of a camera app are trimmed to just the photo. The URL is
+    // cached and shared across the app, so it is not revoked here.
+    getDisplayPhotoUrl(imageId).then((url) => {
       if (!active) return;
-
-      if (!blob) {
-        setResult({ imageId, url: null, state: "missing" });
-        return;
-      }
-
-      createdUrl = URL.createObjectURL(blob);
-      setResult({ imageId, url: createdUrl, state: "ready" });
+      setResult({ imageId, url, state: url ? "ready" : "missing" });
     });
 
     return () => {
       active = false;
-      if (createdUrl) URL.revokeObjectURL(createdUrl);
     };
   }, [imageId]);
 

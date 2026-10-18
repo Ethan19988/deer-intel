@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
-import { getPhotoImage } from "@/lib/imageStore";
+import { getDisplayPhotoUrl } from "@/lib/photoCrop";
 import type { TodayVerdict, VerdictChip } from "@/lib/todayVerdict";
 
 export type HeroPhoto = {
@@ -19,7 +19,7 @@ type TodayVerdictHeroProps = {
   photoUrlOverride?: string | null;
 };
 
-/** Object URL for a locally stored photo, revoked when it changes or unmounts. */
+/** Display URL for a stored photo (just the picture if it's an app screenshot). */
 function useStoredPhotoUrl(imageId: string | undefined): string | null {
   const [state, setState] = useState<{ id: string; url: string | null }>({
     id: "",
@@ -29,17 +29,14 @@ function useStoredPhotoUrl(imageId: string | undefined): string | null {
   useEffect(() => {
     if (!imageId) return;
     let active = true;
-    let created: string | null = null;
 
-    getPhotoImage(imageId).then((blob) => {
-      if (!active) return;
-      created = blob ? URL.createObjectURL(blob) : null;
-      setState({ id: imageId, url: created });
+    // Same cropped, cached URL the rest of the app uses; not revoked here.
+    getDisplayPhotoUrl(imageId).then((url) => {
+      if (active) setState({ id: imageId, url });
     });
 
     return () => {
       active = false;
-      if (created) URL.revokeObjectURL(created);
     };
   }, [imageId]);
 
