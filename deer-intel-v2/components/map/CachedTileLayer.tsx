@@ -69,6 +69,13 @@ class CachedLeafletTileLayer extends LeafletTileLayer {
   }
 }
 
+// A 1x1 transparent GIF shown in place of a tile that fails to load. Without
+// it the failed <img> stays broken and iOS Safari paints a "?" icon in every
+// empty tile slot — which USGS's sparse hydrography cache does across whole
+// regions at z13–14 (it 404s tiles it never cached).
+const TRANSPARENT_TILE =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
 function revokeObjectUrl(tile: HTMLImageElement): void {
   const objectUrl = tile.dataset.offlineObjectUrl;
   if (objectUrl) {
@@ -84,7 +91,7 @@ const CachedTileLayer = createTileLayerComponent<
   function createCachedTileLayer({ url, ...options }, context) {
     const layer = new CachedLeafletTileLayer(
       url as string,
-      withPane(options, context),
+      withPane({ errorTileUrl: TRANSPARENT_TILE, ...options }, context),
     );
     return createElementObject(layer, context);
   },
