@@ -34,7 +34,7 @@ export default function Section({
             <h2 style={titleStyle}>{title}</h2>
           </div>
         </div>
-        {action ? <div>{action}</div> : null}
+        {action ? <div className="di-section-action">{action}</div> : null}
       </div>
       {children}
     </section>

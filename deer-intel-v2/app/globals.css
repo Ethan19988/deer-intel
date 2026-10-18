@@ -1159,8 +1159,8 @@ textarea {
 
   .di-page-header-action,
   .di-page-header-action > *,
-  .di-section-header > div:last-child,
-  .di-section-header > div:last-child > * {
+  .di-section-action,
+  .di-section-action > * {
     width: 100% !important;
   }
 
