@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildHuntWindows, parseWindCompass } from "@/lib/huntPlanner";
+import { buildHuntWindows, buildWindMatrix, parseWindCompass } from "@/lib/huntPlanner";
 import type { ForecastDay } from "@/lib/liveWeather";
 import type { Stand } from "@/types/stand";
 
@@ -118,5 +118,30 @@ describe("buildHuntWindows with AM/PM sit winds", () => {
 
     expect(window.sits).toEqual([]);
     expect(window.goodStandNames).toEqual(["Oak Ridge"]);
+  });
+});
+
+describe("buildWindMatrix", () => {
+  it("makes AM/PM columns per day and grades each stand per sit", () => {
+    const days: ForecastDay[] = [
+      { ...day("2024-11-05", "S 6 mph", "falling"), morningWind: "SE 4 mph", eveningWind: "NW 9 mph" },
+      day("2024-11-06", "NW 8 mph"),
+    ];
+    const matrix = buildWindMatrix(days, [stand("Oak Ridge", "NW", "SE")]);
+
+    expect(matrix.columns.map((c) => `${c.dayLabel} ${c.period} ${c.windCompass}`)).toEqual([
+      "2024-11-05 AM SE",
+      "2024-11-05 PM NW",
+      "2024-11-06 AM NW",
+      "2024-11-06 PM NW",
+    ]);
+    expect(matrix.columns[0].isFront).toBe(true);
+    expect(matrix.rows[0].cells).toEqual(["avoid", "good", "good", "good"]);
+  });
+
+  it("marks cells unknown when a sit has no wind", () => {
+    const matrix = buildWindMatrix([day("2024-11-07", "calm")], [stand("Oak Ridge", "NW")]);
+
+    expect(matrix.rows[0].cells).toEqual(["unknown", "unknown"]);
   });
 });

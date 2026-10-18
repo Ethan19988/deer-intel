@@ -50,14 +50,6 @@ import {
   cameraToFormValues,
   EMPTY_CAMERA_FORM_VALUES,
 } from "@/lib/cameraFormValues";
-import {
-  createStandFromValues,
-  EMPTY_STAND_FORM_VALUES,
-} from "@/lib/standFormValues";
-import {
-  createDeerProfileFromValues,
-  EMPTY_DEER_PROFILE_FORM_VALUES,
-} from "@/lib/deerProfileFormValues";
 import { getDeerProfileSummaries } from "@/lib/deerProfiles";
 import {
   activeCameraCount,
@@ -71,11 +63,7 @@ import { getPropertyInsights } from "@/lib/propertyInsights";
 import { getHuntPlannerIntelligence } from "@/lib/huntPlannerIntelligence";
 import { getPropertyWeatherSummary } from "@/lib/weather";
 import { PIN_LAYER_LOOKUP } from "@/lib/propertyMap";
-import {
-  createDeerIntelId,
-  updateDeerIntelStore,
-  useDeerIntelStore,
-} from "@/lib/deerIntelStore";
+import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import type { Camera } from "@/types/camera";
 
 type DashboardModule = {
@@ -155,14 +143,9 @@ export default function PropertyWorkspacePage() {
   const propertyWalkTracks = state.walkTracks.filter(
     (track) => track.propertyId === params.id,
   );
-  const [cameraValues, setCameraValues] = useState(EMPTY_CAMERA_FORM_VALUES);
   const [editingCameraId, setEditingCameraId] = useState<string | null>(null);
   const [editCameraValues, setEditCameraValues] = useState(
     EMPTY_CAMERA_FORM_VALUES,
-  );
-  const [standValues, setStandValues] = useState(EMPTY_STAND_FORM_VALUES);
-  const [deerProfileValues, setDeerProfileValues] = useState(
-    EMPTY_DEER_PROFILE_FORM_VALUES,
   );
 
   useEffect(() => {
@@ -308,26 +291,6 @@ export default function PropertyWorkspacePage() {
     pinCount: propertyPins.length,
     standCount: standCount,
   });
-  const firstCamera = propertyCameras[0];
-  const addPhotoHref = firstCamera
-    ? `/properties/${propertyId}/assets/${firstCamera.id}#photos`
-    : "#camera-sites";
-
-  function addCamera() {
-    const newCamera = createCameraFromValues({
-      id: createDeerIntelId("camera"),
-      propertyId,
-      values: cameraValues,
-    });
-
-    if (!newCamera) return;
-
-    updateDeerIntelStore((currentState) => ({
-      ...currentState,
-      cameras: [...currentState.cameras, newCamera],
-    }));
-    setCameraValues(EMPTY_CAMERA_FORM_VALUES);
-  }
 
   function startEditingCamera(camera: Camera) {
     setEditingCameraId(camera.id);
@@ -359,22 +322,6 @@ export default function PropertyWorkspacePage() {
     cancelEditingCamera();
   }
 
-  function addStand() {
-    const newStand = createStandFromValues({
-      id: createDeerIntelId("stand"),
-      propertyId,
-      values: standValues,
-    });
-
-    if (!newStand) return;
-
-    updateDeerIntelStore((currentState) => ({
-      ...currentState,
-      stands: [...currentState.stands, newStand],
-    }));
-    setStandValues(EMPTY_STAND_FORM_VALUES);
-  }
-
   function deleteWalkTrack(trackId: string) {
     if (!window.confirm("Delete this saved walk?")) return;
 
@@ -384,22 +331,6 @@ export default function PropertyWorkspacePage() {
         (track) => track.id !== trackId,
       ),
     }));
-  }
-
-  function addDeerProfile() {
-    const newProfile = createDeerProfileFromValues({
-      id: createDeerIntelId("deer-profile"),
-      propertyId,
-      values: deerProfileValues,
-    });
-
-    if (!newProfile) return;
-
-    updateDeerIntelStore((currentState) => ({
-      ...currentState,
-      deerProfiles: [...currentState.deerProfiles, newProfile],
-    }));
-    setDeerProfileValues(EMPTY_DEER_PROFILE_FORM_VALUES);
   }
 
   return (
@@ -423,47 +354,6 @@ export default function PropertyWorkspacePage() {
             label: "Overview",
             content: (
               <div style={tabPanelStyle}>
-      <DashboardSection eyebrow="Command Center" title="Quick Actions" icon={<CompassIcon size={18} />}>
-        <div style={quickActionGridStyle}>
-          <DashboardCardLink
-            href="#camera-sites"
-            title="Add Camera Site"
-            description="Add a trail camera to this property."
-            icon={<WorkspaceIcon name="cameras" />}
-            size="compact"
-            tone="primary"
-          />
-          <DashboardCardLink
-            href="#stand-sites"
-            title="Add Stand"
-            description="Save a stand site, wind notes, and access notes."
-            icon={<WorkspaceIcon name="stands" />}
-            size="compact"
-            tone="primary"
-          />
-          <DashboardCardLink
-            href={`/hunt-log?propertyId=${propertyId}`}
-            title="Add Hunt Log"
-            description="Log a sit for this property."
-            icon={<WorkspaceIcon name="huntLog" />}
-            size="compact"
-            tone="primary"
-          />
-          <DashboardCardLink
-            href={addPhotoHref}
-            title="Add Photo Record"
-            description={
-              firstCamera
-                ? "Attach a photo record to a camera check."
-                : "Add a camera site first, then add photo records."
-            }
-            icon={<WorkspaceIcon name="deerHistory" />}
-            size="compact"
-            tone="primary"
-          />
-        </div>
-      </DashboardSection>
-
       <DashboardSection
         id="map"
         eyebrow="Primary Workspace"
@@ -689,12 +579,9 @@ export default function PropertyWorkspacePage() {
             content: (
       <CameraSitesSection
         cameras={propertyCameras}
-        cameraValues={cameraValues}
         editCameraValues={editCameraValues}
         editingCameraId={editingCameraId}
-        onCameraValuesChange={setCameraValues}
         onEditCameraValuesChange={setEditCameraValues}
-        onAddCamera={addCamera}
         onStartEditingCamera={startEditingCamera}
         onSaveEditedCamera={saveEditedCamera}
         onCancelEditingCamera={cancelEditingCamera}
@@ -706,12 +593,7 @@ export default function PropertyWorkspacePage() {
             label: "Stands",
             badge: standCount,
             content: (
-      <StandSitesSection
-        stands={propertyStands}
-        standValues={standValues}
-        onStandValuesChange={setStandValues}
-        onAddStand={addStand}
-      />
+      <StandSitesSection stands={propertyStands} />
             ),
           },
           {
@@ -720,7 +602,6 @@ export default function PropertyWorkspacePage() {
             badge: deerProfileCount,
             content: (
       <DeerProfilesSection
-        profileValues={deerProfileValues}
         summaries={deerProfileSummaries}
         propertyName={property.name}
         cameras={propertyCameras}
@@ -728,8 +609,6 @@ export default function PropertyWorkspacePage() {
         cameraChecks={propertyCameraChecks}
         hunts={propertyHunts}
         pins={propertyPins}
-        onProfileValuesChange={setDeerProfileValues}
-        onAddProfile={addDeerProfile}
       />
             ),
           },
@@ -925,11 +804,6 @@ const plannerIntelligenceWrapStyle: CSSProperties = {
   marginTop: "1rem",
 };
 
-const quickActionGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(210px, 100%), 1fr))",
-  gap: "1rem",
-};
 
 const summaryCardTitleStyle: CSSProperties = {
   margin: 0,

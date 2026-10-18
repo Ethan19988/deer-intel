@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
+import AddStandCard from "@/components/stands/AddStandCard";
 import StandCard from "@/components/stands/StandCard";
 import EmptyState from "@/components/ui/EmptyState";
 import {
@@ -128,20 +129,17 @@ export default function StandsPage() {
 
   const sitesTab = (
     <div style={listStyle}>
+      <AddStandCard
+        key={selectedPropertyId}
+        propertyId={selectedPropertyId}
+        propertyName={selectedProperty?.name ?? "this property"}
+        defaultOpen={propertyStands.length === 0}
+      />
       {propertyStands.length === 0 ? (
         <EmptyState
           illustration={<StandIcon size={30} />}
           title="No stands for this property"
-          description="Open the property command center to add stand type, wind notes, access, exit, and notes."
-          action={
-            <Link
-              href={`/properties/${selectedPropertyId}#stand-sites`}
-              style={primaryLinkStyle}
-              className="di-navbtn"
-            >
-              Add Stand
-            </Link>
-          }
+          description="Add your first stand above with its type, best and avoid winds, and access and exit notes."
         />
       ) : (
         <>
@@ -246,15 +244,15 @@ export default function StandsPage() {
           <div style={headerActionsStyle}>
             <Link href="/hunt-log" style={secondaryLinkStyle} className="di-navbtn">
               <ClipboardIcon size={17} />
-              Log Hunt
+              Log hunt
             </Link>
             <Link
-              href={`/properties/${selectedPropertyId}#stand-sites`}
+              href="#add-stand"
               style={primaryLinkStyle}
               className="di-navbtn"
             >
               <PlusIcon size={17} />
-              Add Stand
+              Add stand
             </Link>
           </div>
         </div>
@@ -311,10 +309,10 @@ const headerTitleWrapStyle: CSSProperties = {
 };
 
 const headerRightStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "flex-end",
-  gap: "0.7rem",
+  display: "grid",
+  gap: "0.6rem",
+  flex: "1 1 280px",
+  maxWidth: "460px",
 };
 
 const eyebrowStyle: CSSProperties = {
@@ -335,7 +333,7 @@ const titleStyle: CSSProperties = {
 };
 
 const pickerStyle: CSSProperties = {
-  display: "inline-flex",
+  display: "flex",
   alignItems: "center",
   gap: "0.5rem",
   marginTop: "0.15rem",
@@ -349,7 +347,8 @@ const pickerLabelStyle: CSSProperties = {
 
 const selectStyle: CSSProperties = {
   minHeight: "42px",
-  minWidth: "180px",
+  flex: 1,
+  minWidth: 0,
   padding: "0.5rem 0.65rem",
   border: "1px solid rgba(243, 237, 217, 0.3)",
   borderRadius: "var(--radius-sm)",
@@ -357,11 +356,11 @@ const selectStyle: CSSProperties = {
   color: "#f6efd6",
 };
 
+// Two equal buttons on one row keeps the header short on a phone.
 const headerActionsStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.6rem",
-  flexWrap: "wrap",
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "0.5rem",
 };
 
 const statGridStyle: CSSProperties = {

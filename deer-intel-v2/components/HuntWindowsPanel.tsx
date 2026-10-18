@@ -100,7 +100,6 @@ export default function HuntWindowsPanel({
 }
 
 const panelStyle: CSSProperties = {
-  marginTop: "1rem",
   padding: "0.85rem 1rem",
   border: "1px solid var(--border)",
   borderRadius: "var(--radius-sm)",

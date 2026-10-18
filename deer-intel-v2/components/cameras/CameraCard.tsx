@@ -307,17 +307,19 @@ const bodyStyle: CSSProperties = {
   padding: "1rem",
 };
 
+// Wraps so the actions drop below the name on a phone instead of squeezing
+// the camera name into a narrow column.
 const cardHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: "1rem",
+  gap: "0.75rem 1rem",
+  flexWrap: "wrap",
 };
 
 const headerActionsStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  justifyContent: "flex-end",
   gap: "0.5rem",
   flexWrap: "wrap",
 };
@@ -327,6 +329,7 @@ const leadStyle: CSSProperties = {
   alignItems: "flex-start",
   gap: "0.7rem",
   minWidth: 0,
+  flex: "1 1 240px",
 };
 
 const iconBadgeStyle: CSSProperties = {
@@ -364,14 +367,15 @@ const subTextStyle: CSSProperties = {
 };
 
 const secondaryButtonStyle: CSSProperties = {
-  minHeight: "36px",
+  width: "auto",
+  minHeight: "44px",
   padding: "0.5rem 0.65rem",
   fontSize: "0.85rem",
 };
 
 const openSiteLinkStyle: CSSProperties = {
   display: "inline-flex",
-  minHeight: "36px",
+  minHeight: "44px",
   alignItems: "center",
   justifyContent: "center",
   padding: "0.5rem 0.65rem",
@@ -386,7 +390,7 @@ const openSiteLinkStyle: CSSProperties = {
 
 const photosLinkStyle: CSSProperties = {
   display: "inline-flex",
-  minHeight: "36px",
+  minHeight: "44px",
   alignItems: "center",
   justifyContent: "center",
   padding: "0.5rem 0.65rem",

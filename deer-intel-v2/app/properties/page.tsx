@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
-import PropertyCard from "@/components/properties/PropertyCard";
+import PropertyCard, {
+  type PropertyCardStats,
+} from "@/components/properties/PropertyCard";
+import { formatHuntDate } from "@/lib/hunts";
+import { getPhotoBuckNames } from "@/lib/photos";
 import PropertyForm, {
   type PropertyFormValues,
 } from "@/components/properties/PropertyForm";
@@ -32,7 +36,8 @@ const EMPTY_PROPERTY_FORM_VALUES: PropertyFormValues = {
 };
 
 export default function PropertiesPage() {
-  const { properties, cameras, pins } = useDeerIntelStore();
+  const { properties, cameras, pins, stands, hunts, photoRecords } =
+    useDeerIntelStore();
 
   const [exportMessage, setExportMessage] = useState("");
 
@@ -254,10 +259,29 @@ export default function PropertiesPage() {
             onSave={saveEditedProperty}
             onCancel={cancelEditingProperty}
             onDelete={deleteProperty}
+            stats={propertyStats(property.id)}
           />
         ))}
       </div>
     );
+
+  function propertyStats(propertyId: string): PropertyCardStats {
+    const propertyHunts = hunts.filter((hunt) => hunt.propertyId === propertyId);
+    const sitDates = propertyHunts.map((hunt) => hunt.date).sort();
+    const lastSit = sitDates[sitDates.length - 1];
+
+    return {
+      cameras: cameras.filter((camera) => camera.propertyId === propertyId).length,
+      stands: stands.filter((stand) => stand.propertyId === propertyId).length,
+      sits: propertyHunts.length,
+      buckPhotos: photoRecords.filter(
+        (photo) =>
+          photo.propertyId === propertyId &&
+          (getPhotoBuckNames(photo).length > 0 || /buck|antler/i.test(photo.species)),
+      ).length,
+      lastSitLabel: lastSit ? formatHuntDate(lastSit) : null,
+    };
+  }
 
   const addTab = (
     <Card as="section" variant="elevated" style={addCardStyle}>

@@ -4,7 +4,7 @@ import {
 } from "@/lib/cameraChecks";
 import { formatHuntDate, formatHuntTimeRange, sortHuntsChronologically } from "@/lib/hunts";
 import type { ForecastDay } from "@/lib/liveWeather";
-import { getStandWindCheck } from "@/lib/standWind";
+import { getStandWindCheck, type StandWindStatus } from "@/lib/standWind";
 import type { Camera } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { DeerIntelState } from "@/types/deerIntelStore";
@@ -316,4 +316,54 @@ export function buildHuntWindows(
       };
     })
     .sort((a, b) => b.score - a.score || a.date.localeCompare(b.date));
+}
+
+// Stand-by-sit wind grid (onX-style): one column per AM/PM sit over the
+// forecast days, one row per stand, each cell the stand's wind fit for that
+// sit's forecast wind. Days without hourly sit winds fall back to the daily
+// dominant wind for both sits.
+export type WindMatrixColumn = {
+  key: string;
+  dayLabel: string;
+  period: SitPeriod;
+  windCompass: string | null;
+  isFront: boolean;
+};
+
+export type WindMatrixRow = {
+  stand: Stand;
+  cells: StandWindStatus[];
+};
+
+export type WindMatrix = {
+  columns: WindMatrixColumn[];
+  rows: WindMatrixRow[];
+};
+
+export function buildWindMatrix(days: ForecastDay[], stands: Stand[]): WindMatrix {
+  const columns: WindMatrixColumn[] = days.flatMap((day) =>
+    (
+      [
+        ["AM", day.morningWind ?? day.wind],
+        ["PM", day.eveningWind ?? day.wind],
+      ] as Array<[SitPeriod, string]>
+    ).map(([period, wind]) => ({
+      key: `${day.date}-${period}`,
+      dayLabel: day.label,
+      period,
+      windCompass: parseWindCompass(wind ?? ""),
+      isFront: day.pressureTrend === "falling",
+    })),
+  );
+
+  const rows = stands.map((stand) => ({
+    stand,
+    cells: columns.map((column) =>
+      column.windCompass
+        ? getStandWindCheck(stand, column.windCompass).status
+        : ("unknown" as StandWindStatus),
+    ),
+  }));
+
+  return { columns, rows };
 }

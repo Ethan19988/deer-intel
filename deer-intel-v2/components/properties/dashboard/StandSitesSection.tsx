@@ -1,27 +1,17 @@
 import type { CSSProperties } from "react";
 import StandCard from "@/components/stands/StandCard";
-import StandForm from "@/components/stands/StandForm";
 import DashboardSection from "@/components/properties/DashboardSection";
 import Badge from "@/components/ui/Badge";
-import Card from "@/components/ui/Card";
-import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import EmptyState from "@/components/ui/EmptyState";
-import type { StandFormValues } from "@/lib/standFormValues";
 import type { Stand } from "@/types/stand";
 
+// Read-only on the property page: stands are added from the Stands page (or by
+// converting a stand pin), so the command center informs rather than edits.
 type StandSitesSectionProps = {
   stands: Stand[];
-  standValues: StandFormValues;
-  onStandValuesChange: (values: StandFormValues) => void;
-  onAddStand: () => void;
 };
 
-export default function StandSitesSection({
-  stands,
-  standValues,
-  onStandValuesChange,
-  onAddStand,
-}: StandSitesSectionProps) {
+export default function StandSitesSection({ stands }: StandSitesSectionProps) {
   return (
     <DashboardSection
       id="stand-sites"
@@ -33,21 +23,8 @@ export default function StandSitesSection({
         </Badge>
       }
     >
-      <Card as="div" variant="subtle">
-        <CollapsibleSection
-          title="Add a stand"
-          description="Save a stand site with wind, access, and exit notes"
-        >
-          <StandForm
-            values={standValues}
-            onChange={onStandValuesChange}
-            onSubmit={onAddStand}
-          />
-        </CollapsibleSection>
-      </Card>
-
       {stands.length === 0 ? (
-        <EmptyState description="No stands added for this property yet. Add a stand above to save wind, access, exit, and hunt notes." />
+        <EmptyState description="No stands on this property yet. Add them from the Stands page." />
       ) : (
         <div style={standListStyle}>
           {stands.map((stand) => (
@@ -62,7 +39,6 @@ export default function StandSitesSection({
 const standListStyle: CSSProperties = {
   display: "grid",
   gap: "1rem",
-  marginTop: "1rem",
 };
 
 const countBadgeStyle: CSSProperties = {

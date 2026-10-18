@@ -6,18 +6,14 @@ import CameraForm, {
 import DashboardSection from "@/components/properties/DashboardSection";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
-import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import EmptyState from "@/components/ui/EmptyState";
 import type { Camera } from "@/types/camera";
 
 type CameraSitesSectionProps = {
   cameras: Camera[];
-  cameraValues: CameraFormValues;
   editCameraValues: CameraFormValues;
   editingCameraId: string | null;
-  onCameraValuesChange: (values: CameraFormValues) => void;
   onEditCameraValuesChange: (values: CameraFormValues) => void;
-  onAddCamera: () => void;
   onStartEditingCamera: (camera: Camera) => void;
   onSaveEditedCamera: () => void;
   onCancelEditingCamera: () => void;
@@ -25,12 +21,9 @@ type CameraSitesSectionProps = {
 
 export default function CameraSitesSection({
   cameras,
-  cameraValues,
   editCameraValues,
   editingCameraId,
-  onCameraValuesChange,
   onEditCameraValuesChange,
-  onAddCamera,
   onStartEditingCamera,
   onSaveEditedCamera,
   onCancelEditingCamera,
@@ -46,22 +39,8 @@ export default function CameraSitesSection({
         </Badge>
       }
     >
-      <Card as="div" variant="subtle">
-        <CollapsibleSection
-          title="Add a camera site"
-          description="Save a trail camera, its location, and notes"
-        >
-          <CameraForm
-            values={cameraValues}
-            submitLabel="Add Camera"
-            onChange={onCameraValuesChange}
-            onSubmit={onAddCamera}
-          />
-        </CollapsibleSection>
-      </Card>
-
       {cameras.length === 0 ? (
-        <EmptyState description="No cameras added for this property yet. Add the first camera above to start tracking checks, batteries, SD cards, and notes." />
+        <EmptyState description="No cameras on this property yet. Add them from the Cameras page." />
       ) : (
         <div style={cameraListStyle}>
           {cameras.map((camera) => (
@@ -101,7 +80,6 @@ const subsectionTitleStyle: CSSProperties = {
 const cameraListStyle: CSSProperties = {
   display: "grid",
   gap: "1rem",
-  marginTop: "1rem",
 };
 
 const availableStatusBadgeStyle: CSSProperties = {

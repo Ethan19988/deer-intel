@@ -11,6 +11,11 @@ export default function ThemeManager() {
 
   useEffect(() => {
     applyTheme(preference);
+    if (preference !== "daylight") return;
+
+    // "Follow daylight" changes with the clock, so re-check every minute.
+    const timer = setInterval(() => applyTheme("daylight"), 60_000);
+    return () => clearInterval(timer);
   }, [preference]);
 
   return null;

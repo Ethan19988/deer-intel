@@ -602,7 +602,7 @@ export default function CameraImportPage() {
                 description="Add a camera site before importing photos."
                 action={
                   <Link
-                    href={propertyId ? `/properties/${propertyId}#camera-sites` : "/properties"}
+                    href={propertyId ? "/cameras#add-camera" : "/properties"}
                     style={primaryLinkStyle}
                     className="di-navbtn"
                   >

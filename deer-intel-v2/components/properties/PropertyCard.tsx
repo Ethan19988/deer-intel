@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
-import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { MapPinIcon } from "@/components/ui/FieldIcons";
 import { formatPropertyCoordinate } from "@/lib/propertyLocation";
@@ -16,6 +15,17 @@ type PropertyCardProps = {
   onSave: () => void;
   onCancel: () => void;
   onDelete: (propertyId: string) => void;
+  /** At-a-glance counts shown on the card; omitted while editing. */
+  stats?: PropertyCardStats;
+};
+
+export type PropertyCardStats = {
+  cameras: number;
+  stands: number;
+  sits: number;
+  buckPhotos: number;
+  /** e.g. "Oct 12", or null when nothing is logged. */
+  lastSitLabel: string | null;
 };
 
 export default function PropertyCard({
@@ -27,6 +37,7 @@ export default function PropertyCard({
   onSave,
   onCancel,
   onDelete,
+  stats,
 }: PropertyCardProps) {
   return (
     <Card
@@ -58,69 +69,181 @@ export default function PropertyCard({
         </>
       ) : (
         <>
-          <div className="di-property-card-header" style={cardHeaderStyle}>
-            <div style={leadStyle}>
-              <span style={iconBadgeStyle} aria-hidden="true">
-                <MapPinIcon size={20} />
-              </span>
-              <div>
-                <p style={cardEyebrowStyle}>Property</p>
-                <h3 style={cardTitleStyle}>{property.name}</h3>
-              </div>
-            </div>
+          <Link href={`/properties/${property.id}`} style={summaryLinkStyle}>
+            <h3 style={nameStyle}>{property.name}</h3>
+            <p style={regionStyle}>
+              {[property.county, property.acres ? `${property.acres} acres` : ""]
+                .filter(Boolean)
+                .join(", ") || "Region not set"}
+            </p>
 
-            <div className="di-property-actions" style={buttonRowStyle}>
-              <Link
-                href={`/properties/${property.id}`}
-                className="di-property-open di-navbtn"
-                style={openPropertyButtonStyle}
-              >
-                Open Property
-              </Link>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => onStartEditing(property)}
-                style={smallButtonStyle}
-              >
-                Edit
-              </Button>
-              <Button
-                type="button"
-                variant="danger"
-                onClick={() => onDelete(property.id)}
-                style={smallButtonStyle}
-              >
-                Delete
-              </Button>
-            </div>
+            {stats ? (
+              <dl style={statsGridStyle}>
+                <Stat label="Cameras" value={stats.cameras} />
+                <Stat label="Stands" value={stats.stands} />
+                <Stat label="Sits" value={stats.sits} />
+                <Stat label="Bucks" value={stats.buckPhotos} accent />
+              </dl>
+            ) : null}
+
+            <p style={lastSitStyle}>
+              {stats?.lastSitLabel ? `Last sit ${stats.lastSitLabel}` : "No sits logged yet"}
+            </p>
+          </Link>
+
+          {property.notes ? <p style={notesStyle}>{property.notes}</p> : null}
+
+          {!formatPropertyCoordinate(property) ? (
+            <p style={hintStyle}>
+              Set a center point (Edit) so weather and wind use one spot instead
+              of an average of your pins.
+            </p>
+          ) : null}
+
+          <Link
+            href={`/properties/${property.id}`}
+            className="di-navbtn"
+            style={openPropertyButtonStyle}
+          >
+            Open property
+          </Link>
+
+          <div style={quietRowStyle}>
+            <button
+              type="button"
+              onClick={() => onStartEditing(property)}
+              style={quietButtonStyle}
+            >
+              Edit details
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(property.id)}
+              style={{ ...quietButtonStyle, ...dangerTextStyle }}
+            >
+              Delete
+            </button>
           </div>
-
-          <div style={detailsGridStyle}>
-            <div style={detailTileStyle}>
-              <p style={detailLabelStyle}>County / Region</p>
-              <p style={detailValueStyle}>{property.county || "Not set"}</p>
-            </div>
-
-            <div style={detailTileStyle}>
-              <p style={detailLabelStyle}>Acres</p>
-              <p style={detailValueStyle}>{property.acres || "Not set"}</p>
-            </div>
-
-            <div style={detailTileStyle}>
-              <p style={detailLabelStyle}>Center (GPS)</p>
-              <p style={detailValueStyle}>
-                {formatPropertyCoordinate(property) || "Not set"}
-              </p>
-            </div>
-          </div>
-
-          <p style={notesStyle}>{property.notes}</p>
         </>
       )}
     </Card>
   );
 }
+
+function Stat({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: number;
+  accent?: boolean;
+}) {
+  return (
+    <div style={statStyle}>
+      <dt style={statLabelStyle}>{label}</dt>
+      <dd style={{ ...statValueStyle, ...(accent && value > 0 ? statAccentStyle : null) }}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+const summaryLinkStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.35rem",
+  color: "inherit",
+  textDecoration: "none",
+};
+
+const nameStyle: CSSProperties = {
+  margin: 0,
+  fontFamily: "var(--font-display), system-ui, sans-serif",
+  fontSize: "1.6rem",
+  fontWeight: 800,
+  lineHeight: 1.1,
+};
+
+const regionStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text-muted)",
+  fontWeight: 600,
+};
+
+const statsGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: "0.4rem",
+  margin: "0.6rem 0 0",
+};
+
+const statStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.1rem",
+  padding: "0.55rem 0.5rem",
+  borderRadius: "12px",
+  background: "var(--surface-2)",
+  border: "1px solid var(--border)",
+  textAlign: "center",
+};
+
+const statLabelStyle: CSSProperties = {
+  order: 2,
+  color: "var(--text-muted)",
+  fontSize: "0.72rem",
+  fontWeight: 700,
+};
+
+const statValueStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text)",
+  fontFamily: "var(--font-display), system-ui, sans-serif",
+  fontSize: "1.35rem",
+  fontWeight: 800,
+};
+
+const statAccentStyle: CSSProperties = {
+  color: "var(--accent-2)",
+};
+
+const lastSitStyle: CSSProperties = {
+  margin: "0.2rem 0 0",
+  color: "var(--text-muted)",
+  fontSize: "0.88rem",
+};
+
+const hintStyle: CSSProperties = {
+  margin: "0.75rem 0 0",
+  padding: "0.6rem 0.75rem",
+  borderRadius: "10px",
+  background: "var(--accent-2-tint)",
+  border: "1px solid var(--accent-2-tint-border)",
+  color: "var(--text)",
+  fontSize: "0.85rem",
+  lineHeight: 1.45,
+};
+
+const quietRowStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "1rem",
+  marginTop: "0.25rem",
+};
+
+const quietButtonStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 0.25rem",
+  border: "none",
+  background: "transparent",
+  color: "var(--text-muted)",
+  fontSize: "0.92rem",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const dangerTextStyle: CSSProperties = {
+  color: "var(--danger-text, #b3261e)",
+};
 
 const cardStyle: CSSProperties = {
 };
@@ -167,12 +290,6 @@ const cardTitleStyle: CSSProperties = {
   lineHeight: 1.25,
 };
 
-const buttonRowStyle: CSSProperties = {
-  display: "flex",
-  gap: "0.5rem",
-  flexWrap: "wrap",
-  justifyContent: "flex-end",
-};
 
 const secondaryButtonStyle: CSSProperties = {
   display: "inline-flex",
@@ -192,51 +309,20 @@ const secondaryButtonStyle: CSSProperties = {
 
 const openPropertyButtonStyle: CSSProperties = {
   ...secondaryButtonStyle,
+  width: "100%",
+  marginTop: "0.9rem",
   border: "1px solid var(--accent)",
   background: "var(--accent)",
+  color: "#fff",
 };
 
-const smallButtonStyle: CSSProperties = {
-  minHeight: "44px",
-  padding: "0.7rem 0.9rem",
-};
 
-const detailsGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))",
-  gap: "1rem",
-  marginTop: "1rem",
-  paddingTop: "1rem",
-  borderTop: "1px solid var(--border)",
-};
 
-const detailTileStyle: CSSProperties = {
-  padding: "0.6rem 0.75rem",
-  border: "1px solid var(--border)",
-  borderRadius: "10px",
-  background: "var(--surface)",
-};
 
-const detailLabelStyle: CSSProperties = {
-  margin: 0,
-  color: "var(--text-faint)",
-  fontSize: "0.7rem",
-  fontWeight: 800,
-  letterSpacing: "0.03em",
-  textTransform: "uppercase",
-};
 
-const detailValueStyle: CSSProperties = {
-  margin: "0.25rem 0 0",
-  color: "var(--text)",
-  lineHeight: 1.4,
-  fontWeight: 700,
-};
 
 const notesStyle: CSSProperties = {
-  margin: "1rem 0 0",
-  paddingTop: "1rem",
-  borderTop: "1px solid var(--border)",
+  margin: "0.75rem 0 0",
   color: "var(--text-muted)",
   lineHeight: 1.6,
 };

@@ -13,7 +13,7 @@ import ThemeManager from "@/components/ThemeManager";
 // Runs before first paint to set <html data-theme> from the saved preference,
 // so dark/night users never see a flash of the light theme. Kept in sync with
 // lib/theme.ts (same storage key and resolution rules).
-const themeInitScript = `(function(){try{var t=localStorage.getItem('deer-intel:theme');if(t!=='light'&&t!=='dark'&&t!=='night'&&t!=='auto'){t='light';}var r=t;if(t==='auto'){r=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}document.documentElement.dataset.theme=r;}catch(e){}})();`;
+const themeInitScript = `(function(){try{var t=localStorage.getItem('deer-intel:theme');if(t!=='daylight'&&t!=='light'&&t!=='dark'&&t!=='night'&&t!=='auto'){t='daylight';}var r=t;if(t==='auto'){r=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}if(t==='daylight'){var s={sunriseMin:435,sunsetMin:1095};try{var p=JSON.parse(localStorage.getItem('deer-intel:sun')||'null');if(p&&isFinite(p.sunriseMin)&&isFinite(p.sunsetMin)){s=p;}}catch(e){}var d=new Date(),m=d.getHours()*60+d.getMinutes();r=(m>=s.sunriseMin+60&&m<s.sunsetMin-150)?'light':'dark';}document.documentElement.dataset.theme=r;}catch(e){}})();`;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

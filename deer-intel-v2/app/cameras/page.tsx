@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
+import AddCameraCard from "@/components/cameras/AddCameraCard";
 import CameraCard from "@/components/cameras/CameraCard";
 import CameraIntelligenceSection from "@/components/cameras/CameraIntelligenceSection";
 import EmptyState from "@/components/ui/EmptyState";
@@ -112,20 +113,17 @@ export default function CamerasPage() {
 
   const sitesTab = (
     <div style={listStyle}>
+      <AddCameraCard
+        key={selectedPropertyId}
+        propertyId={selectedPropertyId}
+        propertyName={selectedProperty?.name ?? "this property"}
+        defaultOpen={propertyCameras.length === 0}
+      />
       {propertyCameras.length === 0 ? (
         <EmptyState
           illustration={<CameraIcon size={30} />}
           title="No camera sites for this property"
-          description="Open the property command center to add a camera site with name, type, status, GPS, battery, card, and notes."
-          action={
-            <Link
-              href={`/properties/${selectedPropertyId}#camera-sites`}
-              style={primaryLinkStyle}
-              className="di-navbtn"
-            >
-              Add Camera Site
-            </Link>
-          }
+          description="Add your first camera site above with its name, type, status, GPS, battery, card, and notes."
         />
       ) : (
         <>
@@ -228,15 +226,15 @@ export default function CamerasPage() {
           <div style={headerActionsStyle}>
             <Link href="/cameras/import" style={secondaryLinkStyle} className="di-navbtn">
               <CameraIcon size={17} />
-              Import Photos
+              Import photos
             </Link>
             <Link
-              href={`/properties/${selectedPropertyId}#camera-sites`}
+              href="#add-camera"
               style={primaryLinkStyle}
               className="di-navbtn"
             >
               <PlusIcon size={17} />
-              Add Camera Site
+              Add camera
             </Link>
           </div>
         </div>
@@ -301,10 +299,10 @@ const headerTitleWrapStyle: CSSProperties = {
 };
 
 const headerRightStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "flex-end",
-  gap: "0.7rem",
+  display: "grid",
+  gap: "0.6rem",
+  flex: "1 1 280px",
+  maxWidth: "460px",
 };
 
 const eyebrowStyle: CSSProperties = {
@@ -325,7 +323,7 @@ const titleStyle: CSSProperties = {
 };
 
 const pickerStyle: CSSProperties = {
-  display: "inline-flex",
+  display: "flex",
   alignItems: "center",
   gap: "0.5rem",
   marginTop: "0.15rem",
@@ -339,7 +337,8 @@ const pickerLabelStyle: CSSProperties = {
 
 const selectStyle: CSSProperties = {
   minHeight: "42px",
-  minWidth: "180px",
+  flex: 1,
+  minWidth: 0,
   padding: "0.5rem 0.65rem",
   border: "1px solid rgba(243, 237, 217, 0.3)",
   borderRadius: "var(--radius-sm)",
@@ -347,11 +346,11 @@ const selectStyle: CSSProperties = {
   color: "#f6efd6",
 };
 
+// Two equal buttons on one row keeps the header short on a phone.
 const headerActionsStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.6rem",
-  flexWrap: "wrap",
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "0.5rem",
 };
 
 const statGridStyle: CSSProperties = {
