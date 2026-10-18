@@ -80,6 +80,9 @@ export default function PipelineCommandCard({
 
 const cardStyle: CSSProperties = {
   display: "grid",
+  // Cap the column at the card's width: an implicit track grows to fit the
+  // unbreakable command line and pushed the whole page wider than a phone.
+  gridTemplateColumns: "minmax(0, 1fr)",
   gap: "0.85rem",
 };
 
