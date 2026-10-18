@@ -20,7 +20,8 @@ name: Terrain worker
 #     var     SUPABASE_URL                https://<project>.supabase.co
 #
 # Note: GitHub disables scheduled workflows after 60 days with no repo
-# activity. If reads stop being picked up, check that first.
+# activity. keepalive.yml re-enables this twice a month to prevent that; if
+# reads stop being picked up, still check the Actions tab first.
 
 on:
   workflow_dispatch:
