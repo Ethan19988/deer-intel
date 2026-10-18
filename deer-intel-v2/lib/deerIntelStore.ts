@@ -99,6 +99,16 @@ function optionalStringValue(value: unknown): string | undefined {
   return text ? text : undefined;
 }
 
+function optionalStringArrayValue(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+
+  const items = value
+    .map((item) => stringValue(item).trim())
+    .filter((item) => item.length > 0);
+
+  return items.length > 0 ? [...new Set(items)] : undefined;
+}
+
 function optionalNumberValue(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value !== "string") return undefined;
@@ -460,6 +470,8 @@ function normalizePhotoRecord(value: unknown): PhotoRecord | null {
     species,
     deerProfileId: optionalStringValue(value.deerProfileId),
     buckName: optionalStringValue(value.buckName),
+    deerProfileIds: optionalStringArrayValue(value.deerProfileIds),
+    buckNames: optionalStringArrayValue(value.buckNames),
     travelDirection: optionalStringValue(value.travelDirection),
     behavior: optionalStringValue(value.behavior),
     notes: stringValue(value.notes),

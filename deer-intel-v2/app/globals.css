@@ -1551,6 +1551,29 @@ textarea {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
+/* Press-and-hold placement preview: the not-yet-saved pin the hunter is
+   nudging into place. A pulsing glow signals it's the live, draggable marker.
+   Only the drop-shadow is animated — Leaflet drives the marker's position with
+   an inline transform, so animating transform here would break placement. */
+.leaflet-marker-icon.di-pending-pin-icon {
+  animation: di-pending-pin-pulse 1.4s ease-in-out infinite;
+  cursor: grab;
+}
+
+.leaflet-marker-icon.di-pending-pin-icon:active {
+  cursor: grabbing;
+}
+
+@keyframes di-pending-pin-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 rgba(255, 255, 255, 0));
+  }
+  50% {
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.85));
+  }
+}
+
 /* Live GPS "blue dot" — the hunter's own location, tracked continuously. */
 .leaflet-div-icon.di-user-location-icon {
   background: transparent;

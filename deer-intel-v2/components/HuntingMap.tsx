@@ -84,6 +84,7 @@ import { ownerAcresText } from "@/lib/ownerLabel";
 import MapSearchBar from "@/components/map/MapSearchBar";
 import GoldenHourFrame from "@/components/map/GoldenHourFrame";
 import WindFlowOverlay from "@/components/map/WindFlowOverlay";
+import TrailsLayer from "@/components/map/TrailsLayer";
 import MapSearchResultMarker from "@/components/map/MapSearchResultMarker";
 import OfflineDownloadStatus from "@/components/map/OfflineDownloadStatus";
 import OfflineMapsPanel, {
@@ -91,6 +92,8 @@ import OfflineMapsPanel, {
 } from "@/components/map/OfflineMapsPanel";
 import CameraFacingCone from "@/components/map/CameraFacingCone";
 import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
+import TodaysPlayPanel from "@/components/map/TodaysPlayPanel";
+import { pinMarkerSvg } from "@/lib/mapPinIcon";
 import UserLocationMarker from "@/components/map/UserLocationMarker";
 import PartyMembersLayer from "@/components/map/PartyMembersLayer";
 import PartyPinsLayer from "@/components/map/PartyPinsLayer";
@@ -150,6 +153,8 @@ import {
   getAssetEditHref,
   geocodeAddressOrPlace,
   MAP_LAYER_BY_ID,
+  PIN_LAYER_LOOKUP,
+  ASSET_LAYER_LOOKUP,
   pinToMapAsset,
   CONTOUR_WMS_URL,
   CONTOUR_WMS_COARSE_LINES,
@@ -235,6 +240,141 @@ function huntAreaVertexIcon(pointNumber: number) {
     iconAnchor: [12, 12],
   });
 }
+
+// Access-route legs: green when the walk-in keeps your scent off bedding, red
+// on a leg that blows into it.
+const ROUTE_SAFE_PATH_OPTIONS = {
+  color: "#4ade80",
+  weight: 4,
+  opacity: 0.9,
+};
+
+const ROUTE_UNSAFE_PATH_OPTIONS = {
+  color: "#ff5f56",
+  weight: 4,
+  opacity: 0.95,
+  dashArray: "8 6",
+};
+
+// Numbered route waypoint, tinted red when your scent there reaches bedding.
+function routePointIcon(pointNumber: number, unsafe: boolean) {
+  return divIcon({
+    className: "di-area-vertex-icon",
+    html: `<span class="di-area-vertex" style="background:${
+      unsafe ? "#c0453b" : "#1f7a37"
+    }">${pointNumber}</span>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+}
+
+// Blood-trail markers: the hit site (H), each blood find (a red dot), and the
+// recovery spot (✓). All share the vertex-icon class so Leaflet's default white
+// box is cleared.
+function bloodHitIcon() {
+  return divIcon({
+    className: "di-area-vertex-icon",
+    html: `<span class="di-area-vertex" style="background:#b91c1c;border-color:#ffffff">H</span>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+}
+
+function bloodDotIcon() {
+  return divIcon({
+    className: "di-area-vertex-icon",
+    html: `<span style="display:block;width:13px;height:13px;border-radius:999px;background:#e11d48;border:2px solid #ffffff;box-shadow:0 1px 3px rgba(0,0,0,0.5)"></span>`,
+    iconSize: [17, 17],
+    iconAnchor: [8, 8],
+  });
+}
+
+function bloodRecoveredIcon() {
+  return divIcon({
+    className: "di-area-vertex-icon",
+    html: `<span class="di-area-vertex" style="background:#1f7a37;border-color:#ffffff">✓</span>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+  });
+}
+
+const BLOOD_TRAIL_PATH_OPTIONS = {
+  color: "#e11d48",
+  weight: 3,
+  opacity: 0.9,
+  dashArray: "5 6",
+};
+
+// The draggable preview marker for a press-and-hold placement: the real
+// teardrop pin for the armed type, drawn a touch larger and "selected" so it
+// reads as the active, grab-me marker while the hunter nudges it into place.
+function pendingPinIcon(type: PinType) {
+  const layerId = PIN_LAYER_LOOKUP[type];
+  const style =
+    layerId === "other"
+      ? { color: "#f7d17b", background: "#2f230f" }
+      : ASSET_LAYER_LOOKUP[layerId];
+  const width = 42;
+  const height = Math.round((width * 34) / 24);
+
+  return divIcon({
+    className: "deer-intel-map-marker di-pending-pin-icon",
+    html: pinMarkerSvg({
+      color: style.color,
+      background: style.background,
+      glyphKey: layerId,
+      width,
+      selected: true,
+    }),
+    iconSize: [width, height],
+    iconAnchor: [width / 2, height],
+  });
+}
+
+// Short haptic pulse on supported devices — reassurance in the field without
+// looking at the screen. A no-op where the Vibration API is absent (e.g. iOS
+// Safari), so callers never need to guard.
+function buzz(pattern: number | number[]) {
+  if (
+    typeof navigator !== "undefined" &&
+    typeof navigator.vibrate === "function"
+  ) {
+    navigator.vibrate(pattern);
+  }
+}
+
+// Smallest angle between two compass bearings (0–180°).
+function angularDiff(a: number, b: number): number {
+  const diff = Math.abs(a - b) % 360;
+  return diff > 180 ? 360 - diff : diff;
+}
+
+// Directional assets: a stand you sit and a camera you aim both point a way and
+// both put your scent on the ground. They get the scent-plume preview while
+// placing and a second "aim it" step before saving.
+const DIRECTIONAL_LAYERS = new Set<AssetLayerId | "other">([
+  "stands",
+  "cameras",
+]);
+
+// The pin types offered in the long-press action bar's type picker, each with
+// the color/label/glyph its real teardrop uses — so switching a pending pin's
+// type shows the exact marker that will be saved. Mirrors MapPinBox's grid.
+const PENDING_PIN_TYPE_OPTIONS = PROPERTY_ASSET_PIN_TYPES.map((type) => {
+  const layerId = PIN_LAYER_LOOKUP[type];
+  const layer =
+    layerId === "other"
+      ? { label: type, color: "#f7d17b", background: "#2f230f" }
+      : ASSET_LAYER_LOOKUP[layerId];
+
+  return {
+    type,
+    layerId,
+    label: layer.label,
+    color: layer.color,
+    background: layer.background,
+  };
+});
 
 // Extra card lines from the tapped parcel's county record. The vector tile only
 // carries { owner, acres, pub }, so the county ArcGIS service is what supplies
@@ -426,6 +566,135 @@ function ClickToAimCamera({
       onAim(event.latlng.lat, event.latlng.lng);
     },
   });
+
+  return null;
+}
+
+// How long a stationary press must be held before a pin drops, and how far a
+// finger may drift in that window before we treat the gesture as a pan instead.
+const LONG_PRESS_MS = 550;
+const LONG_PRESS_MOVE_TOLERANCE_PX = 12;
+
+// Press-and-hold anywhere on the map to drop a pending pin the hunter can then
+// drag/tap into the exact spot and confirm. A hold that pans (finger drifts) or
+// lifts early is not a placement. Right-click (contextmenu) does the same on a
+// desktop for parity and testing; the timer path and contextmenu are de-duped
+// so a mobile long-press — which raises both on some browsers — drops one pin.
+function LongPressToPlacePin({
+  enabled,
+  onLongPress,
+}: {
+  enabled: boolean;
+  onLongPress: (lat: number, lng: number) => void;
+}) {
+  const map = useMap();
+  const enabledRef = useRef(enabled);
+  const onLongPressRef = useRef(onLongPress);
+
+  useEffect(() => {
+    enabledRef.current = enabled;
+  }, [enabled]);
+
+  useEffect(() => {
+    onLongPressRef.current = onLongPress;
+  }, [onLongPress]);
+
+  useEffect(() => {
+    const container = map.getContainer();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let startClientX = 0;
+    let startClientY = 0;
+    let lastFiredAt = 0;
+
+    function clearTimer() {
+      if (timer !== null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    }
+
+    function fireAt(clientX: number, clientY: number) {
+      const rect = container.getBoundingClientRect();
+      const latlng = map.containerPointToLatLng([
+        clientX - rect.left,
+        clientY - rect.top,
+      ]);
+      lastFiredAt = Date.now();
+      onLongPressRef.current(latlng.lat, latlng.lng);
+    }
+
+    // A hold on an existing marker or a map control is not a placement — those
+    // have their own jobs. Only a hold on the bare map surface drops a pin.
+    function isMapSurface(target: EventTarget | null) {
+      return !(
+        target instanceof Element &&
+        target.closest(".leaflet-marker-icon, .leaflet-control")
+      );
+    }
+
+    function handleTouchStart(event: TouchEvent) {
+      clearTimer();
+      if (
+        !enabledRef.current ||
+        event.touches.length !== 1 ||
+        !isMapSurface(event.target)
+      ) {
+        return;
+      }
+
+      const touch = event.touches[0];
+      startClientX = touch.clientX;
+      startClientY = touch.clientY;
+      timer = setTimeout(() => {
+        timer = null;
+        fireAt(startClientX, startClientY);
+      }, LONG_PRESS_MS);
+    }
+
+    function handleTouchMove(event: TouchEvent) {
+      if (timer === null) return;
+
+      const touch = event.touches[0];
+      if (!touch) return;
+
+      if (
+        Math.abs(touch.clientX - startClientX) > LONG_PRESS_MOVE_TOLERANCE_PX ||
+        Math.abs(touch.clientY - startClientY) > LONG_PRESS_MOVE_TOLERANCE_PX
+      ) {
+        clearTimer();
+      }
+    }
+
+    function handleContextMenu(event: MouseEvent) {
+      if (!enabledRef.current || !isMapSurface(event.target)) return;
+
+      // Always swallow the browser's own context menu over the map.
+      event.preventDefault();
+
+      // A touch long-press already dropped a pin via the timer on some
+      // browsers; don't drop a second one for the contextmenu it also raises.
+      if (Date.now() - lastFiredAt < 700) return;
+
+      fireAt(event.clientX, event.clientY);
+    }
+
+    container.addEventListener("touchstart", handleTouchStart, {
+      passive: true,
+    });
+    container.addEventListener("touchmove", handleTouchMove, { passive: true });
+    container.addEventListener("touchend", clearTimer);
+    container.addEventListener("touchcancel", clearTimer);
+    container.addEventListener("contextmenu", handleContextMenu);
+
+    return () => {
+      clearTimer();
+      container.removeEventListener("touchstart", handleTouchStart);
+      container.removeEventListener("touchmove", handleTouchMove);
+      container.removeEventListener("touchend", clearTimer);
+      container.removeEventListener("touchcancel", clearTimer);
+      container.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, [map]);
 
   return null;
 }
@@ -904,6 +1173,10 @@ export default function HuntingMap() {
   const [showContours, setShowContours] = useState(defaultOverlays.contours);
   const [showSlope, setShowSlope] = useState(defaultOverlays.slope);
   const [showLandcover, setShowLandcover] = useState(defaultOverlays.landcover);
+  // Trails are a permanent reference layer (always on, no toggle), so there's no
+  // show/hide state — only a status line (zoom hint / loading / empty) surfaced
+  // in the shared map notice bar like the parcel-layer messages.
+  const [trailsMessage, setTrailsMessage] = useState<string | null>(null);
   const [showCameraHeat, setShowCameraHeat] = useState(defaultOverlays.cameraHeat);
   const [showDeerHeat, setShowDeerHeat] = useState(defaultOverlays.deerHeat);
   const [showWind, setShowWind] = useState(defaultOverlays.wind);
@@ -982,6 +1255,24 @@ export default function HuntingMap() {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [isMobileAssetSheetOpen, setIsMobileAssetSheetOpen] = useState(false);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
+  // Press-and-hold placement: a pending pin dropped by a map long-press that the
+  // hunter drags/taps into the exact spot before confirming. Uses the armed
+  // pinType, so a hold "just drops a pin" without opening the Layers picker.
+  const [pendingPin, setPendingPin] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  // Placement is two steps for directional pins (camera/stand): first "place"
+  // the spot, then "aim" which way it faces. Non-directional pins skip "aim".
+  const [pendingStep, setPendingStep] = useState<"place" | "aim">("place");
+  const [pendingFacing, setPendingFacing] = useState<string | null>(null);
+  // One-tap "undo" for a just-saved pin, so a mis-drop is a single tap to
+  // remove instead of tap → delete → confirm. Auto-dismisses after a few sec.
+  const [undoToast, setUndoToast] = useState<{
+    pinId: string;
+    label: string;
+  } | null>(null);
+  const undoToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Pin being relocated via "Move Pin" — the next map tap becomes its new spot.
   // Point-the-camera mode: tap the map where the lens looks and the bearing
   // from the camera to that spot becomes its facing direction. Taps only move
@@ -1006,11 +1297,22 @@ export default function HuntingMap() {
   const isNarrowViewport = useIsNarrowMapViewport();
   const [isDrawingArea, setIsDrawingArea] = useState(false);
   const [draftAreaPoints, setDraftAreaPoints] = useState<HuntAreaPoint[]>([]);
+  // Scent-safe access planning: tap out a walk-in route and each leg is checked
+  // against the live wind — a leg that blows your scent into bedding is flagged.
+  // Ephemeral (a planning scratchpad), cleared when you leave the mode.
+  const [isPlanningRoute, setIsPlanningRoute] = useState(false);
+  const [routePoints, setRoutePoints] = useState<HuntAreaPoint[]>([]);
+  // Blood-trail / recovery mode: after a shot, mark the hit site (point 0), drop
+  // a dot at each blood find as you track, and flag recovery when the deer is
+  // found. Ephemeral — a live tracking aid for the moment, not a saved record.
+  const [isTrackingBlood, setIsTrackingBlood] = useState(false);
+  const [bloodPoints, setBloodPoints] = useState<HuntAreaPoint[]>([]);
+  const [bloodRecovered, setBloodRecovered] = useState(false);
   const [areaCoordInput, setAreaCoordInput] = useState("");
   const [areaPointMessage, setAreaPointMessage] = useState("");
   const [showCoordEntry, setShowCoordEntry] = useState(false);
   const [pinBoxMessage, setPinBoxMessage] = useState(
-    "Tap a pin to place it, or drag it onto the map.",
+    "Tap a pin to place it, drag it onto the map, or press and hold the map to drop one.",
   );
   const [isSearching, setIsSearching] = useState(false);
   const [searchMessage, setSearchMessage] = useState("");
@@ -1172,6 +1474,44 @@ export default function HuntingMap() {
 
     return { good, avoid, matched };
   }, [windStandPoints]);
+
+  // "Today's play": rank the property's stands for the wind right now — good
+  // wind first, wrong wind last — so the answer to "where do I sit?" is one
+  // glance. Each stand is matched to its map pin (by name, like windStandPoints)
+  // so tapping a row flies there.
+  const todaysPlay = useMemo(() => {
+    const currentWind = windData?.fromCompass;
+    const standAssetByName = new Map(
+      visibleAssets
+        .filter((asset) => asset.layerId === "stands")
+        .map((asset) => [asset.label.trim().toLowerCase(), asset]),
+    );
+    const order: Record<string, number> = {
+      good: 0,
+      marginal: 1,
+      unknown: 2,
+      avoid: 3,
+    };
+
+    return propertyStands
+      .map((stand) => {
+        const check = getStandWindCheck(stand, currentWind);
+        const asset = standAssetByName.get(stand.name.trim().toLowerCase());
+        return {
+          id: stand.id,
+          name: stand.name || "Unnamed stand",
+          standType: stand.standType,
+          status: check.status,
+          label: check.label,
+          accessNote: stand.accessRouteNotes.trim(),
+          assetId: asset?.id ?? null,
+        };
+      })
+      .sort(
+        (a, b) =>
+          order[a.status] - order[b.status] || a.name.localeCompare(b.name),
+      );
+  }, [propertyStands, visibleAssets, windData?.fromCompass]);
 
   // Movement prediction: corridors are bedding→food/water links from the
   // property's own pins; direction and the outlook rating come from the shared
@@ -1367,6 +1707,158 @@ export default function HuntingMap() {
     ? pins.find((pin) => pin.id === selectedAsset.pinId)
     : undefined;
   const pinBoxDisabled = !selectedPropertyId || isDrawingArea;
+  // A pending stand/camera pin wants live wind for its scent-plume preview, even
+  // when the wind overlay isn't on — so the placement bar can show a verdict.
+  const pendingLayerId = pendingPin ? PIN_LAYER_LOOKUP[pinType] : null;
+  // Cameras and stands both point a direction and carry a scent story.
+  const pendingIsDirectional =
+    pendingLayerId !== null && DIRECTIONAL_LAYERS.has(pendingLayerId);
+  const pendingWantsWind = pendingIsDirectional;
+  // "Today's play" lives in the layers drawer and needs the live wind to rank —
+  // load it whenever the drawer is open on a property that has stands.
+  const wantsWindForPlay = layersOpen && propertyStands.length > 0;
+  // Route planning needs the live wind to flag scent-into-bedding legs.
+  const wantsWindForRoute = isPlanningRoute;
+  const pendingColor =
+    pendingLayerId && pendingLayerId !== "other"
+      ? ASSET_LAYER_LOOKUP[pendingLayerId].color
+      : "#7ec2ff";
+  // Where your scent drifts from a pending stand/camera (downwind = opposite of
+  // the wind's source), and whether that plume points at known bedding — the
+  // real question when picking a stand. Half-angle/range match the drawn cone.
+  const SCENT_CONE_HALF_ANGLE = 34;
+  const SCENT_RANGE_METERS = 400;
+  const pendingScent = useMemo(() => {
+    if (!pendingPin || !pendingWantsWind || !windData?.fromCompass) return null;
+
+    const fromDeg = compassToDegrees(windData.fromCompass);
+    if (fromDeg === null) return null;
+
+    const downwindDeg = (fromDeg + 180) % 360;
+    const drift = degreesToCompass(downwindDeg);
+
+    const towardBedding = beddingPoints.some((bed) => {
+      const bearing = bearingBetween(
+        pendingPin.lat,
+        pendingPin.lng,
+        bed.lat,
+        bed.lng,
+      );
+      // Reuse the canonical distance helper (its point type carries an unused
+      // timestamp, so pass an empty one).
+      const meters = distanceBetweenMeters(
+        { lat: pendingPin.lat, lng: pendingPin.lng, at: "" },
+        { lat: bed.lat, lng: bed.lng, at: "" },
+      );
+      return (
+        meters <= SCENT_RANGE_METERS &&
+        angularDiff(bearing, downwindDeg) <= SCENT_CONE_HALF_ANGLE
+      );
+    });
+
+    const verdict =
+      beddingPoints.length === 0
+        ? null
+        : towardBedding
+          ? { tone: "warn" as const, text: "drifts toward bedding" }
+          : { tone: "good" as const, text: "clear of bedding" };
+
+    return { downwindDeg, drift, verdict };
+  }, [pendingPin, pendingWantsWind, windData?.fromCompass, beddingPoints]);
+  // Nearest existing asset to the pending pin, in yards — for spacing cameras
+  // and stands and judging range while positioning a new one.
+  const pendingNearest = useMemo(() => {
+    if (!pendingPin) return null;
+
+    let best: { yards: number; label: string } | null = null;
+    for (const asset of visibleAssets) {
+      const meters = distanceBetweenMeters(
+        { lat: pendingPin.lat, lng: pendingPin.lng, at: "" },
+        { lat: asset.lat, lng: asset.lng, at: "" },
+      );
+      const yards = Math.round(meters * 1.09361);
+      if (!best || yards < best.yards) best = { yards, label: asset.label };
+    }
+    return best;
+  }, [pendingPin, visibleAssets]);
+  // Per-point scent safety for a planned access route: a point is flagged when
+  // your scent there blows into bedding (bedding downwind within range) — the
+  // same test the pin's scent cone uses, applied along the walk-in.
+  const routeWindFrom = windData?.fromCompass;
+  const routeSafety = useMemo(() => {
+    const fromDeg = routeWindFrom ? compassToDegrees(routeWindFrom) : null;
+
+    if (fromDeg === null || beddingPoints.length === 0) {
+      return {
+        compromised: routePoints.map(() => false),
+        flagged: 0,
+        windKnown: fromDeg !== null,
+        hasBedding: beddingPoints.length > 0,
+      };
+    }
+
+    const downwindDeg = (fromDeg + 180) % 360;
+    const compromised = routePoints.map((point) =>
+      beddingPoints.some((bed) => {
+        const bearing = bearingBetween(point.lat, point.lng, bed.lat, bed.lng);
+        const meters = distanceBetweenMeters(
+          { lat: point.lat, lng: point.lng, at: "" },
+          { lat: bed.lat, lng: bed.lng, at: "" },
+        );
+        return (
+          meters <= SCENT_RANGE_METERS &&
+          angularDiff(bearing, downwindDeg) <= SCENT_CONE_HALF_ANGLE
+        );
+      }),
+    );
+
+    return {
+      compromised,
+      flagged: compromised.filter(Boolean).length,
+      windKnown: true,
+      hasBedding: true,
+    };
+  }, [routePoints, beddingPoints, routeWindFrom]);
+  // Blood-trail metrics: total distance walked along the marks, straight-line
+  // distance from the hit, and the deer's travel direction — the reads that
+  // help decide where to look next and whether to back out.
+  const bloodTrailStats = useMemo(() => {
+    if (bloodPoints.length < 1) return null;
+
+    const hit = bloodPoints[0];
+    const last = bloodPoints[bloodPoints.length - 1];
+    let totalMeters = 0;
+    for (let i = 1; i < bloodPoints.length; i += 1) {
+      totalMeters += distanceBetweenMeters(
+        { lat: bloodPoints[i - 1].lat, lng: bloodPoints[i - 1].lng, at: "" },
+        { lat: bloodPoints[i].lat, lng: bloodPoints[i].lng, at: "" },
+      );
+    }
+    const straightMeters =
+      bloodPoints.length >= 2
+        ? distanceBetweenMeters(
+            { lat: hit.lat, lng: hit.lng, at: "" },
+            { lat: last.lat, lng: last.lng, at: "" },
+          )
+        : 0;
+
+    return {
+      marks: bloodPoints.length,
+      totalYards: Math.round(totalMeters * 1.09361),
+      straightYards: Math.round(straightMeters * 1.09361),
+      direction:
+        bloodPoints.length >= 2
+          ? degreesToCompass(bearingBetween(hit.lat, hit.lng, last.lat, last.lng))
+          : null,
+    };
+  }, [bloodPoints]);
+  // Don't leave the undo-toast timer running after the map unmounts.
+  useEffect(
+    () => () => {
+      if (undoToastTimerRef.current) clearTimeout(undoToastTimerRef.current);
+    },
+    [],
+  );
   const huntArea = selectedProperty?.huntArea;
   const hasHuntArea = huntAreaIsValid(huntArea);
   const draftAreaAcresLabel = formatHuntAreaAcres(draftAreaPoints);
@@ -1387,9 +1879,11 @@ export default function HuntingMap() {
         ? "Zoom in further for owner names — tap any parcel to see who owns it."
         : "";
 
-  const mapOverlayMessages = [parcelLayerState?.message, parcelZoomHint].filter(
-    (message): message is string => Boolean(message),
-  );
+  const mapOverlayMessages = [
+    parcelLayerState?.message,
+    parcelZoomHint,
+    trailsMessage,
+  ].filter((message): message is string => Boolean(message));
 
   const saveMapState = useCallback((center: MapCenter, zoom: number) => {
     latestMapZoomRef.current = zoom;
@@ -1455,7 +1949,15 @@ export default function HuntingMap() {
   // (and re-fetch when the property changes) so panning never spams the API —
   // the point comes from refs, and Open-Meteo responses are cached per point.
   useEffect(() => {
-    if (!showWind && !showMovement && !showDeerHeat) return;
+    if (
+      !showWind &&
+      !showMovement &&
+      !showDeerHeat &&
+      !pendingWantsWind &&
+      !wantsWindForPlay &&
+      !wantsWindForRoute
+    )
+      return;
 
     const {
       selectedProperty: property,
@@ -1507,7 +2009,15 @@ export default function HuntingMap() {
     return () => {
       cancelled = true;
     };
-  }, [showWind, showMovement, showDeerHeat, selectedPropertyId]);
+  }, [
+    showWind,
+    showMovement,
+    showDeerHeat,
+    pendingWantsWind,
+    wantsWindForPlay,
+    wantsWindForRoute,
+    selectedPropertyId,
+  ]);
 
   function toggleWind() {
     setShowWind((current) => !current);
@@ -1649,6 +2159,9 @@ export default function HuntingMap() {
 
   function selectProperty(propertyId: string) {
     if (isDrawingArea) cancelAreaDraw();
+    setPendingPin(null);
+    exitRoutePlan();
+    exitBloodTrail();
 
     updateDeerIntelStore((currentState) => ({
       ...currentState,
@@ -1661,11 +2174,128 @@ export default function HuntingMap() {
 
     setIsPlacingPin(false);
     setMovingPin(null);
+    setPendingPin(null);
+    exitRoutePlan();
+    exitBloodTrail();
     setIsDrawingArea(true);
     setDraftAreaPoints(huntArea ? [...huntArea] : []);
     setAreaCoordInput("");
     setAreaPointMessage("");
     setShowCoordEntry(false);
+  }
+
+  // Scent-safe access route planning (ephemeral). Starting it clears the other
+  // map modes so taps go to laying the route.
+  function startRoutePlan() {
+    if (!selectedPropertyId) return;
+
+    setIsPlacingPin(false);
+    setMovingPin(null);
+    setPendingPin(null);
+    setAimingTarget(null);
+    setIsDrawingArea(false);
+    exitBloodTrail();
+    setRoutePoints([]);
+    setIsPlanningRoute(true);
+    setLayersOpen(false);
+  }
+
+  function addRoutePoint(lat: number, lng: number) {
+    setRoutePoints((current) => [...current, { lat, lng }]);
+  }
+
+  function moveRoutePoint(index: number, lat: number, lng: number) {
+    setRoutePoints((current) =>
+      current.map((point, pointIndex) =>
+        pointIndex === index ? { lat, lng } : point,
+      ),
+    );
+  }
+
+  function undoRoutePoint() {
+    setRoutePoints((current) => current.slice(0, -1));
+  }
+
+  function addRoutePointFromLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        buzz(14);
+        addRoutePoint(position.coords.latitude, position.coords.longitude);
+      },
+      undefined,
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
+    );
+  }
+
+  function exitRoutePlan() {
+    setIsPlanningRoute(false);
+    setRoutePoints([]);
+  }
+
+  // Blood-trail / recovery mode (ephemeral). First mark is the hit site.
+  function startBloodTrail() {
+    if (!selectedPropertyId) return;
+
+    setIsPlacingPin(false);
+    setMovingPin(null);
+    setPendingPin(null);
+    setAimingTarget(null);
+    setIsDrawingArea(false);
+    exitRoutePlan();
+    setBloodPoints([]);
+    setBloodRecovered(false);
+    setIsTrackingBlood(true);
+    setLayersOpen(false);
+  }
+
+  function addBloodPoint(lat: number, lng: number) {
+    if (bloodRecovered) return;
+    buzz(14);
+    setBloodPoints((current) => [...current, { lat, lng }]);
+  }
+
+  function moveBloodPoint(index: number, lat: number, lng: number) {
+    setBloodPoints((current) =>
+      current.map((point, pointIndex) =>
+        pointIndex === index ? { lat, lng } : point,
+      ),
+    );
+  }
+
+  function undoBloodPoint() {
+    setBloodRecovered(false);
+    setBloodPoints((current) => current.slice(0, -1));
+  }
+
+  function addBloodPointFromLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    if (bloodRecovered) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        buzz(14);
+        setBloodPoints((current) => [
+          ...current,
+          { lat: position.coords.latitude, lng: position.coords.longitude },
+        ]);
+      },
+      undefined,
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
+    );
+  }
+
+  function markRecovery() {
+    if (bloodPoints.length === 0) return;
+    buzz([14, 60, 14]);
+    setBloodRecovered(true);
+  }
+
+  function exitBloodTrail() {
+    setIsTrackingBlood(false);
+    setBloodPoints([]);
+    setBloodRecovered(false);
   }
 
   function addAreaPoint(lat: number, lng: number) {
@@ -1903,6 +2533,9 @@ export default function HuntingMap() {
 
     setPinType(type);
     setMovingPin(null);
+    setPendingPin(null);
+    exitRoutePlan();
+    exitBloodTrail();
     setIsPlacingPin(true);
     setPinBoxMessage(`Tap map to place ${type}`);
     setLayersOpen(false);
@@ -1911,6 +2544,156 @@ export default function HuntingMap() {
   function cancelPinPlacement() {
     setIsPlacingPin(false);
     setPinBoxMessage("Pin placement canceled.");
+  }
+
+  // A map long-press drops a draggable pin of the armed type at that spot; the
+  // hunter then fine-tunes its position (drag the marker or tap a new spot) and
+  // confirms. Ignored while another map mode owns taps.
+  function startPendingPinAt(lat: number, lng: number) {
+    if (pinBoxDisabled || isPlacingPin || movingPin || aimingTarget) return;
+    if (isPlanningRoute || isTrackingBlood) return;
+
+    // A short buzz confirms the drop without the hunter having to look.
+    buzz(18);
+    dismissUndoToast();
+    setLayersOpen(false);
+    setPendingStep("place");
+    setPendingFacing(null);
+    setPendingPin({ lat, lng });
+    setPinBoxMessage(`Drag the ${pinType} to place it, then Confirm.`);
+  }
+
+  function movePendingPin(lat: number, lng: number) {
+    setPendingPin((current) => (current ? { lat, lng } : current));
+  }
+
+  // Snap the pending pin to the hunter's exact GPS fix — for marking the very
+  // tree/spot they're standing at rather than eyeballing it on the imagery.
+  function pinAtMyLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setPinBoxMessage("GPS isn't available on this device.");
+      return;
+    }
+
+    setPinBoxMessage("Getting your GPS fix…");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        buzz(18);
+        setPendingPin({ lat: latitude, lng: longitude });
+        setSearchTarget({
+          center: [latitude, longitude],
+          id: Date.now(),
+          zoom: Math.max(latestMapZoomRef.current, 17),
+        });
+        setPinBoxMessage(`${pinType} set to your location.`);
+      },
+      () => setPinBoxMessage("Couldn't read your location. Check GPS access."),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
+    );
+  }
+
+  function resetPendingPin() {
+    setPendingPin(null);
+    setPendingStep("place");
+    setPendingFacing(null);
+  }
+
+  function cancelPendingPin() {
+    resetPendingPin();
+    setPinBoxMessage("Pin placement canceled.");
+  }
+
+  // Each tap in the aim step re-points the preview; the bearing from the pin to
+  // the tapped spot is which way a camera lens looks / a stand faces.
+  function aimPendingPin(lat: number, lng: number) {
+    if (!pendingPin) return;
+
+    setPendingFacing(
+      degreesToCompass(
+        bearingBetween(pendingPin.lat, pendingPin.lng, lat, lng),
+      ),
+    );
+  }
+
+  function backToPlaceStep() {
+    setPendingStep("place");
+    setPinBoxMessage(`Drag the ${pinType} to place it.`);
+  }
+
+  // One-tap suggestion: point the asset into the wind (toward where the wind
+  // comes from) so your scent blows behind you. A starting point, still
+  // adjustable by tapping the map.
+  function aimIntoWind() {
+    if (!windData?.fromCompass) return;
+    buzz(14);
+    setPendingFacing(windData.fromCompass);
+  }
+
+  // "Confirm" on a camera/stand first advances to the aim step; on anything else
+  // (or once already aiming) it saves.
+  function confirmPendingPin() {
+    if (!pendingPin) return;
+
+    if (pendingIsDirectional && pendingStep === "place") {
+      setPendingStep("aim");
+      buzz(18);
+      setPinBoxMessage(`Tap the map where the ${pinType} looks.`);
+      return;
+    }
+
+    savePendingPin();
+  }
+
+  function savePendingPin() {
+    if (!pendingPin) return;
+
+    const pinId = createPinAtLocation(pinType, pendingPin.lat, pendingPin.lng);
+
+    if (!pinId) {
+      resetPendingPin();
+      setPinBoxMessage("Pin placement canceled.");
+      return;
+    }
+
+    // Persist the aimed direction alongside the new pin (cameras and stand pins
+    // both carry facingDirection, same field the aim tool writes).
+    if (pendingFacing) {
+      const facing = pendingFacing;
+      updateDeerIntelStore((currentState) => ({
+        ...currentState,
+        pins: currentState.pins.map((pin) =>
+          pin.id === pinId ? { ...pin, facingDirection: facing } : pin,
+        ),
+      }));
+    }
+
+    // Two quick pulses = saved. Offer a one-tap undo for a few seconds.
+    buzz([14, 60, 14]);
+    showUndoToast(pinId, pinType);
+    resetPendingPin();
+  }
+
+  function showUndoToast(pinId: string, label: string) {
+    if (undoToastTimerRef.current) clearTimeout(undoToastTimerRef.current);
+    setUndoToast({ pinId, label });
+    undoToastTimerRef.current = setTimeout(() => setUndoToast(null), 6000);
+  }
+
+  function dismissUndoToast() {
+    if (undoToastTimerRef.current) clearTimeout(undoToastTimerRef.current);
+    setUndoToast(null);
+  }
+
+  function undoLastPin() {
+    if (!undoToast) return;
+
+    deletePin(undoToast.pinId);
+    setSelectedAssetId((current) =>
+      current === `pin-${undoToast.pinId}` ? null : current,
+    );
+    dismissUndoToast();
+    setPinBoxMessage("Pin removed.");
   }
 
   function createPinAtLocation(type: PinType, lat: number, lng: number) {
@@ -2043,6 +2826,9 @@ export default function HuntingMap() {
     if (!selectedPin) return;
 
     setIsPlacingPin(false);
+    setPendingPin(null);
+    exitRoutePlan();
+    exitBloodTrail();
     setMovingPin({
       id: selectedPin.id,
       label: selectedAsset?.label ?? selectedPin.type,
@@ -2091,6 +2877,9 @@ export default function HuntingMap() {
         : selectedPin?.facingDirection) ?? "";
 
     setIsPlacingPin(false);
+    setPendingPin(null);
+    exitRoutePlan();
+    exitBloodTrail();
     setAimingTarget({
       kind: selectedAsset.source,
       id: selectedAsset.sourceId,
@@ -2400,8 +3189,11 @@ export default function HuntingMap() {
     isNarrowViewport &&
     (Boolean(aimingTarget) ||
       Boolean(movingPin) ||
+      Boolean(pendingPin) ||
       isPlacingPin ||
-      isDrawingArea);
+      isDrawingArea ||
+      isPlanningRoute ||
+      isTrackingBlood);
 
   return (
     <div className="di-map-layout" style={mapLayoutStyle}>
@@ -2779,6 +3571,10 @@ export default function HuntingMap() {
               keepBuffer={1}
             />
 
+            {/* Permanent walk-in reference layer — always on, like water and
+                property lines; it only self-gates by zoom. */}
+            <TrailsLayer enabled onStatus={setTrailsMessage} />
+
             {showSlope ? (
               <WMSTileLayer
                 key="slope-overlay"
@@ -2883,7 +3679,13 @@ export default function HuntingMap() {
                 period={movementPeriod}
                 outlookScore={movementOutlook?.score ?? null}
                 tapEnabled={
-                  !isPlacingPin && !isDrawingArea && !movingPin && !aimingTarget
+                  !isPlacingPin &&
+                  !isDrawingArea &&
+                  !movingPin &&
+                  !aimingTarget &&
+                  !pendingPin &&
+                  !isPlanningRoute &&
+                  !isTrackingBlood
                 }
               />
             ) : null}
@@ -2908,7 +3710,13 @@ export default function HuntingMap() {
             <ParcelTilesLayer
               enabled
               pickEnabled={
-                !isPlacingPin && !isDrawingArea && !movingPin && !aimingTarget
+                !isPlacingPin &&
+                !isDrawingArea &&
+                !movingPin &&
+                !aimingTarget &&
+                !pendingPin &&
+                !isPlanningRoute &&
+                !isTrackingBlood
               }
               onOwnerPick={handleTileOwnerPick}
             />
@@ -2968,6 +3776,29 @@ export default function HuntingMap() {
               enabled={Boolean(movingPin)}
               onMovePin={movePinToLocation}
             />
+            <LongPressToPlacePin
+              enabled={
+                !pinBoxDisabled &&
+                !isPlacingPin &&
+                !movingPin &&
+                !aimingTarget &&
+                !pendingPin &&
+                !isPlanningRoute &&
+                !isTrackingBlood
+              }
+              onLongPress={startPendingPinAt}
+            />
+            {/* In the place step, a plain map tap relocates the pending pin —
+                the second way to fine-tune its spot alongside dragging it. */}
+            <ClickToMovePin
+              enabled={Boolean(pendingPin) && pendingStep === "place"}
+              onMovePin={movePendingPin}
+            />
+            {/* In the aim step, a tap points the pending camera/stand instead. */}
+            <ClickToAimCamera
+              enabled={Boolean(pendingPin) && pendingStep === "aim"}
+              onAim={aimPendingPin}
+            />
             <ClickToAimCamera
               enabled={Boolean(aimingTarget)}
               onAim={aimToward}
@@ -2976,6 +3807,100 @@ export default function HuntingMap() {
               enabled={isDrawingArea}
               onAddPoint={addAreaPoint}
             />
+            {/* Tap to lay the access route while planning it. */}
+            <ClickToDrawArea
+              enabled={isPlanningRoute}
+              onAddPoint={addRoutePoint}
+            />
+            {/* Tap to drop the hit site / each blood find while tracking. */}
+            <ClickToDrawArea
+              enabled={isTrackingBlood}
+              onAddPoint={addBloodPoint}
+            />
+
+            {/* Access route: each leg colored by scent safety (red = your scent
+                blows into bedding on that leg), with draggable vertices so you
+                can nudge the line to a clean approach. */}
+            {isPlanningRoute
+              ? routePoints.slice(0, -1).map((point, index) => {
+                  const next = routePoints[index + 1];
+                  const unsafe =
+                    routeSafety.compromised[index] ||
+                    routeSafety.compromised[index + 1];
+
+                  return (
+                    <Polyline
+                      key={`route-leg-${index}`}
+                      positions={[
+                        [point.lat, point.lng],
+                        [next.lat, next.lng],
+                      ]}
+                      pathOptions={
+                        unsafe
+                          ? ROUTE_UNSAFE_PATH_OPTIONS
+                          : ROUTE_SAFE_PATH_OPTIONS
+                      }
+                    />
+                  );
+                })
+              : null}
+
+            {isPlanningRoute
+              ? routePoints.map((point, index) => (
+                  <Marker
+                    key={`route-point-${index}`}
+                    position={[point.lat, point.lng]}
+                    icon={routePointIcon(
+                      index + 1,
+                      routeSafety.compromised[index] ?? false,
+                    )}
+                    draggable
+                    eventHandlers={{
+                      dragend: (event) => {
+                        const latlng = event.target?.getLatLng();
+                        if (!latlng) return;
+                        moveRoutePoint(index, latlng.lat, latlng.lng);
+                      },
+                    }}
+                  />
+                ))
+              : null}
+
+            {/* Blood trail: hit → each find → recovery, with draggable marks. */}
+            {isTrackingBlood && bloodPoints.length >= 2 ? (
+              <Polyline
+                positions={bloodPoints.map((point) => [point.lat, point.lng])}
+                pathOptions={BLOOD_TRAIL_PATH_OPTIONS}
+              />
+            ) : null}
+
+            {isTrackingBlood
+              ? bloodPoints.map((point, index) => {
+                  const isHit = index === 0;
+                  const isLast = index === bloodPoints.length - 1;
+                  const icon = isHit
+                    ? bloodHitIcon()
+                    : isLast && bloodRecovered
+                      ? bloodRecoveredIcon()
+                      : bloodDotIcon();
+
+                  return (
+                    <Marker
+                      key={`blood-${index}`}
+                      position={[point.lat, point.lng]}
+                      icon={icon}
+                      draggable
+                      eventHandlers={{
+                        dragend: (event) => {
+                          const latlng = event.target?.getLatLng();
+                          if (!latlng) return;
+                          moveBloodPoint(index, latlng.lat, latlng.lng);
+                        },
+                      }}
+                    />
+                  );
+                })
+              : null}
 
             {hasHuntArea && huntArea && !isDrawingArea ? (
               <Polygon
@@ -3041,6 +3966,52 @@ export default function HuntingMap() {
                 onSelect={() => selectAsset(asset.id)}
               />
             ))}
+
+            {/* Scent plume for a pending stand/camera while positioning it: a
+                wide cone blowing downwind (where your scent carries), colored by
+                whether it points at bedding. Hidden in the aim step so the
+                narrow facing cone reads cleanly. */}
+            {pendingPin && pendingScent && pendingStep === "place" ? (
+              <CameraFacingCone
+                lat={pendingPin.lat}
+                lng={pendingPin.lng}
+                degrees={pendingScent.downwindDeg}
+                color={
+                  pendingScent.verdict?.tone === "warn" ? "#ff5f56" : "#ffb347"
+                }
+                halfAngle={SCENT_CONE_HALF_ANGLE}
+                radius={84}
+              />
+            ) : null}
+
+            {/* Facing cone in the aim step: the narrow direction a camera lens
+                looks / a stand faces, from the tap. */}
+            {pendingPin && pendingStep === "aim" && pendingFacing ? (
+              <CameraFacingCone
+                lat={pendingPin.lat}
+                lng={pendingPin.lng}
+                degrees={compassToDegrees(pendingFacing) ?? 0}
+                color={pendingColor}
+              />
+            ) : null}
+
+            {pendingPin ? (
+              <Marker
+                position={[pendingPin.lat, pendingPin.lng]}
+                icon={pendingPinIcon(pinType)}
+                // Draggable only while positioning; in the aim step a drag would
+                // fight the tap-to-point gesture.
+                draggable={pendingStep === "place"}
+                zIndexOffset={2000}
+                eventHandlers={{
+                  dragend: (event) => {
+                    const latlng = event.target?.getLatLng();
+                    if (!latlng) return;
+                    movePendingPin(latlng.lat, latlng.lng);
+                  },
+                }}
+              />
+            ) : null}
 
             {selectedSearchResult ? (
               <MapSearchResultMarker
@@ -3125,6 +4096,49 @@ export default function HuntingMap() {
                 onPlacePin={placePinType}
               />
             }
+            playSection={
+              selectedPropertyId ? (
+                <TodaysPlayPanel
+                  windFromCompass={windData?.fromCompass ?? ""}
+                  plays={todaysPlay}
+                  onSelect={(assetId) => {
+                    const asset = visibleAssets.find(
+                      (candidate) => candidate.id === assetId,
+                    );
+                    if (!asset) return;
+                    selectAssetAndCenter(asset);
+                    setLayersOpen(false);
+                  }}
+                />
+              ) : null
+            }
+            routeSection={
+              selectedPropertyId ? (
+                <div style={routeEntryStyle}>
+                  <p style={helpTextStyle}>
+                    Tap out your walk-in path; a leg that blows your scent into
+                    bedding turns red so you can find a clean approach.
+                  </p>
+                  <Button type="button" onClick={startRoutePlan}>
+                    Plan access route
+                  </Button>
+                </div>
+              ) : null
+            }
+            recoverySection={
+              selectedPropertyId ? (
+                <div style={routeEntryStyle}>
+                  <p style={helpTextStyle}>
+                    After a shot: mark the hit, then drop a mark at each blood
+                    find as you track. Shows trail length and the deer&rsquo;s
+                    direction of travel.
+                  </p>
+                  <Button type="button" onClick={startBloodTrail}>
+                    Start blood trail
+                  </Button>
+                </div>
+              ) : null
+            }
             trackingSection={walkTrackingSection}
             offlineSection={
               <OfflineMapsPanel
@@ -3151,6 +4165,293 @@ export default function HuntingMap() {
           {mapOverlayMessages.length > 0 ? (
             <div className="di-map-notice" style={propertyLinesNoticeStyle}>
               {mapOverlayMessages.join(" ")}
+            </div>
+          ) : null}
+
+          {pendingPin && !isDrawingArea ? (
+            <div className="di-area-pill" style={drawActionBarStyle}>
+              <span style={drawActionStatusStyle}>
+                {pendingStep === "aim"
+                  ? pendingFacing
+                    ? `Facing ${pendingFacing} — tap to adjust`
+                    : `Tap where the ${pinType} looks`
+                  : `${pinType} — drag to place, or pick a type`}
+              </span>
+              {pendingWantsWind ? (
+                <span
+                  style={{
+                    ...pendingWindNoteStyle,
+                    ...(pendingScent?.verdict?.tone === "warn"
+                      ? pendingWindWarnStyle
+                      : pendingScent?.verdict?.tone === "good"
+                        ? pendingWindGoodStyle
+                        : null),
+                  }}
+                >
+                  {pendingScent && windData
+                    ? `Wind ${windData.fromCompass} ${windData.speedLabel} · scent → ${pendingScent.drift}${
+                        pendingScent.verdict
+                          ? ` · ${pendingScent.verdict.text}`
+                          : ""
+                      }`
+                    : "Reading wind…"}
+                </span>
+              ) : null}
+              {pendingStep === "place" && pendingNearest ? (
+                <span style={pendingHintStyle}>
+                  {pendingNearest.yards} yd from {pendingNearest.label}
+                </span>
+              ) : null}
+              {pendingStep === "aim" && windData?.fromCompass ? (
+                <button
+                  type="button"
+                  style={pendingSuggestButtonStyle}
+                  onClick={aimIntoWind}
+                >
+                  🧭 Face into wind ({windData.fromCompass})
+                </button>
+              ) : null}
+              {pendingStep === "place" ? (
+                <div style={pendingTypeRowStyle}>
+                  {PENDING_PIN_TYPE_OPTIONS.map((option) => {
+                    const active = option.type === pinType;
+
+                    return (
+                      <button
+                        key={option.type}
+                        type="button"
+                        aria-pressed={active}
+                        aria-label={`Use ${option.label} pin`}
+                        title={option.label}
+                        style={{
+                          ...pendingTypeChipStyle,
+                          ...(active ? pendingTypeChipActiveStyle : null),
+                        }}
+                        onClick={() => setPinType(option.type)}
+                      >
+                        <span
+                          aria-hidden="true"
+                          style={pendingTypeChipIconStyle}
+                          dangerouslySetInnerHTML={{
+                            __html: pinMarkerSvg({
+                              color: option.color,
+                              background: option.background,
+                              glyphKey: option.layerId,
+                              width: 22,
+                            }),
+                          }}
+                        />
+                        <span style={pendingTypeChipLabelStyle}>
+                          {option.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+              <div style={drawActionButtonRowStyle}>
+                {pendingStep === "aim" ? (
+                  <button
+                    type="button"
+                    style={drawSecondaryButtonStyle}
+                    onClick={backToPlaceStep}
+                  >
+                    Back
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    style={drawSecondaryButtonStyle}
+                    onClick={pinAtMyLocation}
+                  >
+                    📍 My spot
+                  </button>
+                )}
+                <button
+                  type="button"
+                  style={drawSecondaryButtonStyle}
+                  onClick={cancelPendingPin}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  style={drawPrimaryButtonStyle}
+                  onClick={confirmPendingPin}
+                >
+                  {pendingStep === "place" && pendingIsDirectional
+                    ? "Next: aim"
+                    : "Confirm"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {undoToast &&
+          !pendingPin &&
+          !movingPin &&
+          !aimingTarget &&
+          !isPlacingPin &&
+          !isDrawingArea ? (
+            <div className="di-area-pill" style={undoToastStyle}>
+              <span style={drawActionStatusStyle}>{undoToast.label} saved</span>
+              <div style={drawActionButtonRowStyle}>
+                <button
+                  type="button"
+                  style={drawPrimaryButtonStyle}
+                  onClick={undoLastPin}
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  style={drawSecondaryButtonStyle}
+                  onClick={dismissUndoToast}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {isPlanningRoute ? (
+            <div className="di-area-pill" style={drawActionBarStyle}>
+              <span style={drawActionStatusStyle}>
+                {routePoints.length === 0
+                  ? "Tap the map to start your walk-in route"
+                  : `Access route · ${routePoints.length} point${
+                      routePoints.length === 1 ? "" : "s"
+                    }`}
+              </span>
+              {routePoints.length >= 1 ? (
+                <span
+                  style={{
+                    ...pendingWindNoteStyle,
+                    ...(routeSafety.flagged > 0
+                      ? pendingWindWarnStyle
+                      : routeSafety.hasBedding && routeSafety.windKnown
+                        ? pendingWindGoodStyle
+                        : null),
+                  }}
+                >
+                  {!routeSafety.windKnown
+                    ? "Reading wind…"
+                    : !routeSafety.hasBedding
+                      ? "Add bedding pins to check scent"
+                      : routeSafety.flagged > 0
+                        ? `⚠ ${routeSafety.flagged} spot${
+                            routeSafety.flagged === 1 ? "" : "s"
+                          } blow into bedding`
+                        : "Scent-safe — clear of bedding"}
+                </span>
+              ) : null}
+              <div style={drawActionButtonRowStyle}>
+                <button
+                  type="button"
+                  style={drawSecondaryButtonStyle}
+                  onClick={addRoutePointFromLocation}
+                >
+                  📍 Add my spot
+                </button>
+                <button
+                  type="button"
+                  style={
+                    routePoints.length === 0
+                      ? { ...drawSecondaryButtonStyle, ...drawDisabledButtonStyle }
+                      : drawSecondaryButtonStyle
+                  }
+                  onClick={undoRoutePoint}
+                  disabled={routePoints.length === 0}
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  style={drawPrimaryButtonStyle}
+                  onClick={exitRoutePlan}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {isTrackingBlood ? (
+            <div className="di-area-pill" style={drawActionBarStyle}>
+              <span style={drawActionStatusStyle}>
+                {bloodPoints.length === 0
+                  ? "Tap the map to mark the hit site"
+                  : bloodRecovered
+                    ? "Recovered 🦌"
+                    : `Blood trail · ${bloodPoints.length} mark${
+                        bloodPoints.length === 1 ? "" : "s"
+                      }`}
+              </span>
+              {bloodTrailStats && bloodPoints.length >= 2 ? (
+                <span style={pendingWindNoteStyle}>
+                  {bloodTrailStats.totalYards} yd trail · {bloodTrailStats.straightYards} yd
+                  {bloodTrailStats.direction
+                    ? ` ${bloodTrailStats.direction}`
+                    : ""}{" "}
+                  from hit
+                </span>
+              ) : null}
+              <div
+                style={{
+                  ...drawActionButtonRowStyle,
+                  flexWrap: "wrap",
+                  justifyContent: "center",
+                }}
+              >
+                <button
+                  type="button"
+                  style={
+                    bloodRecovered
+                      ? { ...drawSecondaryButtonStyle, ...drawDisabledButtonStyle }
+                      : drawSecondaryButtonStyle
+                  }
+                  onClick={addBloodPointFromLocation}
+                  disabled={bloodRecovered}
+                >
+                  📍 Drop here
+                </button>
+                <button
+                  type="button"
+                  style={
+                    bloodPoints.length === 0
+                      ? { ...drawSecondaryButtonStyle, ...drawDisabledButtonStyle }
+                      : drawSecondaryButtonStyle
+                  }
+                  onClick={undoBloodPoint}
+                  disabled={bloodPoints.length === 0}
+                >
+                  Undo
+                </button>
+                {!bloodRecovered ? (
+                  <button
+                    type="button"
+                    style={
+                      bloodPoints.length === 0
+                        ? {
+                            ...drawSecondaryButtonStyle,
+                            ...drawDisabledButtonStyle,
+                          }
+                        : drawSecondaryButtonStyle
+                    }
+                    onClick={markRecovery}
+                    disabled={bloodPoints.length === 0}
+                  >
+                    Found!
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  style={drawPrimaryButtonStyle}
+                  onClick={exitBloodTrail}
+                >
+                  Done
+                </button>
+              </div>
             </div>
           ) : null}
 
@@ -3874,6 +5175,114 @@ const drawActionStatusStyle: CSSProperties = {
 const drawActionButtonRowStyle: CSSProperties = {
   display: "flex",
   gap: "0.5rem",
+};
+
+// Horizontally scrollable row of pin-type chips in the long-press action bar,
+// so the hunter can switch a pending pin's type before confirming. Capped in
+// width so the 10 types scroll on a phone instead of stretching the pill.
+const pendingTypeRowStyle: CSSProperties = {
+  display: "flex",
+  gap: "0.35rem",
+  maxWidth: "min(86vw, 420px)",
+  overflowX: "auto",
+  padding: "0.15rem 0.1rem 0.3rem",
+  WebkitOverflowScrolling: "touch",
+};
+
+const pendingTypeChipStyle: CSSProperties = {
+  flex: "0 0 auto",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: "0.2rem",
+  width: "54px",
+  padding: "0.35rem 0.2rem",
+  borderRadius: "8px",
+  border: "1px solid #35506e",
+  background: "#12233a",
+  color: "#cfe2f5",
+  cursor: "pointer",
+};
+
+const pendingTypeChipActiveStyle: CSSProperties = {
+  borderColor: "#2f8f4a",
+  background: "#173a24",
+  boxShadow: "0 0 0 2px rgba(47, 143, 74, 0.4)",
+};
+
+const pendingTypeChipIconStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  height: "31px",
+};
+
+const pendingTypeChipLabelStyle: CSSProperties = {
+  overflow: "hidden",
+  maxWidth: "100%",
+  fontSize: "0.62rem",
+  fontWeight: 700,
+  lineHeight: 1.1,
+  textAlign: "center",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+// Live wind/scent readout line in the pending-pin bar. Neutral by default,
+// tinted green when scent stays clear of bedding and amber-red when it doesn't.
+const pendingWindNoteStyle: CSSProperties = {
+  maxWidth: "min(86vw, 420px)",
+  color: "#bcd3ea",
+  fontSize: "0.76rem",
+  fontWeight: 700,
+  lineHeight: 1.25,
+  textAlign: "center",
+};
+
+const pendingWindGoodStyle: CSSProperties = {
+  color: "#8fe6a1",
+};
+
+// Drawer entry block for access-route planning.
+const routeEntryStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.55rem",
+};
+
+// Muted one-liner under the status text — e.g. distance to the nearest asset.
+const pendingHintStyle: CSSProperties = {
+  color: "#9fb4c9",
+  fontSize: "0.72rem",
+  fontWeight: 600,
+  lineHeight: 1.2,
+};
+
+// The "face into wind" quick suggestion in the aim step.
+const pendingSuggestButtonStyle: CSSProperties = {
+  alignSelf: "center",
+  minHeight: "34px",
+  padding: "0.3rem 0.7rem",
+  borderRadius: "8px",
+  border: "1px solid #4a6f4f",
+  background: "#183a1f",
+  color: "#c9e8cf",
+  fontSize: "0.78rem",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const pendingWindWarnStyle: CSSProperties = {
+  color: "#ff9d7a",
+};
+
+// The "pin saved · Undo" toast reuses the action-bar look so bottom pills feel
+// like one family.
+const undoToastStyle: CSSProperties = {
+  ...drawActionBarStyle,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: "0.7rem",
 };
 
 const drawSecondaryButtonStyle: CSSProperties = {

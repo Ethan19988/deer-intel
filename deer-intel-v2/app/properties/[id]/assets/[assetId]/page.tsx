@@ -28,6 +28,7 @@ import {
 import {
   createPhotoRecordFromValues,
   emptyPhotoFormValues,
+  resolveBuckLinks,
 } from "@/lib/photoFormValues";
 import {
   EMPTY_DEER_PROFILE_FORM_VALUES,
@@ -38,7 +39,11 @@ import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { buildPhotoWeatherSnapshot } from "@/lib/photoWeather";
 import { requestPhotoStamp } from "@/lib/photoStampClient";
 import { frameDirectionToHeading } from "@/lib/travelDirection";
-import { getPhotoSummary } from "@/lib/photos";
+import {
+  getPhotoBuckNames,
+  getPhotoDeerProfileIds,
+  getPhotoSummary,
+} from "@/lib/photos";
 import { useUnitPreferences } from "@/lib/units";
 import {
   cameraRelationshipDescription,
@@ -51,9 +56,48 @@ import {
   getStandIntelligenceSummary,
   type StandIntelligenceSummary,
 } from "@/lib/standIntelligence";
+import type { DeerProfile } from "@/types/deerProfile";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { PhotoRecord } from "@/types/photo";
 import type { Stand } from "@/types/stand";
+
+// The record fields written for a resolved buck-link set: singular primaries
+// (kept for backward-compatible reads) plus the full plural lists.
+function buckLinkFields(resolved: {
+  deerProfileIds: string[];
+  buckNames: string[];
+}): Pick<
+  PhotoRecord,
+  "deerProfileId" | "buckName" | "deerProfileIds" | "buckNames"
+> {
+  return {
+    deerProfileId: resolved.deerProfileIds[0],
+    buckName: resolved.buckNames[0],
+    deerProfileIds:
+      resolved.deerProfileIds.length > 0 ? resolved.deerProfileIds : undefined,
+    buckNames: resolved.buckNames.length > 0 ? resolved.buckNames : undefined,
+  };
+}
+
+// Buck names on a photo that don't come from one of its linked profiles — the
+// "loose" names to carry through when re-resolving a photo's link set.
+function looseBuckNamesForPhoto(
+  photo: PhotoRecord,
+  linkedProfileIds: string[],
+  profiles: DeerProfile[],
+): string[] {
+  const linkedNicknames = new Set(
+    linkedProfileIds
+      .map((id) =>
+        profiles.find((profile) => profile.id === id)?.nickname.trim().toLowerCase(),
+      )
+      .filter(Boolean),
+  );
+
+  return getPhotoBuckNames(photo).filter(
+    (name) => !linkedNicknames.has(name.toLowerCase()),
+  );
+}
 
 export default function PropertyAssetWorkspacePage() {
   const params = useParams<{ id: string; assetId: string }>();
@@ -216,6 +260,7 @@ export default function PropertyAssetWorkspacePage() {
       cameraSiteId: cameraId,
       values: photoValues,
       cameraChecks,
+      deerProfiles: propertyDeerProfiles,
     });
 
     if (!newPhotoRecord) return;
@@ -292,8 +337,7 @@ export default function PropertyAssetWorkspacePage() {
   // against. Placeholder import notes aren't worth seeding a description with.
   function createBuckFromPhoto(photo: PhotoRecord) {
     const defaultName =
-      (photo.buckName ?? "").trim() ||
-      `Buck ${propertyDeerProfiles.length + 1}`;
+      getPhotoBuckNames(photo)[0] || `Buck ${propertyDeerProfiles.length + 1}`;
     const nickname = window.prompt("Name this buck", defaultName)?.trim();
 
     if (!nickname) return;
@@ -318,33 +362,44 @@ export default function PropertyAssetWorkspacePage() {
 
     if (!profile) return;
 
+    // Add the new buck to whatever this photo was already tagged with.
+    const augmentedProfiles = [...propertyDeerProfiles, profile];
+    const nextIds = [...new Set([...getPhotoDeerProfileIds(photo), id])];
+    const looseNames = looseBuckNamesForPhoto(
+      photo,
+      getPhotoDeerProfileIds(photo),
+      propertyDeerProfiles,
+    );
+    const resolved = resolveBuckLinks(
+      { deerProfileIds: nextIds, buckNames: looseNames },
+      augmentedProfiles,
+    );
+
     updateDeerIntelStore((currentState) => ({
       ...currentState,
       deerProfiles: [...currentState.deerProfiles, profile],
       photoRecords: currentState.photoRecords.map((item) =>
-        item.id === photo.id
-          ? { ...item, deerProfileId: id, buckName: item.buckName || nickname }
-          : item,
+        item.id === photo.id ? { ...item, ...buckLinkFields(resolved) } : item,
       ),
     }));
   }
 
-  function linkPhotoToBuck(photoId: string, profileId: string) {
-    const profile = propertyDeerProfiles.find((item) => item.id === profileId);
+  // Replace a photo's whole buck link set (the list's inline multi-select gives
+  // us the selected profile ids plus loose names not tied to a profile).
+  function setPhotoBucks(
+    photoId: string,
+    deerProfileIds: string[],
+    buckNames: string[],
+  ) {
+    const resolved = resolveBuckLinks(
+      { deerProfileIds, buckNames },
+      propertyDeerProfiles,
+    );
 
     updateDeerIntelStore((currentState) => ({
       ...currentState,
       photoRecords: currentState.photoRecords.map((item) =>
-        item.id === photoId
-          ? {
-              ...item,
-              deerProfileId: profileId,
-              buckName:
-                profileId && !item.buckName
-                  ? (profile?.nickname ?? item.buckName ?? "")
-                  : (item.buckName ?? ""),
-            }
-          : item,
+        item.id === photoId ? { ...item, ...buckLinkFields(resolved) } : item,
       ),
     }));
   }
@@ -406,12 +461,25 @@ export default function PropertyAssetWorkspacePage() {
       if (stamp.species && (!photo.species || photo.species === "Other")) {
         patch.species = stamp.species;
       }
-      if (stamp.matchedProfileId && !photo.deerProfileId) {
-        patch.deerProfileId = stamp.matchedProfileId;
-        const matched = propertyDeerProfiles.find(
-          (profile) => profile.id === stamp.matchedProfileId,
+      if (
+        stamp.matchedProfileId &&
+        !getPhotoDeerProfileIds(photo).includes(stamp.matchedProfileId)
+      ) {
+        // Add the matched buck alongside any bucks already tagged on the photo.
+        const nextIds = [
+          ...new Set([...getPhotoDeerProfileIds(photo), stamp.matchedProfileId]),
+        ];
+        const looseNames = looseBuckNamesForPhoto(
+          photo,
+          getPhotoDeerProfileIds(photo),
+          propertyDeerProfiles,
         );
-        if (matched && !photo.buckName) patch.buckName = matched.nickname;
+        const resolved = resolveBuckLinks(
+          { deerProfileIds: nextIds, buckNames: looseNames },
+          propertyDeerProfiles,
+        );
+
+        Object.assign(patch, buckLinkFields(resolved));
       }
 
       if (Object.keys(patch).length > 0) patches.set(photo.id, patch);
@@ -573,7 +641,7 @@ export default function PropertyAssetWorkspacePage() {
             onMovePhotos={movePhotoRecords}
             onDeletePhotos={deletePhotoRecords}
             onCreateBuckFromPhoto={createBuckFromPhoto}
-            onLinkPhotoToBuck={linkPhotoToBuck}
+            onSetPhotoBucks={setPhotoBucks}
           />
         </AssetPanel>
 

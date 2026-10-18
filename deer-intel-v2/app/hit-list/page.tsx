@@ -5,7 +5,9 @@ import Link from "next/link";
 import PageShell from "@/components/ui/PageShell";
 import PageHeader from "@/components/ui/PageHeader";
 import Section from "@/components/ui/Section";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import Card from "@/components/ui/Card";
+import ErrorBoundary from "@/components/ui/ErrorBoundary";
 import { DeerIcon } from "@/components/ui/FieldIcons";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useActiveParty } from "@/components/party/PartyProvider";
@@ -31,22 +33,30 @@ export default function HitListPage() {
     [state.properties],
   );
 
-  // Each tracked buck with its computed movement pattern.
+  // Each tracked buck with its computed movement pattern. A single buck whose
+  // data trips up the intelligence read is skipped rather than blanking the
+  // whole page.
   const myBucks = useMemo(
     () =>
-      state.deerProfiles.map((profile) => {
-        const propertyName = propertyNameById.get(profile.propertyId) ?? "";
-        const intel = getDeerProfileIntelligence({
-          profile,
-          propertyName,
-          cameras: state.cameras,
-          photoRecords: state.photoRecords,
-          cameraChecks: state.cameraChecks,
-          hunts: state.hunts,
-          pins: state.pins,
-        });
-        return { profile, propertyName, intel };
-      }),
+      state.deerProfiles
+        .map((profile) => {
+          try {
+            const propertyName = propertyNameById.get(profile.propertyId) ?? "";
+            const intel = getDeerProfileIntelligence({
+              profile,
+              propertyName,
+              cameras: state.cameras,
+              photoRecords: state.photoRecords,
+              cameraChecks: state.cameraChecks,
+              hunts: state.hunts,
+              pins: state.pins,
+            });
+            return { profile, propertyName, intel };
+          } catch {
+            return null;
+          }
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null),
     [state, propertyNameById],
   );
 
@@ -60,75 +70,81 @@ export default function HitListPage() {
       />
 
       {available ? (
-        <Section eyebrow="Share" title="Share your hit list">
-          <Card>
-            <label style={toggleRowStyle}>
-              <input
-                type="checkbox"
-                checked={buckSharingEnabled}
-                onChange={(e) => setBuckSharingEnabled(e.target.checked)}
-                style={{ marginTop: "0.2rem", width: "1.1rem", height: "1.1rem" }}
-                disabled={!activeParty}
-              />
-              <span>
-                <strong>Share my buck hit list with the party</strong>
-                <span style={mutedBlockStyle}>
-                  {activeParty
-                    ? `Your bucks and their movement patterns show up on every ${activeParty.name} member's hit list. Photos stay private to your device — this shares the card and stats only.`
-                    : "Pick an active party on the Party page first, then turn this on."}
-                </span>
+        <CollapsibleSection
+          title="Share your hit list"
+          description="Show your bucks and their patterns to your party"
+        >
+          <label style={toggleRowStyle}>
+            <input
+              type="checkbox"
+              checked={buckSharingEnabled}
+              onChange={(e) => setBuckSharingEnabled(e.target.checked)}
+              style={{ marginTop: "0.2rem", width: "1.1rem", height: "1.1rem" }}
+              disabled={!activeParty}
+            />
+            <span>
+              <strong>Share my buck hit list with the party</strong>
+              <span style={mutedBlockStyle}>
+                {activeParty
+                  ? `Your bucks and their movement patterns show up on every ${activeParty.name} member's hit list. Photos stay private to your device — this shares the card and stats only.`
+                  : "Pick an active party on the Party page first, then turn this on."}
               </span>
-            </label>
-          </Card>
-        </Section>
+            </span>
+          </label>
+        </CollapsibleSection>
       ) : (
-        <Section eyebrow="Share" title="Share your hit list">
-          <Card>
-            <p style={{ margin: 0, color: "var(--text-muted)" }}>
-              <Link href="/login" style={linkStyle}>
-                Sign in
-              </Link>{" "}
-              and join a party to share your hit list with the crew.
-            </p>
-          </Card>
-        </Section>
+        <CollapsibleSection
+          title="Share your hit list"
+          description="Sign in and join a party to share with the crew"
+        >
+          <p style={{ margin: 0, color: "var(--text-muted)" }}>
+            <Link href="/login" style={linkStyle}>
+              Sign in
+            </Link>{" "}
+            and join a party to share your hit list with the crew.
+          </p>
+        </CollapsibleSection>
       )}
 
-      <Section eyebrow="Your bucks" title={`Tracking ${myBucks.length} buck${myBucks.length === 1 ? "" : "s"}`}>
-        {myBucks.length === 0 ? (
-          <Card>
-            <p style={{ margin: 0, color: "var(--text-muted)" }}>
-              No bucks yet. Add deer profiles on a property and link trail-cam
-              photos — the movement pattern builds itself from there.
-            </p>
-          </Card>
-        ) : (
-          <div style={gridStyle}>
-            {myBucks.map(({ profile, propertyName, intel }) => (
-              <BuckCard
-                key={profile.id}
-                title={profile.nickname.trim() || "Unnamed buck"}
-                subtitle={propertyName}
-                badges={[profile.estimatedAge.trim(), intel.maturityStatus.title].filter(Boolean)}
-                stats={[
-                  { label: "Sightings", value: String(intel.sightingCount) },
-                  { label: "Last seen", value: intel.mostRecentSighting.title },
-                  { label: "Best time", value: intel.commonTimeOfDay.title },
-                  { label: "Common area", value: intel.commonArea.title },
-                  {
-                    label: "Cameras",
-                    value: intel.associatedCameraSites.join(", ") || "—",
-                  },
-                ]}
-                notable={profile.notes.trim()}
-              />
-            ))}
-          </div>
-        )}
-      </Section>
+      <ErrorBoundary fallbackTitle="Your buck list couldn't load">
+        <Section eyebrow="Your bucks" title={`Tracking ${myBucks.length} buck${myBucks.length === 1 ? "" : "s"}`}>
+          {myBucks.length === 0 ? (
+            <Card>
+              <p style={{ margin: 0, color: "var(--text-muted)" }}>
+                No bucks yet. Add deer profiles on a property and link trail-cam
+                photos — the movement pattern builds itself from there.
+              </p>
+            </Card>
+          ) : (
+            <div style={gridStyle}>
+              {myBucks.map(({ profile, propertyName, intel }) => (
+                <BuckCard
+                  key={profile.id}
+                  title={(profile.nickname ?? "").trim() || "Unnamed buck"}
+                  subtitle={propertyName}
+                  badges={[(profile.estimatedAge ?? "").trim(), intel.maturityStatus.title].filter(Boolean)}
+                  stats={[
+                    { label: "Sightings", value: String(intel.sightingCount) },
+                    { label: "Last seen", value: intel.mostRecentSighting.title },
+                    { label: "Best time", value: intel.commonTimeOfDay.title },
+                    { label: "Common area", value: intel.commonArea.title },
+                    {
+                      label: "Cameras",
+                      value: intel.associatedCameraSites.join(", ") || "—",
+                    },
+                  ]}
+                  notable={(profile.notes ?? "").trim()}
+                />
+              ))}
+            </div>
+          )}
+        </Section>
+      </ErrorBoundary>
 
       {activeParty ? (
-        <PartyHitList partyId={activeParty.id} partyName={activeParty.name} selfId={user?.id ?? null} />
+        <ErrorBoundary fallbackTitle="The party hit list couldn't load">
+          <PartyHitList partyId={activeParty.id} partyName={activeParty.name} selfId={user?.id ?? null} />
+        </ErrorBoundary>
       ) : null}
     </PageShell>
   );

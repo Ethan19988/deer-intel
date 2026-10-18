@@ -8,19 +8,13 @@ import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
 import {
-  AlertIcon,
-  CameraIcon,
-  ClipboardIcon,
   CompassIcon,
-  DeerIcon,
-  ImageIcon,
-  MapPinIcon,
   StandIcon,
   TargetIcon,
 } from "@/components/ui/FieldIcons";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
-import StatCard from "@/components/ui/StatCard";
 import {
   EMPTY_AI_SCOUT_CONDITIONS,
   buildAiScoutRequestContext,
@@ -242,7 +236,7 @@ export default function AIPage() {
       {hub && selectedProperty ? (
         <>
           <Section
-            eyebrow="1"
+            eyebrow="Right now"
             title="What's Happening"
             icon={<CompassIcon size={18} />}
           >
@@ -258,7 +252,7 @@ export default function AIPage() {
           </Section>
 
           <Section
-            eyebrow="2"
+            eyebrow="Top pick"
             title="Best Stand"
             icon={<StandIcon size={18} />}
           >
@@ -281,145 +275,112 @@ export default function AIPage() {
             </Card>
           </Section>
 
-          <Section
-            eyebrow="3"
-            title="Recent Buck Activity"
-            icon={<DeerIcon size={18} />}
-          >
-            <Card as="article" variant="subtle">
-              <div style={simpleHeaderStyle}>
-                <div>
-                  <p style={eyebrowStyle}>Latest Mature Buck</p>
-                  <h2 style={cardTitleStyle}>{hub.recentBuckActivity.title}</h2>
+          <div style={hubDropdownStackStyle}>
+            <CollapsibleSection
+              title="Recent Buck Activity"
+              description="Latest mature-buck sighting from your cameras"
+            >
+              <Card as="article" variant="subtle">
+                <div style={simpleHeaderStyle}>
+                  <div>
+                    <p style={eyebrowStyle}>Latest Mature Buck</p>
+                    <h2 style={cardTitleStyle}>{hub.recentBuckActivity.title}</h2>
+                  </div>
+                  <Badge>{hub.recentBuckActivity.date}</Badge>
                 </div>
-                <Badge>{hub.recentBuckActivity.date}</Badge>
-              </div>
-              <div style={detailGridStyle}>
-                <HubDetail label="Camera" value={hub.recentBuckActivity.camera} />
-                <HubDetail
-                  label="Property"
-                  value={hub.recentBuckActivity.property}
-                />
-                <HubDetail label="Date" value={hub.recentBuckActivity.date} />
-                <HubDetail label="Time" value={hub.recentBuckActivity.time} />
-              </div>
-              <p style={mutedTextStyle}>{hub.recentBuckActivity.detail}</p>
-              {hub.recentBuckActivity.href ? (
-                <Link href={hub.recentBuckActivity.href} style={primaryLinkStyle} className="di-navbtn">
-                  Open Camera
-                </Link>
-              ) : null}
-            </Card>
-          </Section>
+                <div style={detailGridStyle}>
+                  <HubDetail label="Camera" value={hub.recentBuckActivity.camera} />
+                  <HubDetail
+                    label="Property"
+                    value={hub.recentBuckActivity.property}
+                  />
+                  <HubDetail label="Time" value={hub.recentBuckActivity.time} />
+                </div>
+                <p style={mutedTextStyle}>{hub.recentBuckActivity.detail}</p>
+                {hub.recentBuckActivity.href ? (
+                  <Link href={hub.recentBuckActivity.href} style={primaryLinkStyle} className="di-navbtn">
+                    Open Camera
+                  </Link>
+                ) : null}
+              </Card>
+            </CollapsibleSection>
 
-          <Section
-            eyebrow="4"
-            title="Needs Attention"
-            icon={<AlertIcon size={18} />}
-          >
-            {hub.needsAttention.length === 0 ? (
-              <EmptyState description="Nothing urgent stands out right now." />
-            ) : (
-              <div style={attentionGridStyle}>
-                {hub.needsAttention.map((item) => (
-                  <AttentionCard key={`${item.title}-${item.detail}`} item={item} />
-                ))}
-              </div>
-            )}
-          </Section>
+            <CollapsibleSection
+              title="Needs Attention"
+              description="Cameras and tasks worth a look"
+            >
+              {hub.needsAttention.length === 0 ? (
+                <EmptyState description="Nothing urgent stands out right now." />
+              ) : (
+                <div style={attentionGridStyle}>
+                  {hub.needsAttention.map((item) => (
+                    <AttentionCard key={`${item.title}-${item.detail}`} item={item} />
+                  ))}
+                </div>
+              )}
+            </CollapsibleSection>
 
-          <Section
-            eyebrow="5"
-            title="Property Snapshot"
-            icon={<MapPinIcon size={18} />}
-          >
-            <div style={snapshotGridStyle}>
-              <StatCard
-                label="Cameras"
-                value={hub.snapshot.cameras}
-                detail="Camera sites"
-                icon={<CameraIcon size={18} />}
-                tone="green"
-              />
-              <StatCard
-                label="Stands"
-                value={hub.snapshot.stands}
-                detail="Stand sites"
-                icon={<StandIcon size={18} />}
-                tone="green"
-              />
-              <StatCard
-                label="Deer Profiles"
-                value={hub.snapshot.deerProfiles}
-                detail="Tracked deer"
-                icon={<DeerIcon size={18} />}
-                tone="blaze"
-              />
-              <StatCard
-                label="Hunts"
-                value={hub.snapshot.hunts}
-                detail="Hunt log entries"
-                icon={<ClipboardIcon size={18} />}
-                tone="neutral"
-              />
-              <StatCard
-                label="Photos"
-                value={hub.snapshot.photos}
-                detail="Photo records"
-                icon={<ImageIcon size={18} />}
-                tone="neutral"
-              />
-            </div>
-          </Section>
-
-          {terrainReview && scoutPicks.length > 0 ? (
-            <Section
-              eyebrow="Terrain"
-              title="Scout Picks"
-              action={<Badge variant="success">LiDAR read</Badge>}
+            <CollapsibleSection
+              title="Property Snapshot"
+              description="Saved record counts for this property"
             >
               <Card as="div" variant="subtle">
-                <p style={mutedTextStyle}>
-                  Predicted spots from the terrain read of {terrainReview.areaName} —
-                  where deer likely bed, travel, and cross, ranked as places to
-                  scout. Open the map&apos;s Terrain layer to see them on the ground.
+                <p style={snapshotSummaryStyle}>
+                  {hub.snapshot.cameras} cameras · {hub.snapshot.stands} stands ·{" "}
+                  {hub.snapshot.deerProfiles} deer · {hub.snapshot.hunts} hunts ·{" "}
+                  {hub.snapshot.photos} photos
                 </p>
-                <ol style={scoutPickListStyle}>
-                  {scoutPicks.slice(0, 5).map((pick) => (
-                    <li key={pick.id} style={scoutPickItemStyle}>
-                      <span
-                        style={{
-                          ...scoutPickDotStyle,
-                          background: TERRAIN_STYLE[pick.kind].color,
-                        }}
-                        aria-hidden="true"
-                      />
-                      <div>
-                        <p style={scoutPickTitleStyle}>{pick.title}</p>
-                        <p style={scoutPickReasonStyle}>{pick.reason}</p>
-                        {pick.windNote ? (
-                          <p style={scoutPickWindStyle}>🌬️ {pick.windNote}</p>
-                        ) : null}
-                        {pick.confirmation ? (
-                          <p style={scoutPickConfirmStyle}>
-                            ✓ Confirmed by {pick.confirmation.cameraName} (
-                            {Math.round(pick.confirmation.distanceM * 1.0936)} yd) —{" "}
-                            {pick.confirmation.bucks} bucks, {pick.confirmation.does} does
-                          </p>
-                        ) : null}
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-                <Link href="/map" style={primaryLinkStyle} className="di-navbtn">
-                  Open Terrain Map
-                </Link>
               </Card>
-            </Section>
-          ) : null}
+            </CollapsibleSection>
+
+            {terrainReview && scoutPicks.length > 0 ? (
+              <CollapsibleSection
+                title="Scout Picks"
+                description={`Terrain-predicted spots for ${terrainReview.areaName}`}
+              >
+                <Card as="div" variant="subtle">
+                  <p style={mutedTextStyle}>
+                    Predicted spots from the terrain read of {terrainReview.areaName} —
+                    where deer likely bed, travel, and cross, ranked as places to
+                    scout. Open the map&apos;s Terrain layer to see them on the ground.
+                  </p>
+                  <ol style={scoutPickListStyle}>
+                    {scoutPicks.slice(0, 5).map((pick) => (
+                      <li key={pick.id} style={scoutPickItemStyle}>
+                        <span
+                          style={{
+                            ...scoutPickDotStyle,
+                            background: TERRAIN_STYLE[pick.kind].color,
+                          }}
+                          aria-hidden="true"
+                        />
+                        <div>
+                          <p style={scoutPickTitleStyle}>{pick.title}</p>
+                          <p style={scoutPickReasonStyle}>{pick.reason}</p>
+                          {pick.windNote ? (
+                            <p style={scoutPickWindStyle}>🌬️ {pick.windNote}</p>
+                          ) : null}
+                          {pick.confirmation ? (
+                            <p style={scoutPickConfirmStyle}>
+                              ✓ Confirmed by {pick.confirmation.cameraName} (
+                              {Math.round(pick.confirmation.distanceM * 1.0936)} yd) —{" "}
+                              {pick.confirmation.bucks} bucks, {pick.confirmation.does} does
+                            </p>
+                          ) : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                  <Link href="/map" style={primaryLinkStyle} className="di-navbtn">
+                    Open Terrain Map
+                  </Link>
+                </Card>
+              </CollapsibleSection>
+            ) : null}
+          </div>
 
           <Section
-            eyebrow="6"
+            eyebrow="Assistant"
             title="AI Scout"
             action={
               <Badge variant={aiScoutConfigured && aiScoutEnabled ? "success" : "warning"}>
@@ -734,10 +695,18 @@ const attentionLinkStyle: CSSProperties = {
   textDecoration: "none",
 };
 
-const snapshotGridStyle: CSSProperties = {
+const hubDropdownStackStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))",
-  gap: "1rem",
+  gap: "0.75rem",
+  marginTop: "1.75rem",
+};
+
+const snapshotSummaryStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text-muted)",
+  fontSize: "0.95rem",
+  fontWeight: 600,
+  lineHeight: 1.6,
 };
 
 const footerActionStyle: CSSProperties = {

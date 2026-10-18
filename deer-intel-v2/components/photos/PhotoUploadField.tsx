@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import { createDeerIntelId } from "@/lib/deerIntelStore";
 import { isImageFile, processImageFile } from "@/lib/imageProcessing";
 import { deletePhotoImage, putPhotoImage } from "@/lib/imageStore";
+import { pickCaptureDateTime } from "@/lib/photoCaptureTime";
 import { readPhotoDateTimeInput } from "@/lib/photoExif";
 import { requestPhotoStamp } from "@/lib/photoStampClient";
 import { useUnitPreferences } from "@/lib/units";
@@ -17,8 +18,8 @@ export type SelectedPhotoImage = {
   imageHeight: number;
   fileName: string;
   lastModified: number;
-  // Capture time from EXIF when the file has it, otherwise from the printed
-  // stamp (read by AI only for metadata-stripped files), or "" if neither.
+  // True capture time: the printed stamp when the AI read one with a time,
+  // otherwise EXIF, otherwise "" (callers fall back to the file's own date).
   capturedAt: string;
   // Values read off the photo's printed info bar, or "" if none.
   stampedTemperature: string;
@@ -100,9 +101,9 @@ export default function PhotoUploadField({
       }
 
       // The AI read identifies the animal and its travel direction (what the
-      // per-buck learning trains on), so it runs on every photo. EXIF still
-      // owns the capture time below; the AI's date read is only the fallback
-      // for metadata-stripped files.
+      // per-buck learning trains on), and its printed-stamp read is the true
+      // capture time — burned into the photo, unlike EXIF, which cellular cams
+      // and app exports rewrite to the download time. So it runs on every photo.
       setStatusText("Reading photo info…");
       const stamp: PhotoStamp | null = await requestPhotoStamp(
         file,
@@ -110,28 +111,33 @@ export default function PhotoUploadField({
         knownBucks,
       );
 
-      // The shutter time comes only from the photo itself: EXIF first, then the
-      // date/time the camera printed on the info bar. The file's lastModified is
-      // deliberately NOT a source here — for a cellular camera that transmits in
-      // batches, that timestamp is when the batch arrived, not when the shot was
-      // taken.
-      const capturedAt = exifDate || stamp?.dateTime || "";
+      // The shutter time comes only from the photo itself (printed stamp, then
+      // EXIF — see pickCaptureDateTime). The file's lastModified is deliberately
+      // NOT a source here — for a cellular camera that transmits in batches,
+      // that timestamp is when the batch arrived, not when the shot was taken.
+      const resolved = pickCaptureDateTime(exifDate, stamp?.dateTime ?? "");
+      const capturedAt = resolved.dateTime;
 
       setCaptureNote(
-        exifDate
+        resolved.source === "stampTime"
           ? {
               tone: "info",
-              text: "Capture time read from the photo (EXIF) — the moment the shot was taken, not when your camera sent the batch.",
+              text: "Capture time read from the photo's printed info bar — the moment the shot was taken, not when your camera sent the batch.",
             }
-          : stamp?.dateTime
+          : resolved.source === "exif"
             ? {
                 tone: "info",
-                text: "Capture time read from the photo's printed info bar.",
+                text: "Capture time read from the photo's EXIF data. If this came from a cellular camera's app, double-check it — some apps rewrite EXIF to the download time.",
               }
-            : {
-                tone: "warn",
-                text: "No capture time is embedded in this photo, so the date wasn't auto-filled. Set the Photo Date and Time to when the shot was actually taken — a cellular camera's file date is when the batch came through, not the capture time.",
-              },
+            : resolved.source === "stampDate"
+              ? {
+                  tone: "warn",
+                  text: "Only a date was printed on this photo, so the time wasn't auto-filled. Set the Photo Time to when the shot was actually taken.",
+                }
+              : {
+                  tone: "warn",
+                  text: "No capture time is embedded in this photo, so the date wasn't auto-filled. Set the Photo Date and Time to when the shot was actually taken — a cellular camera's file date is when the batch came through, not the capture time.",
+                },
       );
 
       onImageSelected({

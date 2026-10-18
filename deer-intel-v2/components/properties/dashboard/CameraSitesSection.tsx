@@ -6,6 +6,7 @@ import CameraForm, {
 import DashboardSection from "@/components/properties/DashboardSection";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import EmptyState from "@/components/ui/EmptyState";
 import type { Camera } from "@/types/camera";
 
@@ -46,13 +47,17 @@ export default function CameraSitesSection({
       }
     >
       <Card as="div" variant="subtle">
-        <h3 style={subsectionTitleStyle}>Add Camera Site</h3>
-        <CameraForm
-          values={cameraValues}
-          submitLabel="Add Camera"
-          onChange={onCameraValuesChange}
-          onSubmit={onAddCamera}
-        />
+        <CollapsibleSection
+          title="Add a camera site"
+          description="Save a trail camera, its location, and notes"
+        >
+          <CameraForm
+            values={cameraValues}
+            submitLabel="Add Camera"
+            onChange={onCameraValuesChange}
+            onSubmit={onAddCamera}
+          />
+        </CollapsibleSection>
       </Card>
 
       {cameras.length === 0 ? (

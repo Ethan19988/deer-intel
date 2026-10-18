@@ -8,7 +8,7 @@ type ActionCardProps = {
   description: string;
   badge?: string;
   icon?: ReactNode;
-  size?: "default" | "large";
+  size?: "compact" | "default" | "large";
   tone?: "default" | "primary";
 };
 
@@ -66,6 +66,10 @@ const cardStyle: CSSProperties = {
 };
 
 const sizeStyles: Record<NonNullable<ActionCardProps["size"]>, CSSProperties> = {
+  compact: {
+    minHeight: "auto",
+    padding: "0.9rem 1rem",
+  },
   default: {
     minHeight: "148px",
   },

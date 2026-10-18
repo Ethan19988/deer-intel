@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import {
+  coldFrontStatus,
   fetchLiveForecast,
   type WeatherPoint,
 } from "@/lib/liveWeather";
@@ -55,12 +56,21 @@ export default function HuntConditionAlerts({
 
       const forecast = result.forecast;
 
-      if (prefs.coldFront && forecast.pressure?.trend === "falling") {
-        void fireNotification(
-          `coldfront:${propertyName}`,
-          "Cold front moving in",
-          `${propertyName}: barometer falling — deer movement likely. ${forecast.pressure.hint}.`,
-        );
+      if (prefs.coldFront) {
+        const front = coldFrontStatus(forecast.pressure);
+
+        if (front.isFront) {
+          const dropText =
+            front.dropInHg !== null
+              ? ` (down ${front.dropInHg.toFixed(2)} inHg)`
+              : "";
+
+          void fireNotification(
+            `coldfront:${propertyName}`,
+            "Cold front moving in",
+            `${propertyName}: barometer falling${dropText} — prime deer movement likely.`,
+          );
+        }
       }
 
       if (prefs.goodWind) {

@@ -21,6 +21,10 @@ import MoonPhaseCard from "@/components/weather/MoonPhaseCard";
 import Barometer from "@/components/weather/Barometer";
 import RutRibbon from "@/components/season/RutRibbon";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
+import ColdFrontBanner from "@/components/ColdFrontBanner";
+import HuntWindowsPanel from "@/components/HuntWindowsPanel";
+import BackupReminderBanner from "@/components/BackupReminderBanner";
+import { countRecords } from "@/lib/backupReminder";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import {
   fetchLiveForecast,
@@ -92,16 +96,17 @@ export default function Home() {
   const propertyCameraChecks = state.cameraChecks.filter(
     (check) => check.propertyId === activePropertyId,
   );
+  const propertyPhotoRecords = state.photoRecords.filter(
+    (photo) => photo.propertyId === activePropertyId,
+  );
   const patternReport = buildPropertyPatternReport(
     propertyHunts,
     propertyCameraChecks,
     propertyCameras,
+    propertyPhotoRecords,
   );
   const hasPatternSignal =
     patternReport.conditionInsights.length > 0 || Boolean(patternReport.hottestCamera);
-  const propertyDeerProfiles = state.deerProfiles.filter(
-    (profile) => profile.propertyId === activePropertyId,
-  );
   const weatherPoint = resolvePropertyWeatherPoint(
     activeProperty ?? null,
     propertyCameras,
@@ -116,6 +121,11 @@ export default function Home() {
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
+    // Intentional client-only seed: `now` starts null so server and first
+    // client render match (no hydration mismatch), then the real clock is set
+    // once on mount and ticked each minute. This one-time post-mount set is by
+    // design, not a cascading-render bug.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNow(new Date());
     const timer = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(timer);
@@ -139,8 +149,13 @@ export default function Home() {
     }));
   }
 
+  const tempUnit = units.temperature;
+  const windUnit = units.wind;
+
   useEffect(() => {
     if (!weatherKey) {
+      // Clear a stale forecast when the active property has no weather point.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForecast(null);
       return;
     }
@@ -148,7 +163,10 @@ export default function Home() {
     const [lat, lng] = weatherKey.split(",").map(Number);
     let active = true;
 
-    fetchLiveForecast({ lat, lng }, units).then((result) => {
+    fetchLiveForecast(
+      { lat, lng },
+      { temperature: tempUnit, wind: windUnit },
+    ).then((result) => {
       if (!active) return;
       setForecast(result.status === "ok" ? result.forecast : null);
     });
@@ -156,7 +174,7 @@ export default function Home() {
     return () => {
       active = false;
     };
-  }, [weatherKey, units.temperature, units.wind]);
+  }, [weatherKey, tempUnit, windUnit]);
 
   const currentWind = forecast?.current.windDirection;
   const seasonCtx = getSeasonContext(now ?? new Date(), seasonPrefs, activeProperty?.latitude);
@@ -187,6 +205,14 @@ export default function Home() {
         propertyName={activeProperty?.name ?? "This property"}
         point={weatherPoint}
         stands={propertyStands}
+      />
+      <BackupReminderBanner
+        currentRecordCount={countRecords(state)}
+        nowMs={now ? now.getTime() : null}
+      />
+      <ColdFrontBanner
+        propertyName={activeProperty?.name ?? "this property"}
+        pressure={forecast?.pressure}
       />
       <Card as="section" variant="elevated" style={briefStyle}>
         <HeroScene />
@@ -294,6 +320,7 @@ export default function Home() {
         </div>
 
         <MovementScorePanel point={weatherPoint} />
+        <HuntWindowsPanel days={forecast?.days ?? []} stands={propertyStands} />
       </Card>
 
       <Section eyebrow="Property" title="Active Property">
@@ -604,8 +631,8 @@ const briefGridStyle: CSSProperties = {
 };
 
 const briefItemStyle: CSSProperties = {
-  minHeight: "128px",
-  padding: "0.95rem",
+  minHeight: "96px",
+  padding: "0.85rem",
   border: "1px solid var(--border)",
   borderRadius: "12px",
   background: "var(--surface)",

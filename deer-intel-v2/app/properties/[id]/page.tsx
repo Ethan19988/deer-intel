@@ -13,7 +13,6 @@ import PropertyIntelligenceSummary from "@/components/properties/dashboard/Prope
 import PropertyHeader from "@/components/properties/dashboard/PropertyHeader";
 import PropertyTimeline from "@/components/properties/dashboard/PropertyTimeline";
 import RecentActivityList from "@/components/properties/dashboard/RecentActivityList";
-import StatCard from "@/components/properties/dashboard/StatCard";
 import StandSitesSection from "@/components/properties/dashboard/StandSitesSection";
 import WalkTracksSection from "@/components/properties/dashboard/WalkTracksSection";
 import WorkspaceIcon, {
@@ -21,13 +20,13 @@ import WorkspaceIcon, {
 } from "@/components/properties/dashboard/WorkspaceIcon";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import {
   CalendarIcon,
   CameraIcon,
   ClipboardIcon,
   CompassIcon,
   DeerIcon,
-  LeafIcon,
   MapIcon,
   MapPinIcon,
   StandIcon,
@@ -141,13 +140,14 @@ export default function PropertyWorkspacePage() {
   const propertyCameraChecks = state.cameraChecks.filter(
     (check) => check.propertyId === params.id,
   );
+  const propertyPhotoRecords = state.photoRecords.filter(
+    (photo) => photo.propertyId === params.id,
+  );
   const patternReport = buildPropertyPatternReport(
     propertyHunts,
     propertyCameraChecks,
     propertyCameras,
-  );
-  const propertyPhotoRecords = state.photoRecords.filter(
-    (photo) => photo.propertyId === params.id,
+    propertyPhotoRecords,
   );
   const propertyDeerProfiles = state.deerProfiles.filter(
     (profile) => profile.propertyId === params.id,
@@ -430,7 +430,7 @@ export default function PropertyWorkspacePage() {
             title="Add Camera Site"
             description="Add a trail camera to this property."
             icon={<WorkspaceIcon name="cameras" />}
-            size="large"
+            size="compact"
             tone="primary"
           />
           <DashboardCardLink
@@ -438,15 +438,7 @@ export default function PropertyWorkspacePage() {
             title="Add Stand"
             description="Save a stand site, wind notes, and access notes."
             icon={<WorkspaceIcon name="stands" />}
-            size="large"
-            tone="primary"
-          />
-          <DashboardCardLink
-            href="/map"
-            title="Add Asset"
-            description="Open the map to add sign, bedding, food, water, trails, parking, or gates."
-            icon={<WorkspaceIcon name="map" />}
-            size="large"
+            size="compact"
             tone="primary"
           />
           <DashboardCardLink
@@ -454,7 +446,7 @@ export default function PropertyWorkspacePage() {
             title="Add Hunt Log"
             description="Log a sit for this property."
             icon={<WorkspaceIcon name="huntLog" />}
-            size="large"
+            size="compact"
             tone="primary"
           />
           <DashboardCardLink
@@ -466,7 +458,7 @@ export default function PropertyWorkspacePage() {
                 : "Add a camera site first, then add photo records."
             }
             icon={<WorkspaceIcon name="deerHistory" />}
-            size="large"
+            size="compact"
             tone="primary"
           />
         </div>
@@ -483,13 +475,9 @@ export default function PropertyWorkspacePage() {
           title="Open Property Map"
           description="Scout this property, place assets, check camera sites, and review stands."
           icon={<WorkspaceIcon name="map" />}
-          size="large"
+          size="compact"
           tone="primary"
         />
-        <p style={mapSummaryTextStyle}>
-          Opening the map from here keeps the active property set to{" "}
-          {property.name}.
-        </p>
       </DashboardSection>
 
       <div style={overviewGridStyle}>
@@ -499,49 +487,71 @@ export default function PropertyWorkspacePage() {
           icon={<ClipboardIcon size={18} />}
           style={panelSectionStyle}
         >
-          <div style={statGridStyle}>
-            <StatCard
-              label="Camera Sites"
-              value={propertyCameras.length}
-              detail={`${activeCameraCount(propertyCameras)} active`}
-              icon={<CameraIcon size={18} />}
-              tone="green"
-            />
-            <StatCard
-              label="Stands"
-              value={standCount}
-              detail="Saved stand sites"
-              icon={<StandIcon size={18} />}
-              tone="green"
-            />
-            <StatCard
-              label="Assets"
-              value={propertyPins.length}
-              detail="Saved map pins"
-              icon={<MapPinIcon size={18} />}
-              tone="neutral"
-            />
-            <StatCard
-              label="Hunts"
-              value={propertyHunts.length}
-              detail="Saved hunt notes"
-              icon={<ClipboardIcon size={18} />}
-              tone="neutral"
-            />
-            <StatCard
-              label="Deer Profiles"
-              value={deerProfileCount}
-              detail="Saved deer history"
-              icon={<DeerIcon size={18} />}
-              tone="blaze"
-            />
-            <StatCard
-              label="Walks"
-              value={propertyWalkTracks.length}
-              detail="Recorded trails"
-              icon={<CompassIcon size={18} />}
-              tone="neutral"
-            />
+          <div style={keyStatListStyle}>
+            {(
+              [
+                {
+                  label: "Camera Sites",
+                  value: propertyCameras.length,
+                  note: `${activeCameraCount(propertyCameras)} active`,
+                  icon: <CameraIcon size={15} />,
+                  tone: "green",
+                },
+                {
+                  label: "Stands",
+                  value: standCount,
+                  note: "",
+                  icon: <StandIcon size={15} />,
+                  tone: "green",
+                },
+                {
+                  label: "Assets",
+                  value: propertyPins.length,
+                  note: "",
+                  icon: <MapPinIcon size={15} />,
+                  tone: "neutral",
+                },
+                {
+                  label: "Hunts",
+                  value: propertyHunts.length,
+                  note: "",
+                  icon: <ClipboardIcon size={15} />,
+                  tone: "neutral",
+                },
+                {
+                  label: "Deer Profiles",
+                  value: deerProfileCount,
+                  note: "",
+                  icon: <DeerIcon size={15} />,
+                  tone: "blaze",
+                },
+                {
+                  label: "Walks",
+                  value: propertyWalkTracks.length,
+                  note: "",
+                  icon: <CompassIcon size={15} />,
+                  tone: "neutral",
+                },
+              ] as const
+            ).map((stat) => (
+              <div key={stat.label} style={keyStatRowStyle}>
+                <span style={keyStatKeyStyle}>
+                  <span
+                    style={{ ...keyStatIconStyle, ...keyStatIconTone[stat.tone] }}
+                    aria-hidden="true"
+                  >
+                    {stat.icon}
+                  </span>
+                  {stat.label}
+                </span>
+                <span style={keyStatValueWrapStyle}>
+                  {stat.note ? (
+                    <span style={keyStatNoteStyle}>{stat.note}</span>
+                  ) : null}
+                  <span style={keyStatValueStyle}>{stat.value}</span>
+                </span>
+              </div>
+            ))}
           </div>
         </DashboardSection>
 
@@ -580,73 +590,86 @@ export default function PropertyWorkspacePage() {
         </div>
       </DashboardSection>
 
-      <DashboardSection
-        id="walks"
-        eyebrow="Field History"
-        title="Saved Walks"
-        icon={<MapPinIcon size={18} />}
-      >
-        <WalkTracksSection
-          tracks={propertyWalkTracks}
-          onDelete={deleteWalkTrack}
-        />
-      </DashboardSection>
-
-      <DashboardSection eyebrow="Season" title="Where the Season Stands" icon={<LeafIcon size={18} />}>
-        <SeasonRutCard
-          latitude={
-            hasPropertyCoordinate(property) ? property.latitude : undefined
-          }
-        />
-      </DashboardSection>
-
-      <DashboardSection eyebrow="Patterns" title="What Produces Deer Here" icon={<DeerIcon size={18} />}>
-        <PropertyPatternReport report={patternReport} />
-      </DashboardSection>
-
-      <DashboardSection eyebrow="Conditions" title="Today's Conditions" icon={<SunIcon size={18} />}>
+      <DashboardSection eyebrow="Conditions" title="Weather" icon={<SunIcon size={18} />}>
         <LiveWeatherPanel
           point={weatherPoint}
           emptyHint={`Add a saved location, map pins, or a camera to ${property.name} to load live weather.`}
         />
-      </DashboardSection>
-
-      <DashboardSection eyebrow="Conditions" title="Recent Weather" icon={<CalendarIcon size={18} />}>
-        <WeatherHistoryPanel
-          point={weatherPoint}
-          emptyHint={`Add a saved location, map pins, or a camera to ${property.name} to load weather history.`}
-        />
-      </DashboardSection>
-
-      <DashboardSection eyebrow="Terrain" title="High-Res Terrain (LiDAR)" icon={<MapIcon size={18} />}>
-        <PipelineCommandCard
-          propertyName={property.name}
-          center={weatherPoint}
-          extraCoords={[
-            ...propertyPins.map((pin) => ({ lat: pin.lat, lng: pin.lng })),
-            ...propertyCameras
-              .filter(
-                (camera) =>
-                  typeof camera.latitude === "number" &&
-                  typeof camera.longitude === "number",
-              )
-              .map((camera) => ({
-                lat: camera.latitude as number,
-                lng: camera.longitude as number,
-              })),
-          ]}
-        />
-        <div style={{ marginTop: 12 }}>
-          <GenerateHighResButton
-            property={{
-              id: property.id,
-              name: property.name,
-              huntArea: property.huntArea,
-              food: propertyFood,
-            }}
-          />
+        <div style={weatherHistoryWrapStyle}>
+          <CollapsibleSection
+            title="Recent Weather"
+            description="The last several days of conditions on this property"
+          >
+            <WeatherHistoryPanel
+              point={weatherPoint}
+              emptyHint={`Add a saved location, map pins, or a camera to ${property.name} to load weather history.`}
+            />
+          </CollapsibleSection>
         </div>
       </DashboardSection>
+
+      <div style={detailDropdownStackStyle}>
+        <CollapsibleSection
+          title="Saved Walks"
+          description="Trails you've recorded on this property"
+        >
+          <WalkTracksSection
+            tracks={propertyWalkTracks}
+            onDelete={deleteWalkTrack}
+          />
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="Where the Season Stands"
+          description="Rut timing for your latitude"
+        >
+          <SeasonRutCard
+            latitude={
+              hasPropertyCoordinate(property) ? property.latitude : undefined
+            }
+          />
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="What Produces Deer Here"
+          description="Patterns from your logged hunts and sightings"
+        >
+          <PropertyPatternReport report={patternReport} />
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="High-Res Terrain (LiDAR)"
+          description="Generate detailed LiDAR terrain for this property"
+        >
+          <PipelineCommandCard
+            propertyName={property.name}
+            center={weatherPoint}
+            extraCoords={[
+              ...propertyPins.map((pin) => ({ lat: pin.lat, lng: pin.lng })),
+              ...propertyCameras
+                .filter(
+                  (camera) =>
+                    typeof camera.latitude === "number" &&
+                    typeof camera.longitude === "number",
+                )
+                .map((camera) => ({
+                  lat: camera.latitude as number,
+                  lng: camera.longitude as number,
+                })),
+            ]}
+          />
+          <div style={{ marginTop: 12 }}>
+            <GenerateHighResButton
+              property={{
+                id: property.id,
+                name: property.name,
+                huntArea: property.huntArea,
+                food: propertyFood,
+              }}
+            />
+          </div>
+        </CollapsibleSection>
+      </div>
               </div>
             ),
           },
@@ -716,15 +739,6 @@ export default function PropertyWorkspacePage() {
             content: (
               <div style={tabPanelStyle}>
       <DashboardSection
-        id="property-timeline"
-        eyebrow="Property History"
-        title="Timeline"
-        icon={<CalendarIcon size={18} />}
-      >
-        <PropertyTimeline events={timelineEvents} />
-      </DashboardSection>
-
-      <DashboardSection
         id="hunt-planner"
         eyebrow="Hunt Planner"
         title="Property Hunt Plan"
@@ -763,30 +777,37 @@ export default function PropertyWorkspacePage() {
         </div>
       </DashboardSection>
 
-      <DashboardSection
-        id="intelligence"
-        eyebrow="Intelligence"
-        title="Property Intelligence"
-        icon={<CompassIcon size={18} />}
-      >
-        <PropertyIntelligenceSummary cards={intelligenceCards} />
+      <div style={detailDropdownStackStyle}>
+        <CollapsibleSection
+          title="Timeline"
+          description="This property's history, newest first"
+        >
+          <PropertyTimeline events={timelineEvents} />
+        </CollapsibleSection>
 
-        <Card as="div" variant="subtle" style={advancedToolsStyle}>
-          <h3 style={summaryCardTitleStyle}>Advanced Tools</h3>
-          <div style={moduleGridStyle}>
-            {INTELLIGENCE_MODULES.map((module) => (
-              <DashboardCardLink
-                key={module.title}
-                href={module.href}
-                title={module.title}
-                description={module.description}
-                badge={module.badge}
-                icon={<WorkspaceIcon name={module.icon} />}
-              />
-            ))}
-          </div>
-        </Card>
-      </DashboardSection>
+        <CollapsibleSection
+          title="Property Intelligence"
+          description="Summaries and advanced tools for this property"
+        >
+          <PropertyIntelligenceSummary cards={intelligenceCards} />
+
+          <Card as="div" variant="subtle" style={advancedToolsStyle}>
+            <h3 style={summaryCardTitleStyle}>Advanced Tools</h3>
+            <div style={moduleGridStyle}>
+              {INTELLIGENCE_MODULES.map((module) => (
+                <DashboardCardLink
+                  key={module.title}
+                  href={module.href}
+                  title={module.title}
+                  description={module.description}
+                  badge={module.badge}
+                  icon={<WorkspaceIcon name={module.icon} />}
+                />
+              ))}
+            </div>
+          </Card>
+        </CollapsibleSection>
+      </div>
               </div>
             ),
           },
@@ -917,10 +938,14 @@ const summaryCardTitleStyle: CSSProperties = {
   lineHeight: 1.25,
 };
 
-const mapSummaryTextStyle: CSSProperties = {
-  margin: "1rem 0 0",
-  color: "var(--text-muted)",
-  lineHeight: 1.5,
+const weatherHistoryWrapStyle: CSSProperties = {
+  marginTop: "1rem",
+};
+
+const detailDropdownStackStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
+  marginTop: "1.75rem",
 };
 
 const advancedToolsStyle: CSSProperties = {
@@ -940,10 +965,83 @@ const panelSectionStyle: CSSProperties = {
   marginTop: "1.75rem",
 };
 
-const statGridStyle: CSSProperties = {
+const keyStatListStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))",
-  gap: "1rem",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(230px, 100%), 1fr))",
+  gap: "0 1.5rem",
+};
+
+const keyStatRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  padding: "0.6rem 0",
+  borderBottom: "1px solid var(--border)",
+};
+
+const keyStatKeyStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.55rem",
+  minWidth: 0,
+  color: "var(--text-faint)",
+  fontSize: "0.82rem",
+  fontWeight: 800,
+  letterSpacing: "0.02em",
+  textTransform: "uppercase",
+};
+
+const keyStatIconStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "1.6rem",
+  height: "1.6rem",
+  borderRadius: "8px",
+  flex: "none",
+};
+
+const keyStatIconTone: Record<"green" | "neutral" | "blaze", CSSProperties> = {
+  green: {
+    background: "var(--accent-tint)",
+    border: "1px solid var(--accent-tint-border)",
+    color: "var(--accent-text)",
+  },
+  neutral: {
+    background: "var(--surface-2)",
+    border: "1px solid var(--border)",
+    color: "var(--text-muted)",
+  },
+  blaze: {
+    background: "var(--accent-2-tint)",
+    border: "1px solid var(--accent-2-tint-border)",
+    color: "var(--accent-2-text)",
+  },
+};
+
+const keyStatValueWrapStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "baseline",
+  gap: "0.5rem",
+  flex: "none",
+};
+
+const keyStatNoteStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontSize: "0.8rem",
+  fontWeight: 600,
+};
+
+const keyStatValueStyle: CSSProperties = {
+  minWidth: "1.5rem",
+  color: "var(--text)",
+  fontFamily: "var(--font-display), system-ui, sans-serif",
+  fontSize: "1.35rem",
+  fontWeight: 800,
+  lineHeight: 1,
+  fontVariantNumeric: "tabular-nums",
+  textAlign: "right",
 };
 
 const moduleGridStyle: CSSProperties = {
@@ -962,6 +1060,7 @@ const insightCardStyle: CSSProperties = {
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: "1rem",
+  padding: "0.8rem 1rem",
 };
 
 const insightTitleStyle: CSSProperties = {

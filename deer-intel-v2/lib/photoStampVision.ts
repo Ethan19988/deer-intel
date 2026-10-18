@@ -116,12 +116,12 @@ function buildTool(unit: PhotoStampUnit, knownBucks: KnownBuckSummary[]) {
         date: {
           type: "string",
           description:
-            "The date printed on the photo, formatted strictly as YYYY-MM-DD. Empty string if no date is printed.",
+            "The date from the camera's burned-in stamp strip on the photo edge — NOT from any app-UI heading or card in a screenshot. Formatted strictly as YYYY-MM-DD. Empty string if the burned-in strip has no date.",
         },
         time: {
           type: "string",
           description:
-            'The time exactly as printed on the photo, including AM/PM when shown (e.g. "8:08 PM" or "20:08"). Do not convert it. Empty string if no time is printed.',
+            'The time from the camera\'s burned-in stamp strip on the photo edge (e.g. "18:47:11" or "20:08") — NOT from any app-UI clock, heading, weather card, or the phone status bar in a screenshot. If the strip and the app UI disagree, use the strip. Report it exactly as printed on the strip (keep AM/PM only if the strip shows it); do not convert it. Empty string if the burned-in strip has no time.',
         },
         temperature: {
           type: "string",
@@ -156,7 +156,9 @@ function buildTool(unit: PhotoStampUnit, knownBucks: KnownBuckSummary[]) {
 
 const SYSTEM_PROMPT = `You analyze trail camera photos for a hunting app. Your jobs:
 
-1. Read the data overlay the camera printed onto the photo — usually a bar along the bottom edge showing the date, time, temperature, moon phase, and sometimes wind, humidity, camera name, or barometric pressure. Extract ONLY values that are clearly legible, and report the time exactly as printed (keep AM/PM; never convert it). Do not infer or guess a value that is not printed. If there is no printed overlay, report found = false.
+1. Read the data the CAMERA burned directly onto the photo — a strip of small text running along the very top or bottom EDGE of the image, typically showing the date and time (often 24-hour, e.g. "08/04/2026 18:47:11") and sometimes temperature, moon phase, wind, humidity, camera name (e.g. WiseEye), or barometric pressure. This burned-in strip is the source of truth for the capture DATE and TIME.
+
+Many uploads are SCREENSHOTS of a trail-camera app (WiseEye, Spypoint, Tactacam, etc.) or a phone photo viewer, so the image also carries that app's own chrome AROUND the photo: a large date/time heading, a weather card (temperature, humidity, wind, dawn/sunset, a moon icon), a species tag, star/share/▤ buttons, a filmstrip of thumbnails, and the phone's own status-bar clock. NEVER take the date or time from that surrounding app UI — it usually shows when the photo was synced, received, or opened (a different, later time), not when the animal tripped the camera. Read the date and time ONLY from the small strip burned onto the photo itself. When a burned-in time (e.g. 18:47:11 at the image edge) and an app-UI time (e.g. a "10:22 PM" heading or card) both appear and disagree, the burned-in strip ALWAYS wins. Report the time exactly as printed on that strip (keep AM/PM only if the strip itself shows it; never convert it). Likewise prefer temperature, moon, wind, and humidity from the burned-in strip; only read them from an app weather card if the burned-in strip does not show them. Do not infer or guess. If the photo has no burned-in camera strip at all, report found = false.
 
 2. Identify the main animal in the frame, if any. A whitetail deer with antlers is a "Buck"; an adult deer with no antlers and a doe's build is a "Doe"; a young deer (small body, possibly spotted) is a "Fawn". Report "Other" for any animal outside the list (or a person/vehicle), and an empty species if nothing is clearly visible.
 
@@ -275,7 +277,7 @@ export async function readPhotoStamp(
 
 function buildUserText(knownBucks: KnownBuckSummary[]): string {
   const base =
-    "Read the printed info bar on this trail camera photo and identify the animal in the frame, then report both.";
+    "Read the camera's burned-in stamp strip along the edge of this photo (the small date/time text printed onto the image, e.g. \"08/04/2026 18:47:11\") and identify the animal in the frame, then report both. If this is a screenshot of a trail-camera app, ignore the app's own time/weather UI and read the date and time only from that burned-in strip.";
 
   if (knownBucks.length === 0) return base;
 

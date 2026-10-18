@@ -4,6 +4,7 @@ import StandForm from "@/components/stands/StandForm";
 import DashboardSection from "@/components/properties/DashboardSection";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import EmptyState from "@/components/ui/EmptyState";
 import type { StandFormValues } from "@/lib/standFormValues";
 import type { Stand } from "@/types/stand";
@@ -33,12 +34,16 @@ export default function StandSitesSection({
       }
     >
       <Card as="div" variant="subtle">
-        <h3 style={subsectionTitleStyle}>Add Stand</h3>
-        <StandForm
-          values={standValues}
-          onChange={onStandValuesChange}
-          onSubmit={onAddStand}
-        />
+        <CollapsibleSection
+          title="Add a stand"
+          description="Save a stand site with wind, access, and exit notes"
+        >
+          <StandForm
+            values={standValues}
+            onChange={onStandValuesChange}
+            onSubmit={onAddStand}
+          />
+        </CollapsibleSection>
       </Card>
 
       {stands.length === 0 ? (
@@ -53,12 +58,6 @@ export default function StandSitesSection({
     </DashboardSection>
   );
 }
-
-const subsectionTitleStyle: CSSProperties = {
-  margin: "0 0 1rem",
-  fontSize: "1.05rem",
-  lineHeight: 1.25,
-};
 
 const standListStyle: CSSProperties = {
   display: "grid",

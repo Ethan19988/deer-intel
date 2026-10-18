@@ -331,6 +331,41 @@ export const WATER_TILE_URL =
   "https://basemap.nationalmap.gov/arcgis/rest/services/USGSHydroCached/MapServer/tile/{z}/{y}/{x}";
 export const WATER_ATTRIBUTION = "Hydrography &copy; USGS NHD";
 
+// OpenStreetMap non-vehicle ways — foot paths, tracks (dirt/logging roads),
+// bridleways, steps and cycleways: the walk-in routes a truck can't take.
+// Pulled live from the Overpass API for the current view (vector, so no XYZ
+// tile source), then drawn as dashed lines. Deer follow the same low-resistance
+// ground people cut trails along, and an old logging road is a quiet, scent-safe
+// way to slip into a stand — so these are prime access + travel intel. Like the
+// water and property-line layers, this is a permanent reference layer (always
+// on, no toggle), gated only by zoom.
+// Overpass is a free, community-run service and any single instance is often
+// slow or rate-limited (429/504) — which for us looks like "no trails ever
+// showed up." So we keep a list of CORS-enabled mirrors and fail over to the
+// next one whenever a request times out or errors.
+export const TRAILS_OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+];
+export const TRAILS_ATTRIBUTION = "Trails &copy; OpenStreetMap contributors";
+
+// USGS National Map "Transportation" service — a second, additive trail source
+// merged with OSM. It carries foot trails, 4WD roads and closed/gated forest
+// roads that OpenStreetMap frequently hasn't mapped, INCLUDING state-forest and
+// state-game-land trails contributed by state agencies (e.g. the PA Game
+// Commission). That's exactly the walk-in ground OSM is thin on, so it fills
+// most of the gaps on public hunting land. Queried per-layer as GeoJSON for the
+// current view; if it's unreachable the layer just falls back to OSM alone.
+export const TRAILS_USGS_BASE =
+  "https://carto.nationalmap.gov/arcgis/rest/services/transportation/MapServer";
+// Show trails at a wide property-overview zoom, not just when you're zoomed all
+// the way in. (Higher zoom = more zoomed in, so this is the most zoomed-OUT
+// level trails still draw at.) The query is always clipped to the current
+// viewport, so a lower gate here only means a wider box, not a county blanket.
+export const TRAILS_MIN_ZOOM = 12;
+
 // USGS/MRLC National Land Cover Database — crop fields, pasture, grass openings
 // and forest TYPE (deciduous mast vs. evergreen thermal bedding cover), the food
 // + cover map for any property. A WMS overlay drawn in the standard NLCD colour

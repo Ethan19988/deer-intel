@@ -3,11 +3,14 @@ import {
   sortCameraChecksChronologically,
 } from "@/lib/cameraChecks";
 import { formatHuntDate, formatHuntTimeRange, sortHuntsChronologically } from "@/lib/hunts";
+import type { ForecastDay } from "@/lib/liveWeather";
+import { getStandWindCheck } from "@/lib/standWind";
 import type { Camera } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { Property } from "@/types/property";
+import type { Stand } from "@/types/stand";
 
 export type PlannerCameraActivity = {
   id: string;
@@ -179,4 +182,86 @@ function activityTime(date: string | undefined) {
 
 export function plannerHuntDate(hunt: HuntLogEntry | null) {
   return hunt ? formatHuntDate(hunt.date) : "No hunt logged";
+}
+
+// One ranked day in the "best window" outlook: the wind, whether a front is
+// passing, and which of your stands the wind favors. Deliberately day-grained —
+// the free daily forecast is daily, so inventing AM/PM differences would be
+// false precision. The prime sits within a good day are still first and last
+// light, which the panel says.
+export type HuntWindow = {
+  date: string;
+  dayLabel: string;
+  windCompass: string | null;
+  isFront: boolean;
+  goodStandNames: string[];
+  score: number;
+  reasons: string[];
+};
+
+/** Pull the leading compass point out of a day's wind string ("NW 8 mph"). */
+export function parseWindCompass(wind: string): string | null {
+  const match = /^([NSEW]{1,3})/i.exec(wind.trim());
+  return match ? match[1].toUpperCase() : null;
+}
+
+// Scoring weights. A falling barometer (front) is the strongest single movement
+// trigger, so it outweighs a lone wind match; two good stands caps the wind
+// contribution so a property with many stands doesn't drown out the front.
+const FRONT_BONUS = 2;
+const PER_GOOD_STAND = 1.5;
+const MAX_GOOD_STAND_BONUS = 3;
+const BLOWOUT_PENALTY = 1;
+
+export function buildHuntWindows(
+  days: ForecastDay[],
+  stands: Stand[],
+): HuntWindow[] {
+  return days
+    .map((day) => {
+      const windCompass = parseWindCompass(day.wind);
+      const good = windCompass
+        ? stands.filter(
+            (stand) => getStandWindCheck(stand, windCompass).status === "good",
+          )
+        : [];
+      const avoid = windCompass
+        ? stands.filter(
+            (stand) => getStandWindCheck(stand, windCompass).status === "avoid",
+          )
+        : [];
+      const isFront = day.pressureTrend === "falling";
+
+      let score = 1;
+      const reasons: string[] = [];
+
+      score += Math.min(good.length * PER_GOOD_STAND, MAX_GOOD_STAND_BONUS);
+
+      if (isFront) {
+        score += FRONT_BONUS;
+        reasons.push("front passing — movement likely");
+      }
+
+      if (good.length > 0 && windCompass) {
+        reasons.push(
+          `${windCompass} wind favors ${good.length} stand${
+            good.length === 1 ? "" : "s"
+          }`,
+        );
+      } else if (stands.length > 0 && avoid.length > 0 && good.length === 0) {
+        score -= BLOWOUT_PENALTY;
+        reasons.push(`${windCompass ?? "wind"} is wrong for your stands`);
+      }
+
+      return {
+        date: day.date,
+        dayLabel: day.label,
+        windCompass,
+        isFront,
+        goodStandNames: good.map((stand) => stand.name).slice(0, 3),
+        score,
+        reasons,
+      };
+    })
+    .sort((a, b) => b.score - a.score || a.date.localeCompare(b.date));
 }

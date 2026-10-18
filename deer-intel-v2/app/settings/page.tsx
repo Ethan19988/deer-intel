@@ -7,18 +7,10 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import PageHeader from "@/components/ui/PageHeader";
-import {
-  CameraIcon,
-  ClipboardIcon,
-  DeerIcon,
-  GearIcon,
-  ImageIcon,
-  MapPinIcon,
-  StandIcon,
-} from "@/components/ui/FieldIcons";
+import { GearIcon } from "@/components/ui/FieldIcons";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
-import StatCard from "@/components/ui/StatCard";
 import Tabs from "@/components/ui/Tabs";
 import AccountPanel from "@/components/auth/AccountPanel";
 import DataPrivacyManager from "@/components/settings/DataPrivacyManager";
@@ -33,6 +25,7 @@ import {
   restoreFullBackupImages,
   type FullBackupImage,
 } from "@/lib/fullBackup";
+import { countRecords as recordCount, recordBackup } from "@/lib/backupReminder";
 import {
   setThemePreference,
   THEME_DESCRIPTIONS,
@@ -63,19 +56,6 @@ import { hasPropertyCoordinate } from "@/lib/propertyLocation";
 import SeasonRutCard from "@/components/season/SeasonRutCard";
 import { MAP_LAYERS, MAP_OVERLAYS } from "@/lib/propertyMap";
 import type { DeerIntelState } from "@/types/deerIntelStore";
-
-function recordCount(candidate: DeerIntelState) {
-  return (
-    candidate.properties.length +
-    candidate.cameras.length +
-    candidate.cameraChecks.length +
-    candidate.stands.length +
-    candidate.pins.length +
-    candidate.hunts.length +
-    candidate.photoRecords.length +
-    candidate.deerProfiles.length
-  );
-}
 
 export default function SettingsPage() {
   const state = useDeerIntelStore();
@@ -157,6 +137,7 @@ export default function SettingsPage() {
     const today = new Date().toISOString().slice(0, 10);
 
     downloadJson(JSON.stringify(state, null, 2), `deer-intel-backup-${today}.json`);
+    recordBackup(totalRecords);
   }
 
   async function handleFullExport() {
@@ -179,6 +160,7 @@ export default function SettingsPage() {
         JSON.stringify(backup),
         `deer-intel-full-backup-${today}.json`,
       );
+      recordBackup(totalRecords);
 
       setFullExportStatus(
         backup.images.length === 0
@@ -292,9 +274,13 @@ export default function SettingsPage() {
   // self-contained area (look, alerts, data, offline, account) so a setting is
   // a click away instead of a hunt down the page.
   const generalTab = (
-    <>
-      <Section eyebrow="Appearance" title="Theme">
-        <Card as="div" variant="subtle">
+    <div style={settingsAccordionStyle}>
+      <CollapsibleSection
+        title="Theme"
+        description="How Deer Intel looks, including night mode for the walk in"
+        name="settings-general"
+        defaultOpen
+      >
           <p style={mutedTextStyle}>
             Choose how Deer Intel looks. Night mode uses red on black to protect
             your night vision on the walk in before first light. This is saved
@@ -325,11 +311,13 @@ export default function SettingsPage() {
               );
             })}
           </div>
-        </Card>
-      </Section>
+      </CollapsibleSection>
 
-      <Section eyebrow="Units" title="Measurement Units">
-        <Card as="div" variant="subtle">
+      <CollapsibleSection
+        title="Measurement Units"
+        description="How live weather is shown across the app"
+        name="settings-general"
+      >
           <p style={mutedTextStyle}>
             Choose how live weather is shown across the dashboard, forecast, and
             the live-weather auto-fill. Records you already saved keep the units
@@ -355,11 +343,13 @@ export default function SettingsPage() {
               ]}
             />
           </div>
-        </Card>
-      </Section>
+      </CollapsibleSection>
 
-      <Section eyebrow="Map" title="Default Map Layer">
-        <Card as="div" variant="subtle">
+      <CollapsibleSection
+        title="Default Map Layer"
+        description="Which base layer the map opens on"
+        name="settings-general"
+      >
           <p style={mutedTextStyle}>
             Choose which base layer the map opens on. A shortcut link (like the
             sidebar&apos;s LiDAR) still overrides it for that visit, and you can
@@ -385,11 +375,13 @@ export default function SettingsPage() {
               );
             })}
           </div>
-        </Card>
-      </Section>
+      </CollapsibleSection>
 
-      <Section eyebrow="Map" title="Default Overlays">
-        <Card as="div" variant="subtle">
+      <CollapsibleSection
+        title="Default Overlays"
+        description="Which data overlays the map opens with"
+        name="settings-general"
+      >
           <p style={mutedTextStyle}>
             Choose which data overlays the map opens with. These stack on top of
             the base layer, so any combination can be on. You can still toggle
@@ -416,11 +408,13 @@ export default function SettingsPage() {
               );
             })}
           </div>
-        </Card>
-      </Section>
+      </CollapsibleSection>
 
-      <Section eyebrow="Terrain" title="Sample Terrain Reads">
-        <Card as="div" variant="subtle">
+      <CollapsibleSection
+        title="Sample Terrain Reads"
+        description="Show the built-in Moore Hill & Sideling sample reads"
+        name="settings-general"
+      >
           <p style={mutedTextStyle}>
             Two example properties (Moore Hill, Sideling Hill) ship with a built-in
             high-res terrain read. Leave this on to see them near those spots. Turn
@@ -446,11 +440,13 @@ export default function SettingsPage() {
               </span>
             </button>
           </div>
-        </Card>
-      </Section>
+      </CollapsibleSection>
 
-      <Section eyebrow="Season" title="Season & Rut Calendar">
-        <Card as="div" variant="subtle">
+      <CollapsibleSection
+        title="Season & Rut Calendar"
+        description="Season opener and rut peak for where you hunt"
+        name="settings-general"
+      >
           <p style={mutedTextStyle}>
             Set your season opener and local rut peak to see where you are in the
             season — the phase, a countdown to the peak, and what deer are doing.
@@ -489,9 +485,8 @@ export default function SettingsPage() {
                 : undefined
             }
           />
-        </Card>
-      </Section>
-    </>
+      </CollapsibleSection>
+    </div>
   );
 
   const alertsTab = (
@@ -531,50 +526,14 @@ export default function SettingsPage() {
       </Section>
 
       <Section eyebrow="Saved Data" title="Local Record Counts">
-        <div style={statGridStyle}>
-          <StatCard
-            label="Properties"
-            value={state.properties.length}
-            detail="Hunting properties"
-            icon={<MapPinIcon size={18} />}
-            tone="green"
-          />
-          <StatCard
-            label="Camera Sites"
-            value={state.cameras.length}
-            detail={`${state.cameraChecks.length} checks saved`}
-            icon={<CameraIcon size={18} />}
-            tone="green"
-          />
-          <StatCard
-            label="Stands"
-            value={state.stands.length}
-            detail="Stand workspaces"
-            icon={<StandIcon size={18} />}
-            tone="neutral"
-          />
-          <StatCard
-            label="Hunts"
-            value={state.hunts.length}
-            detail="Hunt log entries"
-            icon={<ClipboardIcon size={18} />}
-            tone="neutral"
-          />
-          <StatCard
-            label="Photo Records"
-            value={state.photoRecords.length}
-            detail="Camera history"
-            icon={<ImageIcon size={18} />}
-            tone="neutral"
-          />
-          <StatCard
-            label="Deer Profiles"
-            value={state.deerProfiles.length}
-            detail="Tracked deer"
-            icon={<DeerIcon size={18} />}
-            tone="blaze"
-          />
-        </div>
+        <Card as="div" variant="subtle">
+          <p style={recordCountsSummaryStyle}>
+            {state.properties.length} properties · {state.cameras.length} cameras
+            ({state.cameraChecks.length} checks) · {state.stands.length} stands ·{" "}
+            {state.hunts.length} hunts · {state.photoRecords.length} photos ·{" "}
+            {state.deerProfiles.length} deer profiles
+          </p>
+        </Card>
       </Section>
 
       <Section eyebrow="Backup" title="Export & Import Data">
@@ -1029,10 +988,17 @@ const optionDescStyle: CSSProperties = {
   lineHeight: 1.4,
 };
 
-const statGridStyle: CSSProperties = {
+const recordCountsSummaryStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text-muted)",
+  fontSize: "0.95rem",
+  fontWeight: 600,
+  lineHeight: 1.6,
+};
+
+const settingsAccordionStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 100%), 1fr))",
-  gap: "1rem",
+  gap: "0.75rem",
 };
 
 const eyebrowStyle: CSSProperties = {
