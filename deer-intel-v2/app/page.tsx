@@ -23,6 +23,7 @@ import RutRibbon from "@/components/season/RutRibbon";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
 import ColdFrontBanner from "@/components/ColdFrontBanner";
 import HuntWindowsPanel from "@/components/HuntWindowsPanel";
+import StandCheckPanel from "@/components/StandCheckPanel";
 import BackupReminderBanner from "@/components/BackupReminderBanner";
 import { countRecords } from "@/lib/backupReminder";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
@@ -321,6 +322,15 @@ export default function Home() {
 
         <MovementScorePanel point={weatherPoint} />
         <HuntWindowsPanel days={forecast?.days ?? []} stands={propertyStands} />
+        {now ? (
+          <StandCheckPanel
+            stands={propertyStands}
+            hunts={propertyHunts}
+            pins={propertyPins}
+            wind={currentWind}
+            now={now}
+          />
+        ) : null}
       </Card>
 
       <Section eyebrow="Property" title="Active Property">
