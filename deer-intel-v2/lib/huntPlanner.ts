@@ -185,16 +185,27 @@ export function plannerHuntDate(hunt: HuntLogEntry | null) {
 }
 
 // One ranked day in the "best window" outlook: the wind, whether a front is
-// passing, and which of your stands the wind favors. Deliberately day-grained —
-// the free daily forecast is daily, so inventing AM/PM differences would be
-// false precision. The prime sits within a good day are still first and last
-// light, which the panel says.
+// passing, and which of your stands the wind favors. When the forecast carries
+// hourly winds, the morning and evening sits are judged separately — a stand
+// is sat at dawn or dusk, and the wind can swing between them. Without them it
+// falls back to the day's dominant wind.
+export type SitPeriod = "AM" | "PM";
+
+export type HuntSitWindow = {
+  period: SitPeriod;
+  windCompass: string | null;
+  goodStandNames: string[];
+};
+
 export type HuntWindow = {
   date: string;
   dayLabel: string;
   windCompass: string | null;
   isFront: boolean;
+  /** Good stands for the best sit of the day (or the daily wind fallback). */
   goodStandNames: string[];
+  /** Per-sit breakdown; empty when only the daily wind is known. */
+  sits: HuntSitWindow[];
   score: number;
   reasons: string[];
 };
@@ -213,23 +224,61 @@ const PER_GOOD_STAND = 1.5;
 const MAX_GOOD_STAND_BONUS = 3;
 const BLOWOUT_PENALTY = 1;
 
+function standsForWind(stands: Stand[], windCompass: string | null) {
+  if (!windCompass) return { good: [] as Stand[], avoid: [] as Stand[] };
+
+  return {
+    good: stands.filter(
+      (stand) => getStandWindCheck(stand, windCompass).status === "good",
+    ),
+    avoid: stands.filter(
+      (stand) => getStandWindCheck(stand, windCompass).status === "avoid",
+    ),
+  };
+}
+
+function buildSits(day: ForecastDay, stands: Stand[]): HuntSitWindow[] {
+  const periods: Array<[SitPeriod, string | undefined]> = [
+    ["AM", day.morningWind],
+    ["PM", day.eveningWind],
+  ];
+
+  return periods
+    .filter(([, wind]) => Boolean(wind))
+    .map(([period, wind]) => {
+      const windCompass = parseWindCompass(wind ?? "");
+      return {
+        period,
+        windCompass,
+        goodStandNames: standsForWind(stands, windCompass)
+          .good.map((stand) => stand.name)
+          .slice(0, 3),
+      };
+    });
+}
+
 export function buildHuntWindows(
   days: ForecastDay[],
   stands: Stand[],
 ): HuntWindow[] {
   return days
     .map((day) => {
-      const windCompass = parseWindCompass(day.wind);
-      const good = windCompass
-        ? stands.filter(
-            (stand) => getStandWindCheck(stand, windCompass).status === "good",
-          )
-        : [];
-      const avoid = windCompass
-        ? stands.filter(
-            (stand) => getStandWindCheck(stand, windCompass).status === "avoid",
-          )
-        : [];
+      const sits = buildSits(day, stands);
+
+      // Judge the day by its best sit: the one with the most good stands,
+      // ties going to the evening (the sit you plan around). With no hourly
+      // data, the daily dominant wind stands in for both.
+      const bestSit = sits.reduce<HuntSitWindow | null>(
+        (best, sit) =>
+          !best || sit.goodStandNames.length >= best.goodStandNames.length
+            ? sit
+            : best,
+        null,
+      );
+      const windCompass = bestSit
+        ? bestSit.windCompass
+        : parseWindCompass(day.wind);
+      const { good, avoid } = standsForWind(stands, windCompass);
       const isFront = day.pressureTrend === "falling";
 
       let score = 1;
@@ -242,9 +291,11 @@ export function buildHuntWindows(
         reasons.push("front passing — movement likely");
       }
 
+      const when = bestSit ? ` (${bestSit.period})` : "";
+
       if (good.length > 0 && windCompass) {
         reasons.push(
-          `${windCompass} wind favors ${good.length} stand${
+          `${windCompass} wind${when} favors ${good.length} stand${
             good.length === 1 ? "" : "s"
           }`,
         );
@@ -259,6 +310,7 @@ export function buildHuntWindows(
         windCompass,
         isFront,
         goodStandNames: good.map((stand) => stand.name).slice(0, 3),
+        sits,
         score,
         reasons,
       };

@@ -9,8 +9,9 @@ type HuntWindowsPanelProps = {
 };
 
 // "Best window": the next few days ranked for when + where to sit, from the
-// daily wind vs your stands and an incoming front. Prime sits within a good day
-// are first and last light. Reads only data already on the dashboard.
+// wind vs your stands and an incoming front. When hourly wind is available each
+// day is split into its morning and evening sit, since the wind at first light
+// can differ from the wind at last light. Reads only data on the dashboard.
 export default function HuntWindowsPanel({
   days,
   stands,
@@ -37,28 +38,62 @@ export default function HuntWindowsPanel({
           >
             <div style={dayColStyle}>
               <span style={dayLabelStyle}>{window.dayLabel}</span>
-              {window.windCompass ? (
+              {window.sits.length === 0 && window.windCompass ? (
                 <span style={windStyle}>{window.windCompass} wind</span>
               ) : null}
             </div>
-            <div style={detailColStyle}>
-              {window.isFront ? <span style={frontChipStyle}>❄️ Front</span> : null}
-              <span style={standsStyle}>
-                {window.goodStandNames.length > 0
-                  ? window.goodStandNames.join(", ")
-                  : stands.length > 0
-                    ? "No stand matches this wind"
-                    : "Add stands for picks"}
-              </span>
-            </div>
+            {window.sits.length > 0 ? (
+              <div style={sitsColStyle}>
+                {window.isFront ? (
+                  <span style={frontChipStyle}>❄️ Front</span>
+                ) : null}
+                {window.sits.map((sit) => (
+                  <div key={sit.period} style={sitRowStyle}>
+                    <span style={sitLabelStyle}>
+                      {sit.period}
+                      {sit.windCompass ? ` · ${sit.windCompass}` : ""}
+                    </span>
+                    <span
+                      style={{
+                        ...standsStyle,
+                        ...(sit.goodStandNames.length === 0
+                          ? noMatchStyle
+                          : null),
+                      }}
+                    >
+                      {sit.goodStandNames.length > 0
+                        ? sit.goodStandNames.join(", ")
+                        : stands.length > 0
+                          ? "No stand fits"
+                          : "Add stands"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={detailColStyle}>
+                {window.isFront ? (
+                  <span style={frontChipStyle}>❄️ Front</span>
+                ) : null}
+                <span style={standsStyle}>
+                  {window.goodStandNames.length > 0
+                    ? window.goodStandNames.join(", ")
+                    : stands.length > 0
+                      ? "No stand matches this wind"
+                      : "Add stands for picks"}
+                </span>
+              </div>
+            )}
           </li>
         ))}
       </ol>
 
       <p style={footnoteStyle}>
-        {informative
-          ? "Sit the top day at first and last light."
-          : "Add stands with best/avoid winds for tailored picks."}
+        {!informative
+          ? "Add stands with best/avoid winds for tailored picks."
+          : windows.some((window) => window.sits.length > 0)
+            ? "AM/PM wind is averaged over the first and last 3 hours of light."
+            : "Sit the top day at first and last light."}
       </p>
     </section>
   );
@@ -143,6 +178,35 @@ const detailColStyle: CSSProperties = {
   minWidth: 0,
   justifyContent: "flex-end",
   flex: 1,
+};
+
+const sitsColStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.2rem",
+  minWidth: 0,
+  flex: 1,
+  justifyItems: "end",
+};
+
+const sitRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "flex-end",
+  gap: "0.5rem",
+  minWidth: 0,
+  maxWidth: "100%",
+};
+
+const sitLabelStyle: CSSProperties = {
+  flex: "none",
+  color: "var(--text-muted)",
+  fontSize: "0.74rem",
+  fontWeight: 700,
+};
+
+const noMatchStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontWeight: 600,
 };
 
 const frontChipStyle: CSSProperties = {

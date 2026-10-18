@@ -45,6 +45,27 @@ export const EMPTY_HUNT_FORM_VALUES: HuntFormValues = {
   notes: "",
 };
 
+function padTwo(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+/**
+ * A fresh form for logging a sit right now: today's date and the current time
+ * as the start, in local time. Most sits are logged from the stand or the truck,
+ * so this saves picking a date on a phone keyboard every time.
+ */
+export function newHuntFormValues(
+  now: Date = new Date(),
+  keep: Partial<Pick<HuntFormValues, "propertyId" | "standId">> = {},
+): HuntFormValues {
+  return {
+    ...EMPTY_HUNT_FORM_VALUES,
+    ...keep,
+    date: `${now.getFullYear()}-${padTwo(now.getMonth() + 1)}-${padTwo(now.getDate())}`,
+    startTime: `${padTwo(now.getHours())}:${padTwo(now.getMinutes())}`,
+  };
+}
+
 type CreateHuntFromValuesInput = {
   id: string;
   values: HuntFormValues;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import Button from "@/components/ui/Button";
 import {
   fetchHistoricalWeather,
@@ -28,12 +28,17 @@ type LiveWeatherFillProps = {
   // weather history instead of right-now live weather. Omit/null for "now".
   when?: Date | null;
   onApply: (fields: LiveWeatherFields, source: WeatherSource) => void;
+  // Fill once on its own when a location is already known (no GPS prompt), so
+  // logging a sit right now doesn't need an extra tap. The button still works
+  // for a refresh or a different day.
+  autoFetch?: boolean;
 };
 
 export default function LiveWeatherFill({
   location,
   when = null,
   onApply,
+  autoFetch = false,
 }: LiveWeatherFillProps) {
   const [status, setStatus] = useState<FetchStatus>("idle");
   const [message, setMessage] = useState("");
@@ -41,6 +46,17 @@ export default function LiveWeatherFill({
   // Pull from history only for a genuinely past day; today or a future planned
   // sit falls through to current live conditions (the old behavior).
   const usesHistory = Boolean(when && isBeforeToday(when));
+
+  const autoFetched = useRef(false);
+
+  useEffect(() => {
+    if (!autoFetch || autoFetched.current || !location || usesHistory) return;
+
+    autoFetched.current = true;
+    void handleFetch();
+    // handleFetch reads the latest props each call; this fires at most once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFetch, location, usesHistory]);
 
   async function resolvePoint(): Promise<WeatherPoint | null> {
     if (location) return location;

@@ -16,6 +16,7 @@ import {
 import {
   createHuntFromValues,
   EMPTY_HUNT_FORM_VALUES,
+  newHuntFormValues,
 } from "@/lib/huntFormValues";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { createStandFromPin, findStandForPin, getStandPins } from "@/lib/standPins";
@@ -55,13 +56,23 @@ export default function HuntLogPage() {
     queueMicrotask(() => {
       if (didCancel) return;
 
-      if (propertyExists) {
-        setHuntValues((currentValues) => ({
-          ...currentValues,
-          propertyId,
-          standId: standMatchesProperty ? standId : "",
-        }));
-      }
+      // Default to "logging a sit right now" (today, current time). Set after
+      // mount rather than in useState so the server render and the first
+      // client render agree.
+      setHuntValues((currentValues) =>
+        newHuntFormValues(
+          new Date(),
+          propertyExists
+            ? {
+                propertyId,
+                standId: standMatchesProperty ? standId : "",
+              }
+            : {
+                propertyId: currentValues.propertyId,
+                standId: currentValues.standId,
+              },
+        ),
+      );
 
       setLoadedUrlDefaults(true);
     });
@@ -84,11 +95,12 @@ export default function HuntLogPage() {
       ...currentState,
       hunts: [...currentState.hunts, newHunt],
     }));
-    setHuntValues({
-      ...EMPTY_HUNT_FORM_VALUES,
-      propertyId: newHunt.propertyId,
-      standId: newHunt.standId,
-    });
+    setHuntValues(
+      newHuntFormValues(new Date(), {
+        propertyId: newHunt.propertyId,
+        standId: newHunt.standId,
+      }),
+    );
   }
 
   function convertPinToStand(pin: MapPin) {
