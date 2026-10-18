@@ -25,6 +25,8 @@ type DeerProfilesSectionProps = {
   cameraChecks: CameraCheck[];
   hunts: HuntLogEntry[];
   pins: MapPin[];
+  /** Buck to select first, e.g. from a Today hit-list link. */
+  initialProfileId?: string;
 };
 
 export default function DeerProfilesSection({
@@ -35,9 +37,13 @@ export default function DeerProfilesSection({
   cameraChecks,
   hunts,
   pins,
+  initialProfileId,
 }: DeerProfilesSectionProps) {
-  const [selectedProfileId, setSelectedProfileId] = useState<string>(
-    () => summaries[0]?.profile.id ?? "",
+  const [selectedProfileId, setSelectedProfileId] = useState<string>(() =>
+    initialProfileId &&
+    summaries.some((summary) => summary.profile.id === initialProfileId)
+      ? initialProfileId
+      : (summaries[0]?.profile.id ?? ""),
   );
 
   // Keep a valid buck selected as profiles are added or removed: fall back to

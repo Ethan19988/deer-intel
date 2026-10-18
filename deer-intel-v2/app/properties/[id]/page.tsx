@@ -172,7 +172,10 @@ export default function PropertyWorkspacePage() {
     };
   }, [editCameraIdParam, editingCameraId, params.id, state.cameras]);
 
-  const [activeTab, setActiveTab] = useState("overview");
+  // ?tab= opens a specific tab (e.g. the Today hit list links to ?tab=deer).
+  const [activeTab, setActiveTab] = useState(
+    () => searchParams.get("tab") ?? "overview",
+  );
 
   useEffect(() => {
     if (editCameraIdParam) {
@@ -602,6 +605,7 @@ export default function PropertyWorkspacePage() {
             badge: deerProfileCount,
             content: (
       <DeerProfilesSection
+        initialProfileId={searchParams.get("buck") ?? undefined}
         summaries={deerProfileSummaries}
         propertyName={property.name}
         cameras={propertyCameras}
