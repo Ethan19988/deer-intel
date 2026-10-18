@@ -2,13 +2,9 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import DeerProfileCard from "@/components/deer/DeerProfileCard";
-import DeerProfileForm from "@/components/deer/DeerProfileForm";
 import DashboardSection from "@/components/properties/DashboardSection";
 import Badge from "@/components/ui/Badge";
-import Card from "@/components/ui/Card";
-import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import EmptyState from "@/components/ui/EmptyState";
-import type { DeerProfileFormValues } from "@/lib/deerProfileFormValues";
 import { getDeerConditionInsights } from "@/lib/deerConditionInsights";
 import { getDeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
 import type { DeerProfileSummary } from "@/lib/deerProfiles";
@@ -22,7 +18,6 @@ import type { MapPin } from "@/types/mapPin";
 import type { PhotoRecord } from "@/types/photo";
 
 type DeerProfilesSectionProps = {
-  profileValues: DeerProfileFormValues;
   summaries: DeerProfileSummary[];
   propertyName: string;
   cameras: Camera[];
@@ -30,12 +25,9 @@ type DeerProfilesSectionProps = {
   cameraChecks: CameraCheck[];
   hunts: HuntLogEntry[];
   pins: MapPin[];
-  onProfileValuesChange: (values: DeerProfileFormValues) => void;
-  onAddProfile: () => void;
 };
 
 export default function DeerProfilesSection({
-  profileValues,
   summaries,
   propertyName,
   cameras,
@@ -43,8 +35,6 @@ export default function DeerProfilesSection({
   cameraChecks,
   hunts,
   pins,
-  onProfileValuesChange,
-  onAddProfile,
 }: DeerProfilesSectionProps) {
   const [selectedProfileId, setSelectedProfileId] = useState<string>(
     () => summaries[0]?.profile.id ?? "",
@@ -87,21 +77,8 @@ export default function DeerProfilesSection({
         </Badge>
       }
     >
-      <Card as="div" variant="subtle">
-        <CollapsibleSection
-          title="Add a deer"
-          description="Track a buck or deer across photos and camera sites"
-        >
-          <DeerProfileForm
-            values={profileValues}
-            onChange={onProfileValuesChange}
-            onSubmit={onAddProfile}
-          />
-        </CollapsibleSection>
-      </Card>
-
       {summaries.length === 0 ? (
-        <EmptyState description="No deer profiles yet. Add a buck or deer you want to track across photo records and camera sites." />
+        <EmptyState description="No deer profiles yet. Tag a buck on a camera photo to start tracking him." />
       ) : (
         <div style={pickerWrapStyle}>
           <p style={pickerLabelStyle}>Select a buck</p>

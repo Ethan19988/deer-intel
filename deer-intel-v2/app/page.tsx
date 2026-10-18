@@ -1,14 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import {
-  useEffect,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import ActionCard from "@/components/ui/ActionCard";
-import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
@@ -22,8 +16,19 @@ import Barometer from "@/components/weather/Barometer";
 import RutRibbon from "@/components/season/RutRibbon";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
 import ColdFrontBanner from "@/components/ColdFrontBanner";
-import HuntWindowsPanel from "@/components/HuntWindowsPanel";
+import StandWindGrid from "@/components/StandWindGrid";
+import DeerHoursChart from "@/components/DeerHoursChart";
+import { buildHourlyActivity, isBuckRecord } from "@/lib/hourlyActivity";
 import StandCheckPanel from "@/components/StandCheckPanel";
+import TodayVerdictHero, { type HeroPhoto } from "@/components/TodayVerdictHero";
+import ConditionsStrip from "@/components/ConditionsStrip";
+import CameraPhotoStrip, { type StripPhoto } from "@/components/CameraPhotoStrip";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
+import { useMoonPhase } from "@/lib/useMoonPhase";
+import { rememberSunTimes } from "@/lib/theme";
+import { buildTodayVerdict } from "@/lib/todayVerdict";
+import { getPhotoBuckNames, photoRecordTime } from "@/lib/photos";
+import type { PhotoRecord } from "@/types/photo";
 import BackupReminderBanner from "@/components/BackupReminderBanner";
 import { countRecords } from "@/lib/backupReminder";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
@@ -34,19 +39,11 @@ import {
 } from "@/lib/liveWeather";
 import { useUnitPreferences } from "@/lib/units";
 import { useSeasonCalendar, getSeasonContext } from "@/lib/seasonCalendar";
-import { buildTodaysPlay } from "@/lib/todaysPlay";
-import TodaysPlayCard from "@/components/TodaysPlayCard";
-import { getStandWindCheck } from "@/lib/standWind";
 import { getHuntPlannerSummary, plannerHuntDate } from "@/lib/huntPlanner";
-import { formatHuntDate } from "@/lib/hunts";
-import HeroScene from "@/components/ui/HeroScene";
 import {
   ClipboardIcon,
-  CompassIcon,
-  DeerIcon,
   MapIcon,
   MapPinIcon,
-  TargetIcon,
 } from "@/components/ui/FieldIcons";
 
 const HOME_ACTIONS = [
@@ -70,11 +67,13 @@ const HOME_ACTIONS = [
   },
 ];
 
+// Fixed pre-mount clock (see verdict below); any constant works.
+const HYDRATION_SAFE_NOW = new Date(2000, 0, 1, 12, 0);
+
 export default function Home() {
   const state = useDeerIntelStore();
   const planner = getHuntPlannerSummary(state);
   const recommendedProperty = planner.recommendedProperty.property;
-  const lastHunt = planner.lastHunt.hunt;
   const activeProperty =
     state.properties.find(
       (property) => property.id === state.selectedPropertyId,
@@ -132,17 +131,6 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  const greeting = now
-    ? getGreeting(now.getHours())
-    : { label: "Welcome back", emoji: "👋" };
-  const dateLabel = now
-    ? now.toLocaleDateString(undefined, {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-      })
-    : "";
-
   function selectProperty(propertyId: string) {
     updateDeerIntelStore((currentState) => ({
       ...currentState,
@@ -170,6 +158,10 @@ export default function Home() {
     ).then((result) => {
       if (!active) return;
       setForecast(result.status === "ok" ? result.forecast : null);
+      // Lets the "Follow daylight" theme track this property's real day length.
+      if (result.status === "ok") {
+        rememberSunTimes(result.forecast.sunriseIso, result.forecast.sunsetIso);
+      }
     });
 
     return () => {
@@ -179,26 +171,61 @@ export default function Home() {
 
   const currentWind = forecast?.current.windDirection;
   const seasonCtx = getSeasonContext(now ?? new Date(), seasonPrefs, activeProperty?.latitude);
-  const todaysPlay = buildTodaysPlay({
+  const moon = useMoonPhase();
+  // Before mount `now` is null; a fixed stand-in keeps the server render and
+  // the first client render identical, then the real clock takes over.
+  const verdict = buildTodayVerdict({
+    now: now ?? HYDRATION_SAFE_NOW,
     forecast,
     stands: propertyStands,
-    patternReport,
+    hunts: propertyHunts,
+    pins: propertyPins,
     rutLabel: seasonCtx.phaseLabel,
     rutActive: ["seeking", "chasing", "peak"].includes(seasonCtx.phase),
   });
 
-  const goodWindStands = currentWind
-    ? propertyStands.filter(
-        (stand) => getStandWindCheck(stand, currentWind).status === "good",
-      )
-    : [];
+  // The forecast column for the next sit, highlighted in the wind grid.
+  const forecastDays = forecast?.days ?? [];
+  const activeSitKey =
+    verdict.period === "tomorrow"
+      ? forecastDays[1] && `${forecastDays[1].date}-AM`
+      : forecastDays[0] &&
+        `${forecastDays[0].date}-${verdict.period === "morning" ? "AM" : "PM"}`;
+  const hourlyActivity = buildHourlyActivity(
+    propertyPhotoRecords,
+    now ?? HYDRATION_SAFE_NOW,
+  );
 
-  const heroTagline = getHeroTagline({
-    hasProperty: Boolean(activeProperty),
-    goodWindStandCount: goodWindStands.length,
-    currentWind,
-    lastHuntLabel: lastHunt ? formatHuntDate(lastHunt.date) : null,
-  });
+  const cameraName = (cameraId: string) =>
+    propertyCameras.find((camera) => camera.id === cameraId)?.name ?? "Camera";
+  const recentPhotos = propertyPhotoRecords
+    .filter((photo) => Boolean(photo.imageId))
+    .sort((a, b) => photoRecordTime(b) - photoRecordTime(a));
+  const isBuckPhoto = isBuckRecord;
+  const photoDateLabel = (photo: PhotoRecord) => {
+    const time = photoRecordTime(photo);
+    return time
+      ? new Date(time).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+      : "";
+  };
+  const heroSource = recentPhotos.find(isBuckPhoto) ?? recentPhotos[0];
+  const heroPhoto: HeroPhoto | null = heroSource?.imageId
+    ? {
+        imageId: heroSource.imageId,
+        caption: `${getPhotoBuckNames(heroSource)[0] ?? heroSource.species ?? "Deer"} on ${cameraName(heroSource.cameraSiteId)}`,
+        dateLabel: photoDateLabel(heroSource),
+      }
+    : null;
+  const stripPhotos: StripPhoto[] = recentPhotos.slice(0, 8).map((photo) => ({
+    id: photo.id,
+    imageId: photo.imageId!,
+    title: getPhotoBuckNames(photo)[0] ?? (photo.species || "Deer"),
+    subtitle: [cameraName(photo.cameraSiteId), photoDateLabel(photo)]
+      .filter(Boolean)
+      .join(", "),
+    href: `/properties/${photo.propertyId}/assets/${photo.cameraSiteId}#photos`,
+    isBuck: isBuckPhoto(photo),
+  }));
 
   return (
     <PageShell maxWidth="980px">
@@ -215,75 +242,38 @@ export default function Home() {
         propertyName={activeProperty?.name ?? "this property"}
         pressure={forecast?.pressure}
       />
-      <Card as="section" variant="elevated" style={briefStyle}>
-        <HeroScene />
-        <div style={briefHeaderStyle}>
-          <div style={heroHeadingWrapStyle}>
-            <p style={heroEyebrowStyle}>
-              <span style={heroEmojiStyle} aria-hidden="true">
-                {greeting.emoji}
-              </span>
-              <span>{greeting.label}</span>
-              {dateLabel ? (
-                <>
-                  <span style={heroDotStyle} aria-hidden="true" />
-                  <span style={heroDateStyle}>{dateLabel}</span>
-                </>
-              ) : null}
-            </p>
-            <h1 style={briefTitleStyle}>
-              Today&apos;s Brief
-              <span style={heroSparkStyle} aria-hidden="true">
-                🍂
-              </span>
-            </h1>
-            {activeProperty ? (
-              <p style={heroPropertyLineStyle}>
-                for <span style={heroPropertyStyle}>{activeProperty.name}</span>
-              </p>
-            ) : null}
-            <p style={heroTaglineStyle}>{heroTagline}</p>
-            {state.properties.length > 1 ? (
-              <label style={pickerStyle}>
-                <span style={pickerLabelStyle}>Property</span>
-                <select
-                  style={selectStyle}
-                  value={activePropertyId}
-                  onChange={(event) => selectProperty(event.target.value)}
-                >
-                  {state.properties.map((property) => (
-                    <option key={property.id} value={property.id}>
-                      {property.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-          </div>
-          <Badge variant={weatherPoint ? "success" : "default"}>
-            {weatherPoint ? "Live Weather" : "Weather"}
-          </Badge>
-        </div>
+      <TodayVerdictHero
+        verdict={verdict}
+        propertyName={activeProperty?.name ?? "Your ground"}
+        photo={heroPhoto}
+      />
 
-        <LiveWeatherPanel
-          point={weatherPoint}
-          essentialsOnly
-          emptyHint={
-            activeProperty
-              ? "Add map pins or a camera location to this property to load live weather."
-              : "Set up a property with map pins to load live weather."
-          }
+      <div style={todayStackStyle}>
+        {state.properties.length > 1 ? (
+          <label style={pickerStyle}>
+            <span style={pickerLabelStyle}>Property</span>
+            <select
+              style={selectStyle}
+              value={activePropertyId}
+              onChange={(event) => selectProperty(event.target.value)}
+            >
+              {state.properties.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
+        <ConditionsStrip
+          windDirection={forecast?.current.windDirection}
+          windSpeed={forecast?.current.windSpeed}
+          temperature={forecast?.current.temperature}
+          conditions={forecast?.current.weather}
+          moon={moon}
+          pressure={forecast?.pressure}
         />
-
-        <div style={instrumentsRowStyle}>
-          <WindCompass
-            wind={currentWind}
-            windSpeed={forecast?.current.windSpeed}
-            stands={propertyStands}
-          />
-          <MoonPhaseCard />
-          <Barometer pressure={forecast?.pressure} />
-        </div>
 
         <RutRibbon
           phase={seasonCtx.phase}
@@ -291,47 +281,56 @@ export default function Home() {
           daysToPeak={seasonCtx.daysToPeak}
         />
 
-        <div style={briefGridStyle}>
-          <BriefItem
-            icon={<TargetIcon size={18} />}
-            label="Focus"
-            value={
-              activeProperty
-                ? `Scout ${activeProperty.name}`
-                : "Set up a property"
-            }
-            detail="Keep the plan simple before you head out."
-          />
-          <BriefItem
-            icon={<DeerIcon size={18} />}
-            label="Last Hunt"
-            value={plannerHuntDate(lastHunt)}
-            detail={lastHunt ? planner.lastHunt.detail : "No hunt logged yet."}
-          />
-          <BriefItem
-            icon={<CompassIcon size={18} />}
-            label="Next Step"
-            value={activeProperty ? "Open the map" : "Add property"}
-            detail={
-              activeProperty
-                ? "Check access, pins, and current scouting notes."
-                : "Start with one hunting area, then add assets."
-            }
-          />
-        </div>
+        <StandCheckPanel
+          check={verdict.check}
+          wind={verdict.wind}
+          whenLabel={verdict.periodLabel}
+        />
+        <StandWindGrid
+          days={forecast?.days ?? []}
+          stands={propertyStands}
+          activeKey={activeSitKey}
+        />
 
-        <MovementScorePanel point={weatherPoint} />
-        <HuntWindowsPanel days={forecast?.days ?? []} stands={propertyStands} />
-        {now ? (
-          <StandCheckPanel
-            stands={propertyStands}
-            hunts={propertyHunts}
-            pins={propertyPins}
-            wind={currentWind}
-            now={now}
-          />
-        ) : null}
-      </Card>
+        <DeerHoursChart
+          activity={hourlyActivity}
+          sunriseHour={isoHour(forecast?.sunriseIso)}
+          sunsetHour={isoHour(forecast?.sunsetIso)}
+          nowHour={now ? now.getHours() + now.getMinutes() / 60 : undefined}
+        />
+
+        <CameraPhotoStrip
+          photos={stripPhotos}
+          allHref={activeProperty ? "/cameras" : "/properties"}
+        />
+
+        <Card as="section" variant="subtle" style={conditionsCardStyle}>
+          <CollapsibleSection
+            title="All conditions"
+            description="Forecast, wind compass, moon, barometer, and movement score"
+            variant="bare"
+          >
+            <LiveWeatherPanel
+              point={weatherPoint}
+              emptyHint={
+                activeProperty
+                  ? "Add map pins or a camera location to this property to load live weather."
+                  : "Set up a property with map pins to load live weather."
+              }
+            />
+            <div style={instrumentsRowStyle}>
+              <WindCompass
+                wind={currentWind}
+                windSpeed={forecast?.current.windSpeed}
+                stands={propertyStands}
+              />
+              <MoonPhaseCard />
+              <Barometer pressure={forecast?.pressure} />
+            </div>
+            <MovementScorePanel point={weatherPoint} />
+          </CollapsibleSection>
+        </Card>
+      </div>
 
       <Section eyebrow="Property" title="Active Property">
         <Card as="article" variant="subtle" style={activePropertyStyle}>
@@ -369,27 +368,6 @@ export default function Home() {
         </Section>
       ) : null}
 
-      {activeProperty && propertyStands.length > 0 ? (
-        <Section eyebrow="Today's Play" title="The Call">
-          {todaysPlay ? (
-            <TodaysPlayCard play={todaysPlay} />
-          ) : (
-            <Card as="article" variant="subtle" style={insightCardStyle}>
-              <div>
-                <p style={insightTitleStyle}>
-                  Today&apos;s conditions aren&apos;t loaded yet
-                </p>
-                <p style={mutedTextStyle}>
-                  Give {activeProperty.name} a saved location, map pins, or a camera
-                  so Deer Intel can read the wind and barometer and call today&apos;s
-                  play.
-                </p>
-              </div>
-            </Card>
-          )}
-        </Section>
-      ) : null}
-
       <section style={actionGridStyle} aria-label="Primary actions">
         {HOME_ACTIONS.map((action) => (
           <ActionCard
@@ -407,31 +385,6 @@ export default function Home() {
   );
 }
 
-function BriefItem({
-  detail,
-  icon,
-  label,
-  value,
-}: {
-  detail: string;
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div style={briefItemStyle}>
-      <p style={briefItemLabelRowStyle}>
-        <span style={briefItemIconStyle} aria-hidden="true">
-          {icon}
-        </span>
-        <span style={eyebrowStyle}>{label}</span>
-      </p>
-      <p style={briefValueStyle}>{value}</p>
-      <p style={mutedTextStyle}>{detail}</p>
-    </div>
-  );
-}
-
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
     <div style={miniStatStyle}>
@@ -441,239 +394,57 @@ function MiniStat({ label, value }: { label: string; value: number }) {
   );
 }
 
+/** Fractional local hour from an Open-Meteo "YYYY-MM-DDTHH:MM" time. */
+function isoHour(iso: string | undefined): number | undefined {
+  const [h, m] = (iso?.split("T")[1] ?? "").split(":").map(Number);
+  return Number.isFinite(h) && Number.isFinite(m) ? h + m / 60 : undefined;
+}
+
 function propertySubtitle(county?: string, acres?: string) {
   return [county, acres ? `${acres} acres` : ""]
     .filter(Boolean)
     .join(" / ") || "Property workspace";
 }
 
-function getGreeting(hour: number): { label: string; emoji: string } {
-  if (hour < 5) return { label: "Late night", emoji: "🌙" };
-  if (hour < 12) return { label: "Good morning", emoji: "🌄" };
-  if (hour < 17) return { label: "Good afternoon", emoji: "🌤️" };
-  if (hour < 20) return { label: "Golden hour", emoji: "🌆" };
-  return { label: "Good evening", emoji: "🌙" };
-}
-
-function getHeroTagline({
-  hasProperty,
-  goodWindStandCount,
-  currentWind,
-  lastHuntLabel,
-}: {
-  hasProperty: boolean;
-  goodWindStandCount: number;
-  currentWind?: string;
-  lastHuntLabel: string | null;
-}): string {
-  if (!hasProperty) {
-    return "Set up your first property to start building season-long intelligence.";
-  }
-  if (currentWind && goodWindStandCount > 0) {
-    return `${currentWind} wind today — ${goodWindStandCount} ${
-      goodWindStandCount === 1 ? "stand is" : "stands are"
-    } playing right. Here's your read on the day.`;
-  }
-  if (currentWind) {
-    return `${currentWind} wind today. Check your sit below before you head out.`;
-  }
-  if (lastHuntLabel) {
-    return `Last sit was ${lastHuntLabel}. Here's where the day stands.`;
-  }
-  return "Here's your read on the day before you head to the woods.";
-}
-
-const briefStyle: CSSProperties = {
-  position: "relative",
-  overflow: "hidden",
-  isolation: "isolate",
-  display: "grid",
-  gap: "1.1rem",
-  padding: "1.75rem",
-  border: "1px solid var(--border-strong)",
-  borderTop: "5px solid var(--accent)",
-  color: "#f3edd9",
-  backgroundColor: "var(--camo-ink)",
-  // Bold, vivid golden-hour hero: a big bright low sun top-right and a green
-  // rise bottom-left over a warm green-to-amber scrim on the camo. The top-left
-  // (where the heading sits) stays dark enough for cream text, while the mid and
-  // bottom stay light so the color pops instead of going muddy. Overlay colors
-  // are fixed & photo-safe (same rule as the login hero and map/photo overlays).
-  backgroundImage:
-    "radial-gradient(330px 310px at 97% -8%, rgba(255, 178, 92, 0.95), rgba(230, 110, 45, 0.4) 46%, transparent 74%), " +
-    "radial-gradient(95% 80% at -12% 116%, rgba(58, 138, 74, 0.5), transparent 60%), " +
-    "linear-gradient(158deg, rgba(16, 26, 12, 0.88) 0%, rgba(34, 58, 28, 0.5) 48%, rgba(150, 82, 26, 0.42) 100%), " +
-    "var(--camo)",
-  backgroundSize: "cover",
-  backgroundPosition: "center",
-  boxShadow: "0 24px 50px -28px rgba(12, 18, 8, 0.6)",
-};
-
-const briefHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: "1rem",
-  flexWrap: "wrap",
-};
-
-const eyebrowStyle: CSSProperties = {
-  margin: 0,
-  color: "var(--accent-2-text)",
-  fontSize: "0.78rem",
-  fontWeight: 800,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-};
-
-const heroHeadingWrapStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.1rem",
-};
-
-const heroEyebrowStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "0.5rem",
-  margin: 0,
-  padding: "0.32rem 0.7rem 0.32rem 0.55rem",
-  width: "fit-content",
-  borderRadius: "999px",
-  border: "1px solid rgba(243, 237, 217, 0.3)",
-  background: "rgba(243, 237, 217, 0.14)",
-  color: "#f6efd6",
-  fontSize: "0.78rem",
-  fontWeight: 800,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-};
-
-const heroEmojiStyle: CSSProperties = {
-  fontSize: "1rem",
-  lineHeight: 1,
-};
-
-const heroDotStyle: CSSProperties = {
-  width: "5px",
-  height: "5px",
-  borderRadius: "50%",
-  background: "var(--accent-2)",
-};
-
-const heroDateStyle: CSSProperties = {
-  color: "rgba(243, 237, 217, 0.72)",
-};
-
-const briefTitleStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  alignItems: "center",
-  gap: "0.5rem",
-  margin: "0.55rem 0 0",
-  color: "#f6f0dc",
-  fontSize: "2.6rem",
-  fontWeight: 900,
-  letterSpacing: "-0.02em",
-  lineHeight: 1.02,
-  textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
-};
-
-const heroSparkStyle: CSSProperties = {
-  fontSize: "1.7rem",
-  transform: "rotate(8deg)",
-};
-
-const heroPropertyLineStyle: CSSProperties = {
-  margin: "0.3rem 0 0",
-  color: "rgba(243, 237, 217, 0.82)",
-  fontSize: "1.05rem",
-  fontWeight: 600,
-};
-
-const heroPropertyStyle: CSSProperties = {
-  color: "#ffce80",
-  fontWeight: 900,
-  textShadow: "0 0 18px rgba(240, 165, 75, 0.55)",
-};
-
-const heroTaglineStyle: CSSProperties = {
-  maxWidth: "48ch",
-  margin: "0.7rem 0 0",
-  color: "rgba(243, 237, 217, 0.88)",
-  fontSize: "1.02rem",
-  fontWeight: 600,
-  lineHeight: 1.5,
-};
-
 const pickerStyle: CSSProperties = {
-  display: "inline-flex",
+  display: "flex",
   alignItems: "center",
-  gap: "0.5rem",
-  marginTop: "0.55rem",
+  gap: "0.6rem",
 };
 
 const pickerLabelStyle: CSSProperties = {
-  color: "rgba(243, 237, 217, 0.82)",
-  fontSize: "0.85rem",
-  fontWeight: 800,
+  color: "var(--text-muted)",
+  fontSize: "0.9rem",
+  fontWeight: 700,
 };
 
 const selectStyle: CSSProperties = {
-  minHeight: "42px",
-  minWidth: "180px",
-  padding: "0.5rem 0.65rem",
+  flex: 1,
+  minHeight: "44px",
+  padding: "0.55rem 0.75rem",
+  borderRadius: "12px",
   border: "1px solid var(--border)",
-  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
   color: "var(--text)",
+  fontSize: "1rem",
+  fontWeight: 700,
+};
+
+const todayStackStyle: CSSProperties = {
+  display: "grid",
+  gap: "1rem",
+  margin: "1rem 0 2rem",
+};
+
+const conditionsCardStyle: CSSProperties = {
+  padding: "0.25rem 1rem",
 };
 
 const instrumentsRowStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))",
   gap: "0.8rem",
-};
-
-const briefGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))",
-  gap: "0.8rem",
-};
-
-const briefItemStyle: CSSProperties = {
-  minHeight: "96px",
-  padding: "0.85rem",
-  border: "1px solid var(--border)",
-  borderRadius: "12px",
-  background: "var(--surface)",
-  boxShadow: "0 6px 16px -12px rgba(36, 29, 16, 0.5)",
-};
-
-const briefItemLabelRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.5rem",
-  margin: 0,
-};
-
-const briefItemIconStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "1.85rem",
-  height: "1.85rem",
-  borderRadius: "9px",
-  background: "var(--accent-2-tint)",
-  border: "1px solid var(--accent-2-tint-border)",
-  color: "var(--accent-2-text)",
-};
-
-const briefValueStyle: CSSProperties = {
-  margin: "0.5rem 0 0",
-  color: "var(--text)",
-  fontSize: "1.08rem",
-  fontWeight: 850,
-  lineHeight: 1.25,
+  margin: "1rem 0",
 };
 
 const mutedTextStyle: CSSProperties = {
@@ -752,17 +523,3 @@ const actionGridStyle: CSSProperties = {
   marginTop: "1.75rem",
 };
 
-const insightCardStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: "1rem",
-};
-
-const insightTitleStyle: CSSProperties = {
-  margin: 0,
-  color: "var(--text)",
-  fontSize: "1rem",
-  fontWeight: 850,
-  lineHeight: 1.3,
-};

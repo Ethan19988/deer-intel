@@ -22,9 +22,7 @@ export default function CameraIntelligenceSection({
   propertyName,
   summary,
 }: CameraIntelligenceSectionProps) {
-  const addCameraHref = propertyId
-    ? `/properties/${propertyId}#camera-sites`
-    : "/properties";
+  const addCameraHref = propertyId ? "/cameras#add-camera" : "/properties";
 
   return (
     <Section

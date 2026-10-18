@@ -79,6 +79,12 @@ export type LiveForecast = {
   current: LiveWeatherFields;
   sunrise: string;
   sunset: string;
+  /**
+   * Today's raw sunrise / sunset as Open-Meteo local times ("YYYY-MM-DDTHH:MM"
+   * in the property's zone), for time-of-day math like light left in the sit.
+   */
+  sunriseIso?: string;
+  sunsetIso?: string;
   days: ForecastDay[];
   pressure?: PressureReading;
 };
@@ -407,6 +413,8 @@ export async function fetchLiveForecast(
         current: base.fields,
         sunrise: formatClockTime(daily.sunrise?.[0]),
         sunset: formatClockTime(daily.sunset?.[0]),
+        sunriseIso: daily.sunrise?.[0],
+        sunsetIso: daily.sunset?.[0],
         days,
         pressure: buildPressureReading(payload.current, payload.hourly),
       },

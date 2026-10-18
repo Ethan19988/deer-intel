@@ -1,25 +1,16 @@
 import type { CSSProperties } from "react";
 import Badge from "@/components/ui/Badge";
-import { getAccessScentCheck, type AccessScentStatus } from "@/lib/accessScent";
-import {
-  getStandPressure,
-  localDateKey,
-  pickRestedStand,
-  type StandPressure,
-  type StandPressureLevel,
-} from "@/lib/standPressure";
-import { getStandWindCheck, type StandWindStatus } from "@/lib/standWind";
-import type { HuntLogEntry } from "@/types/hunt";
-import type { MapPin } from "@/types/mapPin";
-import type { Stand } from "@/types/stand";
+import type { AccessScentStatus } from "@/lib/accessScent";
+import type { StandCheckResult } from "@/lib/standCheck";
+import type { StandPressureLevel } from "@/lib/standPressure";
+import type { StandWindStatus } from "@/lib/standWind";
 
 type StandCheckPanelProps = {
-  stands: Stand[];
-  hunts: HuntLogEntry[];
-  pins: MapPin[];
-  /** Current wind compass point, e.g. "NW". */
+  check: StandCheckResult;
+  /** Wind the sit is planned against, e.g. "NW". */
   wind: string | undefined;
-  now: Date;
+  /** Which sit that wind is for, e.g. "This evening". */
+  whenLabel?: string;
 };
 
 const WIND_VARIANT: Record<StandWindStatus, "success" | "warning" | "danger" | "default"> = {
@@ -43,72 +34,40 @@ const SCENT_VARIANT: Record<AccessScentStatus, "success" | "danger" | "default">
 
 // Stand check: for each stand on the active property, the three things that
 // decide whether to sit it right now — today's wind at the tree, how hard it's
-// been hunted lately, and whether the walk in blows scent into bedding — plus a
-// pick for the most-rested stand that has a good, clean wind.
+// been hunted lately, and whether the walk in blows scent into bedding. The
+// rows and the pick come from buildStandChecks (shared with the Today verdict).
 export default function StandCheckPanel({
-  stands,
-  hunts,
-  pins,
+  check,
   wind,
-  now,
+  whenLabel = "Now",
 }: StandCheckPanelProps) {
-  if (stands.length === 0) return null;
+  if (check.rows.length === 0) return null;
 
-  const today = localDateKey(now);
-  const rows = stands.map((stand) => ({
-    stand,
-    wind: getStandWindCheck(stand, wind),
-    pressure: getStandPressure(stand, hunts, today),
-    scent: getAccessScentCheck(stand, pins, wind),
-  }));
-
-  const pressureById = new Map<string, StandPressure>(
-    rows.map((row) => [row.stand.id, row.pressure]),
-  );
-  // A stand whose walk in blows scent into bedding isn't a real pick, even on
-  // a good wind at the tree.
-  const pickable = rows
-    .filter((row) => row.wind.status === "good" && row.scent.status !== "risk")
-    .map((row) => row.stand);
-  const pick = pickRestedStand(pickable, pressureById);
-  const pickRow = pick ? rows.find((row) => row.stand.id === pick.id) : null;
-
-  // Best sit first, then the rest; burned and wrong-wind stands sink.
-  const order = (row: (typeof rows)[number]) =>
-    (row.stand.id === pick?.id ? 0 : 10) +
-    (row.wind.status === "good" ? 0 : row.wind.status === "avoid" ? 4 : 2) +
-    (row.pressure.level === "burned" ? 3 : 0) +
-    (row.scent.status === "risk" ? 2 : 0);
-  const sorted = [...rows].sort((a, b) => order(a) - order(b));
+  const { rows, pick: pickRow } = check;
 
   return (
     <section style={panelStyle}>
       <div style={headerRowStyle}>
         <span style={eyebrowStyle}>Stand check</span>
         <span style={subtleStyle}>
-          {wind ? `${wind} wind now` : "Wind loading"}
+          {wind ? `${whenLabel}, ${wind} wind` : "Wind loading"}
         </span>
       </div>
 
-      <p style={pickStyle}>
-        {pickRow ? (
-          <>
-            <strong>Sit {pickRow.stand.name}</strong>
-            {` — good wind, ${pickRow.pressure.label.toLowerCase()}`}
-            {pickRow.scent.status === "clear" ? ", clean walk in." : "."}
-          </>
-        ) : wind ? (
-          "No rested stand has a clean wind right now."
-        ) : (
-          "Waiting on today's wind."
-        )}
-      </p>
-
       <ul style={listStyle}>
-        {sorted.map(({ stand, wind: windCheck, pressure, scent }) => (
-          <li key={stand.id} style={rowStyle}>
+        {rows.map(({ stand, wind: windCheck, pressure, scent }) => (
+          <li
+            key={stand.id}
+            style={{
+              ...rowStyle,
+              ...(stand.id === pickRow?.stand.id ? pickRowStyle : null),
+            }}
+          >
             <div style={rowHeaderStyle}>
               <span style={standNameStyle}>{stand.name}</span>
+              {stand.id === pickRow?.stand.id ? (
+                <span style={pickTagStyle}>Best sit</span>
+              ) : null}
             </div>
             <div style={badgeRowStyle}>
               <Badge variant={WIND_VARIANT[windCheck.status]}>
@@ -137,7 +96,6 @@ export default function StandCheckPanel({
 }
 
 const panelStyle: CSSProperties = {
-  marginTop: "1rem",
   padding: "0.85rem 1rem",
   border: "1px solid var(--border)",
   borderRadius: "var(--radius-sm)",
@@ -166,15 +124,19 @@ const subtleStyle: CSSProperties = {
   fontWeight: 600,
 };
 
-const pickStyle: CSSProperties = {
-  margin: "0 0 0.65rem",
-  padding: "0.55rem 0.65rem",
-  borderRadius: "8px",
-  border: "1px solid var(--accent-tint-border)",
+const pickRowStyle: CSSProperties = {
+  borderColor: "var(--accent-tint-border)",
   background: "var(--accent-tint)",
-  color: "var(--text)",
-  fontSize: "0.9rem",
-  lineHeight: 1.4,
+};
+
+const pickTagStyle: CSSProperties = {
+  flex: "none",
+  padding: "0.2rem 0.5rem",
+  borderRadius: "999px",
+  background: "var(--accent)",
+  color: "#fff",
+  fontSize: "0.72rem",
+  fontWeight: 800,
 };
 
 const listStyle: CSSProperties = {
