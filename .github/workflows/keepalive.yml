@@ -1,0 +1,31 @@
+name: Keep scheduled workflows alive
+
+# GitHub disables a scheduled workflow after 60 days with no repository
+# activity — that's what silently stopped the Terrain worker in October 2026.
+# Re-enabling a workflow through the API resets that clock, so this re-enables
+# every scheduled workflow (itself included) twice a month, well inside the
+# window. Enabling an already-active workflow is a no-op otherwise.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 8 1,15 * *" # 08:17 UTC on the 1st and 15th
+
+permissions:
+  actions: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Re-enable scheduled workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for wf in terrain-worker.yml build-parcel-tiles.yml keepalive.yml; do
+            gh api -X PUT "repos/${REPO}/actions/workflows/${wf}/enable"
+            echo "enabled ${wf}"
+          done
