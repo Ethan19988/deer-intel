@@ -1,4 +1,9 @@
-import type { CSSProperties, FormEvent } from "react";
+import type {
+  CSSProperties,
+  Dispatch,
+  FormEvent,
+  SetStateAction,
+} from "react";
 import Button from "@/components/ui/Button";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import StandPinConvertList from "@/components/hunts/StandPinConvertList";
@@ -21,7 +26,9 @@ type HuntLogFormProps = {
   weatherLocation?: WeatherPoint | null;
   getPropertyName?: (propertyId: string) => string;
   onConvertPin?: (pin: MapPin) => void;
-  onChange: (values: HuntFormValues) => void;
+  // A state setter, so async updates (the weather fill) can merge into the
+  // latest values instead of overwriting taps made while they were loading.
+  onChange: Dispatch<SetStateAction<HuntFormValues>>;
   onSubmit: () => void;
 };
 
@@ -167,13 +174,14 @@ export default function HuntLogForm({
       <CollapsibleSection title="Weather and Wind">
         <LiveWeatherFill
           location={weatherLocation}
+          autoFetch={!values.windDirection && !values.temperature}
           when={parseLocalDateTime(values.date, values.startTime)}
           onApply={(fields, source) =>
-            onChange({
-              ...values,
+            onChange((current) => ({
+              ...current,
               ...fields,
               weatherSource: source,
-            })
+            }))
           }
         />
         <div className="di-form-grid" style={formGridStyle}>
@@ -238,7 +246,7 @@ export default function HuntLogForm({
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Deer Seen">
+      <CollapsibleSection title="Deer Seen" defaultOpen>
         <div className="di-form-grid" style={formGridStyle}>
           <CountField
             label="Bucks Seen"
@@ -258,7 +266,7 @@ export default function HuntLogForm({
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Results">
+      <CollapsibleSection title="Results" defaultOpen>
         <div className="di-form-grid" style={formGridStyle}>
           <YesNoField
             label="Shot Opportunity"
@@ -313,6 +321,8 @@ function parseLocalDateTime(date: string, time: string): Date | null {
   );
 }
 
+// Big −/+ buttons around the count: tapping is faster than the number keyboard
+// with cold hands in a stand, and the field still accepts typing.
 function CountField({
   label,
   value,
@@ -322,21 +332,46 @@ function CountField({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const count = Math.max(0, Math.floor(Number(value) || 0));
+
   return (
-    <label style={fieldStyle}>
+    <div style={fieldStyle}>
       <span style={labelStyle}>{label}</span>
-      <input
-        type="number"
-        min="0"
-        placeholder="0"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        style={inputStyle}
-      />
-    </label>
+      <div style={stepperStyle}>
+        <button
+          type="button"
+          aria-label={`One fewer ${label.toLowerCase()}`}
+          onClick={() => onChange(String(Math.max(0, count - 1)))}
+          disabled={count === 0}
+          style={stepperButtonStyle}
+        >
+          −
+        </button>
+        <input
+          type="number"
+          inputMode="numeric"
+          min="0"
+          placeholder="0"
+          aria-label={label}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          style={stepperInputStyle}
+        />
+        <button
+          type="button"
+          aria-label={`One more ${label.toLowerCase()}`}
+          onClick={() => onChange(String(count + 1))}
+          style={stepperButtonStyle}
+        >
+          +
+        </button>
+      </div>
+    </div>
   );
 }
 
+// A two-button toggle instead of a dropdown: one tap, and the answer is
+// visible at a glance.
 function YesNoField({
   label,
   value,
@@ -346,18 +381,32 @@ function YesNoField({
   value: YesNoValue;
   onChange: (value: YesNoValue) => void;
 }) {
+  const options: YesNoValue[] = ["No", "Yes"];
+
   return (
-    <label style={fieldStyle}>
+    <div style={fieldStyle}>
       <span style={labelStyle}>{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value as YesNoValue)}
-        style={inputStyle}
-      >
-        <option value="No">No</option>
-        <option value="Yes">Yes</option>
-      </select>
-    </label>
+      <div role="radiogroup" aria-label={label} style={segmentedStyle}>
+        {options.map((option) => {
+          const selected = value === option;
+          return (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onChange(option)}
+              style={{
+                ...segmentButtonStyle,
+                ...(selected ? segmentSelectedStyle : null),
+              }}
+            >
+              {option}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -401,4 +450,57 @@ const inputStyle: CSSProperties = {
   color: "var(--text)",
   fontSize: "1rem",
   lineHeight: 1.4,
+};
+
+const stepperStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "48px minmax(0, 1fr) 48px",
+  gap: "0.4rem",
+  alignItems: "stretch",
+};
+
+const stepperButtonStyle: CSSProperties = {
+  minHeight: "48px",
+  borderRadius: "8px",
+  border: "1px solid var(--border)",
+  background: "var(--surface)",
+  color: "var(--text)",
+  fontSize: "1.4rem",
+  fontWeight: 800,
+  lineHeight: 1,
+  cursor: "pointer",
+  touchAction: "manipulation",
+};
+
+const stepperInputStyle: CSSProperties = {
+  ...inputStyle,
+  minHeight: "48px",
+  textAlign: "center",
+  fontWeight: 800,
+  fontSize: "1.15rem",
+};
+
+const segmentedStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "0.4rem",
+};
+
+const segmentButtonStyle: CSSProperties = {
+  minHeight: "48px",
+  borderRadius: "8px",
+  border: "1px solid var(--border)",
+  background: "var(--surface-2)",
+  color: "var(--text-muted)",
+  fontSize: "1rem",
+  fontWeight: 700,
+  cursor: "pointer",
+  touchAction: "manipulation",
+};
+
+const segmentSelectedStyle: CSSProperties = {
+  borderColor: "var(--accent)",
+  background: "var(--accent-tint)",
+  color: "var(--accent-text)",
+  fontWeight: 800,
 };

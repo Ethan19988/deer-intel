@@ -55,6 +55,13 @@ export type ForecastDay = {
   wind: string;
   /** Day-over-day barometric direction, for the movement outlook. */
   pressureTrend?: PressureTrend;
+  /**
+   * Average wind across the morning sit (sunrise → +3h) and the evening sit
+   * (last 3h before sunset), e.g. "NW 8 mph". The daily dominant wind can hide
+   * a swing between dawn and dusk, and a stand is sat at one or the other.
+   */
+  morningWind?: string;
+  eveningWind?: string;
 };
 
 export type PressureTrend = "rising" | "steady" | "falling";
@@ -124,9 +131,11 @@ type OpenMeteoCurrent = {
   pressure_msl?: number;
 };
 
-type OpenMeteoHourly = {
+export type OpenMeteoHourly = {
   time?: string[];
   pressure_msl?: number[];
+  wind_speed_10m?: number[];
+  wind_direction_10m?: number[];
 };
 
 type OpenMeteoDaily = {
@@ -321,7 +330,10 @@ export async function fetchLiveForecast(
       "current",
       "temperature_2m,wind_speed_10m,wind_direction_10m,weather_code,pressure_msl",
     );
-    requestUrl.searchParams.set("hourly", "pressure_msl");
+    requestUrl.searchParams.set(
+      "hourly",
+      "pressure_msl,wind_speed_10m,wind_direction_10m",
+    );
     requestUrl.searchParams.set(
       "daily",
       "weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_direction_10m_dominant,sunrise,sunset",
@@ -380,6 +392,12 @@ export async function fetchLiveForecast(
         units,
       ),
       pressureTrend: dailyTrends[index],
+      ...sitWindowWinds(
+        daily.sunrise?.[index],
+        daily.sunset?.[index],
+        payload.hourly,
+        units,
+      ),
     }));
 
     const result: LiveForecastResult = {
@@ -798,6 +816,105 @@ function formatWind(
       : "";
 
   return [dir, spd].filter(Boolean).join(" ");
+}
+
+// How many hours after sunrise / before sunset count as the morning and
+// evening sit. Three hours covers walking in plus the prime movement window.
+const SIT_WINDOW_HOURS = 3;
+
+/** Local hour (0-23) of an Open-Meteo "YYYY-MM-DDTHH:MM" time, or null. */
+function localHour(iso: string): number | null {
+  const hour = Number.parseInt(iso.slice(11, 13), 10);
+  return Number.isFinite(hour) ? hour : null;
+}
+
+/**
+ * Speed-weighted vector average of the hourly wind for one day between two
+ * local hours (inclusive). Averaging compass degrees directly breaks across
+ * north (350° and 10° would average to 180°), so each hour is summed as a
+ * vector. Returns null when no hourly readings fall in the window.
+ */
+export function averageWind(
+  date: string,
+  fromHour: number,
+  toHour: number,
+  hourly: OpenMeteoHourly | undefined,
+): { direction: number; speed: number } | null {
+  const times = hourly?.time ?? [];
+  const directions = hourly?.wind_direction_10m ?? [];
+  const speeds = hourly?.wind_speed_10m ?? [];
+
+  let x = 0;
+  let y = 0;
+  let speedSum = 0;
+  let count = 0;
+
+  for (let index = 0; index < times.length; index += 1) {
+    const time = times[index];
+    const direction = directions[index];
+    const speed = speeds[index];
+    const hour = localHour(time);
+
+    if (
+      time.slice(0, 10) !== date ||
+      hour === null ||
+      hour < fromHour ||
+      hour > toHour ||
+      typeof direction !== "number" ||
+      typeof speed !== "number"
+    ) {
+      continue;
+    }
+
+    // Weight by speed so a 12 mph hour outweighs a near-calm one; a floor of 1
+    // keeps an all-calm window from collapsing to a zero vector.
+    const weight = Math.max(speed, 1);
+    const radians = (direction * Math.PI) / 180;
+    x += Math.sin(radians) * weight;
+    y += Math.cos(radians) * weight;
+    speedSum += speed;
+    count += 1;
+  }
+
+  if (count === 0) return null;
+
+  const direction = ((Math.atan2(x, y) * 180) / Math.PI + 360) % 360;
+
+  return { direction, speed: speedSum / count };
+}
+
+/** Morning (sunrise → +3h) and evening (sunset −3h → sunset) sit winds. */
+export function sitWindowWinds(
+  sunriseIso: string | undefined,
+  sunsetIso: string | undefined,
+  hourly: OpenMeteoHourly | undefined,
+  units: UnitPreferences = DEFAULT_UNITS,
+): Pick<ForecastDay, "morningWind" | "eveningWind"> {
+  const result: Pick<ForecastDay, "morningWind" | "eveningWind"> = {};
+
+  const sunriseHour = sunriseIso ? localHour(sunriseIso) : null;
+  if (sunriseIso && sunriseHour !== null) {
+    const wind = averageWind(
+      sunriseIso.slice(0, 10),
+      sunriseHour,
+      sunriseHour + SIT_WINDOW_HOURS,
+      hourly,
+    );
+    if (wind) result.morningWind = formatWind(wind.direction, wind.speed, units);
+  }
+
+  const sunsetHour = sunsetIso ? localHour(sunsetIso) : null;
+  if (sunsetIso && sunsetHour !== null) {
+    const wind = averageWind(
+      sunsetIso.slice(0, 10),
+      sunsetHour - SIT_WINDOW_HOURS,
+      sunsetHour,
+      hourly,
+    );
+    if (wind) result.eveningWind = formatWind(wind.direction, wind.speed, units);
+  }
+
+  return result;
 }
 
 function formatClockTime(iso: string | undefined): string {

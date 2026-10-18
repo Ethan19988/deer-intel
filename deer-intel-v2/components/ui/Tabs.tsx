@@ -97,7 +97,7 @@ const tabStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: "0.4rem",
-  minHeight: "38px",
+  minHeight: "44px",
   padding: "0.4rem 0.9rem",
   border: "1px solid transparent",
   borderRadius: "var(--radius-sm)",

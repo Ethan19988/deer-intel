@@ -155,7 +155,7 @@ const titleStyle: CSSProperties = {
 
 const openLinkStyle: CSSProperties = {
   display: "inline-flex",
-  minHeight: "36px",
+  minHeight: "44px",
   alignItems: "center",
   justifyContent: "center",
   padding: "0.5rem 0.65rem",

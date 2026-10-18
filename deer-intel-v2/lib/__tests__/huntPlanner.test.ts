@@ -72,3 +72,51 @@ describe("buildHuntWindows", () => {
     expect(windows[0].isFront).toBe(true);
   });
 });
+
+describe("buildHuntWindows with AM/PM sit winds", () => {
+  it("splits a day into morning and evening sits with their own stands", () => {
+    const days: ForecastDay[] = [
+      {
+        ...day("2024-11-05", "S 6 mph"),
+        morningWind: "SE 4 mph",
+        eveningWind: "NW 9 mph",
+      },
+    ];
+    const stands = [stand("Oak Ridge", "NW", "S"), stand("Creek Bottom", "SE")];
+
+    const [window] = buildHuntWindows(days, stands);
+
+    expect(window.sits).toEqual([
+      { period: "AM", windCompass: "SE", goodStandNames: ["Creek Bottom"] },
+      { period: "PM", windCompass: "NW", goodStandNames: ["Oak Ridge"] },
+    ]);
+  });
+
+  it("scores the day by its best sit, not the daily dominant wind", () => {
+    // The dominant wind (S) is wrong for the stand, but the evening swings NW.
+    const swing: ForecastDay = {
+      ...day("2024-11-06", "S 6 mph"),
+      morningWind: "S 5 mph",
+      eveningWind: "NW 8 mph",
+    };
+    const steadyWrong = day("2024-11-07", "S 6 mph");
+    const stands = [stand("Oak Ridge", "NW", "S")];
+
+    const windows = buildHuntWindows([steadyWrong, swing], stands);
+
+    expect(windows[0].date).toBe("2024-11-06");
+    expect(windows[0].windCompass).toBe("NW");
+    expect(windows[0].goodStandNames).toEqual(["Oak Ridge"]);
+    expect(windows[0].reasons.join(" ")).toContain("(PM)");
+  });
+
+  it("falls back to the daily wind when no sit winds are present", () => {
+    const [window] = buildHuntWindows(
+      [day("2024-11-08", "NW 8 mph")],
+      [stand("Oak Ridge", "NW")],
+    );
+
+    expect(window.sits).toEqual([]);
+    expect(window.goodStandNames).toEqual(["Oak Ridge"]);
+  });
+});
