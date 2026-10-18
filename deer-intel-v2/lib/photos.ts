@@ -46,6 +46,29 @@ export function formatPhotoDate(date: string | undefined) {
   }).format(time);
 }
 
+/**
+ * Like {@link formatPhotoDate} but appends the exact capture time in 24hr time
+ * when the record carries one ("YYYY-MM-DDTHH:mm"). Date-only records (older
+ * imports, or manual entries with no time) show just the date.
+ */
+export function formatPhotoDateTime(date: string | undefined) {
+  const dateLabel = formatPhotoDate(date);
+
+  if (!date || !date.includes("T")) return dateLabel;
+
+  const time = dateInputTime(date);
+
+  if (Number.isNaN(time)) return dateLabel;
+
+  const timeLabel = new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(time);
+
+  return `${dateLabel} · ${timeLabel}`;
+}
+
 function isBuckPhoto(photo: PhotoRecord) {
   return (
     photo.species.trim().toLowerCase().includes("buck") ||

@@ -57,6 +57,12 @@ export default function PhotoUploadField({
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusText, setStatusText] = useState("");
   const [error, setError] = useState("");
+  // Where the auto-filled time came from, so a cellular camera's batch/arrival
+  // time can't quietly stand in for the real capture time.
+  const [captureNote, setCaptureNote] = useState<{
+    tone: "info" | "warn";
+    text: string;
+  } | null>(null);
   const units = useUnitPreferences();
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -72,6 +78,7 @@ export default function PhotoUploadField({
     }
 
     setError("");
+    setCaptureNote(null);
     setIsProcessing(true);
     setStatusText("Processing photo…");
 
@@ -104,13 +111,42 @@ export default function PhotoUploadField({
         knownBucks,
       );
 
+      // The shutter time comes only from the photo itself (printed stamp, then
+      // EXIF — see pickCaptureDateTime). The file's lastModified is deliberately
+      // NOT a source here — for a cellular camera that transmits in batches,
+      // that timestamp is when the batch arrived, not when the shot was taken.
+      const resolved = pickCaptureDateTime(exifDate, stamp?.dateTime ?? "");
+      const capturedAt = resolved.dateTime;
+
+      setCaptureNote(
+        resolved.source === "stampTime"
+          ? {
+              tone: "info",
+              text: "Capture time read from the photo's printed info bar — the moment the shot was taken, not when your camera sent the batch.",
+            }
+          : resolved.source === "exif"
+            ? {
+                tone: "info",
+                text: "Capture time read from the photo's EXIF data. If this came from a cellular camera's app, double-check it — some apps rewrite EXIF to the download time.",
+              }
+            : resolved.source === "stampDate"
+              ? {
+                  tone: "warn",
+                  text: "Only a date was printed on this photo, so the time wasn't auto-filled. Set the Photo Time to when the shot was actually taken.",
+                }
+              : {
+                  tone: "warn",
+                  text: "No capture time is embedded in this photo, so the date wasn't auto-filled. Set the Photo Date and Time to when the shot was actually taken — a cellular camera's file date is when the batch came through, not the capture time.",
+                },
+      );
+
       onImageSelected({
         imageId: newImageId,
         imageWidth: processed.width,
         imageHeight: processed.height,
         fileName: file.name,
         lastModified: file.lastModified,
-        capturedAt: pickCaptureDateTime(exifDate, stamp?.dateTime ?? "").dateTime,
+        capturedAt,
         stampedTemperature: stamp?.temperature ?? "",
         stampedMoonPhase: stamp?.moonPhase ?? "",
         stampedWindDirection: stamp?.windDirection ?? "",
@@ -141,6 +177,7 @@ export default function PhotoUploadField({
     }
 
     setError("");
+    setCaptureNote(null);
     onImageCleared();
   }
 
@@ -203,6 +240,14 @@ export default function PhotoUploadField({
       )}
 
       {error ? <p style={errorStyle}>{error}</p> : null}
+
+      {!error && captureNote ? (
+        <p
+          style={captureNote.tone === "warn" ? captureWarnStyle : captureInfoStyle}
+        >
+          {captureNote.text}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -255,4 +300,23 @@ const errorStyle: CSSProperties = {
   margin: 0,
   color: "var(--danger-text)",
   fontSize: "0.85rem",
+};
+
+const captureInfoStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text-muted)",
+  fontSize: "0.85rem",
+  lineHeight: 1.4,
+};
+
+const captureWarnStyle: CSSProperties = {
+  margin: 0,
+  padding: "0.6rem 0.75rem",
+  border: "1px solid var(--warning-border)",
+  borderLeft: "4px solid var(--warning-text)",
+  borderRadius: "8px",
+  background: "var(--warning-bg)",
+  color: "var(--text)",
+  fontSize: "0.85rem",
+  lineHeight: 1.45,
 };

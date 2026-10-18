@@ -7,7 +7,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import {
-  formatPhotoDate,
+  formatPhotoDateTime,
   getPhotoBuckNames,
   getPhotoDeerProfileIds,
   sortPhotoRecordsChronologically,
@@ -206,7 +206,9 @@ export default function PhotoRecordList({
                   />
                 ) : null}
                 <div>
-                  <p style={eyebrowStyle}>{formatPhotoDate(photo.photoDate)}</p>
+                  <p style={eyebrowStyle}>
+                    {formatPhotoDateTime(photo.photoDate)}
+                  </p>
                   <h4 style={titleStyle}>{photo.fileName}</h4>
                 </div>
               </div>
