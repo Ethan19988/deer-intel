@@ -273,7 +273,7 @@ export default function SettingsPage() {
   // Settings are grouped into tabs rather than one long scroll: each tab is a
   // self-contained area (look, alerts, data, offline, account) so a setting is
   // a click away instead of a hunt down the page.
-  const generalTab = (
+  const displayTab = (
     <div style={settingsAccordionStyle}>
       <CollapsibleSection
         title="Theme"
@@ -442,10 +442,16 @@ export default function SettingsPage() {
           </div>
       </CollapsibleSection>
 
+    </div>
+  );
+
+  const seasonTab = (
+    <div style={settingsAccordionStyle}>
       <CollapsibleSection
         title="Season & Rut Calendar"
         description="Season opener and rut peak for where you hunt"
-        name="settings-general"
+        name="settings-season"
+        defaultOpen
       >
           <p style={mutedTextStyle}>
             Set your season opener and local rut peak to see where you are in the
@@ -497,7 +503,7 @@ export default function SettingsPage() {
     </Section>
   );
 
-  const dataTab = (
+  const backupTab = (
     <>
       <Section eyebrow="Storage" title="Current Data Setup">
         <div style={settingsGridStyle}>
@@ -628,31 +634,14 @@ export default function SettingsPage() {
         </Section>
       ) : null}
 
-      <Section eyebrow="Import" title="Import Pins from Other Apps">
+      <Section eyebrow="Import" title="Bring in photos, pins, or documents">
         <Card as="div" variant="subtle">
           <p style={mutedTextStyle}>
-            Already have waypoints saved in onX Hunt, HuntStand, BaseMap,
-            Spartan Forge, Garmin, or Google Earth? Export them as a GPX, KML,
-            or KMZ file, then upload it here to bring your stands, cameras,
-            bedding, scrapes, and more onto your Deer Intel map. You review
-            every pin and pick a property before anything is saved.
+            Trail-cam photos, waypoints from other mapping apps, and documents
+            all come in through one Import screen.
           </p>
-          <Link href="/pins/import" style={primaryLinkStyle} className="di-navbtn">
-            Open Pin Importer
-          </Link>
-        </Card>
-      </Section>
-
-      <Section eyebrow="Documents" title="Add a Document or Photo">
-        <Card as="div" variant="subtle">
-          <p style={mutedTextStyle}>
-            Keep your leases, permits, licenses, tags, regulations, and printed
-            maps on the property. Attach a PDF, an image, or any other file — a
-            big, clearly-marked button shows exactly where to tap. Everything
-            stays on this device.
-          </p>
-          <Link href="/documents/import" style={primaryLinkStyle} className="di-navbtn">
-            Open Document Importer
+          <Link href="/import" style={primaryLinkStyle} className="di-navbtn">
+            Open Import
           </Link>
         </Card>
       </Section>
@@ -737,7 +726,7 @@ export default function SettingsPage() {
           icon={<GearIcon size={26} />}
           eyebrow="Settings"
           title="Deer Intel Settings"
-          description="Choose how Deer Intel looks, what it alerts you to, and how it stores your data. Each area has its own tab."
+          description="Display, season dates, alerts, backups, offline maps, and your account, each on its own tab."
           meta={
             <>
               <Badge variant="success">
@@ -751,9 +740,10 @@ export default function SettingsPage() {
 
       <Tabs
         items={[
-          { id: "general", label: "General", content: generalTab },
+          { id: "display", label: "Display", content: displayTab },
+          { id: "season", label: "Season", content: seasonTab },
           { id: "alerts", label: "Alerts", content: alertsTab },
-          { id: "data", label: "Data", content: dataTab },
+          { id: "backup", label: "Backup", content: backupTab },
           { id: "offline", label: "Offline", content: offlineTab },
           { id: "account", label: "Account", content: accountTab },
         ]}

@@ -8,6 +8,7 @@ import {
   HomeIcon,
   MapIcon,
   MapPinIcon,
+  PlusIcon,
   StandIcon,
   TargetIcon,
   UsersIcon,
@@ -29,6 +30,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/stands", label: "Stands", icon: (s) => <StandIcon size={s} /> },
       { href: "/hit-list", label: "Bucks", icon: (s) => <DeerIcon size={s} /> },
       { href: "/properties", label: "Properties", icon: (s) => <MapPinIcon size={s} /> },
+      { href: "/import", label: "Import", icon: (s) => <PlusIcon size={s} /> },
     ],
   },
   {
