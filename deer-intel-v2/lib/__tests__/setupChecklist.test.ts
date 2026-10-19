@@ -79,14 +79,14 @@ describe("buildSetupChecklist", () => {
     });
 
     expect(ids(items)).toEqual([
-      "center",
       "hunt-area",
       "stands",
       "cameras",
       "parking",
       "bedding",
     ]);
-    expect(items[0].href).toBe("/properties?edit=p1");
+    expect(items[0].href).toBe("/map?draw=area");
+    expect(items[0].detail).toMatch(/center/);
   });
 
   it("links each stand without winds to its wind picker", () => {

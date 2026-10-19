@@ -192,7 +192,7 @@ const SATELLITE_REFERENCE_OVERLAYS: NonNullable<
 // most recent capture (each tile redirects to its freshest version), so it
 // reads as close to "today" as free imagery gets. USDA NAIP is the sharpest
 // US aerial but a static yearly mosaic — kept as a high-detail alternative.
-const CURRENT_URL =
+export const CURRENT_URL =
   "https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/32246/{z}/{y}/{x}";
 const CURRENT_ATTRIBUTION =
   "Imagery &copy; Esri, Maxar, Earthstar Geographics (World Imagery, updated 2026)";

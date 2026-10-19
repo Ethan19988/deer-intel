@@ -185,6 +185,7 @@ export default function StandsPage() {
                     intelligence={intelligence}
                     todayWind={todayWind}
                     onSaveWinds={saveStandWinds}
+                    pins={propertyPins}
                   />
                 );
               })}
