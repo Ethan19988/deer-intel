@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { huntAreaCentroid } from "@/lib/huntArea";
 import { readStorageValue, writeStorageValue } from "@/lib/storage";
 import { normalizeWeatherSnapshot } from "@/lib/weather";
 import type { Camera, CameraStatus, CameraType } from "@/types/camera";
@@ -168,15 +169,28 @@ function normalizeProperty(value: unknown): Property | null {
 
   if (!id || !name) return null;
 
+  const huntArea = normalizeHuntArea(value.huntArea);
+  let latitude = optionalNumberValue(value.latitude);
+  let longitude = optionalNumberValue(value.longitude);
+  // No center point typed in? The middle of the drawn hunt area is one — so
+  // weather, sun times, and rut timing work without asking for coordinates.
+  if (latitude === undefined || longitude === undefined) {
+    const center = huntAreaCentroid(huntArea);
+    if (center) {
+      latitude = center.lat;
+      longitude = center.lng;
+    }
+  }
+
   return {
     id,
     name,
     county: stringValue(value.county, "Unknown"),
     acres: stringValue(value.acres, "Unknown"),
     notes: stringValue(value.notes, "No notes yet."),
-    latitude: optionalNumberValue(value.latitude),
-    longitude: optionalNumberValue(value.longitude),
-    huntArea: normalizeHuntArea(value.huntArea),
+    latitude,
+    longitude,
+    huntArea,
   };
 }
 

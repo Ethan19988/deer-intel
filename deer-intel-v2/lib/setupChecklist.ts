@@ -36,23 +36,15 @@ export function buildSetupChecklist({
   const items: SetupItem[] = [];
   const layers = new Set(pins.map((pin) => PIN_LAYER_LOOKUP[pin.type]));
 
-  if (!hasPropertyCoordinate(property)) {
-    items.push({
-      id: "center",
-      label: "Set the property's center point",
-      detail: "Weather, sun times, and rut timing key off it.",
-      href: `/properties?edit=${property.id}`,
-      action: "Set point",
-    });
-  }
-
   if (!property.huntArea || property.huntArea.length < 3) {
     items.push({
       id: "hunt-area",
       label: "Draw your hunt area",
-      detail: "Keeps terrain picks and parcel lines to your ground.",
-      href: "/map",
-      action: "Open map",
+      detail: hasPropertyCoordinate(property)
+        ? "Keeps terrain picks and parcel lines to your ground."
+        : "Its middle becomes the property's center for weather and sun times.",
+      href: "/map?draw=area",
+      action: "Draw area",
     });
   }
 
@@ -71,7 +63,7 @@ export function buildSetupChecklist({
     items.push({
       id: `winds-${stand.id}`,
       label: `Set winds for ${stand.name}`,
-      detail: "Without them the stand check can't call the wind.",
+      detail: "Pick them over the stand's satellite view, or take the suggestion.",
       href: `/stands#stand-${stand.id}`,
       action: "Set winds",
     });
@@ -102,7 +94,7 @@ export function buildSetupChecklist({
       id: "parking",
       label: "Drop a parking or gate pin",
       detail: "The walk-in scent check starts from where you park.",
-      href: "/map",
+      href: "/map?pin=Parking",
       action: "Drop pin",
     });
   }
@@ -111,8 +103,8 @@ export function buildSetupChecklist({
     items.push({
       id: "bedding",
       label: "Mark a bedding area",
-      detail: "Lets the scent check warn when your walk blows into beds.",
-      href: "/map",
+      detail: "Suggests each stand's winds and warns when your walk blows into beds.",
+      href: "/map?pin=Bedding",
       action: "Drop pin",
     });
   }

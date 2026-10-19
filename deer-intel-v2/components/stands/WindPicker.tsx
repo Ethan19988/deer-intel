@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, KeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 import { compassToDegrees } from "@/lib/travelDirection";
 import {
   nextWindMark,
@@ -15,6 +15,8 @@ type WindPickerProps = {
   onChange: (marks: WindMarks) => void;
   /** Today's wind (compass point the wind comes FROM), marked on the ring. */
   currentWind?: string;
+  /** Map imagery drawn behind the compass (see StandWindBackdrop). */
+  backdrop?: ReactNode;
 };
 
 const SIZE = 300;
@@ -37,6 +39,18 @@ const INK: Record<WindMark, string> = {
   avoid: "var(--danger-text)",
   none: "var(--text-muted)",
 };
+// Over satellite imagery the wedges go see-through so the ground shows.
+const MAP_FILL: Record<WindMark, string> = {
+  good: "rgba(34, 160, 80, 0.5)",
+  avoid: "rgba(220, 50, 40, 0.5)",
+  none: "rgba(255, 255, 255, 0.06)",
+};
+const MAP_STROKE: Record<WindMark, string> = {
+  good: "#7ee2a0",
+  avoid: "#ff8a80",
+  none: "rgba(255, 255, 255, 0.55)",
+};
+
 const GLYPH: Record<WindMark, string> = { good: "✓", avoid: "✕", none: "" };
 const SPOKEN: Record<WindMark, string> = { good: "good", avoid: "avoid", none: "not set" };
 
@@ -64,7 +78,8 @@ function wedgePath(center: number): string {
 // Tap a direction to cycle it: good wind (green) → avoid (red) → not set.
 // A wind is named for where it comes FROM, so "NW" means the wind blows from
 // the northwest toward the southeast.
-export default function WindPicker({ marks, onChange, currentWind }: WindPickerProps) {
+export default function WindPicker({ marks, onChange, currentWind, backdrop }: WindPickerProps) {
+  const onMap = Boolean(backdrop);
   const currentDegrees = currentWind ? compassToDegrees(currentWind) : null;
 
   function cycle(point: WindPoint) {
@@ -83,6 +98,8 @@ export default function WindPicker({ marks, onChange, currentWind }: WindPickerP
 
   return (
     <div style={wrapStyle}>
+      <div style={roseFrameStyle}>
+      {backdrop}
       <svg
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         style={svgStyle}
@@ -105,7 +122,12 @@ export default function WindPicker({ marks, onChange, currentWind }: WindPickerP
               onKeyDown={(event) => onKey(event, point)}
               style={wedgeGroupStyle}
             >
-              <path d={wedgePath(center)} fill={FILL[mark]} stroke={STROKE[mark]} strokeWidth={2} />
+              <path
+                d={wedgePath(center)}
+                fill={onMap ? MAP_FILL[mark] : FILL[mark]}
+                stroke={onMap ? MAP_STROKE[mark] : STROKE[mark]}
+                strokeWidth={2}
+              />
               <text
                 x={label.x}
                 y={label.y - (GLYPH[mark] ? 8 : 0)}
@@ -113,8 +135,8 @@ export default function WindPicker({ marks, onChange, currentWind }: WindPickerP
                 dominantBaseline="middle"
                 fontSize="19"
                 fontWeight={800}
-                fill={INK[mark]}
-                style={noPointerStyle}
+                fill={onMap ? "#fff" : INK[mark]}
+                style={onMap ? mapTextStyle : noPointerStyle}
               >
                 {point}
               </text>
@@ -126,8 +148,8 @@ export default function WindPicker({ marks, onChange, currentWind }: WindPickerP
                   dominantBaseline="middle"
                   fontSize="16"
                   fontWeight={900}
-                  fill={INK[mark]}
-                  style={noPointerStyle}
+                  fill={onMap ? "#fff" : INK[mark]}
+                  style={onMap ? mapTextStyle : noPointerStyle}
                 >
                   {GLYPH[mark]}
                 </text>
@@ -158,13 +180,18 @@ export default function WindPicker({ marks, onChange, currentWind }: WindPickerP
           </g>
         ) : null}
 
-        <text x={C} y={C - 6} textAnchor="middle" fontSize="12" fontWeight={700} fill="var(--text-muted)" style={noPointerStyle}>
-          Tap a
-        </text>
-        <text x={C} y={C + 10} textAnchor="middle" fontSize="12" fontWeight={700} fill="var(--text-muted)" style={noPointerStyle}>
-          direction
-        </text>
+        {onMap ? null : (
+          <>
+            <text x={C} y={C - 6} textAnchor="middle" fontSize="12" fontWeight={700} fill="var(--text-muted)" style={noPointerStyle}>
+              Tap a
+            </text>
+            <text x={C} y={C + 10} textAnchor="middle" fontSize="12" fontWeight={700} fill="var(--text-muted)" style={noPointerStyle}>
+              direction
+            </text>
+          </>
+        )}
       </svg>
+      </div>
 
       <p style={summaryStyle}>
         <span>
@@ -190,9 +217,24 @@ const wrapStyle: CSSProperties = {
   justifyItems: "center",
 };
 
-const svgStyle: CSSProperties = {
+const roseFrameStyle: CSSProperties = {
+  position: "relative",
   width: "100%",
   maxWidth: "300px",
+  aspectRatio: "1 / 1",
+};
+
+const mapTextStyle: CSSProperties = {
+  pointerEvents: "none",
+  paintOrder: "stroke",
+  stroke: "rgba(0, 0, 0, 0.7)",
+  strokeWidth: 3,
+};
+
+const svgStyle: CSSProperties = {
+  position: "relative",
+  display: "block",
+  width: "100%",
   height: "auto",
   overflow: "visible",
   touchAction: "manipulation",

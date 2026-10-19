@@ -105,7 +105,11 @@ import {
   updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
-import { formatHuntAreaAcres, huntAreaIsValid } from "@/lib/huntArea";
+import {
+  formatHuntAreaAcres,
+  huntAreaCentroid,
+  huntAreaIsValid,
+} from "@/lib/huntArea";
 import {
   bearingBetween,
   compassToDegrees,
@@ -182,7 +186,7 @@ import type {
   ParcelBoundaryLoadState,
   ParcelOwnerLookupState,
 } from "@/types/parcel";
-import type { HuntAreaPoint } from "@/types/property";
+import type { HuntAreaPoint, Property } from "@/types/property";
 import {
   useDefaultMapLayer,
   useDefaultMapOverlays,
@@ -502,6 +506,16 @@ function mapCentersAreClose(firstCenter: MapCenter, secondCenter: MapCenter) {
     Math.abs(firstCenter[0] - secondCenter[0]) < MAP_CENTER_EPSILON &&
     Math.abs(firstCenter[1] - secondCenter[1]) < MAP_CENTER_EPSILON
   );
+}
+
+// A property with no typed-in center point takes the middle of its hunt area,
+// so drawing the area is all the setup weather and sun times need.
+function withAreaCenter(property: Property): Property {
+  if (typeof property.latitude === "number" && typeof property.longitude === "number") {
+    return property;
+  }
+  const center = huntAreaCentroid(property.huntArea);
+  return center ? { ...property, latitude: center.lat, longitude: center.lng } : property;
 }
 
 function ClickToAddPin({
@@ -2398,7 +2412,7 @@ export default function HuntingMap() {
       ...currentState,
       properties: currentState.properties.map((property) =>
         property.id === selectedPropertyId
-          ? { ...property, huntArea: nextArea }
+          ? withAreaCenter({ ...property, huntArea: nextArea })
           : property,
       ),
     }));
@@ -2560,6 +2574,27 @@ export default function HuntingMap() {
     setPinBoxMessage(`Tap map to place ${type}`);
     setLayersOpen(false);
   }
+
+  // Deep links from Today's setup checklist: /map?pin=Bedding arms tap-to-place
+  // for that pin type, /map?draw=area starts drawing the hunt area. Handled once,
+  // as soon as a property is selected, then stripped from the URL.
+  const deepLinkHandledRef = useRef(false);
+  useEffect(() => {
+    if (deepLinkHandledRef.current || !selectedPropertyId) return;
+    deepLinkHandledRef.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const pin = params.get("pin");
+    const draw = params.get("draw");
+    if (!pin && !draw) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    if (draw === "area") {
+      startAreaDraw();
+    } else if (pin && isSupportedPropertyPinType(pin)) {
+      placePinType(pin);
+    }
+    // Runs once per visit; the handlers only set state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyId]);
 
   function cancelPinPlacement() {
     setIsPlacingPin(false);
@@ -3926,6 +3961,9 @@ export default function HuntingMap() {
               <Polygon
                 positions={huntArea.map((point) => [point.lat, point.lng])}
                 pathOptions={HUNT_AREA_PATH_OPTIONS}
+                // Just a highlight: taps inside the area go to the map, so a
+                // pin can be dropped anywhere in it, center included.
+                interactive={false}
               />
             ) : null}
 

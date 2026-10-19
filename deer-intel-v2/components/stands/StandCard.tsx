@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
+import StandWindBackdrop from "@/components/stands/StandWindBackdrop";
 import WindPicker from "@/components/stands/WindPicker";
+import { findStandLocation } from "@/lib/accessScent";
+import { SUGGEST_REACH_M, suggestStandWinds } from "@/lib/standWindSuggest";
+import type { MapPin } from "@/types/mapPin";
 import Button from "@/components/ui/Button";
 import {
   windMarksFromText,
@@ -25,6 +29,8 @@ type StandCardProps = {
   todayWind?: string;
   /** When given, the card offers "Set winds" with the tap-to-set compass. */
   onSaveWinds?: (standId: string, winds: { bestWinds: string; avoidWinds: string }) => void;
+  /** This property's map pins: puts the stand's ground behind the wind picker. */
+  pins?: MapPin[];
 };
 
 const WIND_BADGE_VARIANT = {
@@ -38,8 +44,22 @@ export default function StandCard({
   intelligence,
   todayWind,
   onSaveWinds,
+  pins = [],
 }: StandCardProps) {
   const [editingMarks, setEditingMarks] = useState<WindMarks | null>(null);
+  const location = findStandLocation(stand, pins);
+  const suggestion = suggestStandWinds(stand, pins);
+  const hasWinds = Boolean(stand.bestWinds.trim() || stand.avoidWinds.trim());
+
+  // Opening the picker on a stand with no winds yet starts from the map's
+  // suggestion, so a good setup is often just "Save".
+  function openWinds() {
+    setEditingMarks(
+      !hasWinds && suggestion.marks
+        ? suggestion.marks
+        : windMarksFromText(stand.bestWinds, stand.avoidWinds),
+    );
+  }
 
   // A link to /stands#stand-<id> (e.g. from Stand check's "No wind notes")
   // opens this stand's wind picker directly.
@@ -47,7 +67,9 @@ export default function StandCard({
     if (!onSaveWinds || typeof window === "undefined") return;
     if (window.location.hash !== `#stand-${stand.id}`) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEditingMarks(windMarksFromText(stand.bestWinds, stand.avoidWinds));
+    openWinds();
+    // openWinds reads the same stand fields listed here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onSaveWinds, stand.id, stand.bestWinds, stand.avoidWinds]);
 
   function saveWinds() {
@@ -91,7 +113,32 @@ export default function StandCard({
 
       {editingMarks ? (
         <div style={windEditorStyle}>
-          <WindPicker marks={editingMarks} onChange={setEditingMarks} currentWind={todayWind} />
+          <WindPicker
+            marks={editingMarks}
+            onChange={setEditingMarks}
+            currentWind={todayWind}
+            backdrop={
+              location ? (
+                <StandWindBackdrop center={location} pins={pins} reachM={SUGGEST_REACH_M} />
+              ) : undefined
+            }
+          />
+          <div style={suggestBoxStyle}>
+            <p style={suggestTextStyle}>{suggestion.reason}</p>
+            {suggestion.marks ? (
+              <button
+                type="button"
+                style={suggestButtonStyle}
+                onClick={() => setEditingMarks(suggestion.marks)}
+              >
+                Use suggested winds
+              </button>
+            ) : (
+              <Link href="/map" style={suggestButtonStyle} className="di-navbtn">
+                Open map
+              </Link>
+            )}
+          </div>
           <div style={windActionsStyle}>
             <Button type="button" variant="secondary" onClick={() => setEditingMarks(null)}>
               Cancel
@@ -108,12 +155,10 @@ export default function StandCard({
           {onSaveWinds ? (
             <button
               type="button"
-              onClick={() =>
-                setEditingMarks(windMarksFromText(stand.bestWinds, stand.avoidWinds))
-              }
+              onClick={openWinds}
               style={setWindsButtonStyle}
             >
-              {stand.bestWinds.trim() || stand.avoidWinds.trim() ? "Change winds" : "Set winds"}
+              {hasWinds ? "Change winds" : "Set winds"}
             </button>
           ) : null}
         </div>
@@ -160,6 +205,38 @@ const windEditorStyle: CSSProperties = {
   borderRadius: "14px",
   border: "1px solid var(--border)",
   background: "var(--surface)",
+};
+
+const suggestBoxStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.5rem",
+  padding: "0.65rem 0.75rem",
+  borderRadius: "10px",
+  background: "var(--surface-2)",
+  border: "1px solid var(--border)",
+};
+
+const suggestTextStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text)",
+  fontSize: "0.85rem",
+  lineHeight: 1.45,
+};
+
+const suggestButtonStyle: CSSProperties = {
+  justifySelf: "start",
+  minHeight: "38px",
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "0.35rem 0.85rem",
+  borderRadius: "8px",
+  border: "1px solid var(--accent)",
+  background: "var(--accent-tint)",
+  color: "var(--accent-text)",
+  fontSize: "0.85rem",
+  fontWeight: 800,
+  textDecoration: "none",
+  cursor: "pointer",
 };
 
 const windActionsStyle: CSSProperties = {
