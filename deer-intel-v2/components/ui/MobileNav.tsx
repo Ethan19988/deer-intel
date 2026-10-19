@@ -8,6 +8,7 @@ import {
   isActivePath,
   MOBILE_TABS,
   NAV_GROUPS,
+  QUICK_ADD_LINKS,
   SETTINGS_LINK,
 } from "@/components/ui/navConfig";
 
@@ -46,6 +47,22 @@ export default function MobileNav() {
             className="di-more-sheet"
             onClick={(event) => event.stopPropagation()}
           >
+            <div style={groupStyle}>
+              <p style={headingStyle}>Add</p>
+              <div style={addGridStyle}>
+                {QUICK_ADD_LINKS.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="di-more-link di-more-add"
+                    onClick={() => setMoreOpen(false)}
+                  >
+                    <span aria-hidden="true">{link.icon(18)}</span>
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
             {NAV_GROUPS.map((group, index) => {
               const links = group.links.filter((link) => !tabHrefs.has(link.href));
               if (links.length === 0) return null;
@@ -134,6 +151,12 @@ const gridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
   gap: "0.5rem",
+};
+
+const addGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: "0.4rem",
 };
 
 const footerStyle: CSSProperties = {
