@@ -105,6 +105,14 @@ import {
   updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
+import { useWakeLock } from "@/lib/useWakeLock";
+import {
+  acceptPathFix,
+  bloodTrailLine,
+  lineLengthMeters,
+  searchedSinceLastMark,
+  type BloodMark,
+} from "@/lib/bloodTrail";
 import {
   formatHuntAreaAcres,
   huntAreaCentroid,
@@ -307,11 +315,19 @@ function bloodRecoveredIcon() {
   });
 }
 
+// Solid: the trail follows the path you actually walked between finds.
 const BLOOD_TRAIL_PATH_OPTIONS = {
   color: "#e11d48",
-  weight: 3,
+  weight: 4,
   opacity: 0.9,
-  dashArray: "5 6",
+};
+
+// Faint dashes: where you've walked since the last find (already searched).
+const BLOOD_SEARCH_PATH_OPTIONS = {
+  color: "#fbbf24",
+  weight: 3,
+  opacity: 0.75,
+  dashArray: "4 7",
 };
 
 // The draggable preview marker for a press-and-hold placement: the real
@@ -1327,8 +1343,13 @@ export default function HuntingMap() {
   // a dot at each blood find as you track, and flag recovery when the deer is
   // found. Ephemeral — a live tracking aid for the moment, not a saved record.
   const [isTrackingBlood, setIsTrackingBlood] = useState(false);
-  const [bloodPoints, setBloodPoints] = useState<HuntAreaPoint[]>([]);
+  const [bloodPoints, setBloodPoints] = useState<BloodMark[]>([]);
   const [bloodRecovered, setBloodRecovered] = useState(false);
+  // The path actually walked while tracking (GPS), so the trail between marks
+  // follows the ground you covered rather than a straight line. A ref mirrors it
+  // so a mark dropped mid-update records the path length it was dropped at.
+  const [bloodPath, setBloodPath] = useState<HuntAreaPoint[]>([]);
+  const bloodPathRef = useRef<HuntAreaPoint[]>([]);
   const [areaCoordInput, setAreaCoordInput] = useState("");
   const [areaPointMessage, setAreaPointMessage] = useState("");
   const [showCoordEntry, setShowCoordEntry] = useState(false);
@@ -1854,18 +1875,20 @@ export default function HuntingMap() {
   // Blood-trail metrics: total distance walked along the marks, straight-line
   // distance from the hit, and the deer's travel direction — the reads that
   // help decide where to look next and whether to back out.
+  const bloodTrailPath = useMemo(
+    () => bloodTrailLine(bloodPoints, bloodPath),
+    [bloodPoints, bloodPath],
+  );
+  const bloodSearched = useMemo(
+    () => (bloodRecovered ? [] : searchedSinceLastMark(bloodPoints, bloodPath)),
+    [bloodPoints, bloodPath, bloodRecovered],
+  );
   const bloodTrailStats = useMemo(() => {
     if (bloodPoints.length < 1) return null;
 
     const hit = bloodPoints[0];
     const last = bloodPoints[bloodPoints.length - 1];
-    let totalMeters = 0;
-    for (let i = 1; i < bloodPoints.length; i += 1) {
-      totalMeters += distanceBetweenMeters(
-        { lat: bloodPoints[i - 1].lat, lng: bloodPoints[i - 1].lng, at: "" },
-        { lat: bloodPoints[i].lat, lng: bloodPoints[i].lng, at: "" },
-      );
-    }
+    const totalMeters = lineLengthMeters(bloodTrailPath);
     const straightMeters =
       bloodPoints.length >= 2
         ? distanceBetweenMeters(
@@ -1883,7 +1906,7 @@ export default function HuntingMap() {
           ? degreesToCompass(bearingBetween(hit.lat, hit.lng, last.lat, last.lng))
           : null,
     };
-  }, [bloodPoints]);
+  }, [bloodPoints, bloodTrailPath]);
   // Don't leave the undo-toast timer running after the map unmounts.
   useEffect(
     () => () => {
@@ -2076,18 +2099,18 @@ export default function HuntingMap() {
           at: new Date().toISOString(),
         };
 
-        setActiveTrackPoints((currentPoints) => {
-          const lastPoint = currentPoints[currentPoints.length - 1];
-
-          if (
-            lastPoint &&
-            distanceBetweenMeters(lastPoint, point) < MIN_TRACK_POINT_METERS
-          ) {
-            return currentPoints;
-          }
-
-          return [...currentPoints, point];
-        });
+        setActiveTrackPoints((currentPoints) =>
+          // Skip poor fixes (they draw zigzags you never walked) and the
+          // few-meter wander of a GPS while you stand still.
+          acceptPathFix(
+            currentPoints,
+            point,
+            position.coords.accuracy,
+            MIN_TRACK_POINT_METERS,
+          )
+            ? [...currentPoints, point]
+            : currentPoints,
+        );
       },
       () => {
         // Hold the trail on a transient error (a brief signal drop, a denied
@@ -2098,6 +2121,36 @@ export default function HuntingMap() {
 
     return () => navigator.geolocation.clearWatch(watchId);
   }, [isTracking]);
+
+  // Recording a walk or a blood trail keeps the screen on — a locked phone
+  // pauses GPS and the trail would jump in a straight line across the gap.
+  useWakeLock(isTracking || (isTrackingBlood && !bloodRecovered));
+
+  // While blood-trailing, record the path walked so the trail between finds
+  // follows the ground you actually covered. Poor fixes and standing-still
+  // jitter are dropped so the line doesn't zigzag where you never went.
+  useEffect(() => {
+    if (!isTrackingBlood || bloodRecovered) return;
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const fix = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        if (!acceptPathFix(bloodPathRef.current, fix, position.coords.accuracy)) return;
+        bloodPathRef.current = [...bloodPathRef.current, fix];
+        setBloodPath(bloodPathRef.current);
+      },
+      () => {
+        // Keep what's recorded through a brief signal drop.
+      },
+      { enableHighAccuracy: true, maximumAge: 2_000, timeout: 15_000 },
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [isTrackingBlood, bloodRecovered]);
 
   function startTracking() {
     if (!selectedPropertyId || isTracking) return;
@@ -2280,6 +2333,8 @@ export default function HuntingMap() {
     exitRoutePlan();
     setBloodPoints([]);
     setBloodRecovered(false);
+    bloodPathRef.current = [];
+    setBloodPath([]);
     setIsTrackingBlood(true);
     setLayersOpen(false);
   }
@@ -2287,13 +2342,14 @@ export default function HuntingMap() {
   function addBloodPoint(lat: number, lng: number) {
     if (bloodRecovered) return;
     buzz(14);
-    setBloodPoints((current) => [...current, { lat, lng }]);
+    const pathIndex = bloodPathRef.current.length;
+    setBloodPoints((current) => [...current, { lat, lng, pathIndex }]);
   }
 
   function moveBloodPoint(index: number, lat: number, lng: number) {
     setBloodPoints((current) =>
       current.map((point, pointIndex) =>
-        pointIndex === index ? { lat, lng } : point,
+        pointIndex === index ? { ...point, lat, lng } : point,
       ),
     );
   }
@@ -2303,17 +2359,23 @@ export default function HuntingMap() {
     setBloodPoints((current) => current.slice(0, -1));
   }
 
+  // "Drop here": mark where you're standing. Uses a fresh fix and adds it to the
+  // walked path too, so the trail runs right through the mark.
   function addBloodPointFromLocation() {
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
     if (bloodRecovered) return;
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        buzz(14);
-        setBloodPoints((current) => [
-          ...current,
-          { lat: position.coords.latitude, lng: position.coords.longitude },
-        ]);
+        const fix = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        if (acceptPathFix(bloodPathRef.current, fix, null, 0.5)) {
+          bloodPathRef.current = [...bloodPathRef.current, fix];
+          setBloodPath(bloodPathRef.current);
+        }
+        addBloodPoint(fix.lat, fix.lng);
       },
       undefined,
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
@@ -2330,6 +2392,8 @@ export default function HuntingMap() {
     setIsTrackingBlood(false);
     setBloodPoints([]);
     setBloodRecovered(false);
+    bloodPathRef.current = [];
+    setBloodPath([]);
   }
 
   function addAreaPoint(lat: number, lng: number) {
@@ -3789,7 +3853,8 @@ export default function HuntingMap() {
               onHeadingChange={setLiveHeading}
             />
             <UserLocationMarker
-              enabled={mapTools.gps}
+              // Blood trailing shows where you are against the trail.
+              enabled={mapTools.gps || isTrackingBlood}
               follow={mapTools.gps && followUser}
               heading={liveHeading}
               onUserPan={() => setFollowUser(false)}
@@ -3922,10 +3987,17 @@ export default function HuntingMap() {
               : null}
 
             {/* Blood trail: hit → each find → recovery, with draggable marks. */}
-            {isTrackingBlood && bloodPoints.length >= 2 ? (
+            {isTrackingBlood && bloodTrailPath.length >= 2 ? (
               <Polyline
-                positions={bloodPoints.map((point) => [point.lat, point.lng])}
+                positions={bloodTrailPath.map((point) => [point.lat, point.lng])}
                 pathOptions={BLOOD_TRAIL_PATH_OPTIONS}
+              />
+            ) : null}
+            {/* Where you've walked since the last find — ground already searched. */}
+            {isTrackingBlood && bloodSearched.length >= 2 ? (
+              <Polyline
+                positions={bloodSearched.map((point) => [point.lat, point.lng])}
+                pathOptions={BLOOD_SEARCH_PATH_OPTIONS}
               />
             ) : null}
 
@@ -4188,8 +4260,9 @@ export default function HuntingMap() {
                 <div style={routeEntryStyle}>
                   <p style={helpTextStyle}>
                     After a shot: mark the hit, then drop a mark at each blood
-                    find as you track. Shows trail length and the deer&rsquo;s
-                    direction of travel.
+                    find as you track. Your phone records the path you walk, so
+                    the trail follows how you actually went, not a straight line.
+                    The screen stays on while you track.
                   </p>
                   <Button type="button" onClick={startBloodTrail}>
                     Start blood trail
