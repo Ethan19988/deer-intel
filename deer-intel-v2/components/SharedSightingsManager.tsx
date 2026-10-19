@@ -97,20 +97,26 @@ export default function SharedSightingsManager() {
   );
 }
 
+// Above the mobile tab bar (z-index 2200) and centered, so the buttons are
+// never hidden behind it; scrolls if a small screen can't fit the sheet.
 const backdropStyle: CSSProperties = {
   position: "fixed",
   inset: 0,
-  zIndex: 2000,
+  zIndex: 3000,
   display: "flex",
-  alignItems: "flex-end",
+  alignItems: "center",
   justifyContent: "center",
-  padding: "1rem",
-  background: "rgba(8, 12, 8, 0.55)",
+  padding: "max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom))",
+  overflowY: "auto",
+  background: "rgba(8, 12, 8, 0.7)",
 };
 
 const sheetStyle: CSSProperties = {
   width: "100%",
   maxWidth: "460px",
+  maxHeight: "100%",
+  overflowY: "auto",
+  margin: "auto",
   display: "grid",
   gap: "0.75rem",
   padding: "1.25rem",
