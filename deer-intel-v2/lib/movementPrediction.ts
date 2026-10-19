@@ -6,6 +6,8 @@
 // explainable — each rating carries the factors that produced it.
 
 import { clockToMinutes } from "@/lib/windViz";
+import { scoreMovement } from "@/lib/movementModel";
+import type { RutPhase } from "@/lib/seasonCalendar";
 
 export type LatLng = { lat: number; lng: number };
 
@@ -470,8 +472,16 @@ export type MovementForecastInput = {
   period: MovementPeriod;
   moonPhase?: string;
   pressureTrend?: "rising" | "steady" | "falling";
+  /** Current temperature in °F (the map loads weather in default units). */
   temperature?: string;
   propertySignal?: PropertyMovementSignal;
+  /** Barometer drop over the recent window (inHg), to tell a real front. */
+  pressureDropInHg?: number | null;
+  windMph?: number | null;
+  conditions?: string;
+  rutPhase?: RutPhase;
+  /** Moon illumination 0-100, when known (else read from the phase name). */
+  moonIllumination?: number | null;
 };
 
 const PERIOD_LABEL: Record<MovementPeriod, string> = {
@@ -486,74 +496,48 @@ export function movementPeriodLabel(period: MovementPeriod): string {
 }
 
 /**
- * A heuristic movement outlook. The prime windows are the two low-light edges of
- * the day; a falling barometer and a cold snap push deer onto their feet; a full
- * or new moon nudges the major feed periods. Each contribution is surfaced as a
- * factor so the number is never a mystery.
+ * Movement outlook for one time-of-day period on the map. Scored by the shared
+ * model in lib/movementModel.ts (the same one behind Today's gauge), so an
+ * ordinary dawn or dusk reads Fair rather than always Good. Each contribution
+ * is surfaced as a factor so the rating is never a mystery.
  */
 export function movementForecast(input: MovementForecastInput): MovementForecast {
-  const factors: string[] = [];
-  let score = 0;
-
-  if (input.period === "dawn" || input.period === "dusk") {
-    score += 3;
-    factors.push(`${PERIOD_LABEL[input.period]} — a prime low-light window`);
-  } else if (input.period === "night") {
-    score += 1;
-    factors.push("After dark — movement mostly nocturnal");
-  } else {
-    score -= 1;
-    factors.push("Midday lull — expect less movement");
-  }
-
-  if (input.pressureTrend === "falling") {
-    score += 2;
-    factors.push("Falling barometer ahead of a front");
-  } else if (input.pressureTrend === "steady") {
-    score += 1;
-    factors.push("Steady pressure");
-  } else if (input.pressureTrend === "rising") {
-    factors.push("Rising pressure — settling weather");
-  }
-
-  const temp = parseTemperature(input.temperature);
-  if (temp !== null) {
-    if (temp <= 45) {
-      score += 2;
-      factors.push(`Cold at ${Math.round(temp)}° — deer feed hard`);
-    } else if (temp <= 60) {
-      score += 1;
-      factors.push(`Cool at ${Math.round(temp)}°`);
-    } else if (temp >= 75) {
-      score -= 1;
-      factors.push(`Warm at ${Math.round(temp)}° — midday movement drops`);
-    }
-  }
-
-  if (input.moonPhase) {
-    const phase = input.moonPhase.toLowerCase();
-    if (phase.includes("full") || phase.includes("new")) {
-      score += 1;
-      factors.push(`${input.moonPhase} moon — stronger feed periods`);
-    }
-  }
-
-  // The property's own camera history leads the factor list — it's the signal
-  // unique to this ground — and its bump can push a generic rating up or down.
+  const tempF = parseTemperature(input.temperature);
   const signal = input.propertySignal;
+  const moonFromName = (() => {
+    const phase = (input.moonPhase ?? "").toLowerCase();
+    if (phase.includes("full")) return 100;
+    if (phase.includes("new")) return 0;
+    return null;
+  })();
+
+  const result = scoreMovement({
+    period: input.period,
+    tempF,
+    month: new Date().getMonth(),
+    pressureTrend: input.pressureTrend,
+    pressureDropInHg: input.pressureDropInHg ?? null,
+    windMph: input.windMph ?? null,
+    conditions: input.conditions,
+    rutPhase: input.rutPhase,
+    moonIllumination: input.moonIllumination ?? moonFromName,
+    propertyBump: signal?.hasSignal ? signal.bump : 0,
+  });
+
+  const factors = result.factors.map((factor) => factor.text);
+  // The property's own camera history leads the list: it's the signal unique
+  // to this ground (its text explains the bump, or why there isn't one yet).
   if (signal) {
-    score += signal.bump;
-    if (signal.hasSignal) {
-      factors.unshift(signal.factor);
-    } else {
-      factors.push(signal.factor);
-    }
+    const withoutGeneric = factors.filter((text) => !text.startsWith("Your cameras:"));
+    if (signal.hasSignal) withoutGeneric.unshift(signal.factor);
+    else withoutGeneric.push(signal.factor);
+    factors.splice(0, factors.length, ...withoutGeneric);
   }
 
   return {
     period: input.period,
-    rating: ratingForScore(score),
-    score,
+    rating: ratingForScore(result.score),
+    score: result.score,
     factors,
     personalized: signal?.hasSignal ?? false,
     sampleSize: signal?.sampleSize ?? 0,
@@ -561,9 +545,9 @@ export function movementForecast(input: MovementForecastInput): MovementForecast
 }
 
 function ratingForScore(score: number): MovementRating {
-  if (score >= 6) return "Prime";
+  if (score >= 5) return "Prime";
   if (score >= 4) return "Good";
-  if (score >= 2) return "Fair";
+  if (score >= 3) return "Fair";
   return "Low";
 }
 

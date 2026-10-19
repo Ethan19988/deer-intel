@@ -2,18 +2,21 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import {
+  coldFrontStatus,
   fetchLiveForecast,
+  fetchWeatherHistory,
   type LiveForecast,
   type WeatherPoint,
 } from "@/lib/liveWeather";
+import { buildMovementOutlook } from "@/lib/movementModel";
 import {
-  getMovementScore,
+  toMovementScore,
   type MovementScore,
   type MovementTone,
 } from "@/lib/movementScore";
 import { getMoonPhaseInfo } from "@/lib/moonPhase";
+import { getSeasonContext, useSeasonCalendar } from "@/lib/seasonCalendar";
 import { useUnitPreferences } from "@/lib/units";
-import { useMoonPhase } from "@/lib/useMoonPhase";
 import ScoreGauge from "@/components/weather/ScoreGauge";
 
 type MovementScorePanelProps = {
@@ -23,17 +26,16 @@ type MovementScorePanelProps = {
 type PanelState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "ok"; forecast: LiveForecast }
+  | { status: "ok"; forecast: LiveForecast; recentHighs: string[] }
   | { status: "error" };
 
-// A compact "deer movement" HUD for the Today hero. It reuses the same
-// Open-Meteo forecast the weather panel already loads (fetchLiveForecast is
-// cached by location + units, so this adds no extra network call) and turns the
-// barometric trend, wind, and moon into a single glanceable 1–5 rating.
+// A compact "deer movement" gauge plus a next-days outlook. Reuses the cached
+// forecast and adds a few days of history so temperature can be judged against
+// recent days (the strongest signal). Scoring lives in lib/movementModel.ts.
 export default function MovementScorePanel({ point }: MovementScorePanelProps) {
   const [state, setState] = useState<PanelState>({ status: "idle" });
   const units = useUnitPreferences();
-  const moon = useMoonPhase();
+  const seasonPrefs = useSeasonCalendar();
   const pointKey = point ? `${point.lat},${point.lng}` : "";
 
   useEffect(() => {
@@ -45,14 +47,22 @@ export default function MovementScorePanel({ point }: MovementScorePanelProps) {
     let active = true;
     setState({ status: "loading" });
 
-    fetchLiveForecast(point, units).then((result) => {
-      if (!active) return;
-      setState(
-        result.status === "ok"
-          ? { status: "ok", forecast: result.forecast }
-          : { status: "error" },
-      );
-    });
+    // The last few days' highs are the baseline for "warm" vs "cold snap".
+    Promise.all([fetchLiveForecast(point, units), fetchWeatherHistory(point, units, 4)]).then(
+      ([result, history]) => {
+        if (!active) return;
+        if (result.status !== "ok") {
+          setState({ status: "error" });
+          return;
+        }
+        const today = result.forecast.days[0]?.date ?? "";
+        const recentHighs =
+          history.status === "ok"
+            ? history.days.filter((day) => day.date < today).map((day) => day.high)
+            : [];
+        setState({ status: "ok", forecast: result.forecast, recentHighs });
+      },
+    );
 
     return () => {
       active = false;
@@ -63,39 +73,29 @@ export default function MovementScorePanel({ point }: MovementScorePanelProps) {
 
   if (state.status !== "ok") return null;
 
-  const windSpeedMph = parseWindMph(
-    state.forecast.current.windSpeed,
-    units.wind,
-  );
-  const movement = getMovementScore({
-    pressureTrend: state.forecast.pressure?.trend,
-    windSpeedMph,
-    moonIllumination: moon ? moon.illumination : null,
+  const outlookDays = buildMovementOutlook({
+    days: state.forecast.days,
+    recentHighs: state.recentHighs,
+    tempUnit: units.temperature,
+    todayPressureDropInHg: coldFrontStatus(state.forecast.pressure).dropInHg,
+    rutPhaseFor: (date) =>
+      getSeasonContext(new Date(`${date}T12:00:00`), seasonPrefs, point?.lat).phase,
+    moonFor: (date) => {
+      const ms = Date.parse(`${date}T12:00:00`);
+      return Number.isNaN(ms) ? null : getMoonPhaseInfo(ms).illumination;
+    },
   });
+  if (outlookDays.length === 0) return null;
 
+  const movement = toMovementScore(outlookDays[0].result);
   const accent = toneAccent(movement.tone);
 
-  // The next-days outlook so a hunter can pick the best day to sit. Day 0 reuses
-  // the headline score (identical inputs); later days fall back to the per-day
-  // forecast signals, since live current conditions only exist for today.
-  const outlook: Array<{ label: string; score: MovementScore }> =
-    state.forecast.days.map((day, index) => {
-      if (index === 0) return { label: day.label, score: movement };
-
-      const dayMs = Date.parse(`${day.date}T12:00:00`);
-      const illumination = Number.isNaN(dayMs)
-        ? null
-        : getMoonPhaseInfo(dayMs).illumination;
-
-      return {
-        label: day.label,
-        score: getMovementScore({
-          pressureTrend: day.pressureTrend,
-          windSpeedMph: parseWindMph(day.wind, units.wind),
-          moonIllumination: illumination,
-        }),
-      };
-    });
+  // The next-days outlook so a hunter can pick the best day to sit, scored
+  // with exactly the same model as today.
+  const outlook: Array<{ label: string; score: MovementScore }> = outlookDays.map((day) => ({
+    label: day.label,
+    score: toMovementScore(day.result),
+  }));
 
   return (
     <div style={{ ...cardStyle, border: `1px solid ${accent.border}` }}>
@@ -159,18 +159,6 @@ export default function MovementScorePanel({ point }: MovementScorePanelProps) {
   );
 }
 
-function parseWindMph(
-  windSpeed: string,
-  unit: "mph" | "kmh",
-): number | null {
-  const match = windSpeed.match(/-?\d+(\.\d+)?/);
-  if (!match) return null;
-
-  const value = Number(match[0]);
-  if (!Number.isFinite(value)) return null;
-
-  return unit === "kmh" ? value * 0.621371 : value;
-}
 
 function toneAccent(tone: MovementTone): {
   solid: string;
