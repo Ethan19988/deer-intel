@@ -1,8 +1,17 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { SHARING_DISCLOSURE } from "@/components/SharedSightingsManager";
 import Button from "@/components/ui/Button";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import {
+  readSharingChoice,
+  withdrawSightings,
+  writeSharingChoice,
+  type SharingChoice,
+} from "@/lib/sharedSightings";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 // localStorage keys that hold the hunter's saved records. Kept in sync with
 // lib/deerIntelStore (state + legacy properties) and lib/cloudSync (sync meta).
@@ -24,6 +33,24 @@ export default function DataPrivacyManager({
   cloudActive,
 }: DataPrivacyManagerProps) {
   const [confirmClear, setConfirmClear] = useState(false);
+  const { user } = useAuth();
+  const [sharing, setSharing] = useState<SharingChoice>("unasked");
+
+  useEffect(() => {
+    if (!user) return;
+    const sync = () => setSharing(readSharingChoice(user.id));
+    sync();
+    window.addEventListener("deer-intel:sharing-changed", sync);
+    return () => window.removeEventListener("deer-intel:sharing-changed", sync);
+  }, [user]);
+
+  async function setSharingOn(on: boolean) {
+    if (!user) return;
+    writeSharingChoice(user.id, on ? "on" : "off");
+    // Turning it off also removes everything this account already shared.
+    const client = getSupabaseClient();
+    if (!on && client) await withdrawSightings(client, user.id).catch(() => undefined);
+  }
 
   function handleClearAll() {
     try {
@@ -58,6 +85,25 @@ export default function DataPrivacyManager({
           </li>
         </ul>
       </div>
+
+      {user ? (
+        <div>
+          <p style={headingStyle}>Shared movement learning</p>
+          <p style={sharingTextStyle}>{SHARING_DISCLOSURE}</p>
+          <label style={toggleRowStyle}>
+            <input
+              type="checkbox"
+              checked={sharing === "on"}
+              onChange={(event) => void setSharingOn(event.target.checked)}
+              style={checkboxStyle}
+            />
+            <span>Share anonymous sightings</span>
+          </label>
+          <p style={sharingNoteStyle}>
+            Turning this off deletes what this account already shared.
+          </p>
+        </div>
+      ) : null}
 
       <div>
         <p style={headingStyle}>What gets sent to third parties</p>
@@ -121,6 +167,34 @@ export default function DataPrivacyManager({
     </div>
   );
 }
+
+const sharingTextStyle: CSSProperties = {
+  margin: "0 0 0.6rem",
+  color: "var(--text-muted)",
+  lineHeight: 1.5,
+};
+
+const toggleRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.6rem",
+  minHeight: "44px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const checkboxStyle: CSSProperties = {
+  width: "22px",
+  height: "22px",
+  minHeight: "22px",
+  accentColor: "var(--accent)",
+};
+
+const sharingNoteStyle: CSSProperties = {
+  margin: "0.2rem 0 0",
+  color: "var(--text-faint)",
+  fontSize: "0.85rem",
+};
 
 const wrapStyle: CSSProperties = {
   display: "grid",

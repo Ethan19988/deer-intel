@@ -27,6 +27,11 @@ function hasTimeOfDay(photo: PhotoRecord): boolean {
   return /T?\d{1,2}:\d{2}/.test(photo.photoDate.slice(10));
 }
 
+/** A deer photo with a real capture time: the unit every timing chart counts. */
+export function isTimedDeerPhoto(photo: PhotoRecord): boolean {
+  return hasTimeOfDay(photo) && !NOT_DEER.test(photo.species);
+}
+
 export function isBuckRecord(photo: PhotoRecord): boolean {
   return getPhotoBuckNames(photo).length > 0 || /buck|antler/i.test(photo.species);
 }
@@ -42,7 +47,7 @@ export function buildHourlyActivity(
   let total = 0;
 
   for (const photo of photos) {
-    if (!hasTimeOfDay(photo) || NOT_DEER.test(photo.species)) continue;
+    if (!isTimedDeerPhoto(photo)) continue;
     const time = photoRecordTime(photo);
     if (!time || time < since || time > now.getTime()) continue;
 

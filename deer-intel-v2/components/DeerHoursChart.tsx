@@ -8,6 +8,8 @@ type DeerHoursChartProps = {
   sunsetHour?: number;
   /** Fractional local hour for the "now" marker. */
   nowHour?: number;
+  /** Set when the bars are a regional pool rather than this property's cameras. */
+  regional?: { regionLabel: string; contributors: number };
 };
 
 const W = 360;
@@ -33,6 +35,7 @@ export default function DeerHoursChart({
   sunriseHour,
   sunsetHour,
   nowHour,
+  regional,
 }: DeerHoursChartProps) {
   if (activity.total === 0) return null;
 
@@ -44,14 +47,17 @@ export default function DeerHoursChart({
   return (
     <section style={panelStyle} aria-label="When deer move here">
       <div style={headerStyle}>
-        <h2 style={titleStyle}>When deer move here</h2>
+        <h2 style={titleStyle}>
+          {regional ? `When deer move in ${regional.regionLabel}` : "When deer move here"}
+        </h2>
         <span style={subtleStyle}>Last {activity.windowDays} days</span>
       </div>
       <p style={headlineStyle}>
         {peak !== null ? (
           <>
             Busiest <strong>{hourLabel(peak)} to {hourLabel(peak + 2)}</strong>,
-            from {activity.total} timed photos.
+            from {activity.total} timed photos
+            {regional ? ` shared by ${regional.contributors} hunters` : ""}.
           </>
         ) : (
           `${activity.total} timed photos so far. A pattern shows after a few more.`

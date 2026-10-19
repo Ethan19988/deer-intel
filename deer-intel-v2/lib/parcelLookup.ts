@@ -79,7 +79,7 @@ export async function lookupPaParcelOwnerAtPoint(
   }
 }
 
-async function lookupPaCountyAtPoint(
+export async function lookupPaCountyAtPoint(
   lat: number,
   lng: number,
 ): Promise<ParcelLookupCounty | null> {
