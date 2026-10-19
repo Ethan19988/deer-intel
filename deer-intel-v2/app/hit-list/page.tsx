@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageShell from "@/components/ui/PageShell";
 import PageHeader from "@/components/ui/PageHeader";
@@ -13,7 +13,8 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { useActiveParty } from "@/components/party/PartyProvider";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
 import { usePartyBucks, usePartyBuckPhotos, usePartyRoster } from "@/lib/useParty";
-import { getDeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
+import DeerProfilesSection from "@/components/properties/dashboard/DeerProfilesSection";
+import { getDeerProfileSummaries } from "@/lib/deerProfiles";
 import type { PartyBuck } from "@/types/party";
 
 type Stat = { label: string; value: string };
@@ -28,46 +29,49 @@ export default function HitListPage() {
     setBuckSharingEnabled,
   } = useActiveParty();
 
-  const propertyNameById = useMemo(
-    () => new Map(state.properties.map((p) => [p.id, p.name])),
-    [state.properties],
-  );
+  // ?buck=<id> (from Today's hit list) opens that buck. Read after mount so
+  // the page can still prerender without a search-params boundary.
+  const [buckParam, setBuckParam] = useState<string | undefined>();
+  useEffect(() => {
+    const buck = new URLSearchParams(window.location.search).get("buck");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (buck) setBuckParam(buck);
+  }, []);
 
-  // Each tracked buck with its computed movement pattern. A single buck whose
-  // data trips up the intelligence read is skipped rather than blanking the
-  // whole page.
-  const myBucks = useMemo(
-    () =>
-      state.deerProfiles
-        .map((profile) => {
-          try {
-            const propertyName = propertyNameById.get(profile.propertyId) ?? "";
-            const intel = getDeerProfileIntelligence({
-              profile,
-              propertyName,
-              cameras: state.cameras,
-              photoRecords: state.photoRecords,
-              cameraChecks: state.cameraChecks,
-              hunts: state.hunts,
-              pins: state.pins,
-            });
-            return { profile, propertyName, intel };
-          } catch {
-            return null;
-          }
-        })
-        .filter((entry): entry is NonNullable<typeof entry> => entry !== null),
-    [state, propertyNameById],
-  );
+  const property =
+    state.properties.find((item) => item.id === state.selectedPropertyId) ??
+    state.properties[0];
+  const propertyId = property?.id ?? "";
+  const propertyPhotos = state.photoRecords.filter((photo) => photo.propertyId === propertyId);
+  const summaries = getDeerProfileSummaries({
+    profiles: state.deerProfiles.filter((profile) => profile.propertyId === propertyId),
+    photoRecords: propertyPhotos,
+  });
 
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Hit list"
-        title="Buck inventory"
-        description="Every buck you're tracking, with the movement pattern the app has learned from your trail-cam photos. Share the list with your party so everyone hunts the same targets."
+        eyebrow="Bucks"
+        title={property ? `Bucks on ${property.name}` : "Bucks"}
+        description="Every buck you're tracking, with the movement pattern learned from your trail-cam photos. Tag a buck on a camera photo to add him."
         icon={<DeerIcon size={26} />}
       />
+
+      {property ? (
+        <ErrorBoundary fallbackTitle="Your bucks couldn't load">
+          <DeerProfilesSection
+            key={buckParam ?? "all"}
+            initialProfileId={buckParam}
+            summaries={summaries}
+            propertyName={property.name}
+            cameras={state.cameras.filter((camera) => camera.propertyId === propertyId)}
+            photoRecords={propertyPhotos}
+            cameraChecks={state.cameraChecks.filter((check) => check.propertyId === propertyId)}
+            hunts={state.hunts.filter((hunt) => hunt.propertyId === propertyId)}
+            pins={state.pins.filter((pin) => pin.propertyId === propertyId)}
+          />
+        </ErrorBoundary>
+      ) : null}
 
       {available ? (
         <CollapsibleSection
@@ -105,41 +109,6 @@ export default function HitListPage() {
           </p>
         </CollapsibleSection>
       )}
-
-      <ErrorBoundary fallbackTitle="Your buck list couldn't load">
-        <Section eyebrow="Your bucks" title={`Tracking ${myBucks.length} buck${myBucks.length === 1 ? "" : "s"}`}>
-          {myBucks.length === 0 ? (
-            <Card>
-              <p style={{ margin: 0, color: "var(--text-muted)" }}>
-                No bucks yet. Add deer profiles on a property and link trail-cam
-                photos — the movement pattern builds itself from there.
-              </p>
-            </Card>
-          ) : (
-            <div style={gridStyle}>
-              {myBucks.map(({ profile, propertyName, intel }) => (
-                <BuckCard
-                  key={profile.id}
-                  title={(profile.nickname ?? "").trim() || "Unnamed buck"}
-                  subtitle={propertyName}
-                  badges={[(profile.estimatedAge ?? "").trim(), intel.maturityStatus.title].filter(Boolean)}
-                  stats={[
-                    { label: "Sightings", value: String(intel.sightingCount) },
-                    { label: "Last seen", value: intel.mostRecentSighting.title },
-                    { label: "Best time", value: intel.commonTimeOfDay.title },
-                    { label: "Common area", value: intel.commonArea.title },
-                    {
-                      label: "Cameras",
-                      value: intel.associatedCameraSites.join(", ") || "—",
-                    },
-                  ]}
-                  notable={(profile.notes ?? "").trim()}
-                />
-              ))}
-            </div>
-          )}
-        </Section>
-      </ErrorBoundary>
 
       {activeParty ? (
         <ErrorBoundary fallbackTitle="The party hit list couldn't load">

@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import AddCameraCard from "@/components/cameras/AddCameraCard";
 import CameraCard from "@/components/cameras/CameraCard";
+import EditCameraCard from "@/components/cameras/EditCameraCard";
 import CameraIntelligenceSection from "@/components/cameras/CameraIntelligenceSection";
 import EmptyState from "@/components/ui/EmptyState";
 import {
@@ -19,7 +19,6 @@ import Section from "@/components/ui/Section";
 import StatCard from "@/components/ui/StatCard";
 import Tabs from "@/components/ui/Tabs";
 import {
-  updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { getCameraIntelligenceSummary } from "@/lib/cameraIntelligence";
@@ -30,7 +29,18 @@ import type { Camera } from "@/types/camera";
 const RUT_WATCH_DAYS = 7;
 
 export default function CamerasPage() {
-  const router = useRouter();
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // /cameras?edit=<id> (e.g. from a camera's own page) opens its editor.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("edit");
+    if (!id) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEditingId(id);
+    requestAnimationFrame(() =>
+      document.getElementById(`camera-${id}`)?.scrollIntoView({ block: "start" }),
+    );
+  }, []);
   const state = useDeerIntelStore();
   const selectedProperty =
     state.properties.find(
@@ -68,19 +78,9 @@ export default function CamerasPage() {
         ?.name ?? "a camera site"
     : "";
 
-  function selectProperty(propertyId: string) {
-    updateDeerIntelStore((currentState) => ({
-      ...currentState,
-      selectedPropertyId: propertyId,
-    }));
-  }
 
   function editCamera(camera: Camera) {
-    router.push(
-      `/properties/${camera.propertyId}?editCameraId=${encodeURIComponent(
-        camera.id,
-      )}#camera-sites`,
-    );
+    setEditingId(camera.id);
   }
 
   if (state.properties.length === 0) {
@@ -147,14 +147,22 @@ export default function CamerasPage() {
           >
             <div style={cardGridStyle}>
               {propertyCameras.map((camera) => (
-                <CameraCard
-                  key={camera.id}
-                  camera={camera}
-                  onEdit={editCamera}
-                  photoRecords={propertyPhotos.filter(
-                    (photo) => photo.cameraSiteId === camera.id,
-                  )}
-                />
+                camera.id === editingId ? (
+                  <EditCameraCard
+                    key={camera.id}
+                    camera={camera}
+                    onDone={() => setEditingId(null)}
+                  />
+                ) : (
+                  <CameraCard
+                    key={camera.id}
+                    camera={camera}
+                    onEdit={editCamera}
+                    photoRecords={propertyPhotos.filter(
+                      (photo) => photo.cameraSiteId === camera.id,
+                    )}
+                  />
+                )
               ))}
             </div>
           </Section>
@@ -209,20 +217,6 @@ export default function CamerasPage() {
           </div>
         </div>
         <div style={headerRightStyle}>
-          <label style={pickerStyle}>
-            <span style={pickerLabelStyle}>Property</span>
-            <select
-              style={selectStyle}
-              value={selectedPropertyId}
-              onChange={(event) => selectProperty(event.target.value)}
-            >
-              {state.properties.map((property) => (
-                <option key={property.id} value={property.id}>
-                  {property.name}
-                </option>
-              ))}
-            </select>
-          </label>
           <div style={headerActionsStyle}>
             <Link href="/cameras/import" style={secondaryLinkStyle} className="di-navbtn">
               <CameraIcon size={17} />
@@ -322,29 +316,8 @@ const titleStyle: CSSProperties = {
   textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
 };
 
-const pickerStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.5rem",
-  marginTop: "0.15rem",
-};
 
-const pickerLabelStyle: CSSProperties = {
-  color: "rgba(243, 237, 217, 0.82)",
-  fontSize: "0.85rem",
-  fontWeight: 800,
-};
 
-const selectStyle: CSSProperties = {
-  minHeight: "42px",
-  flex: 1,
-  minWidth: 0,
-  padding: "0.5rem 0.65rem",
-  border: "1px solid rgba(243, 237, 217, 0.3)",
-  borderRadius: "var(--radius-sm)",
-  background: "rgba(243, 237, 217, 0.14)",
-  color: "#f6efd6",
-};
 
 // Two equal buttons on one row keeps the header short on a phone.
 const headerActionsStyle: CSSProperties = {

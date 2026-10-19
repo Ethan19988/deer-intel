@@ -22,7 +22,6 @@ import {
 import { checkAiScoutConfigured, requestAiScoutReport } from "@/lib/aiScoutClient";
 import { useAiScoutEnabled } from "@/lib/aiScoutPreferences";
 import {
-  updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import {
@@ -104,12 +103,6 @@ export default function AIPage() {
   const observations = aggregateCameraActivity(propertyCameras, propertyCameraChecks);
   const scoutPicks = terrainReview ? getScoutPicks(terrainReview, observations) : [];
 
-  function selectProperty(propertyId: string) {
-    updateDeerIntelStore((currentState) => ({
-      ...currentState,
-      selectedPropertyId: propertyId,
-    }));
-  }
 
   const aiScoutEnabled = useAiScoutEnabled();
   const [aiScoutConfigured, setAiScoutConfigured] = useState<boolean | null>(null);
@@ -201,8 +194,8 @@ export default function AIPage() {
         />
       </Card>
 
-      <Section eyebrow="Property" title="Choose Property">
-        {state.properties.length === 0 ? (
+      {state.properties.length === 0 ? (
+        <Section eyebrow="Property" title="Add a property">
           <EmptyState
             illustration={<TargetIcon size={30} />}
             title="No properties yet"
@@ -213,25 +206,8 @@ export default function AIPage() {
               </Link>
             }
           />
-        ) : (
-          <Card as="div" variant="subtle">
-            <label style={fieldStyle}>
-              <span style={labelStyle}>Property</span>
-              <select
-                style={selectStyle}
-                value={selectedPropertyId}
-                onChange={(event) => selectProperty(event.target.value)}
-              >
-                {state.properties.map((property) => (
-                  <option key={property.id} value={property.id}>
-                    {property.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </Card>
-        )}
-      </Section>
+        </Section>
+      ) : null}
 
       {hub && selectedProperty ? (
         <>
@@ -597,15 +573,6 @@ const labelStyle: CSSProperties = {
   fontWeight: 800,
 };
 
-const selectStyle: CSSProperties = {
-  minHeight: "48px",
-  width: "100%",
-  padding: "0.75rem",
-  border: "1px solid var(--border)",
-  borderRadius: "8px",
-  background: "var(--surface-2)",
-  color: "var(--text)",
-};
 
 const bulletListStyle: CSSProperties = {
   display: "grid",

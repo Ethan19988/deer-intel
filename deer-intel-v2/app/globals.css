@@ -1112,7 +1112,8 @@ textarea {
     box-shadow: 0 -14px 32px rgba(16, 32, 20, 0.1);
   }
 
-  .di-mobile-nav a {
+  .di-mobile-nav a,
+  .di-mobile-nav .di-mobile-more {
     display: inline-flex;
     min-height: 54px;
     flex-direction: column;
@@ -1129,7 +1130,14 @@ textarea {
     text-decoration: none;
   }
 
-  .di-mobile-nav a[aria-current="page"] {
+  .di-mobile-nav .di-mobile-more {
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .di-mobile-nav a[aria-current="page"],
+  .di-mobile-nav .di-mobile-more[aria-current="page"],
+  .di-mobile-nav .di-mobile-more[aria-expanded="true"] {
     background: var(--accent-tint);
     border-color: var(--accent-tint-border);
     color: var(--accent-text);
@@ -1777,4 +1785,61 @@ textarea {
 .di-wind-wedge:focus-visible path {
   stroke: var(--accent);
   stroke-width: 4;
+}
+
+/* Phone "More" menu: everything not in the bottom bar. */
+.di-more-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2150;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 0.65rem calc(86px + env(safe-area-inset-bottom));
+  background: rgba(8, 12, 8, 0.45);
+}
+
+.di-more-sheet {
+  width: 100%;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.di-more-link {
+  display: flex;
+  min-height: 64px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+}
+
+.di-more-link[aria-current="page"] {
+  border-color: var(--accent-tint-border);
+  background: var(--accent-tint);
+  color: var(--accent-text);
+}
+
+.di-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }

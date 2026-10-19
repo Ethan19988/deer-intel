@@ -287,7 +287,7 @@ function getNeedsAttention({
     items.push({
       title: "Camera Sites",
       detail: "No camera sites are saved for this property.",
-      href: `/properties/${property.id}#camera-sites`,
+      href: "/cameras#add-camera",
     });
   }
 

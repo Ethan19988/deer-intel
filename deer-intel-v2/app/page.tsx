@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
-import ActionCard from "@/components/ui/ActionCard";
 import Card from "@/components/ui/Card";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
@@ -44,7 +42,7 @@ import { getPhotoBuckNames, photoRecordTime } from "@/lib/photos";
 import type { PhotoRecord } from "@/types/photo";
 import BackupReminderBanner from "@/components/BackupReminderBanner";
 import { countRecords } from "@/lib/backupReminder";
-import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
+import { useDeerIntelStore } from "@/lib/deerIntelStore";
 import {
   fetchLiveForecast,
   resolvePropertyWeatherPoint,
@@ -52,33 +50,7 @@ import {
 } from "@/lib/liveWeather";
 import { useUnitPreferences } from "@/lib/units";
 import { useSeasonCalendar, getSeasonContext } from "@/lib/seasonCalendar";
-import { getHuntPlannerSummary, plannerHuntDate } from "@/lib/huntPlanner";
-import {
-  ClipboardIcon,
-  MapIcon,
-  MapPinIcon,
-} from "@/components/ui/FieldIcons";
-
-const HOME_ACTIONS = [
-  {
-    href: "/map",
-    title: "Start Scouting",
-    description: "Open the map, check your position, and add field pins.",
-    icon: <MapPinIcon size={22} />,
-  },
-  {
-    href: "/hunt-log",
-    title: "Start Hunt",
-    description: "Review the last sit or log what happens tonight.",
-    icon: <ClipboardIcon size={22} />,
-  },
-  {
-    href: "/map",
-    title: "Open Map",
-    description: "Go straight to layers, GPS, pins, and property overlays.",
-    icon: <MapIcon size={22} />,
-  },
-];
+import { getHuntPlannerSummary } from "@/lib/huntPlanner";
 
 // Fixed pre-mount clock (see verdict below); any constant works.
 const HYDRATION_SAFE_NOW = new Date(2000, 0, 1, 12, 0);
@@ -168,13 +140,6 @@ export default function Home() {
     const timer = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(timer);
   }, []);
-
-  function selectProperty(propertyId: string) {
-    updateDeerIntelStore((currentState) => ({
-      ...currentState,
-      selectedPropertyId: propertyId,
-    }));
-  }
 
   const tempUnit = units.temperature;
   const windUnit = units.wind;
@@ -306,23 +271,6 @@ export default function Home() {
       />
 
       <div style={todayStackStyle}>
-        {state.properties.length > 1 ? (
-          <label style={pickerStyle}>
-            <span style={pickerLabelStyle}>Property</span>
-            <select
-              style={selectStyle}
-              value={activePropertyId}
-              onChange={(event) => selectProperty(event.target.value)}
-            >
-              {state.properties.map((property) => (
-                <option key={property.id} value={property.id}>
-                  {property.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-
         <ConditionsStrip
           windDirection={forecast?.current.windDirection}
           windSpeed={forecast?.current.windSpeed}
@@ -399,65 +347,13 @@ export default function Home() {
         </Card>
       </div>
 
-      <Section eyebrow="Property" title="Active Property">
-        <Card as="article" variant="subtle" style={activePropertyStyle}>
-          <div style={activePropertyHeaderStyle}>
-            <div>
-              <h2 style={activePropertyTitleStyle}>
-                {activeProperty?.name ?? "No property selected"}
-              </h2>
-              <p style={mutedTextStyle}>
-                {activeProperty
-                  ? propertySubtitle(activeProperty.county, activeProperty.acres)
-                  : "Create a property to unlock map pins, stands, cameras, and deer profiles."}
-              </p>
-            </div>
-            <Link
-              href={activeProperty ? `/properties/${activeProperty.id}` : "/properties"}
-              style={propertyLinkStyle}
-              className="di-navbtn"
-            >
-              Open Property
-            </Link>
-          </div>
-
-          <div style={propertyStatsStyle}>
-            <MiniStat label="Cameras" value={propertyCameras.length} />
-            <MiniStat label="Stands" value={propertyStands.length} />
-            <MiniStat label="Pins" value={propertyPins.length} />
-          </div>
-        </Card>
-      </Section>
-
       {activeProperty && hasPatternSignal ? (
         <Section eyebrow="Patterns" title="What's Been Working">
           <PropertyPatternReport report={patternReport} limit={2} />
         </Section>
       ) : null}
 
-      <section style={actionGridStyle} aria-label="Primary actions">
-        {HOME_ACTIONS.map((action) => (
-          <ActionCard
-            key={`${action.href}-${action.title}`}
-            href={action.href}
-            title={action.title}
-            description={action.description}
-            icon={action.icon}
-            size="large"
-            tone="primary"
-          />
-        ))}
-      </section>
     </PageShell>
-  );
-}
-
-function MiniStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div style={miniStatStyle}>
-      <span style={miniStatValueStyle}>{value}</span>
-      <span style={miniStatLabelStyle}>{label}</span>
-    </div>
   );
 }
 
@@ -466,36 +362,6 @@ function isoHour(iso: string | undefined): number | undefined {
   const [h, m] = (iso?.split("T")[1] ?? "").split(":").map(Number);
   return Number.isFinite(h) && Number.isFinite(m) ? h + m / 60 : undefined;
 }
-
-function propertySubtitle(county?: string, acres?: string) {
-  return [county, acres ? `${acres} acres` : ""]
-    .filter(Boolean)
-    .join(" / ") || "Property workspace";
-}
-
-const pickerStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.6rem",
-};
-
-const pickerLabelStyle: CSSProperties = {
-  color: "var(--text-muted)",
-  fontSize: "0.9rem",
-  fontWeight: 700,
-};
-
-const selectStyle: CSSProperties = {
-  flex: 1,
-  minHeight: "44px",
-  padding: "0.55rem 0.75rem",
-  borderRadius: "12px",
-  border: "1px solid var(--border)",
-  background: "var(--surface)",
-  color: "var(--text)",
-  fontSize: "1rem",
-  fontWeight: 700,
-};
 
 const todayStackStyle: CSSProperties = {
   display: "grid",
@@ -512,81 +378,5 @@ const instrumentsRowStyle: CSSProperties = {
   gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))",
   gap: "0.8rem",
   margin: "1rem 0",
-};
-
-const mutedTextStyle: CSSProperties = {
-  margin: "0.45rem 0 0",
-  color: "var(--text-muted)",
-  lineHeight: 1.45,
-};
-
-const activePropertyStyle: CSSProperties = {
-  display: "grid",
-  gap: "1rem",
-};
-
-const activePropertyHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: "1rem",
-  flexWrap: "wrap",
-};
-
-const activePropertyTitleStyle: CSSProperties = {
-  margin: 0,
-  fontSize: "1.35rem",
-  lineHeight: 1.2,
-};
-
-const propertyLinkStyle: CSSProperties = {
-  display: "inline-flex",
-  minHeight: "46px",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: "0.65rem 0.85rem",
-  border: "1px solid var(--accent)",
-  borderRadius: "8px",
-  background: "var(--accent)",
-  color: "white",
-  fontWeight: 850,
-  textDecoration: "none",
-};
-
-const propertyStatsStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: "0.65rem",
-};
-
-const miniStatStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.15rem",
-  minHeight: "68px",
-  alignContent: "center",
-  padding: "0.65rem",
-  border: "1px solid var(--border)",
-  borderRadius: "8px",
-  background: "var(--surface)",
-};
-
-const miniStatValueStyle: CSSProperties = {
-  color: "var(--accent-2)",
-  fontSize: "1.5rem",
-  fontWeight: 900,
-  lineHeight: 1,
-};
-
-const miniStatLabelStyle: CSSProperties = {
-  color: "var(--text-muted)",
-  fontSize: "0.86rem",
-  fontWeight: 800,
-};
-
-const actionGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: "1rem",
-  marginTop: "1.75rem",
 };
 

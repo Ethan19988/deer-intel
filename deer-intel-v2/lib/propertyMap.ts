@@ -665,13 +665,11 @@ export function getAssetDetailHref(
 
 export function getAssetEditHref(
   asset: MapAsset,
-  propertyId: string,
+  _propertyId: string,
 ): MapAssetRoute {
   if (asset.source === "camera") {
     return {
-      href: `/properties/${propertyId}?editCameraId=${encodeURIComponent(
-        asset.sourceId,
-      )}#camera-sites`,
+      href: `/cameras?edit=${encodeURIComponent(asset.sourceId)}`,
     };
   }
 
