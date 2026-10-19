@@ -20,7 +20,18 @@ import StandWindGrid from "@/components/StandWindGrid";
 import BuckSlideshow from "@/components/BuckSlideshow";
 import { buildHitListSlides } from "@/lib/hitListSlides";
 import DeerHoursChart from "@/components/DeerHoursChart";
-import { buildHourlyActivity, isBuckRecord } from "@/lib/hourlyActivity";
+import {
+  ACTIVITY_WINDOW_DAYS,
+  buildHourlyActivity,
+  isBuckRecord,
+} from "@/lib/hourlyActivity";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { getSupabaseClient } from "@/lib/supabaseClient";
+import {
+  fetchRegionalActivity,
+  regionForPoint,
+  type RegionalActivity,
+} from "@/lib/sharedSightings";
 import StandCheckPanel from "@/components/StandCheckPanel";
 import TodayVerdictHero, { type HeroPhoto } from "@/components/TodayVerdictHero";
 import ConditionsStrip from "@/components/ConditionsStrip";
@@ -71,6 +82,8 @@ const HOME_ACTIONS = [
 
 // Fixed pre-mount clock (see verdict below); any constant works.
 const HYDRATION_SAFE_NOW = new Date(2000, 0, 1, 12, 0);
+// Below this many of your own timed photos, the regional pattern is shown.
+const OWN_PHOTOS_FOR_CHART = 15;
 
 export default function Home() {
   const state = useDeerIntelStore();
@@ -118,6 +131,29 @@ export default function Home() {
     ? `${weatherPoint.lat},${weatherPoint.lng}`
     : "";
   const [forecast, setForecast] = useState<LiveForecast | null>(null);
+  const { user } = useAuth();
+  const [regionalActivity, setRegionalActivity] = useState<RegionalActivity | null>(null);
+
+  // Regional pattern from shared, anonymous sightings (signed-in accounts).
+  useEffect(() => {
+    const client = getSupabaseClient();
+    if (!user || !client || !weatherKey) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRegionalActivity(null);
+      return;
+    }
+    const [lat, lng] = weatherKey.split(",").map(Number);
+    let active = true;
+    regionForPoint(lat, lng)
+      .then((region) => fetchRegionalActivity(client, region, ACTIVITY_WINDOW_DAYS))
+      .then((activity) => {
+        if (active) setRegionalActivity(activity);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [user, weatherKey]);
   const units = useUnitPreferences();
   const seasonPrefs = useSeasonCalendar();
   const [now, setNow] = useState<Date | null>(null);
@@ -197,6 +233,12 @@ export default function Home() {
     propertyPhotoRecords,
     now ?? HYDRATION_SAFE_NOW,
   );
+  // Until this property has a real sample of its own timed photos, show the
+  // anonymous regional pattern (when there's enough of one).
+  const chartActivity =
+    hourlyActivity.total < OWN_PHOTOS_FOR_CHART && regionalActivity
+      ? regionalActivity
+      : hourlyActivity;
 
   const hitListSlides = activeProperty
     ? buildHitListSlides({
@@ -310,7 +352,15 @@ export default function Home() {
         />
 
         <DeerHoursChart
-          activity={hourlyActivity}
+          activity={chartActivity}
+          regional={
+            chartActivity === regionalActivity && regionalActivity
+              ? {
+                  regionLabel: regionalActivity.regionLabel,
+                  contributors: regionalActivity.contributors,
+                }
+              : undefined
+          }
           sunriseHour={isoHour(forecast?.sunriseIso)}
           sunsetHour={isoHour(forecast?.sunsetIso)}
           nowHour={now ? now.getHours() + now.getMinutes() / 60 : undefined}
