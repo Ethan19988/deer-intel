@@ -7,12 +7,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
-import {
-  CompassIcon,
-  StandIcon,
-  TargetIcon,
-} from "@/components/ui/FieldIcons";
-import CollapsibleSection from "@/components/ui/CollapsibleSection";
+import { TargetIcon } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Section from "@/components/ui/Section";
 import {
@@ -24,10 +19,6 @@ import { useAiScoutEnabled } from "@/lib/aiScoutPreferences";
 import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
-import {
-  getDeerIntelligenceHubSummary,
-  type DeerHubItem,
-} from "@/lib/deerIntelligenceHub";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { clipTerrainSetToArea, getScoutPicks } from "@/lib/terrainMovementData";
 import { aggregateCameraActivity } from "@/lib/terrainLearning";
@@ -36,7 +27,6 @@ import {
   centerOfBounds,
   useTerrainSet,
 } from "@/lib/useTerrainSet";
-import { TERRAIN_STYLE } from "@/lib/terrainMovement";
 import { useMoonPhase } from "@/lib/useMoonPhase";
 import type { AiScoutConditions, AiScoutReport } from "@/types/aiScout";
 
@@ -68,21 +58,9 @@ export default function AIPage() {
   const propertyPins = state.pins.filter(
     (pin) => pin.propertyId === selectedPropertyId,
   );
-  const hub = selectedProperty
-    ? getDeerIntelligenceHubSummary({
-        property: selectedProperty,
-        cameras: propertyCameras,
-        cameraChecks: propertyCameraChecks,
-        stands: propertyStands,
-        hunts: propertyHunts,
-        photoRecords: propertyPhotoRecords,
-        deerProfiles: propertyDeerProfiles,
-        pins: propertyPins,
-      })
-    : null;
 
   // Terrain-predicted scouting spots for this property, if a LiDAR read covers
-  // its location. Surfaced as its own section and fed into the AI Scout context
+  // its location. Fed into the AI Scout context
   // so the LLM can weigh terrain against the hunter's saved stands.
   // The drawn hunt area anchors the read when there is one — a property with
   // only an outline (no saved coordinate or pins) otherwise resolved to no
@@ -102,7 +80,6 @@ export default function AIPage() {
   const terrainReview = clipTerrainSetToArea(terrainSet, selectedProperty?.huntArea);
   const observations = aggregateCameraActivity(propertyCameras, propertyCameraChecks);
   const scoutPicks = terrainReview ? getScoutPicks(terrainReview, observations) : [];
-
 
   const aiScoutEnabled = useAiScoutEnabled();
   const [aiScoutConfigured, setAiScoutConfigured] = useState<boolean | null>(null);
@@ -182,15 +159,9 @@ export default function AIPage() {
       <Card as="section" variant="elevated" style={heroCardStyle}>
         <PageHeader
           icon={<TargetIcon size={26} />}
-          eyebrow="Deer Intelligence"
-          title="Deer Intelligence Hub"
-          description="A simple readout for what matters right now on one property. No charts, no AI calls, just plain hunting information from your saved Deer Intel data."
-          meta={
-            <>
-              <Badge variant="success">Rule Based</Badge>
-              <Badge>No AI Calls Yet</Badge>
-            </>
-          }
+          eyebrow={selectedProperty ? selectedProperty.name : "Assistant"}
+          title="AI Scout"
+          description="Ask for a stand pick grounded in this property's saved stands, sits, camera checks, buck photos, and terrain read. Today's verdict, best stand, and buck activity live on the Today screen."
         />
       </Card>
 
@@ -199,7 +170,7 @@ export default function AIPage() {
           <EmptyState
             illustration={<TargetIcon size={30} />}
             title="No properties yet"
-            description="Add a property before Deer Intel can build an intelligence hub."
+            description="Add a property before AI Scout can read its stands, sits, and cameras."
             action={
               <Link href="/properties" style={primaryLinkStyle} className="di-navbtn">
                 Add Property
@@ -209,152 +180,8 @@ export default function AIPage() {
         </Section>
       ) : null}
 
-      {hub && selectedProperty ? (
+      {selectedProperty ? (
         <>
-          <Section
-            eyebrow="Right now"
-            title="What's Happening"
-            icon={<CompassIcon size={18} />}
-          >
-            <Card as="div" variant="subtle">
-              <ul style={bulletListStyle}>
-                {hub.whatsHappening.map((insight) => (
-                  <li key={insight} style={bulletItemStyle}>
-                    {insight}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </Section>
-
-          <Section
-            eyebrow="Top pick"
-            title="Best Stand"
-            icon={<StandIcon size={18} />}
-          >
-            <Card as="article" variant="subtle">
-              <div style={simpleHeaderStyle}>
-                <div>
-                  <p style={eyebrowStyle}>Recommended Stand</p>
-                  <h2 style={cardTitleStyle}>{hub.bestStand.name}</h2>
-                </div>
-                <Badge variant={hub.bestStand.href ? "success" : "warning"}>
-                  One Pick
-                </Badge>
-              </div>
-              <p style={mutedTextStyle}>{hub.bestStand.reason}</p>
-              {hub.bestStand.href ? (
-                <Link href={hub.bestStand.href} style={primaryLinkStyle} className="di-navbtn">
-                  Open Stand
-                </Link>
-              ) : null}
-            </Card>
-          </Section>
-
-          <div style={hubDropdownStackStyle}>
-            <CollapsibleSection
-              title="Recent Buck Activity"
-              description="Latest mature-buck sighting from your cameras"
-            >
-              <Card as="article" variant="subtle">
-                <div style={simpleHeaderStyle}>
-                  <div>
-                    <p style={eyebrowStyle}>Latest Mature Buck</p>
-                    <h2 style={cardTitleStyle}>{hub.recentBuckActivity.title}</h2>
-                  </div>
-                  <Badge>{hub.recentBuckActivity.date}</Badge>
-                </div>
-                <div style={detailGridStyle}>
-                  <HubDetail label="Camera" value={hub.recentBuckActivity.camera} />
-                  <HubDetail
-                    label="Property"
-                    value={hub.recentBuckActivity.property}
-                  />
-                  <HubDetail label="Time" value={hub.recentBuckActivity.time} />
-                </div>
-                <p style={mutedTextStyle}>{hub.recentBuckActivity.detail}</p>
-                {hub.recentBuckActivity.href ? (
-                  <Link href={hub.recentBuckActivity.href} style={primaryLinkStyle} className="di-navbtn">
-                    Open Camera
-                  </Link>
-                ) : null}
-              </Card>
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              title="Needs Attention"
-              description="Cameras and tasks worth a look"
-            >
-              {hub.needsAttention.length === 0 ? (
-                <EmptyState description="Nothing urgent stands out right now." />
-              ) : (
-                <div style={attentionGridStyle}>
-                  {hub.needsAttention.map((item) => (
-                    <AttentionCard key={`${item.title}-${item.detail}`} item={item} />
-                  ))}
-                </div>
-              )}
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              title="Property Snapshot"
-              description="Saved record counts for this property"
-            >
-              <Card as="div" variant="subtle">
-                <p style={snapshotSummaryStyle}>
-                  {hub.snapshot.cameras} cameras · {hub.snapshot.stands} stands ·{" "}
-                  {hub.snapshot.deerProfiles} deer · {hub.snapshot.hunts} hunts ·{" "}
-                  {hub.snapshot.photos} photos
-                </p>
-              </Card>
-            </CollapsibleSection>
-
-            {terrainReview && scoutPicks.length > 0 ? (
-              <CollapsibleSection
-                title="Scout Picks"
-                description={`Terrain-predicted spots for ${terrainReview.areaName}`}
-              >
-                <Card as="div" variant="subtle">
-                  <p style={mutedTextStyle}>
-                    Predicted spots from the terrain read of {terrainReview.areaName} —
-                    where deer likely bed, travel, and cross, ranked as places to
-                    scout. Open the map&apos;s Terrain layer to see them on the ground.
-                  </p>
-                  <ol style={scoutPickListStyle}>
-                    {scoutPicks.slice(0, 5).map((pick) => (
-                      <li key={pick.id} style={scoutPickItemStyle}>
-                        <span
-                          style={{
-                            ...scoutPickDotStyle,
-                            background: TERRAIN_STYLE[pick.kind].color,
-                          }}
-                          aria-hidden="true"
-                        />
-                        <div>
-                          <p style={scoutPickTitleStyle}>{pick.title}</p>
-                          <p style={scoutPickReasonStyle}>{pick.reason}</p>
-                          {pick.windNote ? (
-                            <p style={scoutPickWindStyle}>🌬️ {pick.windNote}</p>
-                          ) : null}
-                          {pick.confirmation ? (
-                            <p style={scoutPickConfirmStyle}>
-                              ✓ Confirmed by {pick.confirmation.cameraName} (
-                              {Math.round(pick.confirmation.distanceM * 1.0936)} yd) —{" "}
-                              {pick.confirmation.bucks} bucks, {pick.confirmation.does} does
-                            </p>
-                          ) : null}
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                  <Link href="/map" style={primaryLinkStyle} className="di-navbtn">
-                    Open Terrain Map
-                  </Link>
-                </Card>
-              </CollapsibleSection>
-            ) : null}
-          </div>
-
           <Section
             eyebrow="Assistant"
             title="AI Scout"
@@ -368,7 +195,7 @@ export default function AIPage() {
               <EmptyState
                 illustration={<TargetIcon size={30} />}
                 title="AI Scout is turned off"
-                description="You've turned off AI Scout recommendations in Settings → AI Scout. The rule-based insights above keep working. Turn it back on there whenever you want LLM recommendations."
+                description="You've turned off AI Scout recommendations in Settings → AI Scout. Today's verdict and stand check keep working. Turn it back on there whenever you want LLM recommendations."
               />
             ) : aiScoutConfigured === null ? (
               <Card as="div" variant="subtle">
@@ -378,7 +205,7 @@ export default function AIPage() {
               <EmptyState
                 illustration={<TargetIcon size={30} />}
                 title="AI Scout isn't turned on yet"
-                description="This property's saved data hasn't changed — AI Scout just needs an ANTHROPIC_API_KEY set as an environment variable on the server (see the README) before it can make real recommendations. Everything else above keeps working without it."
+                description="This property's saved data hasn't changed — AI Scout just needs an ANTHROPIC_API_KEY set as an environment variable on the server (see the README) before it can make real recommendations. Today's verdict and stand check keep working without it."
               />
             ) : (
               <Card as="div" variant="subtle">
@@ -521,38 +348,6 @@ function confidenceBadgeVariant(confidence: AiScoutReport["confidence"]) {
   return "warning" as const;
 }
 
-function AttentionCard({ item }: { item: DeerHubItem }) {
-  const content = (
-    <>
-      <h3 style={attentionTitleStyle}>{item.title}</h3>
-      <p style={mutedTextStyle}>{item.detail}</p>
-    </>
-  );
-
-  if (!item.href) {
-    return (
-      <Card as="article" variant="subtle">
-        {content}
-      </Card>
-    );
-  }
-
-  return (
-    <Link href={item.href} style={attentionLinkStyle} className="di-navbtn">
-      {content}
-    </Link>
-  );
-}
-
-function HubDetail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p style={detailLabelStyle}>{label}</p>
-      <p style={detailValueStyle}>{value}</p>
-    </div>
-  );
-}
-
 // The PageHeader now carries the golden-hour band itself (di-section-hero), so
 // this wrapper card just passes through without its own surface/padding.
 const heroCardStyle: CSSProperties = {
@@ -572,7 +367,6 @@ const labelStyle: CSSProperties = {
   fontSize: "0.85rem",
   fontWeight: 800,
 };
-
 
 const bulletListStyle: CSSProperties = {
   display: "grid",
@@ -617,63 +411,11 @@ const mutedTextStyle: CSSProperties = {
   lineHeight: 1.55,
 };
 
-const detailGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(140px, 100%), 1fr))",
-  gap: "1rem",
-  marginTop: "1rem",
-  paddingTop: "1rem",
-  borderTop: "1px solid var(--border)",
-};
-
 const detailLabelStyle: CSSProperties = {
   margin: 0,
   color: "var(--text-faint)",
   fontSize: "0.78rem",
   fontWeight: 800,
-};
-
-const detailValueStyle: CSSProperties = {
-  margin: "0.25rem 0 0",
-  color: "var(--text)",
-  lineHeight: 1.45,
-};
-
-const attentionGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))",
-  gap: "1rem",
-};
-
-const attentionTitleStyle: CSSProperties = {
-  margin: 0,
-  color: "var(--text)",
-  fontSize: "1.08rem",
-  lineHeight: 1.25,
-};
-
-const attentionLinkStyle: CSSProperties = {
-  display: "block",
-  padding: "1.15rem",
-  border: "1px solid var(--border)",
-  borderRadius: "8px",
-  background: "var(--surface-2)",
-  color: "var(--text)",
-  textDecoration: "none",
-};
-
-const hubDropdownStackStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.75rem",
-  marginTop: "1.75rem",
-};
-
-const snapshotSummaryStyle: CSSProperties = {
-  margin: 0,
-  color: "var(--text-muted)",
-  fontSize: "0.95rem",
-  fontWeight: 600,
-  lineHeight: 1.6,
 };
 
 const footerActionStyle: CSSProperties = {
@@ -745,55 +487,3 @@ const aiScoutReportStyle: CSSProperties = {
   borderTop: "1px solid var(--border)",
 };
 
-const scoutPickListStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.85rem",
-  margin: "1.1rem 0 0",
-  padding: 0,
-  listStyle: "none",
-};
-
-const scoutPickItemStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  gap: "0.7rem",
-};
-
-const scoutPickDotStyle: CSSProperties = {
-  flex: "0 0 auto",
-  width: "14px",
-  height: "14px",
-  marginTop: "0.3rem",
-  borderRadius: "4px",
-  boxShadow: "inset 0 0 0 1px rgba(0, 0, 0, 0.2)",
-};
-
-const scoutPickTitleStyle: CSSProperties = {
-  margin: 0,
-  color: "var(--text)",
-  fontSize: "1.05rem",
-  fontWeight: 850,
-  lineHeight: 1.25,
-};
-
-const scoutPickReasonStyle: CSSProperties = {
-  margin: "0.3rem 0 0",
-  color: "var(--text-muted)",
-  lineHeight: 1.5,
-};
-
-const scoutPickWindStyle: CSSProperties = {
-  margin: "0.35rem 0 0",
-  color: "var(--accent-text)",
-  fontSize: "0.92rem",
-  fontWeight: 700,
-  lineHeight: 1.4,
-};
-
-const scoutPickConfirmStyle: CSSProperties = {
-  margin: "0.3rem 0 0",
-  color: "var(--accent)",
-  fontSize: "0.9rem",
-  fontWeight: 800,
-  lineHeight: 1.4,
-};

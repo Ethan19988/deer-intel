@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import PropertyCard, {
   type PropertyCardStats,
 } from "@/components/properties/PropertyCard";
@@ -23,8 +23,6 @@ import {
   formatPropertyCoordinate,
   parsePropertyCoordinate,
 } from "@/lib/propertyLocation";
-import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
-import { buildPipelineManifest } from "@/lib/terrainPipeline";
 import type { Property } from "@/types/property";
 
 const EMPTY_PROPERTY_FORM_VALUES: PropertyFormValues = {
@@ -36,10 +34,8 @@ const EMPTY_PROPERTY_FORM_VALUES: PropertyFormValues = {
 };
 
 export default function PropertiesPage() {
-  const { properties, cameras, pins, stands, hunts, photoRecords } =
+  const { properties, cameras, stands, hunts, photoRecords } =
     useDeerIntelStore();
-
-  const [exportMessage, setExportMessage] = useState("");
 
   const [newPropertyValues, setNewPropertyValues] =
     useState<PropertyFormValues>(EMPTY_PROPERTY_FORM_VALUES);
@@ -98,6 +94,31 @@ export default function PropertiesPage() {
       coordinate: formatPropertyCoordinate(property),
     });
   }
+
+  // /properties?edit=<id> opens that property's edit form — the Today setup
+  // checklist links here to add a missing center point. Read from
+  // window.location after mount so the page needs no Suspense boundary.
+  const [pendingEditId, setPendingEditId] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("edit");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (id) setPendingEditId(id);
+  }, []);
+  useEffect(() => {
+    if (!pendingEditId) return;
+    const target = properties.find((property) => property.id === pendingEditId);
+    if (!target) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPendingEditId(null);
+    startEditingProperty(target);
+    window.requestAnimationFrame(() =>
+      document
+        .getElementById(`property-${target.id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+    // startEditingProperty only sets state; re-running on its identity isn't needed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingEditId, properties]);
 
   function cancelEditingProperty() {
     setEditingPropertyId(null);
@@ -183,62 +204,6 @@ export default function PropertiesPage() {
     }
   }
 
-  function exportPipelineManifest() {
-    const manifest = buildPipelineManifest(
-      properties.map((property) => {
-        const propertyPins = pins.filter(
-          (pin) => pin.propertyId === property.id,
-        );
-        const propertyCameras = cameras.filter(
-          (camera) => camera.propertyId === property.id,
-        );
-        return {
-          name: property.name,
-          center: resolvePropertyWeatherPoint(
-            property,
-            propertyCameras,
-            propertyPins,
-          ),
-          extraCoords: [
-            ...propertyPins.map((pin) => ({ lat: pin.lat, lng: pin.lng })),
-            ...propertyCameras
-              .filter(
-                (camera) =>
-                  typeof camera.latitude === "number" &&
-                  typeof camera.longitude === "number",
-              )
-              .map((camera) => ({
-                lat: camera.latitude as number,
-                lng: camera.longitude as number,
-              })),
-          ],
-        };
-      }),
-    );
-
-    if (manifest.length === 0) {
-      setExportMessage(
-        "No property has a location yet — add a coordinate or a map pin first.",
-      );
-      return;
-    }
-
-    const blob = new Blob([JSON.stringify(manifest, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "properties.json";
-    link.click();
-    URL.revokeObjectURL(url);
-    setExportMessage(
-      `Exported ${manifest.length} propert${
-        manifest.length === 1 ? "y" : "ies"
-      }. Run ./run_all.sh properties.json in pipeline/terrain/.`,
-    );
-  }
-
   const propertiesTab =
     properties.length === 0 ? (
       <EmptyState
@@ -307,18 +272,7 @@ export default function PropertiesPage() {
               <h1 style={titleStyle}>Properties</h1>
             </div>
           </div>
-          {properties.length > 0 ? (
-            <button
-              type="button"
-              style={exportButtonStyle}
-              onClick={exportPipelineManifest}
-              title="Download a manifest to run the terrain LiDAR pipeline for every located property"
-            >
-              Export for terrain pipeline
-            </button>
-          ) : null}
         </div>
-        {exportMessage ? <p style={exportMessageStyle}>{exportMessage}</p> : null}
       </header>
 
       <Tabs
@@ -376,23 +330,7 @@ const headerTitleWrapStyle: CSSProperties = {
   minWidth: 0,
 };
 
-const exportButtonStyle: CSSProperties = {
-  minHeight: "44px",
-  padding: "0.6rem 0.95rem",
-  border: "1px solid rgba(243, 237, 217, 0.32)",
-  borderRadius: "8px",
-  background: "rgba(243, 237, 217, 0.14)",
-  color: "#f6efd6",
-  fontWeight: 800,
-  cursor: "pointer",
-};
 
-const exportMessageStyle: CSSProperties = {
-  margin: 0,
-  color: "rgba(243, 237, 217, 0.82)",
-  fontSize: "0.88rem",
-  lineHeight: 1.5,
-};
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,

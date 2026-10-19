@@ -32,15 +32,8 @@ import {
 } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Tabs from "@/components/ui/Tabs";
-import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
-import WeatherHistoryPanel from "@/components/weather/WeatherHistoryPanel";
-import SeasonRutCard from "@/components/season/SeasonRutCard";
-import PipelineCommandCard from "@/components/properties/PipelineCommandCard";
-import GenerateHighResButton from "@/components/terrain/GenerateHighResButton";
 import PropertyPatternReport from "@/components/properties/PropertyPatternReport";
 import { buildPropertyPatternReport } from "@/lib/propertyPatterns";
-import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
-import { hasPropertyCoordinate } from "@/lib/propertyLocation";
 import {
   activeCameraCount,
   getAiConfidence,
@@ -52,7 +45,6 @@ import { getPropertyIntelligenceCards } from "@/lib/propertyIntelligence";
 import { getPropertyInsights } from "@/lib/propertyInsights";
 import { getHuntPlannerIntelligence } from "@/lib/huntPlannerIntelligence";
 import { getPropertyWeatherSummary } from "@/lib/weather";
-import { PIN_LAYER_LOOKUP } from "@/lib/propertyMap";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 
 type DashboardModule = {
@@ -72,8 +64,8 @@ const INTELLIGENCE_MODULES: DashboardModule[] = [
     badge: "Available",
   },
   {
-    title: "Deer Intelligence Hub",
-    description: "Open the simple property readout for stands, bucks, and needs.",
+    title: "AI Scout",
+    description: "Ask the assistant for a stand pick from this property's saved data.",
     icon: "aiScout",
     href: "/ai",
     badge: "Available",
@@ -99,17 +91,6 @@ export default function PropertyWorkspacePage() {
     (stand) => stand.propertyId === params.id,
   );
   const propertyPins = state.pins.filter((pin) => pin.propertyId === params.id);
-  // Food pins on this property feed the high-res read's bed-to-feed routes (and
-  // therefore the road crossings on them). Both "Food" and "Food Source" pins
-  // resolve to the food layer, so match on that rather than a single label.
-  const propertyFood = propertyPins
-    .filter((pin) => PIN_LAYER_LOOKUP[pin.type] === "food")
-    .map((pin) => ({ lat: pin.lat, lng: pin.lng }));
-  const weatherPoint = resolvePropertyWeatherPoint(
-    property,
-    state.cameras.filter((camera) => camera.propertyId === params.id),
-    state.pins.filter((pin) => pin.propertyId === params.id),
-  );
   const propertyHunts = state.hunts.filter(
     (hunt) => hunt.propertyId === params.id,
   );
@@ -414,23 +395,26 @@ export default function PropertyWorkspacePage() {
         </div>
       </DashboardSection>
 
-      <DashboardSection eyebrow="Conditions" title="Weather" icon={<SunIcon size={18} />}>
-        <LiveWeatherPanel
-          point={weatherPoint}
-          emptyHint={`Add a saved location, map pins, or a camera to ${property.name} to load live weather.`}
-        />
-        <div style={weatherHistoryWrapStyle}>
-          <CollapsibleSection
-            title="Recent Weather"
-            description="The last several days of conditions on this property"
-          >
-            <WeatherHistoryPanel
-              point={weatherPoint}
-              emptyHint={`Add a saved location, map pins, or a camera to ${property.name} to load weather history.`}
-            />
-          </CollapsibleSection>
-        </div>
-      </DashboardSection>
+      <Link
+        href="/"
+        onClick={() =>
+          updateDeerIntelStore((current) => ({
+            ...current,
+            selectedPropertyId: property.id,
+          }))
+        }
+        style={todayLinkStyle}
+        className="di-navbtn"
+      >
+        <SunIcon size={18} />
+        <span>
+          <strong>Weather and today&apos;s movement outlook</strong>
+          <span style={todayLinkHintStyle}>
+            Live conditions, the deer-hours chart, and stand winds for {property.name} are on Today.
+          </span>
+        </span>
+        <span aria-hidden="true" style={{ marginLeft: "auto" }}>→</span>
+      </Link>
 
       <div style={detailDropdownStackStyle}>
         <CollapsibleSection
@@ -444,55 +428,12 @@ export default function PropertyWorkspacePage() {
         </CollapsibleSection>
 
         <CollapsibleSection
-          title="Where the Season Stands"
-          description="Rut timing for your latitude"
-        >
-          <SeasonRutCard
-            latitude={
-              hasPropertyCoordinate(property) ? property.latitude : undefined
-            }
-          />
-        </CollapsibleSection>
-
-        <CollapsibleSection
           title="What Produces Deer Here"
           description="Patterns from your logged hunts and sightings"
         >
           <PropertyPatternReport report={patternReport} />
         </CollapsibleSection>
 
-        <CollapsibleSection
-          title="High-Res Terrain (LiDAR)"
-          description="Generate detailed LiDAR terrain for this property"
-        >
-          <PipelineCommandCard
-            propertyName={property.name}
-            center={weatherPoint}
-            extraCoords={[
-              ...propertyPins.map((pin) => ({ lat: pin.lat, lng: pin.lng })),
-              ...propertyCameras
-                .filter(
-                  (camera) =>
-                    typeof camera.latitude === "number" &&
-                    typeof camera.longitude === "number",
-                )
-                .map((camera) => ({
-                  lat: camera.latitude as number,
-                  lng: camera.longitude as number,
-                })),
-            ]}
-          />
-          <div style={{ marginTop: 12 }}>
-            <GenerateHighResButton
-              property={{
-                id: property.id,
-                name: property.name,
-                huntArea: property.huntArea,
-                food: propertyFood,
-              }}
-            />
-          </div>
-        </CollapsibleSection>
       </div>
               </div>
             ),
@@ -732,9 +673,6 @@ const summaryCardTitleStyle: CSSProperties = {
   lineHeight: 1.25,
 };
 
-const weatherHistoryWrapStyle: CSSProperties = {
-  marginTop: "1rem",
-};
 
 const detailDropdownStackStyle: CSSProperties = {
   display: "grid",
@@ -869,4 +807,23 @@ const insightDetailStyle: CSSProperties = {
   margin: "0.45rem 0 0",
   color: "var(--text-muted)",
   lineHeight: 1.45,
+};
+
+const todayLinkStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.75rem",
+  padding: "0.9rem 1rem",
+  border: "1px solid var(--border)",
+  borderRadius: "12px",
+  background: "var(--surface)",
+  color: "var(--text)",
+  textDecoration: "none",
+};
+
+const todayLinkHintStyle: CSSProperties = {
+  display: "block",
+  marginTop: "0.2rem",
+  color: "var(--text-muted)",
+  fontSize: "0.88rem",
 };

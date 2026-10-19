@@ -41,6 +41,8 @@ import { buildTodayVerdict } from "@/lib/todayVerdict";
 import { getPhotoBuckNames, photoRecordTime } from "@/lib/photos";
 import type { PhotoRecord } from "@/types/photo";
 import BackupReminderBanner from "@/components/BackupReminderBanner";
+import SetupChecklist from "@/components/SetupChecklist";
+import { buildSetupChecklist } from "@/lib/setupChecklist";
 import { countRecords } from "@/lib/backupReminder";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
 import {
@@ -264,6 +266,17 @@ export default function Home() {
         propertyName={activeProperty?.name ?? "this property"}
         pressure={forecast?.pressure}
       />
+      {activeProperty ? (
+        <SetupChecklist
+          propertyName={activeProperty.name}
+          items={buildSetupChecklist({
+            property: activeProperty,
+            stands: propertyStands,
+            cameras: propertyCameras,
+            pins: propertyPins,
+          })}
+        />
+      ) : null}
       <TodayVerdictHero
         verdict={verdict}
         propertyName={activeProperty?.name ?? "Your ground"}

@@ -36,7 +36,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     heading: "Plan the hunt",
     links: [
-      { href: "/ai", label: "Hunt Plan", icon: (s) => <TargetIcon size={s} /> },
+      { href: "/ai", label: "AI Scout", icon: (s) => <TargetIcon size={s} /> },
       { href: "/hunt-log", label: "Hunt Log", icon: (s) => <ClipboardIcon size={s} /> },
       { href: "/calendar", label: "Calendar", icon: (s) => <CalendarIcon size={s} /> },
       { href: "/party", label: "Party", icon: (s) => <UsersIcon size={s} /> },
@@ -49,6 +49,15 @@ export const SETTINGS_LINK: NavLink = {
   label: "Settings",
   icon: (s) => <GearIcon size={s} />,
 };
+
+// Quick-add row at the top of the phone's More menu: the things you create
+// most, one tap from anywhere.
+export const QUICK_ADD_LINKS: NavLink[] = [
+  { href: "/cameras#add-camera", label: "Add camera", icon: (s) => <CameraIcon size={s} /> },
+  { href: "/stands#add-stand", label: "Add stand", icon: (s) => <StandIcon size={s} /> },
+  { href: "/map", label: "Drop a pin", icon: (s) => <MapPinIcon size={s} /> },
+  { href: "/hunt-log", label: "Log a sit", icon: (s) => <ClipboardIcon size={s} /> },
+];
 
 // Phone bottom bar: the four things done most in the field, plus More.
 export const MOBILE_TABS: NavLink[] = [

@@ -42,6 +42,7 @@ export default function PropertyCard({
   return (
     <Card
       as="div"
+      id={`property-${property.id}`}
       className={isEditing ? undefined : "di-card-lift"}
       style={cardStyle}
     >

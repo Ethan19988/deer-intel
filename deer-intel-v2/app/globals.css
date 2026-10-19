@@ -1829,6 +1829,15 @@ textarea {
   text-decoration: none;
 }
 
+.di-more-link.di-more-add {
+  min-height: 58px;
+  padding: 0.35rem 0.2rem;
+  border-color: var(--accent-tint-border);
+  background: var(--accent-tint);
+  color: var(--accent-text);
+  font-size: 0.74rem;
+}
+
 .di-more-link[aria-current="page"] {
   border-color: var(--accent-tint-border);
   background: var(--accent-tint);

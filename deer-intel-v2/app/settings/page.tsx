@@ -16,6 +16,7 @@ import AccountPanel from "@/components/auth/AccountPanel";
 import DataPrivacyManager from "@/components/settings/DataPrivacyManager";
 import NotificationsManager from "@/components/settings/NotificationsManager";
 import OfflineMapsManager from "@/components/settings/OfflineMapsManager";
+import TerrainToolsManager from "@/components/settings/TerrainToolsManager";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { saveDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import { backupLocalImages } from "@/lib/imageStore";
@@ -675,8 +676,8 @@ export default function SettingsPage() {
           </p>
           <p style={mutedTextStyle}>
             Turn it off to keep AI Scout hidden and never send any data to
-            Anthropic — the rule-based insights on the Hunt Plan page keep
-            working either way. Saved on this device only.
+            Anthropic — Today's verdict and stand check keep working either
+            way. Saved on this device only.
           </p>
           <div style={aiScoutToggleRowStyle}>
             <span style={unitLabelStyle}>AI Scout recommendations</span>
@@ -746,6 +747,7 @@ export default function SettingsPage() {
           { id: "backup", label: "Backup", content: backupTab },
           { id: "offline", label: "Offline", content: offlineTab },
           { id: "account", label: "Account", content: accountTab },
+          { id: "advanced", label: "Advanced", content: <TerrainToolsManager /> },
         ]}
       />
 
