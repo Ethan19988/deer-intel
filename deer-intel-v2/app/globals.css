@@ -1772,3 +1772,9 @@ textarea {
   -webkit-appearance: none;
   appearance: none;
 }
+
+/* Wind picker wedges: visible keyboard focus. */
+.di-wind-wedge:focus-visible path {
+  stroke: var(--accent);
+  stroke-width: 4;
+}

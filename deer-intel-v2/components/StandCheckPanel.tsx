@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { CSSProperties } from "react";
 import Badge from "@/components/ui/Badge";
 import type { AccessScentStatus } from "@/lib/accessScent";
@@ -70,9 +71,16 @@ export default function StandCheckPanel({
               ) : null}
             </div>
             <div style={badgeRowStyle}>
-              <Badge variant={WIND_VARIANT[windCheck.status]}>
-                {windCheck.label}
-              </Badge>
+              {windCheck.label === "No wind notes" ? (
+                // Nothing to grade yet: send them straight to the wind picker.
+                <Link href={`/stands#stand-${stand.id}`} style={setWindsLinkStyle}>
+                  Set winds
+                </Link>
+              ) : (
+                <Badge variant={WIND_VARIANT[windCheck.status]}>
+                  {windCheck.label}
+                </Badge>
+              )}
               <Badge variant={PRESSURE_VARIANT[pressure.level]}>
                 {pressure.label}
               </Badge>
@@ -122,6 +130,20 @@ const subtleStyle: CSSProperties = {
   color: "var(--text-muted)",
   fontSize: "0.74rem",
   fontWeight: 600,
+};
+
+const setWindsLinkStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  minHeight: "32px",
+  padding: "0.3rem 0.65rem",
+  borderRadius: "8px",
+  border: "1px dashed var(--accent)",
+  background: "var(--accent-tint)",
+  color: "var(--accent-text)",
+  fontSize: "0.8rem",
+  fontWeight: 800,
+  textDecoration: "none",
 };
 
 const pickRowStyle: CSSProperties = {
