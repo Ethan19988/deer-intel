@@ -92,6 +92,18 @@ export default function StandsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId]);
 
+  function saveStandWinds(
+    standId: string,
+    winds: { bestWinds: string; avoidWinds: string },
+  ) {
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      stands: currentState.stands.map((stand) =>
+        stand.id === standId ? { ...stand, ...winds } : stand,
+      ),
+    }));
+  }
+
   function selectProperty(propertyId: string) {
     updateDeerIntelStore((currentState) => ({
       ...currentState,
@@ -178,6 +190,7 @@ export default function StandsPage() {
                     stand={stand}
                     intelligence={intelligence}
                     todayWind={todayWind}
+                    onSaveWinds={saveStandWinds}
                   />
                 );
               })}

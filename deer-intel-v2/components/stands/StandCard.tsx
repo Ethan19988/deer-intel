@@ -1,5 +1,14 @@
+"use client";
+
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import WindPicker from "@/components/stands/WindPicker";
+import Button from "@/components/ui/Button";
+import {
+  windMarksFromText,
+  windTextFromMarks,
+  type WindMarks,
+} from "@/lib/windPicker";
 import StandIntelligencePanel from "@/components/stands/StandIntelligencePanel";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
@@ -14,6 +23,8 @@ type StandCardProps = {
   intelligence?: StandIntelligenceSummary;
   /** Current wind direction (compass point) for a live "wind today" check. */
   todayWind?: string;
+  /** When given, the card offers "Set winds" with the tap-to-set compass. */
+  onSaveWinds?: (standId: string, winds: { bestWinds: string; avoidWinds: string }) => void;
 };
 
 const WIND_BADGE_VARIANT = {
@@ -26,7 +37,25 @@ export default function StandCard({
   stand,
   intelligence,
   todayWind,
+  onSaveWinds,
 }: StandCardProps) {
+  const [editingMarks, setEditingMarks] = useState<WindMarks | null>(null);
+
+  // A link to /stands#stand-<id> (e.g. from Stand check's "No wind notes")
+  // opens this stand's wind picker directly.
+  useEffect(() => {
+    if (!onSaveWinds || typeof window === "undefined") return;
+    if (window.location.hash !== `#stand-${stand.id}`) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEditingMarks(windMarksFromText(stand.bestWinds, stand.avoidWinds));
+  }, [onSaveWinds, stand.id, stand.bestWinds, stand.avoidWinds]);
+
+  function saveWinds() {
+    if (!editingMarks || !onSaveWinds) return;
+    onSaveWinds(stand.id, windTextFromMarks(editingMarks));
+    setEditingMarks(null);
+  }
+
   const windCheck = getStandWindCheck(stand, todayWind);
   const windVariant =
     windCheck.status in WIND_BADGE_VARIANT
@@ -34,7 +63,7 @@ export default function StandCard({
       : null;
 
   return (
-    <Card className="di-card-lift" style={cardStyle}>
+    <Card className="di-card-lift" style={cardStyle} id={`stand-${stand.id}`}>
       <div style={headerStyle}>
         <div style={leadStyle}>
           <span style={iconBadgeStyle} aria-hidden="true">
@@ -60,10 +89,35 @@ export default function StandCard({
         </div>
       </div>
 
-      <div style={detailsGridStyle}>
-        <StandDetail label="Best Winds" value={stand.bestWinds} />
-        <StandDetail label="Avoid Winds" value={stand.avoidWinds} />
-      </div>
+      {editingMarks ? (
+        <div style={windEditorStyle}>
+          <WindPicker marks={editingMarks} onChange={setEditingMarks} currentWind={todayWind} />
+          <div style={windActionsStyle}>
+            <Button type="button" variant="secondary" onClick={() => setEditingMarks(null)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={saveWinds}>
+              Save winds
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div style={detailsGridStyle}>
+          <StandDetail label="Best Winds" value={stand.bestWinds} />
+          <StandDetail label="Avoid Winds" value={stand.avoidWinds} />
+          {onSaveWinds ? (
+            <button
+              type="button"
+              onClick={() =>
+                setEditingMarks(windMarksFromText(stand.bestWinds, stand.avoidWinds))
+              }
+              style={setWindsButtonStyle}
+            >
+              {stand.bestWinds.trim() || stand.avoidWinds.trim() ? "Change winds" : "Set winds"}
+            </button>
+          ) : null}
+        </div>
+      )}
 
       <div style={notesGridStyle}>
         <StandDetail label="Access Route" value={stand.accessRouteNotes} />
@@ -97,6 +151,34 @@ function StandDetail({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+const windEditorStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
+  marginTop: "1rem",
+  padding: "1rem 0.75rem",
+  borderRadius: "14px",
+  border: "1px solid var(--border)",
+  background: "var(--surface)",
+};
+
+const windActionsStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "0.5rem",
+};
+
+const setWindsButtonStyle: CSSProperties = {
+  gridColumn: "1 / -1",
+  minHeight: "44px",
+  borderRadius: "12px",
+  border: "1px dashed var(--accent)",
+  background: "var(--accent-tint)",
+  color: "var(--accent-text)",
+  fontSize: "0.95rem",
+  fontWeight: 800,
+  cursor: "pointer",
+};
 
 const cardStyle: CSSProperties = {
   background: "var(--surface-2)",

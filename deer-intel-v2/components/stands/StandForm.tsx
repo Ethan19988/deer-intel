@@ -1,7 +1,9 @@
 import type { CSSProperties, FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
+import WindPicker from "@/components/stands/WindPicker";
 import type { StandFormValues } from "@/lib/standFormValues";
+import { windMarksFromText, windTextFromMarks } from "@/lib/windPicker";
 import { STAND_TYPES, type StandType } from "@/types/stand";
 
 type StandFormProps = {
@@ -63,28 +65,11 @@ export default function StandForm({
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Wind">
-        <div className="di-form-grid" style={formGridStyle}>
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Best Winds</span>
-            <input
-              placeholder="NW, W, N"
-              value={values.bestWinds}
-              onChange={(event) => updateField("bestWinds", event.target.value)}
-              style={inputStyle}
-            />
-          </label>
-
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Avoid Winds</span>
-            <input
-              placeholder="S, SE"
-              value={values.avoidWinds}
-              onChange={(event) => updateField("avoidWinds", event.target.value)}
-              style={inputStyle}
-            />
-          </label>
-        </div>
+      <CollapsibleSection title="Wind" defaultOpen>
+        <WindPicker
+          marks={windMarksFromText(values.bestWinds, values.avoidWinds)}
+          onChange={(marks) => onChange({ ...values, ...windTextFromMarks(marks) })}
+        />
       </CollapsibleSection>
 
       <CollapsibleSection title="Access">

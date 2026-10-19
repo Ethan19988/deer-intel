@@ -35,7 +35,8 @@ const COMPASS_SET = new Set(COMPASS_16);
 
 /** Pull the compass points out of a free-text wind note like "NW, N or W". */
 export function parseWindDirections(text: string): string[] {
-  return (text.toUpperCase().match(/[NSEW]{1,3}/g) ?? []).filter((token) =>
+  // Whole tokens only, so the "N" in a word like "and" isn't read as north.
+  return (text.toUpperCase().match(/\b[NSEW]{1,3}\b/g) ?? []).filter((token) =>
     COMPASS_SET.has(token),
   );
 }

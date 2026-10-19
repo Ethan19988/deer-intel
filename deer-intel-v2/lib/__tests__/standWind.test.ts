@@ -51,3 +51,9 @@ describe("getStandWindCheck", () => {
     expect(getStandWindCheck(stand("", ""), "NW").status).toBe("unknown");
   });
 });
+
+describe("parseWindDirections word boundaries", () => {
+  it("doesn't read letters inside words as directions", () => {
+    expect(parseWindDirections("NW and W, not E")).toEqual(["NW", "W", "E"]);
+  });
+});
