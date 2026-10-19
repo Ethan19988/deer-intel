@@ -7,7 +7,7 @@ import PropertySwitcher from "@/components/ui/PropertySwitcher";
 import Sidebar from "@/components/ui/Sidebar";
 
 // Pages that aren't about one property don't show the property switcher.
-const NO_SWITCHER = ["/properties", "/settings", "/party", "/login", "/reset-password"];
+const NO_SWITCHER = ["/properties", "/settings", "/party", "/import", "/login", "/reset-password"];
 
 type PageShellProps = {
   children: ReactNode;
