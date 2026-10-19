@@ -33,7 +33,7 @@ describe("buildHitListSlides", () => {
     expect(slides[0].name).toBe("Big 8");
     expect(slides[0].imageId).toBe("img-new");
     expect(slides[0].lastSeen).toBe("Oct 15 on Inside Laurel");
-    expect(slides[0].href).toBe("/properties/p?tab=deer&buck=b1");
+    expect(slides[0].href).toBe("/hit-list?buck=b1");
   });
 
   it("adds bucks named on photos that have no profile, without duplicating profiled ones", () => {

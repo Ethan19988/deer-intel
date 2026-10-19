@@ -570,9 +570,7 @@ export default function PropertyAssetWorkspacePage() {
           Back to Property
         </Link>
         <Link
-          href={`/properties/${property.id}?editCameraId=${encodeURIComponent(
-            camera.id,
-          )}#camera-sites`}
+          href={`/cameras?edit=${encodeURIComponent(camera.id)}`}
           style={editLinkStyle}
         >
           Edit camera

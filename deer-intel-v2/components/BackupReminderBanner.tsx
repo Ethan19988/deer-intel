@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import {
   backupReminderStatus,
@@ -15,18 +15,45 @@ type BackupReminderBannerProps = {
   nowMs: number | null;
 };
 
-// A gentle, dismissible nudge to download a backup. Data lives only in this
+// A one-line, dismissible nudge to download a backup. Data lives only in this
 // browser, so a manual backup is easy to forget; this surfaces when it's been a
-// while or a fair amount of new data has piled up. It never blocks anything and
-// links straight to the existing export in Settings.
+// while or a fair amount of new data has piled up. Dismissing it hides it for a
+// week. It links straight to the existing export in Settings.
+const SNOOZE_KEY = "deer-intel:backup-reminder-snoozed";
+const SNOOZE_MS = 7 * 86_400_000;
+
+function snoozedUntil(): number {
+  try {
+    return Number(window.localStorage.getItem(SNOOZE_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
 export default function BackupReminderBanner({
   currentRecordCount,
   nowMs,
 }: BackupReminderBannerProps) {
   const [dismissed, setDismissed] = useState(false);
+  const [snoozeUntil, setSnoozeUntil] = useState<number | null>(null);
   const lastBackup = useLastBackup();
 
-  if (dismissed || nowMs === null) return null;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSnoozeUntil(snoozedUntil());
+  }, []);
+
+  function dismiss() {
+    setDismissed(true);
+    try {
+      window.localStorage.setItem(SNOOZE_KEY, String(Date.now() + SNOOZE_MS));
+    } catch {
+      // Storage blocked: it just hides for this visit.
+    }
+  }
+
+  if (dismissed || nowMs === null || snoozeUntil === null || nowMs < snoozeUntil) {
+    return null;
+  }
 
   const status = backupReminderStatus({ lastBackup, currentRecordCount, nowMs });
   if (!status.shouldRemind) return null;
@@ -36,10 +63,8 @@ export default function BackupReminderBanner({
       <span style={iconStyle} aria-hidden="true">
         💾
       </span>
-      <p style={textStyle}>
-        <strong>{headline(status)}</strong> Your data lives only in this
-        browser — download a backup so a cleared browser or lost phone
-        can&rsquo;t take your seasons with it.
+      <p style={textStyle} title="Your data lives only in this browser. A backup protects it if the browser is cleared or the phone is lost.">
+        {headline(status)}
       </p>
       <Link href="/settings" className="di-navbtn" style={linkStyle}>
         Back up
@@ -48,7 +73,7 @@ export default function BackupReminderBanner({
         type="button"
         aria-label="Dismiss backup reminder"
         style={dismissStyle}
-        onClick={() => setDismissed(true)}
+        onClick={dismiss}
       >
         ×
       </button>
@@ -72,8 +97,9 @@ function headline(status: BackupReminderStatus): string {
 const bannerStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "0.75rem",
-  padding: "0.8rem 1rem",
+  gap: "0.6rem",
+  marginBottom: "0.75rem",
+  padding: "0.4rem 0.5rem 0.4rem 0.8rem",
   border: "1px solid var(--warning-border)",
   borderRadius: "var(--radius-sm)",
   background: "var(--warning-bg)",
@@ -82,7 +108,7 @@ const bannerStyle: CSSProperties = {
 
 const iconStyle: CSSProperties = {
   flex: "none",
-  fontSize: "1.25rem",
+  fontSize: "1rem",
   lineHeight: 1,
 };
 
@@ -90,9 +116,13 @@ const textStyle: CSSProperties = {
   margin: 0,
   flex: 1,
   minWidth: 0,
-  fontSize: "0.9rem",
-  lineHeight: 1.4,
+  overflow: "hidden",
+  fontSize: "0.85rem",
+  fontWeight: 700,
+  lineHeight: 1.3,
   color: "var(--warning-text)",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };
 
 const linkStyle: CSSProperties = {
@@ -100,8 +130,8 @@ const linkStyle: CSSProperties = {
   flex: "none",
   alignItems: "center",
   justifyContent: "center",
-  minHeight: "40px",
-  padding: "0.4rem 0.8rem",
+  minHeight: "36px",
+  padding: "0.3rem 0.7rem",
   borderRadius: "8px",
   border: "1px solid var(--warning-text)",
   background: "transparent",
@@ -114,8 +144,9 @@ const linkStyle: CSSProperties = {
 
 const dismissStyle: CSSProperties = {
   flex: "none",
-  width: "32px",
-  height: "32px",
+  width: "36px",
+  height: "36px",
+  minHeight: "36px",
   borderRadius: "8px",
   border: "none",
   background: "transparent",

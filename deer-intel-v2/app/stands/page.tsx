@@ -104,12 +104,6 @@ export default function StandsPage() {
     }));
   }
 
-  function selectProperty(propertyId: string) {
-    updateDeerIntelStore((currentState) => ({
-      ...currentState,
-      selectedPropertyId: propertyId,
-    }));
-  }
 
   if (state.properties.length === 0) {
     return (
@@ -240,20 +234,6 @@ export default function StandsPage() {
           </div>
         </div>
         <div style={headerRightStyle}>
-          <label style={pickerStyle}>
-            <span style={pickerLabelStyle}>Property</span>
-            <select
-              style={selectStyle}
-              value={selectedPropertyId}
-              onChange={(event) => selectProperty(event.target.value)}
-            >
-              {state.properties.map((property) => (
-                <option key={property.id} value={property.id}>
-                  {property.name}
-                </option>
-              ))}
-            </select>
-          </label>
           <div style={headerActionsStyle}>
             <Link href="/hunt-log" style={secondaryLinkStyle} className="di-navbtn">
               <ClipboardIcon size={17} />
@@ -345,29 +325,8 @@ const titleStyle: CSSProperties = {
   textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
 };
 
-const pickerStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.5rem",
-  marginTop: "0.15rem",
-};
 
-const pickerLabelStyle: CSSProperties = {
-  color: "rgba(243, 237, 217, 0.82)",
-  fontSize: "0.85rem",
-  fontWeight: 800,
-};
 
-const selectStyle: CSSProperties = {
-  minHeight: "42px",
-  flex: 1,
-  minWidth: 0,
-  padding: "0.5rem 0.65rem",
-  border: "1px solid rgba(243, 237, 217, 0.3)",
-  borderRadius: "var(--radius-sm)",
-  background: "rgba(243, 237, 217, 0.14)",
-  color: "#f6efd6",
-};
 
 // Two equal buttons on one row keeps the header short on a phone.
 const headerActionsStyle: CSSProperties = {

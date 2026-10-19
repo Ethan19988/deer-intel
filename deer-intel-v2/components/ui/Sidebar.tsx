@@ -2,62 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
 import AccountNavControl from "@/components/auth/AccountNavControl";
+import { DeerIcon } from "@/components/ui/FieldIcons";
 import {
-  CalendarIcon,
-  CameraIcon,
-  ClipboardIcon,
-  DeerIcon,
-  GearIcon,
-  HomeIcon,
-  MapIcon,
-  MapPinIcon,
-  StandIcon,
-  TargetIcon,
-  UsersIcon,
-} from "@/components/ui/FieldIcons";
-
-type NavLink = { href: string; label: string; icon: ReactNode };
-type NavGroup = { heading?: string; links: NavLink[] };
+  isActivePath as isActive,
+  NAV_GROUPS,
+  SETTINGS_LINK,
+} from "@/components/ui/navConfig";
 
 const ICON_SIZE = 18;
-
-// Navigation grouped by what the hunter is doing, not by data type.
-const NAV_GROUPS: NavGroup[] = [
-  { links: [{ href: "/", label: "Today", icon: <HomeIcon size={ICON_SIZE} /> }] },
-  {
-    heading: "Scout the land",
-    links: [
-      { href: "/map", label: "Map", icon: <MapIcon size={ICON_SIZE} /> },
-      { href: "/properties", label: "Properties", icon: <MapPinIcon size={ICON_SIZE} /> },
-      { href: "/cameras", label: "Cameras", icon: <CameraIcon size={ICON_SIZE} /> },
-      { href: "/stands", label: "Stands", icon: <StandIcon size={ICON_SIZE} /> },
-    ],
-  },
-  {
-    heading: "Plan the hunt",
-    links: [
-      { href: "/ai", label: "Hunt Plan", icon: <TargetIcon size={ICON_SIZE} /> },
-      { href: "/hunt-log", label: "Hunt Log", icon: <ClipboardIcon size={ICON_SIZE} /> },
-      { href: "/calendar", label: "Calendar", icon: <CalendarIcon size={ICON_SIZE} /> },
-      { href: "/hit-list", label: "Hit List", icon: <DeerIcon size={ICON_SIZE} /> },
-      { href: "/party", label: "Party", icon: <UsersIcon size={ICON_SIZE} /> },
-    ],
-  },
-];
-
-const FOOTER_LINKS: NavLink[] = [
-  { href: "/settings", label: "Settings", icon: <GearIcon size={ICON_SIZE} /> },
-];
-
-function isActive(pathname: string, href: string) {
-  const [path] = href.split("?");
-
-  if (path === "/") return pathname === "/";
-
-  return pathname === path || pathname.startsWith(`${path}/`);
-}
+const FOOTER_LINKS = [SETTINGS_LINK];
 
 export default function Sidebar() {
   const pathname = usePathname() ?? "/";
@@ -87,7 +41,7 @@ export default function Sidebar() {
                 }
               >
                 <span className="di-sidebar-icon" aria-hidden="true">
-                  {link.icon}
+                  {link.icon(ICON_SIZE)}
                 </span>
                 {link.label}
               </Link>

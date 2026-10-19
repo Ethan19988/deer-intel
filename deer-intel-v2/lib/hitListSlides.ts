@@ -83,7 +83,7 @@ export function buildHitListSlides(input: {
           ? null
           : intel.commonTimeOfDay.title,
         sightings: intel.sightingCount,
-        href: `/properties/${propertyId}?tab=deer&buck=${encodeURIComponent(profile.id)}`,
+        href: `/hit-list?buck=${encodeURIComponent(profile.id)}`,
       };
     });
 

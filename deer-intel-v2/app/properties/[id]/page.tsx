@@ -6,14 +6,11 @@ import { useEffect, useState, type CSSProperties } from "react";
 import HuntPlannerIntelligencePanel from "@/components/hunts/HuntPlannerIntelligencePanel";
 import DashboardCardLink from "@/components/properties/DashboardCardLink";
 import DashboardSection from "@/components/properties/DashboardSection";
-import CameraSitesSection from "@/components/properties/dashboard/CameraSitesSection";
-import DeerProfilesSection from "@/components/properties/dashboard/DeerProfilesSection";
 import InfoCard from "@/components/properties/dashboard/InfoCard";
 import PropertyIntelligenceSummary from "@/components/properties/dashboard/PropertyIntelligenceSummary";
 import PropertyHeader from "@/components/properties/dashboard/PropertyHeader";
 import PropertyTimeline from "@/components/properties/dashboard/PropertyTimeline";
 import RecentActivityList from "@/components/properties/dashboard/RecentActivityList";
-import StandSitesSection from "@/components/properties/dashboard/StandSitesSection";
 import WalkTracksSection from "@/components/properties/dashboard/WalkTracksSection";
 import WorkspaceIcon, {
   type WorkspaceIconName,
@@ -35,7 +32,6 @@ import {
 } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import Tabs from "@/components/ui/Tabs";
-import PartyPanel from "@/components/party/PartyPanel";
 import LiveWeatherPanel from "@/components/weather/LiveWeatherPanel";
 import WeatherHistoryPanel from "@/components/weather/WeatherHistoryPanel";
 import SeasonRutCard from "@/components/season/SeasonRutCard";
@@ -45,12 +41,6 @@ import PropertyPatternReport from "@/components/properties/PropertyPatternReport
 import { buildPropertyPatternReport } from "@/lib/propertyPatterns";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { hasPropertyCoordinate } from "@/lib/propertyLocation";
-import {
-  createCameraFromValues,
-  cameraToFormValues,
-  EMPTY_CAMERA_FORM_VALUES,
-} from "@/lib/cameraFormValues";
-import { getDeerProfileSummaries } from "@/lib/deerProfiles";
 import {
   activeCameraCount,
   getAiConfidence,
@@ -64,7 +54,6 @@ import { getHuntPlannerIntelligence } from "@/lib/huntPlannerIntelligence";
 import { getPropertyWeatherSummary } from "@/lib/weather";
 import { PIN_LAYER_LOOKUP } from "@/lib/propertyMap";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
-import type { Camera } from "@/types/camera";
 
 type DashboardModule = {
   title: string;
@@ -101,7 +90,6 @@ const INTELLIGENCE_MODULES: DashboardModule[] = [
 export default function PropertyWorkspacePage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
-  const editCameraIdParam = searchParams.get("editCameraId");
   const state = useDeerIntelStore();
   const property = state.properties.find((item) => item.id === params.id);
   const propertyCameras = state.cameras.filter(
@@ -143,54 +131,17 @@ export default function PropertyWorkspacePage() {
   const propertyWalkTracks = state.walkTracks.filter(
     (track) => track.propertyId === params.id,
   );
-  const [editingCameraId, setEditingCameraId] = useState<string | null>(null);
-  const [editCameraValues, setEditCameraValues] = useState(
-    EMPTY_CAMERA_FORM_VALUES,
+  // ?tab=plan opens the Plan tab directly.
+  const [activeTab, setActiveTab] = useState(() =>
+    searchParams.get("tab") === "plan" ? "plan" : "overview",
   );
 
   useEffect(() => {
-    if (!editCameraIdParam || editingCameraId === editCameraIdParam) return;
-
-    const cameraToEdit = state.cameras.find(
-      (camera) =>
-        camera.id === editCameraIdParam && camera.propertyId === params.id,
-    );
-
-    if (!cameraToEdit) return;
-
-    let didCancel = false;
-
-    queueMicrotask(() => {
-      if (didCancel) return;
-
-      setEditingCameraId(cameraToEdit.id);
-      setEditCameraValues(cameraToFormValues(cameraToEdit));
-    });
-
-    return () => {
-      didCancel = true;
-    };
-  }, [editCameraIdParam, editingCameraId, params.id, state.cameras]);
-
-  // ?tab= opens a specific tab (e.g. the Today hit list links to ?tab=deer).
-  const [activeTab, setActiveTab] = useState(
-    () => searchParams.get("tab") ?? "overview",
-  );
-
-  useEffect(() => {
-    if (editCameraIdParam) {
-      setActiveTab("cameras");
-      return;
-    }
-
     const hash =
       typeof window !== "undefined"
         ? window.location.hash.replace("#", "")
         : "";
     const hashTab: Record<string, string> = {
-      "camera-sites": "cameras",
-      "stand-sites": "stands",
-      "deer-profiles": "deer",
       "property-timeline": "plan",
       "hunt-planner": "plan",
       intelligence: "plan",
@@ -200,7 +151,7 @@ export default function PropertyWorkspacePage() {
     };
 
     if (hash && hashTab[hash]) setActiveTab(hashTab[hash]);
-  }, [editCameraIdParam]);
+  }, []);
 
   useEffect(() => {
     if (!property || state.selectedPropertyId === property.id) return;
@@ -236,10 +187,6 @@ export default function PropertyWorkspacePage() {
   const propertyId = property.id;
   const standCount = propertyStands.length;
   const deerProfileCount = propertyDeerProfiles.length;
-  const deerProfileSummaries = getDeerProfileSummaries({
-    profiles: propertyDeerProfiles,
-    photoRecords: propertyPhotoRecords,
-  });
   const knowledgeScore = getKnowledgeScore({
     property,
     cameraCount: propertyCameras.length,
@@ -295,36 +242,6 @@ export default function PropertyWorkspacePage() {
     standCount: standCount,
   });
 
-  function startEditingCamera(camera: Camera) {
-    setEditingCameraId(camera.id);
-    setEditCameraValues(cameraToFormValues(camera));
-  }
-
-  function cancelEditingCamera() {
-    setEditingCameraId(null);
-    setEditCameraValues(EMPTY_CAMERA_FORM_VALUES);
-  }
-
-  function saveEditedCamera() {
-    if (editingCameraId === null) return;
-
-    const updatedCamera = createCameraFromValues({
-      id: editingCameraId,
-      propertyId,
-      values: editCameraValues,
-    });
-
-    if (!updatedCamera) return;
-
-    updateDeerIntelStore((currentState) => ({
-      ...currentState,
-      cameras: currentState.cameras.map((camera) =>
-        camera.id === editingCameraId ? updatedCamera : camera,
-      ),
-    }));
-    cancelEditingCamera();
-  }
-
   function deleteWalkTrack(trackId: string) {
     if (!window.confirm("Delete this saved walk?")) return;
 
@@ -357,6 +274,20 @@ export default function PropertyWorkspacePage() {
             label: "Overview",
             content: (
               <div style={tabPanelStyle}>
+      <nav aria-label="On this property" style={shortcutGridStyle}>
+        {[
+          { href: "/cameras", label: "Cameras", count: propertyCameras.length },
+          { href: "/stands", label: "Stands", count: standCount },
+          { href: "/hit-list", label: "Bucks", count: deerProfileCount },
+          { href: "/hunt-log", label: "Sits logged", count: propertyHunts.length },
+        ].map((item) => (
+          <Link key={item.href} href={item.href} style={shortcutStyle}>
+            <span style={shortcutCountStyle}>{item.count}</span>
+            <span style={shortcutLabelStyle}>{item.label}</span>
+          </Link>
+        ))}
+      </nav>
+
       <DashboardSection
         id="map"
         eyebrow="Primary Workspace"
@@ -567,56 +498,6 @@ export default function PropertyWorkspacePage() {
             ),
           },
           {
-            id: "party",
-            label: "Party",
-            content: (
-              <div style={tabPanelStyle}>
-                <PartyPanel />
-              </div>
-            ),
-          },
-          {
-            id: "cameras",
-            label: "Cameras",
-            badge: propertyCameras.length,
-            content: (
-      <CameraSitesSection
-        cameras={propertyCameras}
-        editCameraValues={editCameraValues}
-        editingCameraId={editingCameraId}
-        onEditCameraValuesChange={setEditCameraValues}
-        onStartEditingCamera={startEditingCamera}
-        onSaveEditedCamera={saveEditedCamera}
-        onCancelEditingCamera={cancelEditingCamera}
-      />
-            ),
-          },
-          {
-            id: "stands",
-            label: "Stands",
-            badge: standCount,
-            content: (
-      <StandSitesSection stands={propertyStands} />
-            ),
-          },
-          {
-            id: "deer",
-            label: "Deer",
-            badge: deerProfileCount,
-            content: (
-      <DeerProfilesSection
-        initialProfileId={searchParams.get("buck") ?? undefined}
-        summaries={deerProfileSummaries}
-        propertyName={property.name}
-        cameras={propertyCameras}
-        photoRecords={propertyPhotoRecords}
-        cameraChecks={propertyCameraChecks}
-        hunts={propertyHunts}
-        pins={propertyPins}
-      />
-            ),
-          },
-          {
             id: "plan",
             label: "Plan",
             content: (
@@ -776,6 +657,41 @@ const backTextLinkStyle: CSSProperties = {
   color: "var(--text-muted)",
   fontWeight: 700,
   textDecoration: "none",
+};
+
+// Counts that jump to the full Cameras / Stands / Bucks / Hunt Log pages
+// (this property stays selected), instead of duplicating them here.
+const shortcutGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: "0.5rem",
+};
+
+const shortcutStyle: CSSProperties = {
+  display: "grid",
+  justifyItems: "center",
+  gap: "0.1rem",
+  minHeight: "64px",
+  padding: "0.6rem 0.4rem",
+  borderRadius: "14px",
+  border: "1px solid var(--border)",
+  background: "var(--surface)",
+  color: "var(--text)",
+  textDecoration: "none",
+};
+
+const shortcutCountStyle: CSSProperties = {
+  fontFamily: "var(--font-display), system-ui, sans-serif",
+  fontSize: "1.4rem",
+  fontWeight: 800,
+  lineHeight: 1.1,
+};
+
+const shortcutLabelStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontSize: "0.75rem",
+  fontWeight: 700,
+  textAlign: "center",
 };
 
 const tabPanelStyle: CSSProperties = {
