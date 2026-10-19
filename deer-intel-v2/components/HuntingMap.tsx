@@ -120,6 +120,7 @@ import {
 } from "@/lib/walkTrack";
 import type { WalkTrack, WalkTrackPoint } from "@/types/walkTrack";
 import {
+  coldFrontStatus,
   fetchLiveForecast,
   resolvePropertyWeatherPoint,
 } from "@/lib/liveWeather";
@@ -186,7 +187,11 @@ import {
   useDefaultMapLayer,
   useDefaultMapOverlays,
 } from "@/lib/mapPreferences";
-import { rutPeakMonthDay, useSeasonCalendar } from "@/lib/seasonCalendar";
+import {
+  getSeasonContext,
+  rutPeakMonthDay,
+  useSeasonCalendar,
+} from "@/lib/seasonCalendar";
 import Button from "./ui/Button";
 
 type ClickToAddPinProps = {
@@ -1197,6 +1202,8 @@ export default function HuntingMap() {
     moonPhase?: string;
     pressureTrend?: "rising" | "steady" | "falling";
     temperature?: string;
+    pressureDropInHg?: number | null;
+    conditions?: string;
   } | null>(null);
   const [waybackReleases, setWaybackReleases] = useState<WaybackRelease[]>([]);
   const [selectedRelease, setSelectedRelease] = useState<string>();
@@ -1670,9 +1677,20 @@ export default function HuntingMap() {
       moonPhase: forecastMeta.moonPhase,
       pressureTrend: forecastMeta.pressureTrend,
       temperature: forecastMeta.temperature,
+      pressureDropInHg: forecastMeta.pressureDropInHg,
+      conditions: forecastMeta.conditions,
+      windMph: windData?.speedMph ?? null,
+      rutPhase: getSeasonContext(new Date(), seasonCalendar, propertyLatitude).phase,
       propertySignal,
     });
-  }, [forecastMeta, movementPeriod, seasonalPhotos]);
+  }, [
+    forecastMeta,
+    movementPeriod,
+    seasonalPhotos,
+    windData?.speedMph,
+    seasonCalendar,
+    propertyLatitude,
+  ]);
   // Push the same camera-timing signal down to each corridor via nearby cameras.
   const corridorEvidenceById = useMemo(
     () =>
@@ -1995,6 +2013,8 @@ export default function HuntingMap() {
           moonPhase: current.moonPhase,
           pressureTrend: pressure?.trend,
           temperature: current.temperature,
+          pressureDropInHg: coldFrontStatus(pressure).dropInHg,
+          conditions: current.weather,
         });
         setForecastStatus("ok");
       })
