@@ -975,30 +975,30 @@ textarea {
   }
 }
 
-/* On mobile the bare map page fills the entire screen: no page padding, the
-   map runs edge-to-edge behind the fixed top Settings button and bottom nav,
-   and the map's own controls shift to clear that chrome (and the notch). */
+/* On mobile the bare map page fills the screen under the brand bar: the map
+   runs edge-to-edge from just below the bar down behind the bottom nav, and
+   its own controls sit inside that area. */
 @media (max-width: 720px) {
   /* Two classes so this beats the base `.di-page-shell` mobile padding rule,
      which is also !important. */
   .di-page-shell.di-page-shell-bare {
-    padding: 0 !important;
+    padding: calc(3.25rem + env(safe-area-inset-top)) 0 0 !important;
     height: 100dvh;
     overflow: hidden;
   }
 
   .di-page-shell-bare .di-map-frame {
-    height: 100dvh !important;
+    height: calc(100dvh - 3.25rem - env(safe-area-inset-top)) !important;
     min-height: 0 !important;
     margin: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
   }
 
-  /* The map now starts at the very top, so drop the top controls below the
-     notch/status bar and the fixed Settings button. */
+  /* The map starts below the brand bar (which already clears the notch), so
+     the top controls sit a plain gutter from the map's top edge. */
   .di-page-shell-bare .di-map-search {
-    top: calc(0.75rem + env(safe-area-inset-top)) !important;
+    top: 0.75rem !important;
   }
   .di-page-shell-bare .di-map-controls {
     top: auto !important;
@@ -1006,10 +1006,10 @@ textarea {
   }
   .di-page-shell-bare .di-map-topbar,
   .di-page-shell-bare .di-map-search.di-map-search-collapsed {
-    top: calc(0.75rem + env(safe-area-inset-top)) !important;
+    top: 0.75rem !important;
   }
   .di-page-shell-bare .di-map-year {
-    top: calc(7rem + env(safe-area-inset-top)) !important;
+    top: 7rem !important;
   }
 
   /* Lift the bottom controls above the fixed mobile nav; the property panel
@@ -1025,7 +1025,7 @@ textarea {
     right: 5.25rem !important;
   }
   .di-page-shell-bare .di-layer-manager-button {
-    top: calc(0.75rem + env(safe-area-inset-top)) !important;
+    top: 0.75rem !important;
     bottom: auto !important;
   }
   .di-page-shell-bare .di-area-pill {
