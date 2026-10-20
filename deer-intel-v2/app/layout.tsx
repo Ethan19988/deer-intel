@@ -1,6 +1,6 @@
 import SharedSightingsManager from "@/components/SharedSightingsManager";
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Bricolage_Grotesque } from "next/font/google";
+import { Geist, Geist_Mono, Bricolage_Grotesque, Bebas_Neue } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { PartyProvider } from "@/components/party/PartyProvider";
@@ -34,6 +34,15 @@ const bricolage = Bricolage_Grotesque({
   weight: ["600", "700", "800"],
 });
 
+// Condensed all-caps face for the sign-in headline, matching the DEER INTEL
+// wordmark (also Bebas Neue). Only the login/reset hero uses it.
+const bebas = Bebas_Neue({
+  variable: "--font-headline",
+  subsets: ["latin"],
+  weight: "400",
+  preload: false,
+});
+
 export const metadata: Metadata = {
   title: "Deer Intel",
   description: "A simple hunting property, map, camera, and hunt log app.",
@@ -62,7 +71,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${bricolage.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${bricolage.variable} ${bebas.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">

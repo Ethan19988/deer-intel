@@ -7,21 +7,15 @@ import {
   useState,
   type CSSProperties,
   type FormEvent,
-  type ReactNode,
 } from "react";
 import Button from "@/components/ui/Button";
 import { useAuth } from "@/components/auth/AuthProvider";
-import HeroScene from "@/components/ui/HeroScene";
-import {
-  CompassIcon,
-  DeerIcon,
-  LeafIcon,
-  MoonIcon,
-} from "@/components/ui/FieldIcons";
+import AuthHero, { type AuthHeroItem } from "@/components/auth/AuthHero";
+import { CompassIcon, LeafIcon, MoonIcon } from "@/components/ui/FieldIcons";
 
 // Quiet reassurances for the reset hero — a calmer pitch than the login's
 // feature sell, since the hunter is already an account holder.
-const ASSURANCES: { icon: ReactNode; title: string; note: string }[] = [
+const ASSURANCES: AuthHeroItem[] = [
   {
     icon: <LeafIcon size={18} />,
     title: "Your data is untouched",
@@ -179,47 +173,17 @@ export default function ResetPasswordPage() {
   return (
     <main style={pageStyle}>
       <div className="di-login-shell" style={shellStyle}>
-        {/* ---- Golden-hour showcase ---- */}
-        <section
-          className="di-login-showcase di-camo"
-          style={showcaseStyle}
-          aria-hidden="true"
-        >
-          <span className="di-login-sun" />
-
-          <div style={brandRowStyle}>
-            <span style={brandBadgeStyle}>
-              <DeerIcon size={26} />
-            </span>
-            <span style={brandWordmarkStyle}>Deer Intel</span>
-          </div>
-
-          <div style={pitchStyle}>
-            <p style={heroEyebrowStyle}>Account Recovery</p>
-            <h2 style={heroTitleStyle}>
+        <AuthHero
+          eyebrow="Account Recovery"
+          title={
+            <>
               A fresh key
               <br />to your season.
-            </h2>
-            <p style={heroLeadStyle}>
-              Set a new password and step right back into your properties,
-              cameras, stands, and hunt log — nothing lost along the way.
-            </p>
-          </div>
-
-          <ul className="di-login-features" style={featureListStyle}>
-            {ASSURANCES.map((item) => (
-              <li key={item.title} style={featureRowStyle}>
-                <span style={featureIconStyle}>{item.icon}</span>
-                <span>
-                  <span style={featureTitleStyle}>{item.title}</span>
-                  <span style={featureNoteStyle}>{item.note}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <HeroScene style={heroSceneStyle} />
-        </section>
+            </>
+          }
+          lead="Set a new password and step right back into your properties, cameras, stands, and hunt log — nothing lost along the way."
+          items={ASSURANCES}
+        />
 
         {/* ---- Reset panel ---- */}
         <section style={formPanelStyle}>
@@ -264,135 +228,19 @@ const shellStyle: CSSProperties = {
   boxShadow: "0 40px 80px -40px rgba(28, 22, 10, 0.55)",
 };
 
-// ---- Showcase (imagery panel; overlay colors are fixed & photo-safe, matching
-// the map-control / photo-overlay convention rather than theme tokens) ----
-const showcaseStyle: CSSProperties = {
-  position: "relative",
-  overflow: "hidden",
-  display: "flex",
-  flexDirection: "column",
-  gap: "1.75rem",
-  padding: "clamp(1.75rem, 3.5vw, 2.75rem)",
-  backgroundImage:
-    "linear-gradient(158deg, rgba(18, 28, 14, 0.9) 0%, rgba(28, 42, 20, 0.66) 44%, rgba(150, 84, 30, 0.5) 100%), var(--camo)",
-  backgroundSize: "cover",
-  backgroundPosition: "center",
-  color: "#f3edd9",
-  isolation: "isolate",
-};
 
-const brandRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.7rem",
-};
 
-const brandBadgeStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "3rem",
-  height: "3rem",
-  flex: "none",
-  borderRadius: "15px",
-  background: "rgba(243, 237, 217, 0.15)",
-  border: "1px solid rgba(243, 237, 217, 0.35)",
-  color: "#f6efd6",
-  backdropFilter: "blur(2px)",
-};
 
-const brandWordmarkStyle: CSSProperties = {
-  fontFamily: "var(--font-display), system-ui, sans-serif",
-  fontSize: "1.2rem",
-  fontWeight: 800,
-  letterSpacing: "0.01em",
-};
 
-const pitchStyle: CSSProperties = {
-  marginTop: "auto",
-  display: "grid",
-  gap: "0.85rem",
-};
 
-const heroEyebrowStyle: CSSProperties = {
-  margin: 0,
-  fontSize: "0.75rem",
-  fontWeight: 800,
-  letterSpacing: "0.14em",
-  textTransform: "uppercase",
-  color: "rgba(243, 237, 217, 0.78)",
-};
 
-const heroTitleStyle: CSSProperties = {
-  margin: 0,
-  fontFamily: "var(--font-display), system-ui, sans-serif",
-  fontSize: "clamp(2.1rem, 3.4vw, 2.9rem)",
-  lineHeight: 1.04,
-  fontWeight: 850,
-  letterSpacing: "-0.02em",
-  color: "#f6f0dc",
-  textShadow: "0 2px 18px rgba(12, 18, 8, 0.45)",
-};
 
-const heroLeadStyle: CSSProperties = {
-  margin: 0,
-  maxWidth: "34ch",
-  fontSize: "1rem",
-  lineHeight: 1.55,
-  color: "rgba(243, 237, 217, 0.9)",
-};
 
-const featureListStyle: CSSProperties = {
-  listStyle: "none",
-  margin: 0,
-  padding: "1.25rem 0 0",
-  borderTop: "1px solid rgba(243, 237, 217, 0.2)",
-  display: "grid",
-  gap: "0.9rem",
-};
 
-const featureRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.8rem",
-};
 
-const featureIconStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "2.1rem",
-  height: "2.1rem",
-  flex: "none",
-  borderRadius: "10px",
-  background: "rgba(243, 237, 217, 0.14)",
-  border: "1px solid rgba(243, 237, 217, 0.26)",
-  color: "#f6efd6",
-};
 
-const featureTitleStyle: CSSProperties = {
-  display: "block",
-  fontWeight: 800,
-  fontSize: "0.95rem",
-  color: "#f4eeda",
-};
 
-const featureNoteStyle: CSSProperties = {
-  display: "block",
-  fontSize: "0.82rem",
-  color: "rgba(243, 237, 217, 0.72)",
-};
 
-const heroSceneStyle: CSSProperties = {
-  position: "absolute",
-  right: "-10px",
-  bottom: "-8px",
-  width: "230px",
-  height: "auto",
-  opacity: 0.55,
-  zIndex: -1,
-  pointerEvents: "none",
-};
 
 // ---- Reset panel (app chrome; pure tokens) ----
 const formPanelStyle: CSSProperties = {
