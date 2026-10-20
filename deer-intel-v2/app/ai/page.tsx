@@ -19,7 +19,13 @@ import { useAiScoutEnabled } from "@/lib/aiScoutPreferences";
 import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
-import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import {
+  fetchLiveForecast,
+  resolvePropertyWeatherPoint,
+  type LiveForecast,
+} from "@/lib/liveWeather";
+import { readForecastSnapshot } from "@/lib/forecastSnapshot";
+import { useUnitPreferences } from "@/lib/units";
 import { clipTerrainSetToArea, getScoutPicks } from "@/lib/terrainMovementData";
 import { aggregateCameraActivity } from "@/lib/terrainLearning";
 import {
@@ -84,6 +90,11 @@ export default function AIPage() {
   const aiScoutEnabled = useAiScoutEnabled();
   const [aiScoutConfigured, setAiScoutConfigured] = useState<boolean | null>(null);
   const [conditions, setConditions] = useState<AiScoutConditions>(EMPTY_AI_SCOUT_CONDITIONS);
+  const [editingConditions, setEditingConditions] = useState(false);
+  // Sky and pressure from the forecast ride along with the request (they have
+  // no field of their own) and show in the conditions line.
+  const [liveExtras, setLiveExtras] = useState<LiveExtras>({ source: "none", sky: "", pressure: "" });
+  const units = useUnitPreferences();
   const [aiScoutStatus, setAiScoutStatus] = useState<"idle" | "loading" | "error">("idle");
   const [aiScoutError, setAiScoutError] = useState<string>("");
   const [aiScoutReport, setAiScoutReport] = useState<AiScoutReport | null>(null);
@@ -100,6 +111,47 @@ export default function AIPage() {
     };
   }, []);
 
+  // Fill today's conditions from the live forecast (the same one Today uses,
+  // instantly from this device's snapshot when there is one) so asking is one
+  // tap. Only blank fields are filled — anything the hunter typed stays.
+  const weatherKey = terrainPoint ? `${terrainPoint.lat},${terrainPoint.lng}` : "";
+  useEffect(() => {
+    const point = selectedProperty
+      ? resolvePropertyWeatherPoint(selectedProperty, propertyCameras, propertyPins)
+      : null;
+    if (!point) return;
+    const key = `${point.lat},${point.lng}`;
+    let active = true;
+
+    const apply = (forecast: LiveForecast) => {
+      setConditions((current) => ({
+        ...current,
+        windDirection: current.windDirection || forecast.current.windDirection,
+        windSpeed: current.windSpeed || forecast.current.windSpeed,
+        temperature: current.temperature || forecast.current.temperature,
+        moonPhase: current.moonPhase || forecast.current.moonPhase,
+      }));
+      setLiveExtras({
+        source: "live",
+        sky: forecast.current.weather,
+        pressure: forecast.pressure
+          ? `pressure ${forecast.pressure.value} and ${forecast.pressure.trend}`
+          : "",
+      });
+    };
+
+    const snapshot = readForecastSnapshot(`${key}|${units.temperature}|${units.wind}`);
+    if (snapshot) apply(snapshot);
+    fetchLiveForecast(point, units).then((result) => {
+      if (active && result.status === "ok") apply(result.forecast);
+    });
+    return () => {
+      active = false;
+    };
+    // Re-run per property and unit choice; the point is derived from them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyId, weatherKey, units.temperature, units.wind]);
+
   // Today's moon phase (client-computed). Used to auto-fill the AI Scout
   // conditions when the hunter hasn't typed their own, and to show a movement
   // hint so the recommendation always reasons about lunar timing.
@@ -115,6 +167,8 @@ export default function AIPage() {
     setAiScoutReport(null);
     setAiScoutStatus("idle");
     setAiScoutError("");
+    setConditions(EMPTY_AI_SCOUT_CONDITIONS);
+    setLiveExtras({ source: "none", sky: "", pressure: "" });
   }
 
   function updateCondition(field: keyof AiScoutConditions, value: string) {
@@ -141,6 +195,13 @@ export default function AIPage() {
         conditions: {
           ...conditions,
           moonPhase: conditions.moonPhase || moon?.phase || "",
+          notes: [
+            conditions.notes.trim(),
+            liveExtras.sky ? `Sky: ${liveExtras.sky}.` : "",
+            liveExtras.pressure ? `Barometric ${liveExtras.pressure}.` : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
         },
         scoutPicks,
       });
@@ -185,11 +246,6 @@ export default function AIPage() {
           <Section
             eyebrow="Assistant"
             title="AI Scout"
-            action={
-              <Badge variant={aiScoutConfigured && aiScoutEnabled ? "success" : "warning"}>
-                Beta
-              </Badge>
-            }
           >
             {!aiScoutEnabled ? (
               <EmptyState
@@ -209,64 +265,81 @@ export default function AIPage() {
               />
             ) : (
               <Card as="div" variant="subtle">
-                <p style={mutedTextStyle}>
-                  Tell AI Scout today&apos;s conditions and it will read this property&apos;s
-                  saved stands, hunts, camera checks, and buck photos to recommend where to
-                  hunt — grounded only in what you&apos;ve actually logged.
+                <p style={leadStyle}>
+                  Today&apos;s verdict picks a stand by rules. AI Scout reads everything
+                  saved for {selectedProperty.name} — every sit, camera check, buck photo,
+                  and the terrain — and writes a plan: where to sit, why, and what could
+                  go wrong.
                 </p>
 
-                <div style={conditionsGridStyle}>
-                  <label style={fieldStyle}>
-                    <span style={labelStyle}>Wind Direction</span>
-                    <input
-                      style={inputStyle}
-                      value={conditions.windDirection}
-                      onChange={(event) => updateCondition("windDirection", event.target.value)}
-                      placeholder="e.g. NW"
-                    />
-                  </label>
-                  <label style={fieldStyle}>
-                    <span style={labelStyle}>Wind Speed</span>
-                    <input
-                      style={inputStyle}
-                      value={conditions.windSpeed}
-                      onChange={(event) => updateCondition("windSpeed", event.target.value)}
-                      placeholder="e.g. 8 mph"
-                    />
-                  </label>
-                  <label style={fieldStyle}>
-                    <span style={labelStyle}>Temperature</span>
-                    <input
-                      style={inputStyle}
-                      value={conditions.temperature}
-                      onChange={(event) => updateCondition("temperature", event.target.value)}
-                      placeholder="e.g. 42°F"
-                    />
-                  </label>
-                  <label style={fieldStyle}>
-                    <span style={labelStyle}>Moon Phase</span>
-                    <input
-                      style={inputStyle}
-                      value={conditions.moonPhase}
-                      onChange={(event) => updateCondition("moonPhase", event.target.value)}
-                      placeholder={moon ? moon.phase : "e.g. Waning Gibbous"}
-                    />
-                    {moon ? (
-                      <span style={moonHintStyle}>
-                        Tonight: {moon.phase} · {moon.illumination}% lit —{" "}
-                        {moon.movement}
-                      </span>
+                <div style={conditionsSummaryStyle}>
+                  <div>
+                    <p style={labelStyle}>Today&apos;s conditions</p>
+                    <p style={conditionsLineStyle}>
+                      {conditionsSummary(conditions, liveExtras) || "Loading the forecast…"}
+                    </p>
+                    {liveExtras.source === "live" ? (
+                      <p style={conditionsSourceStyle}>Filled in from the live forecast.</p>
                     ) : null}
-                  </label>
+                  </div>
+                  <button
+                    type="button"
+                    style={changeButtonStyle}
+                    aria-expanded={editingConditions}
+                    onClick={() => setEditingConditions((current) => !current)}
+                  >
+                    {editingConditions ? "Done" : "Change"}
+                  </button>
                 </div>
 
+                {editingConditions ? (
+                  <div style={conditionsGridStyle}>
+                    <label style={fieldStyle}>
+                      <span style={labelStyle}>Wind direction</span>
+                      <input
+                        style={inputStyle}
+                        value={conditions.windDirection}
+                        onChange={(event) => updateCondition("windDirection", event.target.value)}
+                        placeholder="e.g. NW"
+                      />
+                    </label>
+                    <label style={fieldStyle}>
+                      <span style={labelStyle}>Wind speed</span>
+                      <input
+                        style={inputStyle}
+                        value={conditions.windSpeed}
+                        onChange={(event) => updateCondition("windSpeed", event.target.value)}
+                        placeholder="e.g. 8 mph"
+                      />
+                    </label>
+                    <label style={fieldStyle}>
+                      <span style={labelStyle}>Temperature</span>
+                      <input
+                        style={inputStyle}
+                        value={conditions.temperature}
+                        onChange={(event) => updateCondition("temperature", event.target.value)}
+                        placeholder="e.g. 42°F"
+                      />
+                    </label>
+                    <label style={fieldStyle}>
+                      <span style={labelStyle}>Moon</span>
+                      <input
+                        style={inputStyle}
+                        value={conditions.moonPhase}
+                        onChange={(event) => updateCondition("moonPhase", event.target.value)}
+                        placeholder={moon ? moon.phase : "e.g. Waning Gibbous"}
+                      />
+                    </label>
+                  </div>
+                ) : null}
+
                 <label style={{ ...fieldStyle, marginTop: "0.9rem" }}>
-                  <span style={labelStyle}>Anything else worth knowing today</span>
+                  <span style={labelStyle}>Anything else? (optional)</span>
                   <textarea
                     style={textareaStyle}
                     value={conditions.notes}
                     onChange={(event) => updateCondition("notes", event.target.value)}
-                    placeholder="e.g. hunting pressure nearby, first cold front, food source changing"
+                    placeholder="e.g. pressure from a neighbor, acorns dropping, only have till 10am"
                     rows={2}
                   />
                 </label>
@@ -339,6 +412,17 @@ export default function AIPage() {
       ) : null}
     </PageShell>
   );
+}
+
+type LiveExtras = { source: "none" | "live"; sky: string; pressure: string };
+
+// "NNE 8 mph · 60°F · Clear · pressure 30.1 and steady · Waxing gibbous"
+function conditionsSummary(conditions: AiScoutConditions, extras: LiveExtras): string {
+  const wind = [conditions.windDirection, conditions.windSpeed].filter(Boolean).join(" ");
+  return [wind, conditions.temperature, extras.sky, extras.pressure, conditions.moonPhase]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function confidenceBadgeVariant(confidence: AiScoutReport["confidence"]) {
@@ -437,6 +521,52 @@ const primaryLinkStyle: CSSProperties = {
   textDecoration: "none",
 };
 
+const leadStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text)",
+  fontSize: "0.98rem",
+  lineHeight: 1.55,
+};
+
+const conditionsSummaryStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  marginTop: "1rem",
+  padding: "0.75rem 0.85rem",
+  border: "1px solid var(--border)",
+  borderRadius: "12px",
+  background: "var(--surface)",
+};
+
+const conditionsLineStyle: CSSProperties = {
+  margin: "0.2rem 0 0",
+  color: "var(--text)",
+  fontSize: "0.98rem",
+  fontWeight: 800,
+  lineHeight: 1.4,
+};
+
+const conditionsSourceStyle: CSSProperties = {
+  margin: "0.15rem 0 0",
+  color: "var(--text-muted)",
+  fontSize: "0.78rem",
+};
+
+const changeButtonStyle: CSSProperties = {
+  flex: "none",
+  minHeight: "40px",
+  padding: "0 0.85rem",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "10px",
+  background: "var(--surface-2)",
+  color: "var(--text)",
+  fontSize: "0.88rem",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
 const conditionsGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))",
@@ -454,11 +584,6 @@ const inputStyle: CSSProperties = {
   color: "var(--text)",
 };
 
-const moonHintStyle: CSSProperties = {
-  color: "var(--text-muted)",
-  fontSize: "0.82rem",
-  lineHeight: 1.4,
-};
 
 const textareaStyle: CSSProperties = {
   width: "100%",

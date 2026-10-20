@@ -224,6 +224,11 @@
   border-color: #256d38 !important;
 }
 
+:root[data-theme="dark"] .di-map-topbar .di-map-topbar-chip {
+  color: #ecebdc !important;
+  border-color: rgba(69, 79, 56, 0.7) !important;
+}
+
 :root[data-theme="dark"] .di-map-topbar :is(.di-map-topbar-chip, .di-map-style-panel) {
   background: rgba(20, 24, 16, 0.88) !important;
   border-color: rgba(69, 79, 56, 0.6) !important;
@@ -999,8 +1004,9 @@ textarea {
     top: auto !important;
     bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
   }
-  .di-page-shell-bare .di-map-topbar {
-    top: calc(3.9rem + env(safe-area-inset-top)) !important;
+  .di-page-shell-bare .di-map-topbar,
+  .di-page-shell-bare .di-map-search.di-map-search-collapsed {
+    top: calc(0.75rem + env(safe-area-inset-top)) !important;
   }
   .di-page-shell-bare .di-map-year {
     top: calc(7rem + env(safe-area-inset-top)) !important;
@@ -1284,16 +1290,39 @@ textarea {
   /* The overlay bar rises to a full-width row directly beneath the top-right
      control cluster (was pushed a row lower before). It scrolls horizontally so
      every layer option stays reachable. */
-  /* Chips sit in a row under the top-right search + Layers cluster. */
+  /* One aligned top row on phones: property + style chips on the left,
+     search + Layers on the right, all 44px tall and flush with the same 0.75rem
+     edges as the N/GPS column. Chips wrap to a second row under the property
+     chip rather than running beneath the right-hand buttons. */
   .di-map-topbar {
-    top: 3.9rem !important;
+    top: 0.75rem !important;
     left: 0.75rem !important;
-    right: 0.75rem !important;
+    right: 11.25rem !important;
     max-width: none !important;
   }
 
   .di-map-topbar-chip {
-    min-height: 40px !important;
+    min-height: 44px !important;
+    height: 44px;
+  }
+
+  .di-layer-manager-button {
+    right: 0.75rem !important;
+    min-width: 6.25rem;
+    min-height: 44px !important;
+    height: 44px;
+    border-radius: 999px !important;
+  }
+
+  .di-map-search.di-map-search-collapsed {
+    top: 0.75rem !important;
+    right: 7.5rem !important;
+  }
+
+  .di-map-search.di-map-search-collapsed button {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 999px !important;
   }
 
   /* Push the wayback year stepper below the overlay bar's row. */
@@ -1362,10 +1391,7 @@ textarea {
 
   .di-layer-manager-button {
     top: 0.75rem !important;
-    /* Sit just left of the fixed Settings gear that owns the very corner. */
-    right: 3.75rem !important;
     bottom: auto !important;
-    min-height: 50px !important;
   }
 
   .di-layer-manager-panel {

@@ -253,15 +253,16 @@ const chipStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: "0.35rem",
-  minHeight: "38px",
+  minHeight: "44px",
   maxWidth: "12rem",
   padding: "0 0.75rem",
-  border: "1px solid rgba(255, 255, 255, 0.24)",
+  // Same face as the Search and Layers buttons beside it, so the top row
+  // reads as one set of controls (the dark/night themes retint all of them).
+  border: "1px solid rgba(25, 34, 25, 0.28)",
   borderRadius: "999px",
-  background: "rgba(17, 23, 17, 0.72)",
-  backdropFilter: "blur(6px)",
-  boxShadow: "0 4px 14px rgba(0, 0, 0, 0.3)",
-  color: "#f2f6ee",
+  background: "rgba(255, 255, 255, 0.96)",
+  boxShadow: "0 10px 24px rgba(0, 0, 0, 0.22)",
+  color: "#111711",
   fontSize: "0.86rem",
   fontWeight: 800,
   whiteSpace: "nowrap",
@@ -269,7 +270,8 @@ const chipStyle: CSSProperties = {
 };
 
 const chipOpenStyle: CSSProperties = {
-  borderColor: "rgba(149, 210, 122, 0.7)",
+  borderColor: "#2f6d3a",
+  boxShadow: "0 0 0 2px rgba(47, 109, 58, 0.35), 0 10px 24px rgba(0, 0, 0, 0.22)",
 };
 
 const selectStyle: CSSProperties = {
@@ -293,7 +295,7 @@ const caretStyle: CSSProperties = {
 
 const activeChipStyle: CSSProperties = {
   ...chipStyle,
-  minHeight: "32px",
+  minHeight: "36px",
   padding: "0 0.6rem",
   borderColor: "rgba(240, 150, 70, 0.6)",
   background: "rgba(194, 87, 28, 0.9)",

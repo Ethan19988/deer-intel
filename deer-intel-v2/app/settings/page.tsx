@@ -17,6 +17,7 @@ import DataPrivacyManager from "@/components/settings/DataPrivacyManager";
 import NotificationsManager from "@/components/settings/NotificationsManager";
 import OfflineMapsManager from "@/components/settings/OfflineMapsManager";
 import TerrainToolsManager from "@/components/settings/TerrainToolsManager";
+import { ICON_CREDITS } from "@/lib/pinGlyphs";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { saveDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import { backupLocalImages } from "@/lib/imageStore";
@@ -747,7 +748,33 @@ export default function SettingsPage() {
           { id: "backup", label: "Backup", content: backupTab },
           { id: "offline", label: "Offline", content: offlineTab },
           { id: "account", label: "Account", content: accountTab },
-          { id: "advanced", label: "Advanced", content: <TerrainToolsManager /> },
+          {
+            id: "advanced",
+            label: "Advanced",
+            content: (
+              <>
+                <TerrainToolsManager />
+                <Section eyebrow="About" title="Icon credits">
+                  <Card as="div" variant="subtle">
+                    <p style={mutedTextStyle}>
+                      {ICON_CREDITS}{" "}
+                      <a href="https://game-icons.net" target="_blank" rel="noreferrer">
+                        game-icons.net
+                      </a>{" "}
+                      ·{" "}
+                      <a
+                        href="https://creativecommons.org/licenses/by/3.0/"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        CC BY 3.0
+                      </a>
+                    </p>
+                  </Card>
+                </Section>
+              </>
+            ),
+          },
         ]}
       />
 
