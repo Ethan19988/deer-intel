@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import AccountNavControl from "@/components/auth/AccountNavControl";
-import { DeerIcon } from "@/components/ui/FieldIcons";
+import BuckMark from "@/components/ui/BuckMark";
 import {
   isActivePath as isActive,
   NAV_GROUPS,
@@ -21,7 +21,7 @@ export default function Sidebar({ activePath }: { activePath?: string } = {}) {
     <aside className="di-sidebar" aria-label="Primary">
       <Link href="/" className="di-camo-band di-sidebar-brand">
         <span className="di-sidebar-mark" aria-hidden="true">
-          <DeerIcon size={22} />
+          <BuckMark size={22} />
         </span>
         Deer Intel
       </Link>
