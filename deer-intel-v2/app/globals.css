@@ -229,7 +229,7 @@
   border-color: rgba(69, 79, 56, 0.7) !important;
 }
 
-:root[data-theme="dark"] .di-map-topbar :is(.di-map-topbar-chip, .di-map-style-panel) {
+:root[data-theme="dark"] .di-map-topbar .di-map-topbar-chip {
   background: rgba(20, 24, 16, 0.88) !important;
   border-color: rgba(69, 79, 56, 0.6) !important;
 }
@@ -260,20 +260,13 @@
   border-color: #9c2c1f !important;
 }
 
-:root[data-theme="night"] .di-map-topbar :is(.di-map-topbar-chip, .di-map-style-panel) {
+:root[data-theme="night"] .di-map-topbar .di-map-topbar-chip {
   background: rgba(18, 9, 6, 0.9) !important;
   border-color: rgba(85, 41, 26, 0.7) !important;
 }
 
-:root[data-theme="night"] .di-map-topbar :is(button, .di-map-topbar-chip) {
+:root[data-theme="night"] .di-map-topbar .di-map-topbar-chip {
   color: #d98a78 !important;
-}
-
-/* Retint the lit overlay/base-map pills from blaze orange / green to red. */
-:root[data-theme="night"] .di-map-topbar button[aria-checked="true"] {
-  background: #b03d24 !important;
-  border-color: rgba(240, 138, 106, 0.55) !important;
-  color: #ffe1d8 !important;
 }
 
 /* The floating info panels (legend, movement outlook, terrain picks, wind badge,
@@ -461,6 +454,18 @@ h3 {
     linear-gradient(rgba(233, 226, 206, 0.72), rgba(233, 226, 206, 0.8)),
     var(--camo);
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* ---- Layers panel actions ---- */
+/* Action buttons in the Layers panel size to their label instead of
+   stretching across the card. */
+.di-layer-manager-content .di-button,
+.di-layer-manager-content .di-layer-action {
+  justify-self: start;
+  width: auto !important;
+  min-height: 40px !important;
+  padding: 0.55rem 1rem !important;
+  font-size: 0.88rem !important;
 }
 
 /* ---- Login showcase (the standalone /login and /reset-password screens) ---- */
@@ -1001,7 +1006,7 @@ textarea {
     top: 0.75rem !important;
   }
   .di-page-shell-bare .di-map-year {
-    top: 7rem !important;
+    top: 4.25rem !important;
   }
 
   /* Lift the bottom controls above the fixed mobile nav; the property panel
@@ -1300,25 +1305,29 @@ textarea {
   /* The overlay bar rises to a full-width row directly beneath the top-right
      control cluster (was pushed a row lower before). It scrolls horizontally so
      every layer option stays reachable. */
-  /* One aligned top row on phones: property + style chips on the left,
-     search + Layers on the right, all 44px tall and flush with the same 0.75rem
-     edges as the N/GPS column. Chips wrap to a second row under the property
-     chip rather than running beneath the right-hand buttons. */
+  /* One even top row on phones: the property chip fills the left side up to
+     the search and Layers buttons, all 44px tall on the same 0.75rem edges.
+     (Map style moved into the Layers panel, so there's no second row.) */
   .di-map-topbar {
     top: 0.75rem !important;
     left: 0.75rem !important;
-    right: 11.25rem !important;
+    right: 12.05rem !important;
     max-width: none !important;
   }
 
   .di-map-topbar-chip {
+    width: 100%;
+    max-width: none !important;
     min-height: 44px !important;
     height: 44px;
   }
 
+  /* Fixed widths keep the row tidy: Layers 7.75rem, a 0.4rem gap, search
+     2.75rem, another gap, then the property chip fills the rest. */
   .di-layer-manager-button {
     right: 0.75rem !important;
-    min-width: 6.25rem;
+    width: 7.75rem;
+    padding: 0 0.7rem !important;
     min-height: 44px !important;
     height: 44px;
     border-radius: 999px !important;
@@ -1326,7 +1335,7 @@ textarea {
 
   .di-map-search.di-map-search-collapsed {
     top: 0.75rem !important;
-    right: 7.5rem !important;
+    right: 8.9rem !important;
   }
 
   .di-map-search.di-map-search-collapsed button {
@@ -1335,9 +1344,9 @@ textarea {
     border-radius: 999px !important;
   }
 
-  /* Push the wayback year stepper below the overlay bar's row. */
+  /* The wayback year stepper sits just under the single top row. */
   .di-map-year {
-    top: 7rem !important;
+    top: 4.25rem !important;
   }
 
   /* The wind badge's default top-right slot (top: 4.6rem) lands on the overlay
@@ -1410,7 +1419,9 @@ textarea {
     bottom: 0 !important;
     left: 0 !important;
     width: 100% !important;
-    max-height: 82svh !important;
+    /* A fixed height, so switching tabs doesn't make the sheet jump. */
+    height: 78svh !important;
+    max-height: 78svh !important;
     border-top: 1px solid rgba(17, 23, 17, 0.14) !important;
     border-left: 0 !important;
     border-radius: 16px 16px 0 0 !important;

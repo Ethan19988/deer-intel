@@ -29,6 +29,7 @@ import MapNoticeToast from "@/components/map/MapNoticeToast";
 import { clusterPoints } from "@/lib/mapClusters";
 import { summarizeMapNotices } from "@/lib/mapNotices";
 import MapTopBar from "@/components/map/MapTopBar";
+import MapStylePicker from "@/components/map/MapStylePicker";
 import WindThermalLayer, {
   type WindStandPoint,
 } from "@/components/map/WindThermalLayer";
@@ -3311,9 +3312,8 @@ export default function HuntingMap() {
       ) : (
         <>
           <p style={helpTextStyle}>
-            Record a walk: your phone traces the path you actually walk, around
-            the blowdowns and along the creek, not a straight line between
-            points. The screen stays on while recording so GPS keeps up.
+            Records the path you actually walk, not a straight line. Keeps the
+            screen on so GPS keeps up.
           </p>
           <Button
             type="button"
@@ -3610,34 +3610,6 @@ export default function HuntingMap() {
             properties={state.properties}
             selectedPropertyId={selectedPropertyId}
             onSelectProperty={selectProperty}
-            selectedLayer={selectedLayer}
-            overlays={{
-              contours: showContours,
-              slope: showSlope,
-              landcover: showLandcover,
-              cameraHeat: showCameraHeat,
-              deerHeat: showDeerHeat,
-              wind: showWind,
-              movement: showMovement,
-              terrain: showTerrain,
-            }}
-            contourNeedsZoomIn={mapZoom < CONTOUR_MIN_ZOOM}
-            onSelectLayer={setSelectedLayer}
-            onToggleOverlay={(key) => {
-              if (key === "contours") setShowContours((current) => !current);
-              else if (key === "slope") setShowSlope((current) => !current);
-              else if (key === "landcover") setShowLandcover((current) => !current);
-              else if (key === "cameraHeat") setShowCameraHeat((current) => !current);
-              else if (key === "deerHeat") setShowDeerHeat((current) => !current);
-              else if (key === "wind") toggleWind();
-              else if (key === "movement") toggleMovement();
-              else toggleTerrain();
-            }}
-            showTrails={showTrails}
-            onToggleTrails={toggleTrails}
-            canBrowseImagery={canBrowseImagery}
-            showImageryYears={showYearPicker}
-            onToggleImageryYears={toggleImageryYears}
           />
 
           {showWind ? (
@@ -4290,6 +4262,38 @@ export default function HuntingMap() {
                 showTerrain,
               ].filter(Boolean).length
             }
+            styleSection={
+              <MapStylePicker
+                selectedLayer={selectedLayer}
+                overlays={{
+                  contours: showContours,
+                  slope: showSlope,
+                  landcover: showLandcover,
+                  cameraHeat: showCameraHeat,
+                  deerHeat: showDeerHeat,
+                  wind: showWind,
+                  movement: showMovement,
+                  terrain: showTerrain,
+                }}
+                contourNeedsZoomIn={mapZoom < CONTOUR_MIN_ZOOM}
+                onSelectLayer={setSelectedLayer}
+                onToggleOverlay={(key) => {
+                  if (key === "contours") setShowContours((current) => !current);
+                  else if (key === "slope") setShowSlope((current) => !current);
+                  else if (key === "landcover") setShowLandcover((current) => !current);
+                  else if (key === "cameraHeat") setShowCameraHeat((current) => !current);
+                  else if (key === "deerHeat") setShowDeerHeat((current) => !current);
+                  else if (key === "wind") toggleWind();
+                  else if (key === "movement") toggleMovement();
+                  else toggleTerrain();
+                }}
+                showTrails={showTrails}
+                onToggleTrails={toggleTrails}
+                canBrowseImagery={canBrowseImagery}
+                showImageryYears={showYearPicker}
+                onToggleImageryYears={toggleImageryYears}
+              />
+            }
             pinBoxSection={
               <MapPinBox
                 disabled={pinBoxDisabled}
@@ -4319,8 +4323,8 @@ export default function HuntingMap() {
               selectedPropertyId ? (
                 <div style={routeEntryStyle}>
                   <p style={helpTextStyle}>
-                    Tap out your walk-in path; a leg that blows your scent into
-                    bedding turns red so you can find a clean approach.
+                    Tap out your walk-in. Legs that blow scent into bedding
+                    turn red.
                   </p>
                   <Button type="button" onClick={startRoutePlan}>
                     Plan access route
@@ -4332,10 +4336,8 @@ export default function HuntingMap() {
               selectedPropertyId ? (
                 <div style={routeEntryStyle}>
                   <p style={helpTextStyle}>
-                    After a shot: mark the hit, then drop a mark at each blood
-                    find as you track. Your phone records the path you walk, so
-                    the trail follows how you actually went, not a straight line.
-                    The screen stays on while you track.
+                    Mark the hit, then drop a mark at each blood find. Your real
+                    walking path is recorded as you track.
                   </p>
                   <Button type="button" onClick={startBloodTrail}>
                     Start blood trail

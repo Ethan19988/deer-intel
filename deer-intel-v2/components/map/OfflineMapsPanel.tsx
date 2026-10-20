@@ -50,6 +50,7 @@ export default function OfflineMapsPanel({
 
       <button
         type="button"
+        className="di-layer-action"
         style={{ ...actionButtonStyle, ...(isBusy ? disabledButtonStyle : null) }}
         disabled={isBusy}
         onClick={onSaveView}
