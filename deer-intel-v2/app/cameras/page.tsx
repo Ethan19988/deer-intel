@@ -23,6 +23,7 @@ import {
 } from "@/lib/deerIntelStore";
 import { getCameraIntelligenceSummary } from "@/lib/cameraIntelligence";
 import { photoRecordTime } from "@/lib/photos";
+import { useAddFormRequest } from "@/lib/useAddFormRequest";
 import type { Camera } from "@/types/camera";
 
 // Chasing behavior seen on a photo this recent flags the rut-watch banner.
@@ -30,6 +31,7 @@ const RUT_WATCH_DAYS = 7;
 
 export default function CamerasPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const addForm = useAddFormRequest("add-camera");
 
   // /cameras?edit=<id> (e.g. from a camera's own page) opens its editor.
   useEffect(() => {
@@ -113,12 +115,15 @@ export default function CamerasPage() {
 
   const sitesTab = (
     <div style={listStyle}>
-      <AddCameraCard
-        key={selectedPropertyId}
-        propertyId={selectedPropertyId}
-        propertyName={selectedProperty?.name ?? "this property"}
-        defaultOpen={propertyCameras.length === 0}
-      />
+      {/* The header's "Add camera" opens this; it isn't a standing card. */}
+      {addForm.requested || propertyCameras.length === 0 ? (
+        <AddCameraCard
+          key={selectedPropertyId}
+          propertyId={selectedPropertyId}
+          propertyName={selectedProperty?.name ?? "this property"}
+          defaultOpen
+        />
+      ) : null}
       {propertyCameras.length === 0 ? (
         <EmptyState
           illustration={<CameraIcon size={30} />}
@@ -222,14 +227,18 @@ export default function CamerasPage() {
               <CameraIcon size={17} />
               Import photos
             </Link>
-            <Link
+            <a
               href="#add-camera"
               style={primaryLinkStyle}
               className="di-navbtn"
+              onClick={(event) => {
+                event.preventDefault();
+                addForm.request();
+              }}
             >
               <PlusIcon size={17} />
               Add camera
-            </Link>
+            </a>
           </div>
         </div>
       </header>

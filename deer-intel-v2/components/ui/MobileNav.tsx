@@ -14,8 +14,9 @@ import {
 
 // Phone navigation: four field tabs plus More, which opens every other place
 // in the app (the same list as the desktop sidebar).
-export default function MobileNav() {
-  const pathname = usePathname() ?? "/";
+export default function MobileNav({ activePath }: { activePath?: string } = {}) {
+  const currentPath = usePathname() ?? "/";
+  const pathname = activePath ?? currentPath;
   const [moreOpen, setMoreOpen] = useState(false);
   const tabHrefs = new Set(MOBILE_TABS.map((tab) => tab.href));
   const moreActive =
@@ -25,7 +26,7 @@ export default function MobileNav() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMoreOpen(false);
-  }, [pathname]);
+  }, [currentPath]);
 
   useEffect(() => {
     if (!moreOpen) return;

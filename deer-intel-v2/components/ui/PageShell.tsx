@@ -17,12 +17,18 @@ type PageShellProps = {
    * (e.g. the map) fills the entire area next to the sidebar.
    */
   bare?: boolean;
+  /**
+   * Which nav item this page belongs to, when its URL doesn't say (a camera's
+   * detail page lives under /properties/… but belongs to Cameras).
+   */
+  navPath?: string;
 };
 
 export default function PageShell({
   children,
   maxWidth = "1180px",
   bare = false,
+  navPath,
 }: PageShellProps) {
   const pathname = usePathname() ?? "/";
   const showSwitcher = !bare && !NO_SWITCHER.some((path) => pathname === path);
@@ -30,7 +36,7 @@ export default function PageShell({
   return (
     <div className="di-app-shell" style={appShellStyle}>
       <Suspense fallback={<aside className="di-sidebar" aria-label="Primary" />}>
-        <Sidebar />
+        <Sidebar activePath={navPath} />
       </Suspense>
 
       <main
@@ -48,7 +54,7 @@ export default function PageShell({
         </div>
       </main>
 
-      <MobileNav />
+      <MobileNav activePath={navPath} />
     </div>
   );
 }

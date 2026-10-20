@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
+import { useAuth } from "@/components/auth/AuthProvider";
 import {
   backupReminderStatus,
   useLastBackup,
@@ -36,6 +37,10 @@ export default function BackupReminderBanner({
   const [dismissed, setDismissed] = useState(false);
   const [snoozeUntil, setSnoozeUntil] = useState<number | null>(null);
   const lastBackup = useLastBackup();
+  // Signed in with cloud sync working, records and photos are already backed
+  // up off the device, so the manual-backup nudge has nothing to add.
+  const { status: authStatus, syncStatus } = useAuth();
+  const cloudBacked = authStatus === "signed-in" && syncStatus !== "error";
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -50,6 +55,8 @@ export default function BackupReminderBanner({
       // Storage blocked: it just hides for this visit.
     }
   }
+
+  if (cloudBacked) return null;
 
   if (dismissed || nowMs === null || snoozeUntil === null || nowMs < snoozeUntil) {
     return null;
@@ -83,13 +90,13 @@ export default function BackupReminderBanner({
 
 function headline(status: BackupReminderStatus): string {
   if (status.reason === "never") {
-    return "You haven't backed up yet.";
+    return "Not backed up yet.";
   }
   if (status.reason === "stale") {
     const days = status.daysSince ?? 0;
-    return `It's been ${days} day${days === 1 ? "" : "s"} since your last backup.`;
+    return `No backup in ${days} day${days === 1 ? "" : "s"}.`;
   }
-  return `You've added ${status.newRecords} record${
+  return `${status.newRecords} new record${
     status.newRecords === 1 ? "" : "s"
   } since your last backup.`;
 }

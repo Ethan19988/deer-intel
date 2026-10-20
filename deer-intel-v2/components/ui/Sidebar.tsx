@@ -13,8 +13,9 @@ import {
 const ICON_SIZE = 18;
 const FOOTER_LINKS = [SETTINGS_LINK];
 
-export default function Sidebar() {
-  const pathname = usePathname() ?? "/";
+export default function Sidebar({ activePath }: { activePath?: string } = {}) {
+  const currentPath = usePathname() ?? "/";
+  const pathname = activePath ?? currentPath;
 
   return (
     <aside className="di-sidebar" aria-label="Primary">

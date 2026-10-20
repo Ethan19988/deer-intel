@@ -564,10 +564,10 @@ export default function PropertyAssetWorkspacePage() {
   }
 
   return (
-    <PageShell>
+    <PageShell navPath="/cameras">
       <div style={topBarStyle}>
-        <Link href={`/properties/${property.id}`} style={backLinkStyle}>
-          Back to Property
+        <Link href="/cameras" style={backLinkStyle}>
+          Back to Cameras
         </Link>
         <Link
           href={`/cameras?edit=${encodeURIComponent(camera.id)}`}
@@ -597,38 +597,40 @@ export default function PropertyAssetWorkspacePage() {
         <AssetPanel
           id="photos"
           title="Photos"
-          description="Every photo saved for this camera. Tick photos to move or delete them."
+          description="Every photo saved for this camera. Tap one to see it full size."
           defaultOpen
         >
-          {cameraPhotoRecords.some((photo) => photo.imageId) ? (
-            <div style={rereadBarStyle}>
-              <button
-                type="button"
-                onClick={rereadPhotosWithAI}
-                disabled={isRereading || isCleaningUp}
-                style={rereadButtonStyle}
-              >
-                {isRereading ? "Reading…" : "Re-read photos with AI"}
-              </button>
-              <button
-                type="button"
-                onClick={removeMissingImagePhotos}
-                disabled={isRereading || isCleaningUp}
-                style={cleanupButtonStyle}
-              >
-                {isCleaningUp ? "Checking…" : "Remove photos with no image"}
-              </button>
-              <span style={rereadHintStyle}>
-                {cleanupStatus ||
-                  rereadStatus ||
-                  (camera.facingDirection
-                    ? "Re-read fills in the animal, behavior, travel direction, and buck match on saved photos — only where they're still blank."
-                    : "Point this camera first (Edit camera) so travel direction can be read; the AI will still fill in animal and behavior.")}
-              </span>
-            </div>
-          ) : null}
-
           <PhotoRecordList
+            layout="grid"
+            manageTools={
+              cameraPhotoRecords.some((photo) => photo.imageId) ? (
+                <div style={rereadBarStyle}>
+                  <button
+                    type="button"
+                    onClick={rereadPhotosWithAI}
+                    disabled={isRereading || isCleaningUp}
+                    style={rereadButtonStyle}
+                  >
+                    {isRereading ? "Reading…" : "Re-read photos with AI"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={removeMissingImagePhotos}
+                    disabled={isRereading || isCleaningUp}
+                    style={cleanupButtonStyle}
+                  >
+                    {isCleaningUp ? "Checking…" : "Remove photos with no image"}
+                  </button>
+                  <span style={rereadHintStyle}>
+                    {cleanupStatus ||
+                      rereadStatus ||
+                      (camera.facingDirection
+                        ? "Re-read fills in the animal, behavior, travel direction, and buck match on saved photos — only where they're still blank."
+                        : "Point this camera first (Edit camera) so travel direction can be read; the AI will still fill in animal and behavior.")}
+                  </span>
+                </div>
+              ) : null
+            }
             photoRecords={cameraPhotoRecords}
             deerProfiles={propertyDeerProfiles}
             emptyDescription="No photos saved for this camera yet. Add one below or use Import Photos."
@@ -741,10 +743,10 @@ function StandWorkspace({
   intelligence: StandIntelligenceSummary;
 }) {
   return (
-    <PageShell>
+    <PageShell navPath="/stands">
       <div style={topBarStyle}>
-        <Link href={`/properties/${propertyId}`} style={backLinkStyle}>
-          Back to Property
+        <Link href="/stands" style={backLinkStyle}>
+          Back to Stands
         </Link>
         <Link
           href={`/hunt-log?propertyId=${propertyId}&standId=${stand.id}`}
