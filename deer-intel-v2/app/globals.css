@@ -224,7 +224,7 @@
   border-color: #256d38 !important;
 }
 
-:root[data-theme="dark"] .di-map-topbar {
+:root[data-theme="dark"] .di-map-topbar :is(.di-map-topbar-chip, .di-map-style-panel) {
   background: rgba(20, 24, 16, 0.88) !important;
   border-color: rgba(69, 79, 56, 0.6) !important;
 }
@@ -255,12 +255,12 @@
   border-color: #9c2c1f !important;
 }
 
-:root[data-theme="night"] .di-map-topbar {
+:root[data-theme="night"] .di-map-topbar :is(.di-map-topbar-chip, .di-map-style-panel) {
   background: rgba(18, 9, 6, 0.9) !important;
   border-color: rgba(85, 41, 26, 0.7) !important;
 }
 
-:root[data-theme="night"] .di-map-topbar button {
+:root[data-theme="night"] .di-map-topbar :is(button, .di-map-topbar-chip) {
   color: #d98a78 !important;
 }
 
@@ -293,7 +293,6 @@
    Hunt Area toggle, and Leaflet's scale bar. */
 :root[data-theme="dark"] .di-map-notice,
 :root[data-theme="dark"] .di-map-scout,
-:root[data-theme="dark"] .di-map-scout > div:first-child > select,
 :root[data-theme="dark"] .di-map-scout > div:first-child > button,
 :root[data-theme="dark"] .leaflet-control-scale-line {
   background: rgba(28, 32, 22, 0.93) !important;
@@ -303,7 +302,6 @@
 
 :root[data-theme="night"] .di-map-notice,
 :root[data-theme="night"] .di-map-scout,
-:root[data-theme="night"] .di-map-scout > div:first-child > select,
 :root[data-theme="night"] .di-map-scout > div:first-child > button,
 :root[data-theme="night"] .leaflet-control-scale-line {
   background: rgba(22, 11, 7, 0.94) !important;
@@ -1012,10 +1010,13 @@ textarea {
      sits beside the layer button rather than spanning under it. */
   .di-page-shell-bare .di-map-scout {
     left: 0.75rem !important;
-    right: 7rem !important;
+    right: auto !important;
     width: auto !important;
     max-width: none !important;
     bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
+  }
+  .di-page-shell-bare .di-map-scout-open {
+    right: 5.25rem !important;
   }
   .di-page-shell-bare .di-layer-manager-button {
     top: calc(0.75rem + env(safe-area-inset-top)) !important;
@@ -1283,17 +1284,16 @@ textarea {
   /* The overlay bar rises to a full-width row directly beneath the top-right
      control cluster (was pushed a row lower before). It scrolls horizontally so
      every layer option stays reachable. */
+  /* Chips sit in a row under the top-right search + Layers cluster. */
   .di-map-topbar {
     top: 3.9rem !important;
     left: 0.75rem !important;
     right: 0.75rem !important;
-    justify-content: flex-start !important;
-    touch-action: pan-x;
-    overscroll-behavior-x: contain;
+    max-width: none !important;
   }
 
-  .di-map-topbar button {
-    min-height: 42px !important;
+  .di-map-topbar-chip {
+    min-height: 40px !important;
   }
 
   /* Push the wayback year stepper below the overlay bar's row. */
@@ -1312,11 +1312,24 @@ textarea {
     width: min(260px, calc(100% - 1.5rem)) !important;
   }
 
+  /* Compass and GPS share one slim column instead of two floating boxes. */
   .di-map-controls {
     top: auto !important;
     bottom: 0.85rem !important;
     right: 0.75rem !important;
-    gap: 0.55rem !important;
+    gap: 0 !important;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+  }
+
+  .di-map-controls .di-map-control-button {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .di-map-controls .di-map-control-button + .di-map-control-button {
+    border-top-width: 0 !important;
   }
 
   /* Phones pinch to zoom, so drop the +/- buttons and keep just the compass and
@@ -1434,14 +1447,14 @@ textarea {
   }
 
   .di-map-control-button {
-    width: 52px !important;
-    min-height: 52px !important;
-    font-size: 1.3rem !important;
+    width: 48px !important;
+    min-height: 46px !important;
+    font-size: 1.15rem !important;
   }
 
   .di-map-gps-button {
-    width: 64px !important;
-    font-size: 0.9rem !important;
+    width: 48px !important;
+    font-size: 0.78rem !important;
   }
 
   .di-map-status {
@@ -1851,4 +1864,15 @@ textarea {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+@keyframes di-map-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

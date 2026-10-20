@@ -24,6 +24,9 @@ import {
 import CachedTileLayer from "@/components/map/CachedTileLayer";
 import SuperWMSTileLayer from "@/components/map/SuperWMSTileLayer";
 import ContourLabels from "@/components/map/ContourLabels";
+import AssetClusterMarker from "@/components/map/AssetClusterMarker";
+import MapNoticeToast from "@/components/map/MapNoticeToast";
+import { clusterPoints } from "@/lib/mapClusters";
 import MapTopBar from "@/components/map/MapTopBar";
 import WindThermalLayer, {
   type WindStandPoint,
@@ -231,6 +234,8 @@ const MAP_CENTER_EPSILON = 0.00001;
 // Zoom used when auto-centering on a property. Close enough to see a property's
 // footprint without diving all the way to individual-asset zoom.
 const PROPERTY_FOCUS_ZOOM = 16;
+
+const TRAILS_PREF_KEY = "deer-intel:map-trails";
 
 // Highlight styling for a property's hunt area — a bright, translucent overlay
 // so the ground you hunt reads at a glance without hiding the terrain beneath.
@@ -1208,9 +1213,30 @@ export default function HuntingMap() {
   const [showContours, setShowContours] = useState(defaultOverlays.contours);
   const [showSlope, setShowSlope] = useState(defaultOverlays.slope);
   const [showLandcover, setShowLandcover] = useState(defaultOverlays.landcover);
-  // Trails are a permanent reference layer (always on, no toggle), so there's no
-  // show/hide state — only a status line (zoom hint / loading / empty) surfaced
-  // in the shared map notice bar like the parcel-layer messages.
+  // Mapped trails & logging roads: off by default (they're the busiest lines on
+  // the map), remembered per device once turned on. The status line (zoom hint
+  // / loading / empty) shows in the map toast only while the layer is on.
+  const [showTrails, setShowTrails] = useState(false);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (window.localStorage.getItem(TRAILS_PREF_KEY) === "1") setShowTrails(true);
+    } catch {
+      // Storage blocked: stays off.
+    }
+  }, []);
+  function toggleTrails() {
+    setShowTrails((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(TRAILS_PREF_KEY, next ? "1" : "0");
+      } catch {
+        // Storage blocked: the choice lasts for this visit.
+      }
+      if (!next) setTrailsMessage(null);
+      return next;
+    });
+  }
   const [trailsMessage, setTrailsMessage] = useState<string | null>(null);
   const [showCameraHeat, setShowCameraHeat] = useState(defaultOverlays.cameraHeat);
   const [showDeerHeat, setShowDeerHeat] = useState(defaultOverlays.deerHeat);
@@ -1415,8 +1441,26 @@ export default function HuntingMap() {
 
     return [base, ...overlays];
   }, [baseTileUrl, selectedMapLayer]);
-  const showYearPicker =
-    Boolean(selectedMapLayer.isWayback) && waybackReleases.length > 0;
+  const canBrowseImagery =
+    Boolean(selectedMapLayer.isWayback) && waybackReleases.length > 1;
+  // The year stepper stays hidden until asked for ("Browse older imagery" in
+  // the map-style panel) — or while an older year is on screen, so there's
+  // always a way back to current imagery.
+  const [browseImagery, setBrowseImagery] = useState(false);
+  const showingOlderImagery =
+    Boolean(selectedRelease) &&
+    waybackReleases.length > 0 &&
+    selectedRelease !== waybackReleases[0].release;
+  const showYearPicker = canBrowseImagery && (browseImagery || showingOlderImagery);
+  function toggleImageryYears() {
+    if (browseImagery || showingOlderImagery) {
+      setBrowseImagery(false);
+      // Hiding the stepper returns to the current imagery.
+      if (waybackReleases[0]) setSelectedRelease(waybackReleases[0].release);
+    } else {
+      setBrowseImagery(true);
+    }
+  }
   const currentReleaseIndex = Math.max(
     0,
     waybackReleases.findIndex((release) => release.release === selectedRelease),
@@ -1469,6 +1513,10 @@ export default function HuntingMap() {
         asset.layerId === "other" ? true : visibleAssetLayers[asset.layerId],
       ),
     [mapAssets, visibleAssetLayers],
+  );
+  const assetClusters = useMemo(
+    () => clusterPoints(visibleAssets, mapZoom, { keepSingle: selectedAssetId }),
+    [visibleAssets, mapZoom, selectedAssetId],
   );
   const propertyStands = useMemo(
     () =>
@@ -3325,28 +3373,14 @@ export default function HuntingMap() {
   return (
     <div className="di-map-layout" style={mapLayoutStyle}>
       <div
-        className="di-map-scout"
+        className={scoutPanelOpen ? "di-map-scout di-map-scout-open" : "di-map-scout"}
         style={{
           ...scoutOverlayStyle,
+          ...(scoutPanelOpen ? scoutOverlayOpenStyle : null),
           ...(scoutPanelYields ? { display: "none" } : null),
         }}
       >
         <div style={scoutHeaderStyle}>
-          <select
-            aria-label="Property"
-            style={scoutSelectStyle}
-            value={selectedPropertyId}
-            onChange={(event) => selectProperty(event.target.value)}
-          >
-            {state.properties.length === 0 ? (
-              <option value="">No properties saved</option>
-            ) : null}
-            {state.properties.map((property) => (
-              <option key={property.id} value={property.id}>
-                {property.name}
-              </option>
-            ))}
-          </select>
           <button
             type="button"
             style={{
@@ -3561,25 +3595,37 @@ export default function HuntingMap() {
           />
 
           <MapTopBar
+            properties={state.properties}
+            selectedPropertyId={selectedPropertyId}
+            onSelectProperty={selectProperty}
             selectedLayer={selectedLayer}
-            showContours={showContours}
-            contourNeedsZoomIn={showContours && mapZoom < CONTOUR_MIN_ZOOM}
-            showSlope={showSlope}
-            showLandcover={showLandcover}
-            showCameraHeat={showCameraHeat}
-            showDeerHeat={showDeerHeat}
-            showWind={showWind}
-            showMovement={showMovement}
-            showTerrain={showTerrain}
+            overlays={{
+              contours: showContours,
+              slope: showSlope,
+              landcover: showLandcover,
+              cameraHeat: showCameraHeat,
+              deerHeat: showDeerHeat,
+              wind: showWind,
+              movement: showMovement,
+              terrain: showTerrain,
+            }}
+            contourNeedsZoomIn={mapZoom < CONTOUR_MIN_ZOOM}
             onSelectLayer={setSelectedLayer}
-            onToggleContours={() => setShowContours((current) => !current)}
-            onToggleSlope={() => setShowSlope((current) => !current)}
-            onToggleLandcover={() => setShowLandcover((current) => !current)}
-            onToggleCameraHeat={() => setShowCameraHeat((current) => !current)}
-            onToggleDeerHeat={() => setShowDeerHeat((current) => !current)}
-            onToggleWind={toggleWind}
-            onToggleMovement={toggleMovement}
-            onToggleTerrain={toggleTerrain}
+            onToggleOverlay={(key) => {
+              if (key === "contours") setShowContours((current) => !current);
+              else if (key === "slope") setShowSlope((current) => !current);
+              else if (key === "landcover") setShowLandcover((current) => !current);
+              else if (key === "cameraHeat") setShowCameraHeat((current) => !current);
+              else if (key === "deerHeat") setShowDeerHeat((current) => !current);
+              else if (key === "wind") toggleWind();
+              else if (key === "movement") toggleMovement();
+              else toggleTerrain();
+            }}
+            showTrails={showTrails}
+            onToggleTrails={toggleTrails}
+            canBrowseImagery={canBrowseImagery}
+            showImageryYears={showYearPicker}
+            onToggleImageryYears={toggleImageryYears}
           />
 
           {showWind ? (
@@ -3698,9 +3744,11 @@ export default function HuntingMap() {
               keepBuffer={1}
             />
 
-            {/* Permanent walk-in reference layer — always on, like water and
-                property lines; it only self-gates by zoom. */}
-            <TrailsLayer enabled onStatus={setTrailsMessage} />
+            {/* Mapped trails & logging roads — off by default; toggled from
+                the map-style panel. Self-gates by zoom when on. */}
+            {showTrails ? (
+              <TrailsLayer enabled onStatus={setTrailsMessage} />
+            ) : null}
 
             {showSlope ? (
               <WMSTileLayer
@@ -4096,13 +4144,18 @@ export default function HuntingMap() {
               />
             ) : null}
 
-            {visibleAssets.map((asset) => (
+            {/* Zoomed out, pins stacked together merge into a numbered bubble
+                (tap to zoom in); from CLUSTER_MAX_ZOOM in, every pin draws. */}
+            {assetClusters.singles.map((asset) => (
               <PropertyMapAssetMarker
                 key={asset.id}
                 asset={asset}
                 isSelected={asset.id === selectedAssetId}
                 onSelect={() => selectAsset(asset.id)}
               />
+            ))}
+            {assetClusters.clusters.map((cluster) => (
+              <AssetClusterMarker key={cluster.id} cluster={cluster} />
             ))}
 
             {/* Scent plume for a pending stand/camera while positioning it: a
@@ -4301,11 +4354,10 @@ export default function HuntingMap() {
             onToggleMapTool={toggleMapTool}
           />
 
-          {mapOverlayMessages.length > 0 ? (
-            <div className="di-map-notice" style={propertyLinesNoticeStyle}>
-              {mapOverlayMessages.join(" ")}
-            </div>
-          ) : null}
+          <MapNoticeToast
+            message={mapOverlayMessages.join(" ")}
+            style={propertyLinesNoticeStyle}
+          />
 
           {pendingPin && !isDrawingArea ? (
             <div className="di-area-pill" style={drawActionBarStyle}>
@@ -4817,12 +4869,13 @@ const mapStageStyle: CSSProperties = {
 // the map itself, so the map can fill the whole page with nothing above or
 // below it. The property picker stays visible in the header; the hunt-area
 // tools live behind the toggle.
+// Closed, it's just the small "Hunt Area" button; open, the full panel.
 const scoutOverlayStyle: CSSProperties = {
   position: "absolute",
   left: "1rem",
   bottom: "1.25rem",
   zIndex: 1100,
-  width: "min(300px, calc(100% - 2rem))",
+  width: "auto",
   maxHeight: "calc(100% - 2.5rem)",
   display: "grid",
   gap: "0.5rem",
@@ -4835,24 +4888,16 @@ const scoutOverlayStyle: CSSProperties = {
   overflow: "hidden",
 };
 
+const scoutOverlayOpenStyle: CSSProperties = {
+  width: "min(300px, calc(100% - 2rem))",
+};
+
 const scoutHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: "0.4rem",
 };
 
-const scoutSelectStyle: CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  minHeight: "34px",
-  padding: "0.3rem 0.45rem",
-  border: "1px solid var(--border)",
-  borderRadius: "8px",
-  background: "var(--surface)",
-  color: "var(--text)",
-  fontSize: "0.85rem",
-  fontWeight: 700,
-};
 
 const scoutToggleStyle: CSSProperties = {
   display: "inline-flex",
