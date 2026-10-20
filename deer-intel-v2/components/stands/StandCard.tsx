@@ -8,6 +8,7 @@ import { findStandLocation } from "@/lib/accessScent";
 import { SUGGEST_REACH_M, suggestStandWinds } from "@/lib/standWindSuggest";
 import type { MapPin } from "@/types/mapPin";
 import Button from "@/components/ui/Button";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import {
   windMarksFromText,
   windTextFromMarks,
@@ -31,6 +32,10 @@ type StandCardProps = {
   onSaveWinds?: (standId: string, winds: { bestWinds: string; avoidWinds: string }) => void;
   /** This property's map pins: puts the stand's ground behind the wind picker. */
   pins?: MapPin[];
+  /** When given, the card offers "Delete stand" (with a confirm). */
+  onDelete?: (standId: string) => void;
+  /** Same name as another stand here, and this copy carries no winds. */
+  likelyDuplicate?: boolean;
 };
 
 const WIND_BADGE_VARIANT = {
@@ -45,8 +50,11 @@ export default function StandCard({
   todayWind,
   onSaveWinds,
   pins = [],
+  onDelete,
+  likelyDuplicate = false,
 }: StandCardProps) {
   const [editingMarks, setEditingMarks] = useState<WindMarks | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const location = findStandLocation(stand, pins);
   const suggestion = suggestStandWinds(stand, pins);
   const hasWinds = Boolean(stand.bestWinds.trim() || stand.avoidWinds.trim());
@@ -111,6 +119,18 @@ export default function StandCard({
         </div>
       </div>
 
+      {likelyDuplicate && onDelete ? (
+        <div style={duplicateStyle} role="note">
+          <p style={duplicateTextStyle}>
+            <strong>Looks like a duplicate.</strong> Another stand here has the
+            same name, and this copy has no winds set.
+          </p>
+          <button type="button" style={deleteButtonStyle} onClick={() => setConfirmingDelete(true)}>
+            Delete this copy
+          </button>
+        </div>
+      ) : null}
+
       {editingMarks ? (
         <div style={windEditorStyle}>
           <WindPicker
@@ -169,6 +189,29 @@ export default function StandCard({
         <StandDetail label="Exit Route" value={stand.exitRouteNotes} />
         <StandDetail label="Notes" value={stand.notes} />
       </div>
+
+      {onDelete && !likelyDuplicate ? (
+        <button
+          type="button"
+          style={deleteLinkStyle}
+          onClick={() => setConfirmingDelete(true)}
+        >
+          Delete stand
+        </button>
+      ) : null}
+
+      <ConfirmDialog
+        open={confirmingDelete}
+        title={`Delete ${stand.name}?`}
+        description="This removes the stand from Deer Intel. Logged sits stay in your hunt log, and any map pin stays on the map."
+        confirmLabel="Delete stand"
+        confirmVariant="danger"
+        onCancel={() => setConfirmingDelete(false)}
+        onConfirm={() => {
+          setConfirmingDelete(false);
+          onDelete?.(stand.id);
+        }}
+      />
 
       {intelligence ? (
         <div style={intelligenceWrapStyle}>
@@ -236,6 +279,51 @@ const suggestButtonStyle: CSSProperties = {
   fontSize: "0.85rem",
   fontWeight: 800,
   textDecoration: "none",
+  cursor: "pointer",
+};
+
+const duplicateStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  flexWrap: "wrap",
+  marginTop: "0.9rem",
+  padding: "0.65rem 0.8rem",
+  borderRadius: "10px",
+  border: "1px solid var(--warning-border)",
+  background: "var(--warning-bg)",
+};
+
+const duplicateTextStyle: CSSProperties = {
+  margin: 0,
+  flex: "1 1 14rem",
+  color: "var(--warning-text)",
+  fontSize: "0.88rem",
+  lineHeight: 1.45,
+};
+
+const deleteButtonStyle: CSSProperties = {
+  minHeight: "40px",
+  padding: "0.4rem 0.85rem",
+  borderRadius: "8px",
+  border: "1px solid var(--danger-border)",
+  background: "var(--danger-bg)",
+  color: "var(--danger-text)",
+  fontSize: "0.85rem",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const deleteLinkStyle: CSSProperties = {
+  display: "block",
+  marginTop: "0.75rem",
+  padding: "0.3rem 0",
+  border: "none",
+  background: "none",
+  color: "var(--danger-text)",
+  fontSize: "0.85rem",
+  fontWeight: 700,
   cursor: "pointer",
 };
 
