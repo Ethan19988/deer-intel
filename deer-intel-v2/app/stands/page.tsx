@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import AddStandCard from "@/components/stands/AddStandCard";
 import StandCard from "@/components/stands/StandCard";
+import { findLikelyDuplicateStands } from "@/lib/standDuplicates";
 import EmptyState from "@/components/ui/EmptyState";
 import {
   ClipboardIcon,
@@ -91,6 +92,17 @@ export default function StandsPage() {
     // Refetch when the property changes; asset edits mid-view are rare.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId]);
+
+  const likelyDuplicateIds = findLikelyDuplicateStands(propertyStands);
+
+  // Removes the stand only. Hunts keep their saved stand name, and a map pin
+  // the stand came from stays on the map.
+  function deleteStand(standId: string) {
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      stands: currentState.stands.filter((stand) => stand.id !== standId),
+    }));
+  }
 
   function saveStandWinds(
     standId: string,
@@ -186,6 +198,8 @@ export default function StandsPage() {
                     todayWind={todayWind}
                     onSaveWinds={saveStandWinds}
                     pins={propertyPins}
+                    onDelete={deleteStand}
+                    likelyDuplicate={likelyDuplicateIds.has(stand.id)}
                   />
                 );
               })}

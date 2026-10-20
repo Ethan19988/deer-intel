@@ -3231,8 +3231,9 @@ export default function HuntingMap() {
             </span>
           </div>
           <p style={helpTextStyle}>
-            Recording your path — keep the app open as you walk. The trail draws
-            live on the map. Tap Stop when you&apos;re done.
+            Recording your path as you walk — it follows where you actually go,
+            not a straight line. The screen stays on so GPS keeps up; keep the
+            app open. Tap Stop when you&apos;re done.
           </p>
           <div style={walkStatRowStyle}>
             <span style={walkStatValueStyle}>
@@ -3248,14 +3249,21 @@ export default function HuntingMap() {
           </Button>
         </>
       ) : (
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={startTracking}
-          disabled={!selectedPropertyId}
-        >
-          Start Tracking
-        </Button>
+        <>
+          <p style={helpTextStyle}>
+            Record a walk: your phone traces the path you actually walk, around
+            the blowdowns and along the creek, not a straight line between
+            points. The screen stays on while recording so GPS keeps up.
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={startTracking}
+            disabled={!selectedPropertyId}
+          >
+            Start Tracking
+          </Button>
+        </>
       )}
 
       {trackMessage ? (
