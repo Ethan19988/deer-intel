@@ -43,7 +43,7 @@ export function formatHuntAreaAcres(
   if (acres <= 0) return "";
   if (acres < 10) return `${acres.toFixed(1)} acres`;
 
-  return `${Math.round(acres)} acres`;
+  return `${Math.round(acres).toLocaleString("en-US")} acres`;
 }
 
 /**

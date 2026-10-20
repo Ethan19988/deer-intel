@@ -30,6 +30,8 @@ type MapLayerManagerProps = {
 
 type LayerTab = "map" | "pins" | "hunt";
 
+const TAB_STORAGE_KEY = "deer-intel:layers-tab";
+
 // Three short tabs instead of one long scroll: how the map looks, what's on
 // it, and the tools you use while hunting.
 const TABS: Array<{ id: LayerTab; label: string }> = [
@@ -69,8 +71,28 @@ export default function MapLayerManager({
   const hasHuntTools = Boolean(
     playSection || routeSection || recoverySection || trackingSection,
   );
-  const [tab, setTab] = useState<LayerTab>("map");
+  const [tab, setTabState] = useState<LayerTab>("map");
+
+  // Reopen on the tab you used last (read after mount so SSR markup matches).
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(TAB_STORAGE_KEY);
+      if (saved === "map" || saved === "pins" || saved === "hunt") setTabState(saved);
+    } catch {
+      // Storage blocked — just start on Map.
+    }
+  }, []);
+
+  const setTab = (next: LayerTab) => {
+    setTabState(next);
+    try {
+      window.localStorage.setItem(TAB_STORAGE_KEY, next);
+    } catch {
+      // Not saved; harmless.
+    }
+  };
   const tabs = TABS.filter((item) => item.id !== "hunt" || hasHuntTools);
+  const activeTab: LayerTab = tabs.some((item) => item.id === tab) ? tab : "map";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -129,10 +151,7 @@ export default function MapLayerManager({
         onDoubleClick={(event) => event.stopPropagation()}
       >
         <header style={headerStyle}>
-          <div>
-            <p style={eyebrowStyle}>Map</p>
-            <h3 style={titleStyle}>Layers</h3>
-          </div>
+          <h3 style={titleStyle}>Layers</h3>
           <button
             type="button"
             className="di-layer-manager-close"
@@ -140,7 +159,18 @@ export default function MapLayerManager({
             aria-label="Close layers"
             onClick={() => onOpenChange(false)}
           >
-            X
+            <svg
+              aria-hidden="true"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+            >
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
           </button>
         </header>
 
@@ -150,8 +180,8 @@ export default function MapLayerManager({
               key={item.id}
               type="button"
               role="tab"
-              aria-selected={tab === item.id}
-              style={{ ...tabStyle, ...(tab === item.id ? activeTabStyle : null) }}
+              aria-selected={activeTab === item.id}
+              style={{ ...tabStyle, ...(activeTab === item.id ? activeTabStyle : null) }}
               onClick={() => setTab(item.id)}
             >
               {item.label}
@@ -160,7 +190,7 @@ export default function MapLayerManager({
         </div>
 
         <div className="di-layer-manager-content" style={contentStyle} role="tabpanel">
-          {tab === "map" ? (
+          {activeTab === "map" ? (
             <>
               {styleSection ? (
                 <section style={cardStyle}>
@@ -193,7 +223,7 @@ export default function MapLayerManager({
             </>
           ) : null}
 
-          {tab === "pins" ? (
+          {activeTab === "pins" ? (
             <>
               {pinBoxSection ? (
                 <section style={cardStyle}>
@@ -235,7 +265,7 @@ export default function MapLayerManager({
             </>
           ) : null}
 
-          {tab === "hunt" ? (
+          {activeTab === "hunt" ? (
             <>
               {playSection ? (
                 <section style={cardStyle}>
@@ -305,6 +335,7 @@ function VisibilityChip({
         style={{
           ...chipPinStyle,
           filter: visible ? "none" : "grayscale(1)",
+          opacity: visible ? 1 : 0.55,
         }}
         dangerouslySetInnerHTML={{
           __html: pinMarkerSvg({
@@ -404,10 +435,10 @@ const layersButtonStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "0.68rem 0.95rem",
-  border: "1px solid rgba(25, 34, 25, 0.28)",
+  border: "1px solid var(--border-strong)",
   borderRadius: "8px",
-  background: "rgba(255, 255, 255, 0.96)",
-  color: "#111711",
+  background: "var(--surface)",
+  color: "var(--text)",
   cursor: "pointer",
   fontSize: "0.95rem",
   fontWeight: 900,
@@ -425,8 +456,8 @@ const layersCountStyle: CSSProperties = {
   justifyContent: "center",
   padding: "0 0.3rem",
   borderRadius: "999px",
-  background: "#c2571c",
-  color: "white",
+  background: "var(--accent-2)",
+  color: "var(--accent-fg)",
   fontSize: "0.74rem",
   fontWeight: 900,
   lineHeight: 1,
@@ -448,9 +479,9 @@ const panelStyle: CSSProperties = {
   display: "grid",
   gridTemplateRows: "auto auto minmax(0, 1fr)",
   width: "min(390px, calc(100% - 1rem))",
-  borderLeft: "1px solid rgba(17, 23, 17, 0.14)",
-  background: "rgba(248, 250, 246, 0.98)",
-  color: "#111711",
+  borderLeft: "1px solid var(--border)",
+  background: "var(--surface-2)",
+  color: "var(--text)",
   boxShadow: "-18px 0 42px rgba(0, 0, 0, 0.24)",
 };
 
@@ -459,39 +490,29 @@ const headerStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: "1rem",
-  padding: "1rem",
-  borderBottom: "1px solid rgba(17, 23, 17, 0.1)",
+  padding: "0.6rem 0.85rem 0 1rem",
 };
 
-const eyebrowStyle: CSSProperties = {
-  margin: 0,
-  color: "#56705a",
-  fontSize: "0.75rem",
-  fontWeight: 900,
-  letterSpacing: 0,
-  textTransform: "uppercase",
-};
 
 const titleStyle: CSSProperties = {
-  margin: "0.1rem 0 0",
-  color: "#111711",
-  fontSize: "1.2rem",
+  margin: 0,
+  color: "var(--text)",
+  fontSize: "1.1rem",
+  fontWeight: 800,
   lineHeight: 1.2,
 };
 
 const closeButtonStyle: CSSProperties = {
   display: "inline-flex",
-  width: "42px",
-  minHeight: "42px",
+  width: "40px",
+  height: "40px",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid rgba(17, 23, 17, 0.12)",
-  borderRadius: "8px",
-  background: "white",
-  color: "#111711",
+  border: 0,
+  borderRadius: "999px",
+  background: "var(--surface-3)",
+  color: "var(--text)",
   cursor: "pointer",
-  fontSize: "0.9rem",
-  fontWeight: 900,
 };
 
 const contentStyle: CSSProperties = {
@@ -512,9 +533,9 @@ const cardStyle: CSSProperties = {
   display: "grid",
   gap: "0.4rem",
   padding: "0.75rem 0.8rem",
-  border: "1px solid rgba(17, 23, 17, 0.12)",
+  border: "1px solid var(--border)",
   borderRadius: "12px",
-  background: "white",
+  background: "var(--surface)",
 };
 
 
@@ -523,10 +544,10 @@ const tabBarStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(0, 1fr))",
   gap: "0.25rem",
-  margin: "0.75rem 0.85rem 0",
+  margin: "0.6rem 0.85rem 0",
   padding: "0.25rem",
   borderRadius: "12px",
-  background: "#e8ece6",
+  background: "var(--surface-3)",
 };
 
 const tabStyle: CSSProperties = {
@@ -534,15 +555,15 @@ const tabStyle: CSSProperties = {
   border: 0,
   borderRadius: "9px",
   background: "transparent",
-  color: "#4a564a",
+  color: "var(--text-muted)",
   cursor: "pointer",
   fontSize: "0.92rem",
   fontWeight: 800,
 };
 
 const activeTabStyle: CSSProperties = {
-  background: "white",
-  color: "#1b3d22",
+  background: "var(--surface)",
+  color: "var(--text)",
   boxShadow: "0 1px 4px rgba(0, 0, 0, 0.14)",
 };
 
@@ -554,7 +575,7 @@ const cardHeadRowStyle: CSSProperties = {
 };
 
 const cardCountStyle: CSSProperties = {
-  color: "#6a7468",
+  color: "var(--text-muted)",
   fontSize: "0.8rem",
   fontWeight: 700,
 };
@@ -563,7 +584,7 @@ const visAllButtonStyle: CSSProperties = {
   padding: "0.15rem 0.3rem",
   border: 0,
   background: "transparent",
-  color: "#2f6d3a",
+  color: "var(--accent-text)",
   cursor: "pointer",
   fontSize: "0.82rem",
   fontWeight: 800,
@@ -581,20 +602,22 @@ const chipStyle: CSSProperties = {
   alignItems: "center",
   gap: "0.35rem",
   padding: "0.28rem 0.6rem 0.28rem 0.32rem",
-  border: "1px solid rgba(47, 109, 58, 0.35)",
+  border: "1px solid var(--accent-tint-border)",
   borderRadius: "999px",
-  background: "#f4f7f2",
-  color: "#1b241b",
+  background: "var(--surface-2)",
+  color: "var(--text)",
   cursor: "pointer",
   fontSize: "0.84rem",
   fontWeight: 750,
 };
 
+// Hidden pins stay readable — a dashed outline and muted label say "off"
+// without looking disabled.
 const hiddenChipStyle: CSSProperties = {
-  borderColor: "rgba(17, 23, 17, 0.12)",
-  background: "#eef0ec",
-  color: "#9a9f97",
-  opacity: 0.7,
+  borderStyle: "dashed",
+  borderColor: "var(--border-strong)",
+  background: "transparent",
+  color: "var(--text-muted)",
 };
 
 const chipPinStyle: CSSProperties = {
@@ -606,7 +629,7 @@ const chipPinStyle: CSSProperties = {
 
 const cardTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#1b241b",
+  color: "var(--text)",
   fontSize: "0.92rem",
   fontWeight: 800,
 };
@@ -628,13 +651,13 @@ const toggleRowStyle: CSSProperties = {
   padding: "0.5rem 0.15rem",
   border: 0,
   background: "transparent",
-  color: "#172017",
+  color: "var(--text)",
   cursor: "pointer",
   textAlign: "left",
 };
 
 const dividerStyle: CSSProperties = {
-  borderTop: "1px solid rgba(17, 23, 17, 0.08)",
+  borderTop: "1px solid var(--border)",
 };
 
 const disabledToggleRowStyle: CSSProperties = {
@@ -652,7 +675,7 @@ const toggleLabelStyle: CSSProperties = {
 };
 
 const activeToggleLabelStyle: CSSProperties = {
-  color: "#1f5a2a",
+  color: "var(--accent-text)",
 };
 
 const switchTrackStyle: CSSProperties = {
@@ -662,14 +685,14 @@ const switchTrackStyle: CSSProperties = {
   height: "26px",
   flex: "0 0 auto",
   alignItems: "center",
-  border: "1px solid rgba(17, 23, 17, 0.18)",
+  border: "1px solid var(--border)",
   borderRadius: "999px",
-  background: "#d9ded8",
+  background: "var(--surface-3)",
 };
 
 const activeSwitchTrackStyle: CSSProperties = {
-  borderColor: "#2f6d3a",
-  background: "#2f6d3a",
+  borderColor: "var(--accent)",
+  background: "var(--accent)",
 };
 
 const switchKnobStyle: CSSProperties = {
@@ -678,7 +701,7 @@ const switchKnobStyle: CSSProperties = {
   width: "20px",
   height: "20px",
   borderRadius: "999px",
-  background: "white",
+  background: "#fff",
   boxShadow: "0 2px 5px rgba(0, 0, 0, 0.25)",
   transition: "transform 160ms ease",
 };

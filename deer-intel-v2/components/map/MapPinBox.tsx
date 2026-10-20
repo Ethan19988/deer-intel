@@ -117,17 +117,17 @@ const optionStyle: CSSProperties = {
   justifyContent: "center",
   gap: "0.35rem",
   padding: "0.6rem 0.3rem",
-  border: "1px solid rgba(17, 23, 17, 0.12)",
+  border: "1px solid var(--border)",
   borderRadius: "10px",
-  background: "white",
-  color: "#1b241b",
+  background: "var(--surface)",
+  color: "var(--text)",
   cursor: "pointer",
 };
 
 const activeOptionStyle: CSSProperties = {
-  borderColor: "#2f6d3a",
-  background: "#eef4ea",
-  boxShadow: "0 0 0 2px rgba(47, 109, 58, 0.25)",
+  borderColor: "var(--accent)",
+  background: "var(--accent-tint)",
+  boxShadow: "0 0 0 2px var(--accent-tint-border)",
 };
 
 const disabledOptionStyle: CSSProperties = {
@@ -155,7 +155,7 @@ const optionLabelStyle: CSSProperties = {
 
 const messageStyle: CSSProperties = {
   margin: 0,
-  color: "#566157",
+  color: "var(--text-muted)",
   fontSize: "0.84rem",
   fontWeight: 700,
   lineHeight: 1.4,

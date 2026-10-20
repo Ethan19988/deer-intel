@@ -108,21 +108,21 @@ const noticeStyle: CSSProperties = {
   display: "grid",
   gap: "0.45rem",
   padding: "0.65rem",
-  border: "1px solid rgba(17, 23, 17, 0.12)",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "white",
+  background: "var(--surface)",
 };
 
 const noticeTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#172017",
+  color: "var(--text)",
   fontSize: "0.9rem",
   fontWeight: 900,
 };
 
 const noticeBodyStyle: CSSProperties = {
   margin: 0,
-  color: "#4c5a4c",
+  color: "var(--text-muted)",
   fontSize: "0.82rem",
   lineHeight: 1.4,
 };
@@ -135,10 +135,10 @@ const noticeButtonRowStyle: CSSProperties = {
 const confirmButtonStyle: CSSProperties = {
   minHeight: "42px",
   padding: "0.5rem 0.85rem",
-  border: "1px solid #2f6d3a",
+  border: "1px solid var(--accent)",
   borderRadius: "8px",
-  background: "#2f6d3a",
-  color: "white",
+  background: "var(--accent)",
+  color: "var(--accent-fg)",
   cursor: "pointer",
   fontSize: "0.86rem",
   fontWeight: 850,
@@ -147,10 +147,10 @@ const confirmButtonStyle: CSSProperties = {
 const secondaryButtonStyle: CSSProperties = {
   minHeight: "42px",
   padding: "0.5rem 0.85rem",
-  border: "1px solid rgba(17, 23, 17, 0.16)",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "white",
-  color: "#172017",
+  background: "var(--surface)",
+  color: "var(--text)",
   cursor: "pointer",
   fontSize: "0.86rem",
   fontWeight: 850,
@@ -161,26 +161,26 @@ const progressTrackStyle: CSSProperties = {
   height: "8px",
   overflow: "hidden",
   borderRadius: "999px",
-  background: "#dfe6da",
+  background: "var(--surface-3)",
 };
 
 const progressFillStyle: CSSProperties = {
   height: "100%",
   borderRadius: "999px",
-  background: "#2f6d3a",
+  background: "var(--accent)",
   transition: "width 140ms ease",
 };
 
 const doneMessageStyle: CSSProperties = {
   margin: 0,
-  color: "#237a3d",
+  color: "var(--accent-text)",
   fontSize: "0.84rem",
   fontWeight: 800,
 };
 
 const errorMessageStyle: CSSProperties = {
   margin: 0,
-  color: "#b23127",
+  color: "var(--danger-text)",
   fontSize: "0.84rem",
   fontWeight: 800,
 };

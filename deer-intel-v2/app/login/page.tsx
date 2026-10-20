@@ -92,7 +92,7 @@ export default function LoginPage() {
           )}
 
           <Link href="/" style={backLinkStyle}>
-            ← Back to Dashboard
+            ← Back to Today
           </Link>
         </section>
       </div>
@@ -152,18 +152,22 @@ const formHeaderStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "var(--accent-text)",
-  fontSize: "0.78rem",
-  fontWeight: 800,
-  letterSpacing: "0.04em",
+  color: "var(--accent-2-text)",
+  fontSize: "0.72rem",
+  fontWeight: 700,
+  letterSpacing: "0.2em",
   textTransform: "uppercase",
 };
 
 const titleStyle: CSSProperties = {
   margin: 0,
-  fontSize: "1.85rem",
-  lineHeight: 1.1,
-  fontWeight: 850,
+  // Same condensed lettering as the hero headline and the wordmark.
+  fontFamily: "var(--font-headline), var(--font-display), system-ui, sans-serif",
+  fontSize: "2.4rem",
+  fontWeight: 400,
+  lineHeight: 1,
+  letterSpacing: "0.02em",
+  textTransform: "uppercase",
 };
 
 const subtitleStyle: CSSProperties = {

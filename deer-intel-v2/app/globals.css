@@ -290,8 +290,7 @@
 /* The remaining bright chrome: the property-lines notice, the property picker +
    Hunt Area toggle, and Leaflet's scale bar. */
 :root[data-theme="dark"] .di-map-notice,
-:root[data-theme="dark"] .di-map-scout,
-:root[data-theme="dark"] .di-map-scout > div:first-child > button,
+:root[data-theme="dark"] .di-map-scout:not(.di-map-scout-open) > div:first-child > button,
 :root[data-theme="dark"] .leaflet-control-scale-line {
   background: rgba(28, 32, 22, 0.93) !important;
   color: #ecebdc !important;
@@ -299,8 +298,7 @@
 }
 
 :root[data-theme="night"] .di-map-notice,
-:root[data-theme="night"] .di-map-scout,
-:root[data-theme="night"] .di-map-scout > div:first-child > button,
+:root[data-theme="night"] .di-map-scout:not(.di-map-scout-open) > div:first-child > button,
 :root[data-theme="night"] .leaflet-control-scale-line {
   background: rgba(22, 11, 7, 0.94) !important;
   color: #ef8f7c !important;
@@ -460,7 +458,8 @@ h3 {
 /* Action buttons in the Layers panel size to their label instead of
    stretching across the card. */
 .di-layer-manager-content .di-button,
-.di-layer-manager-content .di-layer-action {
+.di-layer-manager-content .di-layer-action,
+.di-map-scout .di-button {
   justify-self: start;
   width: auto !important;
   min-height: 40px !important;
@@ -1028,9 +1027,10 @@ textarea {
   .di-page-shell-bare .di-area-pill {
     bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
   }
-  /* Float the scale above the property panel instead of behind it. */
+  /* The scale sits just above the Hunt Area pill, on the same left edge. */
   .di-page-shell-bare .di-map-frame .leaflet-control-scale {
-    margin-bottom: calc(13rem + env(safe-area-inset-bottom)) !important;
+    margin-bottom: calc(8.4rem + env(safe-area-inset-bottom)) !important;
+    margin-left: 0.75rem !important;
   }
 }
 
@@ -1422,7 +1422,7 @@ textarea {
     /* A fixed height, so switching tabs doesn't make the sheet jump. */
     height: 78svh !important;
     max-height: 78svh !important;
-    border-top: 1px solid rgba(17, 23, 17, 0.14) !important;
+    border-top: 1px solid var(--border) !important;
     border-left: 0 !important;
     border-radius: 16px 16px 0 0 !important;
     transform: translateY(104%);

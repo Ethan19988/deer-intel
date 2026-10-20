@@ -154,7 +154,7 @@ const segmentGridStyle: CSSProperties = {
   gap: "0.25rem",
   padding: "0.2rem",
   borderRadius: "10px",
-  background: "#eef1ec",
+  background: "var(--surface-3)",
 };
 
 const segmentStyle: CSSProperties = {
@@ -163,7 +163,7 @@ const segmentStyle: CSSProperties = {
   border: 0,
   borderRadius: "8px",
   background: "transparent",
-  color: "#3b463b",
+  color: "var(--text-muted)",
   cursor: "pointer",
   fontSize: "0.8rem",
   fontWeight: 800,
@@ -171,8 +171,8 @@ const segmentStyle: CSSProperties = {
 };
 
 const activeSegmentStyle: CSSProperties = {
-  background: "#2f6d3a",
-  color: "white",
+  background: "var(--accent)",
+  color: "var(--accent-fg)",
   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.2)",
 };
 
@@ -181,7 +181,7 @@ const linkButtonStyle: CSSProperties = {
   padding: 0,
   border: 0,
   background: "transparent",
-  color: "#2f6d3a",
+  color: "var(--accent-text)",
   cursor: "pointer",
   fontSize: "0.82rem",
   fontWeight: 800,
@@ -191,7 +191,7 @@ const groupStyle: CSSProperties = { display: "grid", gap: "0.35rem" };
 
 const groupLabelStyle: CSSProperties = {
   margin: 0,
-  color: "#6a7468",
+  color: "var(--text-muted)",
   fontSize: "0.72rem",
   fontWeight: 800,
   letterSpacing: "0.06em",
@@ -206,10 +206,10 @@ const pillStyle: CSSProperties = {
   gap: "0.3rem",
   minHeight: "36px",
   padding: "0 0.7rem",
-  border: "1px solid rgba(17, 23, 17, 0.16)",
+  border: "1px solid var(--border)",
   borderRadius: "999px",
-  background: "white",
-  color: "#1b241b",
+  background: "var(--surface)",
+  color: "var(--text)",
   cursor: "pointer",
   fontSize: "0.83rem",
   fontWeight: 750,
@@ -217,14 +217,14 @@ const pillStyle: CSSProperties = {
 
 // Overlay "on" is blaze orange; the base-map choice stays green.
 const activePillStyle: CSSProperties = {
-  borderColor: "#c2571c",
-  background: "#c2571c",
-  color: "white",
+  borderColor: "var(--accent-2)",
+  background: "var(--accent-2)",
+  color: "var(--accent-fg)",
 };
 
 const hintStyle: CSSProperties = {
   margin: 0,
-  color: "#9a5212",
+  color: "var(--warning-text)",
   fontSize: "0.78rem",
   fontWeight: 700,
 };
