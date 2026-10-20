@@ -1065,8 +1065,26 @@ textarea {
   }
 
   .di-page-shell {
-    padding: calc(3.4rem + env(safe-area-inset-top)) 0.85rem
+    padding: calc(4.25rem + env(safe-area-inset-top)) 0.85rem
       calc(5.8rem + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Brand bar: a solid forest band across the top with the buck and name. */
+  .di-brandbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: calc(3.25rem + env(safe-area-inset-top));
+    padding-top: env(safe-area-inset-top);
+    background: linear-gradient(180deg, #27452e 0%, #1a2e1f 100%);
+    border-bottom: 1px solid rgba(243, 238, 228, 0.1);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
+    color: #f3eee4;
   }
 
   .di-page-content {
@@ -1929,4 +1947,32 @@ textarea {
   .di-photo-loading {
     animation: none;
   }
+}
+
+/* Brand bar is phone-only; the desktop sidebar carries the name there. */
+.di-brandbar {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .di-brandbar {
+    display: flex;
+  }
+}
+
+.di-brandbar-link {
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.di-brandbar {
+  --di-brand-accent: #d9894d;
+}
+
+:root[data-theme="night"] .di-brandbar {
+  --di-brand-accent: #c23a2a;
+  background: linear-gradient(180deg, #22100a 0%, #160905 100%);
+  color: #ef8f7c;
 }

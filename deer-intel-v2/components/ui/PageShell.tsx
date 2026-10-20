@@ -2,6 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { Suspense, type CSSProperties, type ReactNode } from "react";
+import Link from "next/link";
+import Wordmark from "@/components/ui/Wordmark";
 import MobileNav from "@/components/ui/MobileNav";
 import PropertySwitcher from "@/components/ui/PropertySwitcher";
 import Sidebar from "@/components/ui/Sidebar";
@@ -43,6 +45,15 @@ export default function PageShell({
         className={`di-page-shell${bare ? " di-page-shell-bare" : ""}`}
         style={bare ? pageBareStyle : pageStyle}
       >
+        {/* Phone brand bar: the buck and name across the top of every screen
+            (the full-screen map keeps its space for the map). */}
+        {bare ? null : (
+          <header className="di-brandbar">
+            <Link href="/" className="di-brandbar-link" aria-label="Deer Intel — Today">
+              <Wordmark height={30} />
+            </Link>
+          </header>
+        )}
         <div
           className="di-page-content"
           style={
