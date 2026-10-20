@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { ASSET_LAYERS, type AssetLayerId } from "@/lib/propertyMap";
 import { pinMarkerSvg } from "@/lib/mapPinIcon";
-import CollapsibleSection from "@/components/ui/CollapsibleSection";
 
 export type MapToolId = "gps" | "compass" | "scaleBar";
 export type MapToolState = Record<MapToolId, boolean>;
@@ -15,6 +14,8 @@ type MapLayerManagerProps = {
   // Number of map overlays currently lit (from the top overlay bar), surfaced as
   // a badge on the button so you can tell what's on without scrolling the bar.
   activeOverlayCount?: number;
+  /** Base map + overlay picker for the "Map" tab. */
+  styleSection?: ReactNode;
   pinBoxSection?: ReactNode;
   playSection?: ReactNode;
   routeSection?: ReactNode;
@@ -27,6 +28,16 @@ type MapLayerManagerProps = {
   onToggleMapTool: (toolId: MapToolId) => void;
 };
 
+type LayerTab = "map" | "pins" | "hunt";
+
+// Three short tabs instead of one long scroll: how the map looks, what's on
+// it, and the tools you use while hunting.
+const TABS: Array<{ id: LayerTab; label: string }> = [
+  { id: "map", label: "Map" },
+  { id: "pins", label: "Pins" },
+  { id: "hunt", label: "Hunt" },
+];
+
 const MAP_TOOL_LABELS: Array<{ id: MapToolId; label: string }> = [
   { id: "gps", label: "GPS" },
   { id: "compass", label: "Compass" },
@@ -38,6 +49,7 @@ export default function MapLayerManager({
   onOpenChange,
   mapTools,
   activeOverlayCount = 0,
+  styleSection,
   pinBoxSection,
   playSection,
   routeSection,
@@ -54,7 +66,11 @@ export default function MapLayerManager({
     Boolean,
   ).length;
   const anyVisible = visibleCount > 0;
-  const hasFieldTools = Boolean(trackingSection || offlineSection);
+  const hasHuntTools = Boolean(
+    playSection || routeSection || recoverySection || trackingSection,
+  );
+  const [tab, setTab] = useState<LayerTab>("map");
+  const tabs = TABS.filter((item) => item.id !== "hunt" || hasHuntTools);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -80,6 +96,7 @@ export default function MapLayerManager({
           onOpenChange(true);
         }}
       >
+        <LayersIcon size={17} />
         Layers
         {activeOverlayCount > 0 ? (
           <span
@@ -127,96 +144,121 @@ export default function MapLayerManager({
           </button>
         </header>
 
-        <div style={contentStyle}>
-          {pinBoxSection ? (
+        <div style={tabBarStyle} role="tablist" aria-label="Layers sections">
+          {tabs.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.id}
+              style={{ ...tabStyle, ...(tab === item.id ? activeTabStyle : null) }}
+              onClick={() => setTab(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="di-layer-manager-content" style={contentStyle} role="tabpanel">
+          {tab === "map" ? (
             <>
-              <GroupHeader icon={<PinPlusIcon />} label="Place a pin" />
-              <section style={cardStyle}>{pinBoxSection}</section>
+              {styleSection ? (
+                <section style={cardStyle}>
+                  <h4 style={cardTitleStyle}>Map style</h4>
+                  {styleSection}
+                </section>
+              ) : null}
+
+              <section style={cardStyle}>
+                <h4 style={cardTitleStyle}>On-screen tools</h4>
+                <div style={toggleListStyle}>
+                  {MAP_TOOL_LABELS.map((tool, index) => (
+                    <ToggleRow
+                      key={tool.id}
+                      divider={index > 0}
+                      checked={mapTools[tool.id]}
+                      label={tool.label}
+                      onToggle={() => onToggleMapTool(tool.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+
+              {offlineSection ? (
+                <section style={cardStyle}>
+                  <h4 style={cardTitleStyle}>Offline maps</h4>
+                  {offlineSection}
+                </section>
+              ) : null}
             </>
           ) : null}
 
-          {playSection ? (
+          {tab === "pins" ? (
             <>
-              <GroupHeader icon={<TentIcon />} label="Today's play" />
-              <section style={cardStyle}>{playSection}</section>
+              {pinBoxSection ? (
+                <section style={cardStyle}>
+                  <h4 style={cardTitleStyle}>Place a pin</h4>
+                  {pinBoxSection}
+                </section>
+              ) : null}
+
+              <section style={cardStyle}>
+                <div style={cardHeadRowStyle}>
+                  <h4 style={cardTitleStyle}>
+                    Show on map{" "}
+                    <span style={cardCountStyle}>
+                      {visibleCount} of {ASSET_LAYERS.length}
+                    </span>
+                  </h4>
+                  <button
+                    type="button"
+                    style={visAllButtonStyle}
+                    onClick={() => onSetAllLayers(!anyVisible)}
+                  >
+                    {anyVisible ? "Hide all" : "Show all"}
+                  </button>
+                </div>
+                <div style={chipGridStyle}>
+                  {ASSET_LAYERS.map((layer) => (
+                    <VisibilityChip
+                      key={layer.id}
+                      layerId={layer.id}
+                      label={layer.label}
+                      color={layer.color}
+                      background={layer.background}
+                      visible={visibleAssetLayers[layer.id]}
+                      onToggle={() => onToggleLayer(layer.id)}
+                    />
+                  ))}
+                </div>
+              </section>
             </>
           ) : null}
 
-          {routeSection ? (
+          {tab === "hunt" ? (
             <>
-              <GroupHeader icon={<TentIcon />} label="Access route" />
-              <section style={cardStyle}>{routeSection}</section>
-            </>
-          ) : null}
-
-          {recoverySection ? (
-            <>
-              <GroupHeader icon={<TentIcon />} label="After the shot" />
-              <section style={cardStyle}>{recoverySection}</section>
-            </>
-          ) : null}
-
-          <GroupHeader icon={<LayersIcon />} label="On the map" />
-
-          <CollapsibleSection
-            title="Show on map"
-            description={`${visibleCount} of ${ASSET_LAYERS.length} shown`}
-            style={collapsibleCardStyle}
-          >
-            <div style={visActionRowStyle}>
-              <button
-                type="button"
-                style={visAllButtonStyle}
-                onClick={() => onSetAllLayers(!anyVisible)}
-              >
-                {anyVisible ? "Hide all" : "Show all"}
-              </button>
-            </div>
-            <div style={chipGridStyle}>
-              {ASSET_LAYERS.map((layer) => (
-                <VisibilityChip
-                  key={layer.id}
-                  layerId={layer.id}
-                  label={layer.label}
-                  color={layer.color}
-                  background={layer.background}
-                  visible={visibleAssetLayers[layer.id]}
-                  onToggle={() => onToggleLayer(layer.id)}
-                />
-              ))}
-            </div>
-          </CollapsibleSection>
-
-          <section style={cardStyle}>
-            <h4 style={cardTitleStyle}>Map tools</h4>
-            <div style={toggleListStyle}>
-              {MAP_TOOL_LABELS.map((tool, index) => (
-                <ToggleRow
-                  key={tool.id}
-                  divider={index > 0}
-                  checked={mapTools[tool.id]}
-                  label={tool.label}
-                  onToggle={() => onToggleMapTool(tool.id)}
-                />
-              ))}
-            </div>
-          </section>
-
-          {hasFieldTools ? (
-            <>
-              <GroupHeader icon={<TentIcon />} label="In the field" />
-
+              {playSection ? (
+                <section style={cardStyle}>
+                  <h4 style={cardTitleStyle}>Today&apos;s play</h4>
+                  {playSection}
+                </section>
+              ) : null}
+              {routeSection ? (
+                <section style={cardStyle}>
+                  <h4 style={cardTitleStyle}>Access route</h4>
+                  {routeSection}
+                </section>
+              ) : null}
               {trackingSection ? (
                 <section style={cardStyle}>
                   <h4 style={cardTitleStyle}>Walk tracking</h4>
                   {trackingSection}
                 </section>
               ) : null}
-
-              {offlineSection ? (
+              {recoverySection ? (
                 <section style={cardStyle}>
-                  <h4 style={cardTitleStyle}>Offline maps</h4>
-                  {offlineSection}
+                  <h4 style={cardTitleStyle}>After the shot</h4>
+                  {recoverySection}
                 </section>
               ) : null}
             </>
@@ -227,17 +269,6 @@ export default function MapLayerManager({
   );
 }
 
-function GroupHeader({ icon, label }: { icon: ReactNode; label: string }) {
-  return (
-    <div style={groupHeaderStyle}>
-      <span style={groupIconStyle} aria-hidden="true">
-        {icon}
-      </span>
-      <span style={groupLabelStyle}>{label}</span>
-      <span style={groupLineStyle} aria-hidden="true" />
-    </div>
-  );
-}
 
 // A show/hide chip that carries the pin's real teardrop marker, so the same
 // pin identity you tap to place is the one you toggle on the map. Dimmed and
@@ -341,29 +372,13 @@ function ToggleRow({
   );
 }
 
-function TentIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 3 3 20h18L12 3z" />
-      <path d="M12 9v11" />
-    </svg>
-  );
-}
 
-function LayersIcon() {
+function LayersIcon({ size = 14 }: { size?: number }) {
   return (
     <svg
-      width="14"
-      height="14"
+      aria-hidden="true"
+      width={size}
+      height={size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -377,23 +392,6 @@ function LayersIcon() {
   );
 }
 
-function PinPlusIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 21s-6-5.7-6-10a6 6 0 0 1 12 0c0 4.3-6 10-6 10Z" />
-      <path d="M12 8v5M9.5 10.5h5" />
-    </svg>
-  );
-}
 
 const layersButtonStyle: CSSProperties = {
   position: "absolute",
@@ -401,6 +399,7 @@ const layersButtonStyle: CSSProperties = {
   right: "5rem",
   zIndex: 1070,
   display: "inline-flex",
+  gap: "0.4rem",
   minHeight: "46px",
   alignItems: "center",
   justifyContent: "center",
@@ -447,7 +446,7 @@ const panelStyle: CSSProperties = {
   bottom: 0,
   zIndex: 1610,
   display: "grid",
-  gridTemplateRows: "auto minmax(0, 1fr)",
+  gridTemplateRows: "auto auto minmax(0, 1fr)",
   width: "min(390px, calc(100% - 1rem))",
   borderLeft: "1px solid rgba(17, 23, 17, 0.14)",
   background: "rgba(248, 250, 246, 0.98)",
@@ -504,34 +503,9 @@ const contentStyle: CSSProperties = {
   padding: "0.85rem",
 };
 
-// Group divider: a small icon + green label + a rule that fills the row, with
-// extra top space so the three groups read as distinct bands, not one list.
-const groupHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.45rem",
-  marginTop: "0.6rem",
-  padding: "0 0.15rem",
-};
 
-const groupIconStyle: CSSProperties = {
-  display: "inline-flex",
-  color: "#2f6d3a",
-};
 
-const groupLabelStyle: CSSProperties = {
-  color: "#2f6d3a",
-  fontSize: "0.78rem",
-  fontWeight: 800,
-  letterSpacing: "0.01em",
-  whiteSpace: "nowrap",
-};
 
-const groupLineStyle: CSSProperties = {
-  flex: 1,
-  height: "1px",
-  background: "rgba(47, 109, 58, 0.2)",
-};
 
 // Each section is a white card so it reads as a distinct block on the panel.
 const cardStyle: CSSProperties = {
@@ -543,15 +517,46 @@ const cardStyle: CSSProperties = {
   background: "white",
 };
 
-// Round the collapsible to match the plain cards (its border/fill already do).
-const collapsibleCardStyle: CSSProperties = {
+
+
+const tabBarStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(0, 1fr))",
+  gap: "0.25rem",
+  margin: "0.75rem 0.85rem 0",
+  padding: "0.25rem",
   borderRadius: "12px",
+  background: "#e8ece6",
 };
 
-const visActionRowStyle: CSSProperties = {
+const tabStyle: CSSProperties = {
+  minHeight: "40px",
+  border: 0,
+  borderRadius: "9px",
+  background: "transparent",
+  color: "#4a564a",
+  cursor: "pointer",
+  fontSize: "0.92rem",
+  fontWeight: 800,
+};
+
+const activeTabStyle: CSSProperties = {
+  background: "white",
+  color: "#1b3d22",
+  boxShadow: "0 1px 4px rgba(0, 0, 0, 0.14)",
+};
+
+const cardHeadRowStyle: CSSProperties = {
   display: "flex",
-  justifyContent: "flex-end",
-  marginBottom: "0.55rem",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.5rem",
+};
+
+const cardCountStyle: CSSProperties = {
+  color: "#6a7468",
+  fontSize: "0.8rem",
+  fontWeight: 700,
 };
 
 const visAllButtonStyle: CSSProperties = {
