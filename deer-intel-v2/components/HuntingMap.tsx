@@ -27,6 +27,7 @@ import ContourLabels from "@/components/map/ContourLabels";
 import AssetClusterMarker from "@/components/map/AssetClusterMarker";
 import MapNoticeToast from "@/components/map/MapNoticeToast";
 import { clusterPoints } from "@/lib/mapClusters";
+import { summarizeMapNotices } from "@/lib/mapNotices";
 import MapTopBar from "@/components/map/MapTopBar";
 import WindThermalLayer, {
   type WindStandPoint,
@@ -227,6 +228,8 @@ type SearchTarget = {
   center: MapCenter;
   id: number;
   zoom: number;
+  /** Jump straight there (no fly animation) — used for the opening view. */
+  instant?: boolean;
 };
 
 const MAP_CENTER_EPSILON = 0.00001;
@@ -1125,7 +1128,8 @@ function MapSearchTargetController({
   useEffect(() => {
     if (!target) return;
 
-    map.flyTo(target.center, target.zoom, { duration: 0.85 });
+    if (target.instant) map.setView(target.center, target.zoom);
+    else map.flyTo(target.center, target.zoom, { duration: 0.85 });
 
     // A fly-to is a one-shot "go here" command, not a view to hold. Clear it now
     // that it's been flown so it can never be replayed: on iOS Safari a pinch
@@ -1982,11 +1986,14 @@ export default function HuntingMap() {
         ? "Zoom in further for owner names — tap any parcel to see who owns it."
         : "";
 
-  const mapOverlayMessages = [
+  // Several layers each said their own "zoom in" line, which stacked into three
+  // sentences saying the same thing. Fold them into one short line and keep
+  // any other status (loading, unavailable) as written.
+  const mapOverlayMessages = summarizeMapNotices([
     parcelLayerState?.message,
     parcelZoomHint,
     trailsMessage,
-  ].filter((message): message is string => Boolean(message));
+  ]);
 
   const saveMapState = useCallback((center: MapCenter, zoom: number) => {
     latestMapZoomRef.current = zoom;
@@ -2039,12 +2046,17 @@ export default function HuntingMap() {
     // still focuses, while the id guard keeps a later pin edit from yanking the
     // view back.
     if (focusedPropertyIdRef.current === selectedPropertyId) return;
+    // The first focus is the map opening: land on the property directly
+    // instead of flying in from the whole-state default view. Switching
+    // properties later still flies, so you see where you went.
+    const opening = focusedPropertyIdRef.current === "";
     focusedPropertyIdRef.current = selectedPropertyId;
 
     setSearchTarget({
       center: propertyFocus.center,
       id: Date.now(),
       zoom: propertyFocus.zoom,
+      instant: opening,
     });
   }, [selectedPropertyId, propertyFocus]);
 

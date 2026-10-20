@@ -5,6 +5,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import AddStandCard from "@/components/stands/AddStandCard";
 import StandCard from "@/components/stands/StandCard";
 import { findLikelyDuplicateStands } from "@/lib/standDuplicates";
+import { useAddFormRequest } from "@/lib/useAddFormRequest";
 import EmptyState from "@/components/ui/EmptyState";
 import {
   ClipboardIcon,
@@ -30,6 +31,7 @@ import {
 export default function StandsPage() {
   const state = useDeerIntelStore();
   const [todayWind, setTodayWind] = useState<string>();
+  const addForm = useAddFormRequest("add-stand");
   const selectedProperty =
     state.properties.find(
       (property) => property.id === state.selectedPropertyId,
@@ -147,12 +149,15 @@ export default function StandsPage() {
 
   const sitesTab = (
     <div style={listStyle}>
-      <AddStandCard
-        key={selectedPropertyId}
-        propertyId={selectedPropertyId}
-        propertyName={selectedProperty?.name ?? "this property"}
-        defaultOpen={propertyStands.length === 0}
-      />
+      {/* The header's "Add stand" opens this; it isn't a standing card. */}
+      {addForm.requested || propertyStands.length === 0 ? (
+        <AddStandCard
+          key={selectedPropertyId}
+          propertyId={selectedPropertyId}
+          propertyName={selectedProperty?.name ?? "this property"}
+          defaultOpen
+        />
+      ) : null}
       {propertyStands.length === 0 ? (
         <EmptyState
           illustration={<StandIcon size={30} />}
@@ -254,14 +259,18 @@ export default function StandsPage() {
               <ClipboardIcon size={17} />
               Log hunt
             </Link>
-            <Link
+            <a
               href="#add-stand"
               style={primaryLinkStyle}
               className="di-navbtn"
+              onClick={(event) => {
+                event.preventDefault();
+                addForm.request();
+              }}
             >
               <PlusIcon size={17} />
               Add stand
-            </Link>
+            </a>
           </div>
         </div>
       </header>

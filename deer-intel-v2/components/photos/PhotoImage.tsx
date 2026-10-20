@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { getDisplayPhotoUrl } from "@/lib/photoCrop";
 
 type PhotoImageProps = {
@@ -30,7 +30,35 @@ export default function PhotoImage({
     state: "loading",
   });
 
+  // Only read (and auto-crop) the image once it's near the screen, so a page
+  // of camera cards or a grid of photos doesn't decode every image up front —
+  // which made the first card sit on "Loading photo…".
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [nearView, setNearView] = useState(false);
+
   useEffect(() => {
+    const node = frameRef.current;
+    if (!node || nearView) return;
+    if (typeof IntersectionObserver === "undefined") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setNearView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setNearView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "400px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [nearView]);
+
+  useEffect(() => {
+    if (!nearView) return;
     let active = true;
 
     // Screenshots of a camera app are trimmed to just the photo. The URL is
@@ -43,7 +71,7 @@ export default function PhotoImage({
     return () => {
       active = false;
     };
-  }, [imageId]);
+  }, [imageId, nearView]);
 
   // Until the effect resolves for this imageId, treat it as still loading so a
   // stale result from a previous imageId never flashes.
@@ -61,25 +89,30 @@ export default function PhotoImage({
 
   if (loadState === "missing") {
     return (
-      <div style={frameStyle}>
+      <div ref={frameRef} style={frameStyle}>
         <span style={messageStyle}>Photo unavailable on this device</span>
       </div>
     );
   }
 
   if (loadState === "loading" || !objectUrl) {
+    // A soft shimmer instead of "Loading photo…" text.
     return (
-      <div style={frameStyle}>
-        <span style={messageStyle}>Loading photo…</span>
-      </div>
+      <div
+        ref={frameRef}
+        className="di-photo-loading"
+        style={frameStyle}
+        role="img"
+        aria-label="Loading photo"
+      />
     );
   }
 
   return (
-    <div style={frameStyle}>
+    <div ref={frameRef} style={frameStyle}>
       {/* Blob object URLs are local; next/image cannot optimize them. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={objectUrl} alt={alt} style={imageStyle} />
+      <img src={objectUrl} alt={alt} style={imageStyle} decoding="async" />
     </div>
   );
 }

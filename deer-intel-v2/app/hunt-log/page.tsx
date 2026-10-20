@@ -41,8 +41,12 @@ export default function HuntLogPage() {
   useEffect(() => {
     if (loadedUrlDefaults || typeof window === "undefined") return;
 
+    // Wait for saved data to load so the selected property is known.
+    if (state.properties.length === 0) return;
+
     const params = new URLSearchParams(window.location.search);
-    const propertyId = params.get("propertyId") ?? "";
+    // A link can name the property; otherwise use the one picked in the header.
+    const propertyId = params.get("propertyId") || state.selectedPropertyId;
     const standId = params.get("standId") ?? "";
     const propertyExists = state.properties.some(
       (property) => property.id === propertyId,
@@ -80,7 +84,7 @@ export default function HuntLogPage() {
     return () => {
       didCancel = true;
     };
-  }, [loadedUrlDefaults, state.properties, state.stands]);
+  }, [loadedUrlDefaults, state.properties, state.stands, state.selectedPropertyId]);
 
   function saveHunt() {
     const newHunt = createHuntFromValues({
@@ -159,7 +163,11 @@ export default function HuntLogPage() {
 
   const logTab = (
     <Card as="section" variant="elevated" style={formCardStyle}>
-      {canLogOrConvert ? (
+      {canLogOrConvert && !loadedUrlDefaults ? (
+        // One frame while today's date, time, and property fill in, instead of
+        // a form that flashes blank fields.
+        <div style={{ minHeight: "28rem" }} aria-busy="true" />
+      ) : canLogOrConvert ? (
         <HuntLogForm
           values={huntValues}
           properties={state.properties}

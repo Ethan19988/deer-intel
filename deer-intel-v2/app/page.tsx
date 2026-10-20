@@ -36,6 +36,7 @@ import ConditionsStrip from "@/components/ConditionsStrip";
 import CameraPhotoStrip, { type StripPhoto } from "@/components/CameraPhotoStrip";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import { useMoonPhase } from "@/lib/useMoonPhase";
+import { readForecastSnapshot, writeForecastSnapshot } from "@/lib/forecastSnapshot";
 import { rememberSunTimes } from "@/lib/theme";
 import { buildTodayVerdict } from "@/lib/todayVerdict";
 import { getPhotoBuckNames, photoRecordTime } from "@/lib/photos";
@@ -156,13 +157,25 @@ export default function Home() {
 
     const [lat, lng] = weatherKey.split(",").map(Number);
     let active = true;
+    const snapshotKey = `${weatherKey}|${tempUnit}|${windUnit}`;
+
+    // Show the last forecast for this spot right away (if it's from today and
+    // recent) so the verdict isn't a blank card while the fetch runs.
+    const snapshot = readForecastSnapshot(snapshotKey);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setForecast(snapshot);
 
     fetchLiveForecast(
       { lat, lng },
       { temperature: tempUnit, wind: windUnit },
     ).then((result) => {
       if (!active) return;
-      setForecast(result.status === "ok" ? result.forecast : null);
+      if (result.status === "ok") {
+        setForecast(result.forecast);
+        writeForecastSnapshot(snapshotKey, result.forecast);
+      } else if (!snapshot) {
+        setForecast(null);
+      }
       // Lets the "Follow daylight" theme track this property's real day length.
       if (result.status === "ok") {
         rememberSunTimes(result.forecast.sunriseIso, result.forecast.sunsetIso);
