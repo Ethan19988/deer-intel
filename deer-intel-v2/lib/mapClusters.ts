@@ -77,3 +77,22 @@ export function clusterPoints<T extends ClusterPoint>(
   }
   return { singles, clusters };
 }
+
+/**
+ * The first zoom past `currentZoom` at which this group's pins would no longer
+ * merge — tapping a bubble zooms straight there. Pins at the exact same spot
+ * never separate, so those stop at the closest zoom.
+ */
+export function zoomToSeparate(
+  members: ClusterPoint[],
+  currentZoom: number,
+  options: { radiusPx?: number; maxZoom?: number } = {},
+): number {
+  const radius = options.radiusPx ?? CLUSTER_RADIUS_PX;
+  const limit = options.maxZoom ?? 19;
+  for (let zoom = Math.floor(currentZoom) + 1; zoom < limit; zoom += 1) {
+    if (zoom >= CLUSTER_MAX_ZOOM) return zoom;
+    if (clusterPoints(members, zoom, { radiusPx: radius }).clusters.length === 0) return zoom;
+  }
+  return limit;
+}

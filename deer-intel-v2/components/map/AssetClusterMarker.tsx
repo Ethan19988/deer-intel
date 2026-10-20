@@ -1,6 +1,6 @@
 import * as L from "leaflet";
 import { Marker, useMap } from "react-leaflet";
-import { CLUSTER_MAX_ZOOM, type PointCluster } from "@/lib/mapClusters";
+import { zoomToSeparate, type PointCluster } from "@/lib/mapClusters";
 import type { MapAsset } from "@/lib/propertyMap";
 
 // A numbered bubble standing in for pins stacked together at this zoom. Its
@@ -10,15 +10,7 @@ export default function AssetClusterMarker({ cluster }: { cluster: PointCluster<
   const map = useMap();
 
   function zoomIn() {
-    const bounds = L.latLngBounds(
-      cluster.members.map((member) => [member.lat, member.lng] as [number, number]),
-    );
-    const sameSpot = bounds.getNorthEast().equals(bounds.getSouthWest());
-    if (sameSpot) {
-      map.setView(bounds.getCenter(), Math.max(map.getZoom() + 2, CLUSTER_MAX_ZOOM));
-    } else {
-      map.fitBounds(bounds, { padding: [60, 60], maxZoom: CLUSTER_MAX_ZOOM + 1 });
-    }
+    map.flyTo([cluster.lat, cluster.lng], zoomToSeparate(cluster.members, map.getZoom()));
   }
 
   return (

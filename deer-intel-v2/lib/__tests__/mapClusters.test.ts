@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clusterPoints } from "@/lib/mapClusters";
+import { CLUSTER_MAX_ZOOM, clusterPoints, zoomToSeparate } from "@/lib/mapClusters";
 
 // 0.0001° ≈ 11 m. At zoom 14 a pixel is ~7 m at this latitude.
 const pt = (id: string, north: number, east: number) => ({
@@ -34,5 +34,19 @@ describe("clusterPoints", () => {
     const first = clusterPoints(pile, 14).clusters[0].id;
     const second = clusterPoints([...pile].reverse(), 14).clusters[0].id;
     expect(first).toBe(second);
+  });
+});
+
+describe("zoomToSeparate", () => {
+  it("zooms just far enough for the group to split", () => {
+    const group = [pt("a", 0, 0), pt("b", 3, 3)];
+    const zoom = zoomToSeparate(group, 12);
+    expect(zoom).toBeGreaterThan(12);
+    expect(clusterPoints(group, zoom).clusters).toHaveLength(0);
+    expect(clusterPoints(group, zoom - 1).clusters).toHaveLength(1);
+  });
+
+  it("stops at the no-grouping zoom for pins on the same spot", () => {
+    expect(zoomToSeparate([pt("a", 0, 0), pt("b", 0, 0)], 12)).toBe(CLUSTER_MAX_ZOOM);
   });
 });
