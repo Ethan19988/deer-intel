@@ -463,33 +463,17 @@ h3 {
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
-/* ---- Login showcase (the standalone /login screen) ---- */
-/* A two-panel card: a golden-hour camo hero beside the sign-in form. Stacks to
-   a single column on phones, and the hero collapses to a compact banner so the
-   form stays above the fold. */
+/* ---- Login showcase (the standalone /login and /reset-password screens) ---- */
+/* A two-panel card: the dark brand hero (components/auth/AuthHero) beside the
+   form. Stacks on phones, where the hero shrinks to a compact banner so the
+   form stays near the top. */
 .di-login-shell {
   grid-template-columns: 1.05fr 0.95fr;
 }
 
 .di-login-showcase {
   min-height: 560px;
-}
-
-/* Sun glow drifts in from the top-right corner of the hero. */
-.di-login-sun {
-  position: absolute;
-  top: -70px;
-  right: -60px;
-  width: 260px;
-  height: 260px;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(240, 150, 70, 0.85) 0%,
-    rgba(224, 100, 42, 0.35) 45%,
-    rgba(224, 100, 42, 0) 72%
-  );
-  pointer-events: none;
+  border-right: 3px solid #d9894d;
 }
 
 @media (max-width: 820px) {
@@ -499,11 +483,19 @@ h3 {
 
   .di-login-showcase {
     min-height: auto;
+    border-right: 0;
+    border-bottom: 3px solid #d9894d;
+    gap: 1.25rem !important;
+    padding: 1.5rem 1.4rem 1.6rem !important;
   }
 
-  /* Below the fold on phones the big hero scene just adds scroll — drop it. */
+  .di-login-headline {
+    font-size: 2.5rem !important;
+  }
+
+  /* On phones the promises just push the form below the fold — drop them. */
   .di-login-features {
-    display: none;
+    display: none !important;
   }
 }
 
