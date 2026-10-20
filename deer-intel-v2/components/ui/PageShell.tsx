@@ -45,15 +45,13 @@ export default function PageShell({
         className={`di-page-shell${bare ? " di-page-shell-bare" : ""}`}
         style={bare ? pageBareStyle : pageStyle}
       >
-        {/* Phone brand bar: the buck and name across the top of every screen
-            (the full-screen map keeps its space for the map). */}
-        {bare ? null : (
-          <header className="di-brandbar">
-            <Link href="/" className="di-brandbar-link" aria-label="Deer Intel — Today">
-              <Wordmark height={30} />
-            </Link>
-          </header>
-        )}
+        {/* Phone brand bar: the buck and name across the top of every screen,
+            the full-screen map included (it starts just below the bar). */}
+        <header className="di-brandbar">
+          <Link href="/" className="di-brandbar-link" aria-label="Deer Intel — Today">
+            <Wordmark height={30} />
+          </Link>
+        </header>
         <div
           className="di-page-content"
           style={
