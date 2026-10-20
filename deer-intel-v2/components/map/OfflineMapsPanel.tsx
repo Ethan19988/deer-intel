@@ -112,7 +112,7 @@ const wrapStyle: CSSProperties = {
 
 const helpStyle: CSSProperties = {
   margin: 0,
-  color: "#4c5a4c",
+  color: "var(--text-muted)",
   fontSize: "0.86rem",
   lineHeight: 1.45,
 };
@@ -120,10 +120,10 @@ const helpStyle: CSSProperties = {
 const hintStyle: CSSProperties = {
   margin: 0,
   padding: "0.5rem 0.6rem",
-  border: "1px solid rgba(17, 23, 17, 0.1)",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "#f6f7f3",
-  color: "#4c5a4c",
+  background: "var(--surface-2)",
+  color: "var(--text-muted)",
   fontSize: "0.82rem",
   lineHeight: 1.45,
 };
@@ -132,10 +132,10 @@ const actionButtonStyle: CSSProperties = {
   width: "100%",
   minHeight: "44px",
   padding: "0.5rem 0.6rem",
-  border: "1px solid rgba(47, 109, 58, 0.4)",
+  border: "1px solid var(--accent-tint-border)",
   borderRadius: "8px",
-  background: "#f0f7ee",
-  color: "#17331b",
+  background: "var(--accent-tint)",
+  color: "var(--text)",
   cursor: "pointer",
   fontSize: "0.88rem",
   fontWeight: 850,
@@ -154,7 +154,7 @@ const packListStyle: CSSProperties = {
 const packListHeaderStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  color: "#566157",
+  color: "var(--text-muted)",
   fontSize: "0.76rem",
   fontWeight: 900,
   textTransform: "uppercase",
@@ -166,9 +166,9 @@ const packRowStyle: CSSProperties = {
   justifyContent: "space-between",
   gap: "0.6rem",
   padding: "0.5rem 0.55rem",
-  border: "1px solid rgba(17, 23, 17, 0.1)",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
-  background: "white",
+  background: "var(--surface)",
 };
 
 const packInfoStyle: CSSProperties = {
@@ -180,7 +180,7 @@ const packInfoStyle: CSSProperties = {
 const packTitleStyle: CSSProperties = {
   margin: 0,
   overflow: "hidden",
-  color: "#172017",
+  color: "var(--text)",
   fontSize: "0.86rem",
   fontWeight: 850,
   textOverflow: "ellipsis",
@@ -189,7 +189,7 @@ const packTitleStyle: CSSProperties = {
 
 const packMetaStyle: CSSProperties = {
   margin: 0,
-  color: "#5f6653",
+  color: "var(--text-muted)",
   fontSize: "0.78rem",
 };
 
@@ -197,10 +197,10 @@ const deleteButtonStyle: CSSProperties = {
   flex: "0 0 auto",
   minHeight: "38px",
   padding: "0.4rem 0.7rem",
-  border: "1px solid #f2c4bf",
+  border: "1px solid var(--danger-border)",
   borderRadius: "8px",
-  background: "#fce8e6",
-  color: "#b23127",
+  background: "var(--danger-bg)",
+  color: "var(--danger-text)",
   cursor: "pointer",
   fontSize: "0.8rem",
   fontWeight: 850,
@@ -208,13 +208,13 @@ const deleteButtonStyle: CSSProperties = {
 
 const emptyStyle: CSSProperties = {
   margin: 0,
-  color: "#7c8478",
+  color: "var(--text-faint)",
   fontSize: "0.82rem",
 };
 
 const unsupportedStyle: CSSProperties = {
   margin: 0,
-  color: "#7c8478",
+  color: "var(--text-faint)",
   fontSize: "0.84rem",
   lineHeight: 1.45,
 };

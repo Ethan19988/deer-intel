@@ -3282,7 +3282,7 @@ export default function HuntingMap() {
   // Walk tracking now lives in the Layers drawer rather than a panel above the
   // map, so build its UI here and hand it to MapLayerManager.
   const walkTrackingSection = (
-    <div style={huntAreaControlStyle}>
+    <div style={routeEntryStyle}>
       {isTracking ? (
         <>
           <div style={huntAreaHeaderStyle}>
@@ -3541,13 +3541,13 @@ export default function HuntingMap() {
                   {hasHuntArea ? "Edit Area Points" : "Add Area Points"}
                 </Button>
                 {hasHuntArea ? (
-                  <Button
+                  <button
                     type="button"
-                    variant="danger"
+                    style={clearAreaLinkStyle}
                     onClick={clearHuntArea}
                   >
-                    Clear
-                  </Button>
+                    Clear area
+                  </button>
                 ) : null}
               </div>
 
@@ -3556,7 +3556,6 @@ export default function HuntingMap() {
                   <Button
                     type="button"
                     variant="secondary"
-                    fullWidth
                     onClick={() => saveHuntAreaOffline("controls")}
                     disabled={
                       offlineOrigin === "controls" &&
@@ -3578,9 +3577,8 @@ export default function HuntingMap() {
           )}
             </div>
 
-            <p style={helpTextStyle}>
-              Use the Pin Box on the map to add cameras, stands, sign, trails,
-              parking, and gates.
+            <p style={scoutFootnoteStyle}>
+              Add cameras, stands, sign and more from Layers → Pins.
             </p>
           </div>
         ) : null}
@@ -4884,6 +4882,8 @@ const mapStageStyle: CSSProperties = {
 // below it. The property picker stays visible in the header; the hunt-area
 // tools live behind the toggle.
 // Closed, it's just the small "Hunt Area" button; open, the full panel.
+// Closed, the Hunt Area control is just a round pill matching the map's top
+// buttons; open, it becomes a card holding the hunt-area tools.
 const scoutOverlayStyle: CSSProperties = {
   position: "absolute",
   left: "1rem",
@@ -4893,17 +4893,17 @@ const scoutOverlayStyle: CSSProperties = {
   maxHeight: "calc(100% - 2.5rem)",
   display: "grid",
   gap: "0.5rem",
-  padding: "0.4rem",
-  border: "1px solid rgba(255, 255, 255, 0.72)",
-  borderRadius: "10px",
-  background: "rgba(255, 255, 255, 0.96)",
   color: "var(--text)",
-  boxShadow: "0 10px 24px rgba(0, 0, 0, 0.2)",
-  overflow: "hidden",
 };
 
 const scoutOverlayOpenStyle: CSSProperties = {
   width: "min(300px, calc(100% - 2rem))",
+  padding: "0.5rem",
+  border: "1px solid var(--border)",
+  borderRadius: "14px",
+  background: "var(--surface)",
+  boxShadow: "0 10px 24px rgba(0, 0, 0, 0.2)",
+  overflow: "hidden",
 };
 
 const scoutHeaderStyle: CSSProperties = {
@@ -4912,27 +4912,32 @@ const scoutHeaderStyle: CSSProperties = {
   gap: "0.4rem",
 };
 
-
 const scoutToggleStyle: CSSProperties = {
   display: "inline-flex",
-  minHeight: "34px",
+  minHeight: "44px",
   alignItems: "center",
   justifyContent: "center",
-  padding: "0 0.65rem",
-  border: "1px solid var(--border)",
-  borderRadius: "8px",
-  background: "var(--surface-2)",
-  color: "var(--text)",
+  gap: "0.4rem",
+  padding: "0 1rem",
+  border: "1px solid rgba(25, 34, 25, 0.28)",
+  borderRadius: "999px",
+  background: "rgba(255, 255, 255, 0.96)",
+  boxShadow: "0 10px 24px rgba(0, 0, 0, 0.22)",
+  color: "#111711",
   cursor: "pointer",
-  fontSize: "0.82rem",
+  fontSize: "0.88rem",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
 
+// Open, the toggle is a quiet "Close" inside the card.
 const scoutToggleActiveStyle: CSSProperties = {
-  borderColor: "#265c30",
-  background: "#2f6d3a",
-  color: "#f2f9f2",
+  minHeight: "34px",
+  padding: "0 0.75rem",
+  border: "1px solid var(--border)",
+  background: "var(--surface-2)",
+  boxShadow: "none",
+  color: "var(--text)",
 };
 
 const scoutBodyStyle: CSSProperties = {
@@ -5120,6 +5125,28 @@ const propertyLinesNoticeStyle: CSSProperties = {
   boxShadow: "0 10px 24px rgba(0, 0, 0, 0.18)",
   // Informational only — never intercept map taps.
   pointerEvents: "none",
+};
+
+// Clearing the area is destructive (it asks first), so it's a quiet text
+// link beside Edit rather than a big red button.
+const clearAreaLinkStyle: CSSProperties = {
+  alignSelf: "center",
+  padding: "0.4rem 0.2rem",
+  border: 0,
+  background: "transparent",
+  color: "var(--danger-text)",
+  cursor: "pointer",
+  fontSize: "0.86rem",
+  fontWeight: 750,
+  textDecoration: "underline",
+  textUnderlineOffset: "3px",
+};
+
+const scoutFootnoteStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text-faint)",
+  fontSize: "0.82rem",
+  lineHeight: 1.4,
 };
 
 const huntAreaControlStyle: CSSProperties = {

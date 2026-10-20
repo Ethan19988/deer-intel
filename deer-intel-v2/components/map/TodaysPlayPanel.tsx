@@ -87,10 +87,10 @@ const STATUS_TONE: Record<
   StandWindStatus,
   { dot: string; text: string; word: string }
 > = {
-  good: { dot: "#2f8f4a", text: "#1f7a37", word: "Good wind" },
-  marginal: { dot: "#c98a2b", text: "#a5701f", word: "Off wind" },
-  avoid: { dot: "#c0453b", text: "#b23b3b", word: "Wrong wind" },
-  unknown: { dot: "#9aa0a6", text: "#6b7280", word: "No read" },
+  good: { dot: "#2f8f4a", text: "var(--success-text)", word: "Good wind" },
+  marginal: { dot: "#c98a2b", text: "var(--warning-text)", word: "Off wind" },
+  avoid: { dot: "#c0453b", text: "var(--danger-text)", word: "Wrong wind" },
+  unknown: { dot: "#9aa0a6", text: "var(--text-faint)", word: "No read" },
 };
 
 const listStyle: CSSProperties = {
@@ -100,7 +100,7 @@ const listStyle: CSSProperties = {
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  color: "#566157",
+  color: "var(--text-muted)",
   fontSize: "0.72rem",
   fontWeight: 800,
   textTransform: "uppercase",
@@ -113,9 +113,9 @@ const rowStyle: CSSProperties = {
   gap: "0.6rem",
   width: "100%",
   padding: "0.5rem 0.55rem",
-  border: "1px solid rgba(17, 23, 17, 0.12)",
+  border: "1px solid var(--border)",
   borderRadius: "10px",
-  background: "white",
+  background: "var(--surface)",
   textAlign: "left",
   cursor: "pointer",
 };
@@ -147,7 +147,7 @@ const nameRowStyle: CSSProperties = {
 
 const nameStyle: CSSProperties = {
   overflow: "hidden",
-  color: "#1b241b",
+  color: "var(--text)",
   fontSize: "0.9rem",
   fontWeight: 750,
   textOverflow: "ellipsis",
@@ -162,7 +162,7 @@ const statusChipStyle: CSSProperties = {
 
 const metaStyle: CSSProperties = {
   overflow: "hidden",
-  color: "#566157",
+  color: "var(--text-muted)",
   fontSize: "0.74rem",
   fontWeight: 600,
   textOverflow: "ellipsis",
@@ -171,7 +171,7 @@ const metaStyle: CSSProperties = {
 
 const emptyStyle: CSSProperties = {
   margin: 0,
-  color: "#566157",
+  color: "var(--text-muted)",
   fontSize: "0.82rem",
   fontWeight: 600,
   lineHeight: 1.4,
