@@ -1,6 +1,7 @@
 import * as L from "leaflet";
 import { Marker, useMap } from "react-leaflet";
 import { zoomToSeparate, type PointCluster } from "@/lib/mapClusters";
+import { pinBodyColor, type GlyphKey } from "@/lib/mapPinIcon";
 import type { MapAsset } from "@/lib/propertyMap";
 
 // A numbered bubble standing in for pins stacked together at this zoom. Its
@@ -25,21 +26,20 @@ export default function AssetClusterMarker({ cluster }: { cluster: PointCluster<
   );
 }
 
-function dominantColors(members: MapAsset[]) {
-  const counts = new Map<string, { n: number; color: string; background: string }>();
-  for (const member of members) {
-    const entry = counts.get(member.layerId) ?? { n: 0, color: member.color, background: member.background };
-    entry.n += 1;
-    counts.set(member.layerId, entry);
-  }
-  return [...counts.values()].sort((a, b) => b.n - a.n)[0];
+// Most common pin type inside, so the bubble wears that group's colour.
+function dominantLayer(members: MapAsset[]): GlyphKey {
+  const counts = new Map<string, number>();
+  for (const member of members) counts.set(member.layerId, (counts.get(member.layerId) ?? 0) + 1);
+  const [top] = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  return (top?.[0] ?? "other") as GlyphKey;
 }
 
 function clusterIcon(cluster: PointCluster<MapAsset>) {
   const count = cluster.members.length;
   const size = count >= 10 ? 44 : 38;
-  const { color, background } = dominantColors(cluster.members);
-  const html = `<div style="width:${size}px;height:${size}px;border-radius:999px;display:grid;place-items:center;background:${background};border:3px solid ${color};box-shadow:0 0 0 3px rgba(0,0,0,0.25),0 4px 10px rgba(0,0,0,0.45);color:#fff;font:800 ${count >= 10 ? 15 : 14}px/1 system-ui,sans-serif;">${count}</div>`;
+  const body = pinBodyColor(dominantLayer(cluster.members));
+  // Same family as the pins: muted body, off-white ring and number.
+  const html = `<div style="width:${size}px;height:${size}px;border-radius:999px;display:grid;place-items:center;background:${body};border:2px solid #F3EEE4;box-shadow:0 0 0 1px #2B1D12,0 1px 3px rgba(0,0,0,0.45);color:#F3EEE4;font:800 ${count >= 10 ? 15 : 14}px/1 system-ui,sans-serif;">${count}</div>`;
   return L.divIcon({
     className: "deer-intel-map-marker",
     html,

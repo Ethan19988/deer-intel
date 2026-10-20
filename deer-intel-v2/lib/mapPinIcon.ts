@@ -1,71 +1,86 @@
 import type { AssetLayerId } from "@/lib/propertyMap";
+import { PIN_GLYPHS } from "@/lib/pinGlyphs";
 
 export type GlyphKey = AssetLayerId | "deer" | "other";
 
-// Literal glyphs per asset type, drawn to sit inside the pin head centered on
-// (12, 11.5) within a 24-wide teardrop. Lines inherit the pin color; a few
-// marks are filled (marked inline) where a solid shape reads better small.
-// Shared by the map marker (PropertyMapAssetMarker) and the Layers pin grid so
-// the button you tap looks exactly like the pin that lands on the map.
-export const ICON_GLYPHS: Record<GlyphKey, string> = {
-  // Trail camera: body, lens, small top mount.
-  cameras:
-    '<rect x="6.6" y="9" width="10.8" height="6.8" rx="1.5"/><circle cx="12" cy="12.4" r="2.3"/><path d="M8.6 9v-1h2.2v1"/>',
-  // Ladder treestand against a tree: trunk, seat with backrest, and a ladder
-  // with rungs widening toward the ground.
-  stands:
-    '<path d="M15.7 5.7v11.4"/><path d="M9.6 9.9h6.1"/><path d="M9.6 9.9v1.3"/><path d="M14.3 9.9v-2.3M12.5 7.6h1.8"/><path d="M10.5 10.1 11.1 16.8M12.6 10.1 13.2 16.8"/><path d="M10.62 12.2h1.78M10.82 14.2h1.9M11.02 16.2h2.02"/>',
-  // Bed: frame with headboard and a pillow.
-  bedding:
-    '<path d="M6.8 11v4.6M6.8 12.7h10.4v2.9M17.2 12.3v3.3"/><path d="M8.6 12.7v-1a1.4 1.4 0 0 1 1.4-1.4h3.8a1.4 1.4 0 0 1 1.4 1.4v1"/>',
-  // Food plot: sprout with a stem and two leaves.
-  food: '<path d="M12 16.6v-6.2"/><path d="M12 12.6c-2.4 0-4-1.4-4-3.5 2.4 0 4 1.4 4 3.5Z"/><path d="M12 11.1c1.9 0 3.3-1.2 3.3-3-1.9 0-3.3 1.2-3.3 3Z"/>',
-  // Water: droplet.
-  water:
-    '<path d="M12 6.4C12 6.4 8.2 11 8.2 13.5a3.8 3.8 0 0 0 7.6 0C15.8 11 12 6.4 12 6.4Z" fill="currentColor" stroke="none"/>',
-  // Scrape: licking branch over a scuffed ground oval.
-  scrapes:
-    '<path d="M7 8.6h10M12 8.6v2.6"/><ellipse cx="12" cy="14.2" rx="3.6" ry="1.5"/>',
-  // Buck rub: a small tiered pine with a bare rubbed patch and gouge marks on
-  // the trunk where the buck stripped the bark.
-  rubs: '<path d="M12 3.8 13.8 7.3 12.9 7.3 14.8 10.4 13.7 10.4 16 13.5 8 13.5 10.3 10.4 9.2 10.4 11.1 7.3 10.2 7.3Z" fill="currentColor" stroke="none"/><path d="M11.2 13.5v3.4M12.8 13.5v3.4"/><ellipse cx="12" cy="15.1" rx="0.95" ry="1.6" fill="currentColor" fill-opacity="0.32"/><path d="M11.4 14.6 12.7 14.9M11.4 15.8 12.7 16.1"/>',
-  // Deer trail: a winding dashed path.
-  trails:
-    '<path d="M8.5 16.5c2-3.6 1-5.6 3-7.1 1.6-1.2 1.4-2.1 2.5-2.9" stroke-dasharray="2.2 1.8"/>',
-  // Parking "P".
-  parking: '<path d="M10 7v9.5M10 7h3a2.6 2.6 0 0 1 0 5.2H10"/>',
-  // Farm gate.
-  gates:
-    '<path d="M6.9 8.1v7.8M17.1 8.1v7.8M6.9 8.1h10.2M6.9 15.9h10.2M6.9 15.9 17.1 9.5"/>',
-  // Deer sighting: a front-facing buck head with antlers.
-  deer: '<path d="M12 16.6c-1.9-1-2.5-3.3-2-5.4h4c0.5 2.1-0.1 4.4-2 5.4Z" fill="currentColor" stroke="none"/><path d="M10.2 11.4 8.6 10.6M13.8 11.4 15.4 10.6"/><path d="M10.3 10.8C9.1 9.7 8.9 8 9 6.8M9 8.4 7.6 7.9M9.1 7 7.9 6.2"/><path d="M13.7 10.8C14.9 9.7 15.1 8 15 6.8M15 8.4 16.4 7.9M14.9 7 16.1 6.2"/>',
-  other: '<circle cx="12" cy="11.5" r="2.6" fill="currentColor" stroke="none"/>',
+// Map pins in the style the serious hunting apps use: one muted teardrop, a
+// light off-white head, and a real filled icon in dark ink. The icon carries
+// the meaning; the body colour only groups related pins, kept to four earthy
+// tones that sit on satellite imagery instead of fighting it.
+type PinGroup = "setup" | "sign" | "feed" | "access";
+
+const GROUP_OF: Record<GlyphKey, PinGroup> = {
+  stands: "setup",
+  cameras: "setup",
+  bedding: "sign",
+  scrapes: "sign",
+  rubs: "sign",
+  trails: "sign",
+  deer: "sign",
+  other: "sign",
+  food: "feed",
+  water: "feed",
+  parking: "access",
+  gates: "access",
 };
 
-// Build the classic teardrop pin as an SVG string: a color-outlined dark body
-// with a bright glyph in the head and a point at the bottom. Used for the real
-// map markers and, at smaller sizes, the Layers pin grid and visibility chips.
+export const PIN_GROUP_COLORS: Record<PinGroup, string> = {
+  setup: "#8A4B2A", // rust: where you hunt from and watch
+  sign: "#6B4A2E", // saddle brown: deer sign and sightings
+  feed: "#5E6B3A", // olive: food and water
+  access: "#4A545C", // slate: parking and gates
+};
+
+const HEAD = "#F3EEE4";
+const INK = "#2B2118";
+const RIM = "#2B1D12";
+
+/** The body colour for a pin type (also used for cluster bubbles). */
+export function pinBodyColor(glyphKey: GlyphKey): string {
+  return PIN_GROUP_COLORS[GROUP_OF[glyphKey] ?? "sign"];
+}
+
+// Glyph art fitted into the pin head: an 11-unit box centred on the head at
+// (12, 11.5) inside the 24×34 pin.
+const GLYPH_BOX = 11;
+
+function glyphMarkup(glyphKey: GlyphKey): string {
+  const glyph = PIN_GLYPHS[glyphKey] ?? PIN_GLYPHS.other;
+  const scale = GLYPH_BOX / glyph.viewBox;
+  const offsetX = 12 - GLYPH_BOX / 2;
+  const offsetY = 11.5 - GLYPH_BOX / 2;
+  return `<g transform="translate(${offsetX} ${offsetY}) scale(${scale})" fill="${INK}">${glyph.svg}</g>`;
+}
+
+// The teardrop pin as an SVG string, used for the map markers and, smaller,
+// the Layers pin grid and chips. `color`/`background` are accepted for older
+// callers but no longer used — the look comes from the pin type.
 export function pinMarkerSvg({
-  color,
-  background,
   glyphKey,
   width,
   selected = false,
 }: {
-  color: string;
-  background: string;
+  color?: string;
+  background?: string;
   glyphKey: GlyphKey;
   width: number;
   selected?: boolean;
 }): string {
   const height = Math.round((width * 34) / 24);
+  const body = pinBodyColor(glyphKey);
 
   return `<svg width="${width}" height="${height}" viewBox="0 0 24 34"
     xmlns="http://www.w3.org/2000/svg"
-    style="display:block;filter:drop-shadow(0 4px 5px rgba(0,0,0,0.45));color:${color};overflow:visible;">
-    <path d="M12 1C6 1 1.5 5.6 1.5 11.4 1.5 19 12 33 12 33S22.5 19 22.5 11.4C22.5 5.6 18 1 12 1Z"
-      fill="${background}" stroke="${color}" stroke-width="${selected ? 2.4 : 2}"/>
-    <g fill="none" stroke="currentColor" stroke-width="1.7"
-      stroke-linecap="round" stroke-linejoin="round">${ICON_GLYPHS[glyphKey]}</g>
+    style="display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.45));overflow:visible;">
+    ${
+      selected
+        ? `<path d="M12 .2C5.4.2.4 5.3.4 11.6.4 19.8 12 34 12 34s11.6-14.2 11.6-22.4C23.6 5.3 18.6.2 12 .2Z" fill="none" stroke="${HEAD}" stroke-width="1.6" opacity="0.9"/>`
+        : ""
+    }
+    <path d="M12 1.2C6 1.2 1.4 5.9 1.4 11.6 1.4 19.1 12 32.6 12 32.6S22.6 19.1 22.6 11.6C22.6 5.9 18 1.2 12 1.2Z"
+      fill="${body}" stroke="${selected ? HEAD : RIM}" stroke-width="${selected ? 1.4 : 1}"/>
+    <circle cx="12" cy="11.5" r="8.1" fill="${HEAD}"/>
+    <circle cx="12" cy="11.5" r="8.1" fill="none" stroke="rgba(0,0,0,0.15)" stroke-width="0.4"/>
+    ${glyphMarkup(glyphKey)}
   </svg>`;
 }
