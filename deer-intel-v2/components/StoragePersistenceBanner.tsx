@@ -70,7 +70,7 @@ const linkStyle: CSSProperties = {
   justifyContent: "center",
   minHeight: "44px",
   padding: "0.45rem 0.8rem",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   border: "1px solid var(--danger-text)",
   background: "transparent",
   color: "var(--danger-text)",

@@ -82,24 +82,25 @@ const badgeStyle: CSSProperties = {
   justifyContent: "center",
   width: "1.85rem",
   height: "1.85rem",
-  borderRadius: "9px",
+  borderRadius: "var(--radius-sm)",
   flex: "none",
 };
 
 const labelStyle: CSSProperties = {
   margin: 0,
-  color: "var(--text-faint)",
-  fontSize: "0.82rem",
-  fontWeight: 800,
-  letterSpacing: "0.02em",
+  color: "var(--text-muted)",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.7rem",
+  fontWeight: 500,
+  letterSpacing: "0.1em",
   textTransform: "uppercase",
 };
 
 const valueStyle: CSSProperties = {
   margin: "0.55rem 0 0",
   fontFamily: "var(--font-display), system-ui, sans-serif",
-  fontSize: "2.3rem",
-  fontWeight: 800,
+  fontSize: "2.6rem",
+  fontWeight: 400,
   lineHeight: 1,
   letterSpacing: "-0.02em",
   fontVariantNumeric: "tabular-nums",

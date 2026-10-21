@@ -219,7 +219,7 @@ const buckChipStyle: CSSProperties = {
   minHeight: "46px",
   padding: "0.5rem 0.85rem",
   border: "1px solid var(--border-strong)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
   color: "var(--text)",
   textAlign: "left",

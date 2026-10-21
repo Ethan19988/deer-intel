@@ -137,7 +137,7 @@ const setWindsLinkStyle: CSSProperties = {
   alignItems: "center",
   minHeight: "32px",
   padding: "0.3rem 0.65rem",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   border: "1px dashed var(--accent)",
   background: "var(--accent-tint)",
   color: "var(--accent-text)",
@@ -154,7 +154,7 @@ const pickRowStyle: CSSProperties = {
 const pickTagStyle: CSSProperties = {
   flex: "none",
   padding: "0.2rem 0.5rem",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent)",
   color: "#fff",
   fontSize: "0.72rem",
@@ -174,7 +174,7 @@ const rowStyle: CSSProperties = {
   gap: "0.4rem",
   padding: "0.55rem 0.6rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
 };
 

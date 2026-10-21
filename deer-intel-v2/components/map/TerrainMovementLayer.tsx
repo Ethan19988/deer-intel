@@ -129,7 +129,7 @@ function FeaturePopup({
             display: "inline-block",
             marginBottom: "0.35rem",
             padding: "0.1rem 0.45rem",
-            borderRadius: "999px",
+            borderRadius: "var(--radius-sm)",
             background: color,
             color: "#fff",
             fontSize: "0.68rem",
@@ -170,7 +170,7 @@ function FeaturePopup({
             style={{
               display: "inline-block",
               padding: "0.06rem 0.4rem",
-              borderRadius: "999px",
+              borderRadius: "var(--radius-sm)",
               border: `1px solid ${TONE_COLOR[play.tone]}`,
               color: TONE_COLOR[play.tone],
               fontSize: "0.66rem",

@@ -106,7 +106,7 @@ const badgeStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   padding: "0.2rem 0.55rem",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
   color: "var(--text)",

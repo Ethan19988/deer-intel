@@ -63,7 +63,7 @@ const selectStyle: CSSProperties = {
   width: "100%",
   minHeight: "44px",
   padding: "0.5rem 2rem 0.5rem 2.2rem",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
   color: "var(--text)",

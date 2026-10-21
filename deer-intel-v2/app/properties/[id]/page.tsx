@@ -15,34 +15,30 @@ import WalkTracksSection from "@/components/properties/dashboard/WalkTracksSecti
 import WorkspaceIcon, {
   type WorkspaceIconName,
 } from "@/components/properties/dashboard/WorkspaceIcon";
-import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import {
-  CalendarIcon,
-  CameraIcon,
-  ClipboardIcon,
-  CompassIcon,
-  DeerIcon,
-  MapIcon,
-  MapPinIcon,
-  StandIcon,
-  SunIcon,
   TargetIcon,
 } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
+import ColdFrontBanner from "@/components/ColdFrontBanner";
+import TodayVerdictHero from "@/components/TodayVerdictHero";
+import ConditionsStrip from "@/components/ConditionsStrip";
+import StandCheckPanel from "@/components/StandCheckPanel";
+import StandWindGrid from "@/components/StandWindGrid";
+import BuckSlideshow from "@/components/BuckSlideshow";
+import RutRibbon from "@/components/season/RutRibbon";
+import { usePropertyToday } from "@/lib/usePropertyToday";
 import Tabs from "@/components/ui/Tabs";
 import PropertyPatternReport from "@/components/properties/PropertyPatternReport";
 import { buildPropertyPatternReport } from "@/lib/propertyPatterns";
 import {
-  activeCameraCount,
   getAiConfidence,
   getKnowledgeScore,
   getRecentActivity,
 } from "@/lib/propertyDashboard";
 import { getPropertyTimelineEvents } from "@/lib/propertyTimeline";
 import { getPropertyIntelligenceCards } from "@/lib/propertyIntelligence";
-import { getPropertyInsights } from "@/lib/propertyInsights";
 import { getHuntPlannerIntelligence } from "@/lib/huntPlannerIntelligence";
 import { getPropertyWeatherSummary } from "@/lib/weather";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
@@ -112,6 +108,8 @@ export default function PropertyWorkspacePage() {
   const propertyWalkTracks = state.walkTracks.filter(
     (track) => track.propertyId === params.id,
   );
+  // Tonight on this ground: same forecast, verdict and hit list as Today.
+  const today = usePropertyToday(params.id);
   // ?tab=plan opens the Plan tab directly.
   const [activeTab, setActiveTab] = useState(() =>
     searchParams.get("tab") === "plan" ? "plan" : "overview",
@@ -212,16 +210,6 @@ export default function PropertyWorkspacePage() {
     propertyCameraChecks,
     (check) => check.date,
   );
-  const keyInsights = getPropertyInsights({
-    activePropertyName: property.name,
-    cameraCheckCount: propertyCameraChecks.length,
-    cameraCount: propertyCameras.length,
-    deerProfileCount: deerProfileCount,
-    huntCount: propertyHunts.length,
-    lastHuntDate: latestHunt ? formatDateLabel(latestHunt.date) : null,
-    pinCount: propertyPins.length,
-    standCount: standCount,
-  });
 
   function deleteWalkTrack(trackId: string) {
     if (!window.confirm("Delete this saved walk?")) return;
@@ -255,6 +243,54 @@ export default function PropertyWorkspacePage() {
             label: "Overview",
             content: (
               <div style={tabPanelStyle}>
+      <ColdFrontBanner
+        propertyName={property.name}
+        pressure={today.forecast?.pressure}
+      />
+
+      <TodayVerdictHero
+        verdict={today.verdict}
+        propertyName={property.name}
+        photo={null}
+      />
+
+      <ConditionsStrip
+        windDirection={today.forecast?.current.windDirection}
+        windSpeed={today.forecast?.current.windSpeed}
+        temperature={today.forecast?.current.temperature}
+        conditions={today.forecast?.current.weather}
+        moon={today.moon}
+        pressure={today.forecast?.pressure}
+      />
+
+      <DashboardCardLink
+        href="/map"
+        title="Open Property Map"
+        description="Layers, pins, wind, access routes, blood trail and offline maps for this property."
+        icon={<WorkspaceIcon name="map" />}
+        size="compact"
+        tone="primary"
+      />
+
+      <StandCheckPanel
+        check={today.verdict.check}
+        wind={today.verdict.wind}
+        whenLabel={today.verdict.periodLabel}
+      />
+      <StandWindGrid
+        days={today.forecast?.days ?? []}
+        stands={propertyStands}
+        activeKey={today.activeSitKey}
+      />
+
+      <BuckSlideshow slides={today.hitListSlides} />
+
+      <RutRibbon
+        phase={today.seasonCtx.phase}
+        phaseLabel={today.seasonCtx.phaseLabel}
+        daysToPeak={today.seasonCtx.daysToPeak}
+      />
+
       <nav aria-label="On this property" style={shortcutGridStyle}>
         {[
           { href: "/cameras", label: "Cameras", count: propertyCameras.length },
@@ -269,154 +305,14 @@ export default function PropertyWorkspacePage() {
         ))}
       </nav>
 
-      <DashboardSection
-        id="map"
-        eyebrow="Primary Workspace"
-        title="Map"
-        icon={<MapIcon size={18} />}
-      >
-        <DashboardCardLink
-          href="/map"
-          title="Open Property Map"
-          description="Scout this property, place assets, check camera sites, and review stands."
-          icon={<WorkspaceIcon name="map" />}
-          size="compact"
-          tone="primary"
-        />
-      </DashboardSection>
-
-      <div style={overviewGridStyle}>
-        <DashboardSection
-          eyebrow="Overview"
-          title="Property Summary"
-          icon={<ClipboardIcon size={18} />}
-          style={panelSectionStyle}
-        >
-          <div style={keyStatListStyle}>
-            {(
-              [
-                {
-                  label: "Camera Sites",
-                  value: propertyCameras.length,
-                  note: `${activeCameraCount(propertyCameras)} active`,
-                  icon: <CameraIcon size={15} />,
-                  tone: "green",
-                },
-                {
-                  label: "Stands",
-                  value: standCount,
-                  note: "",
-                  icon: <StandIcon size={15} />,
-                  tone: "green",
-                },
-                {
-                  label: "Assets",
-                  value: propertyPins.length,
-                  note: "",
-                  icon: <MapPinIcon size={15} />,
-                  tone: "neutral",
-                },
-                {
-                  label: "Hunts",
-                  value: propertyHunts.length,
-                  note: "",
-                  icon: <ClipboardIcon size={15} />,
-                  tone: "neutral",
-                },
-                {
-                  label: "Deer Profiles",
-                  value: deerProfileCount,
-                  note: "",
-                  icon: <DeerIcon size={15} />,
-                  tone: "blaze",
-                },
-                {
-                  label: "Walks",
-                  value: propertyWalkTracks.length,
-                  note: "",
-                  icon: <CompassIcon size={15} />,
-                  tone: "neutral",
-                },
-              ] as const
-            ).map((stat) => (
-              <div key={stat.label} style={keyStatRowStyle}>
-                <span style={keyStatKeyStyle}>
-                  <span
-                    style={{ ...keyStatIconStyle, ...keyStatIconTone[stat.tone] }}
-                    aria-hidden="true"
-                  >
-                    {stat.icon}
-                  </span>
-                  {stat.label}
-                </span>
-                <span style={keyStatValueWrapStyle}>
-                  {stat.note ? (
-                    <span style={keyStatNoteStyle}>{stat.note}</span>
-                  ) : null}
-                  <span style={keyStatValueStyle}>{stat.value}</span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </DashboardSection>
-
-        <DashboardSection
-          id="recent-activity"
-          eyebrow="Field History"
+      <div style={detailDropdownStackStyle}>
+        <CollapsibleSection
           title="Recent Activity"
-          icon={<CalendarIcon size={18} />}
-          style={panelSectionStyle}
+          description="Pins, hunts and checks saved on this property"
         >
           <RecentActivityList activities={recentActivity} />
-        </DashboardSection>
-      </div>
+        </CollapsibleSection>
 
-      <DashboardSection
-        id="key-insights"
-        eyebrow="Brief"
-        title="Key Insights"
-        icon={<TargetIcon size={18} />}
-      >
-        <div style={insightListStyle}>
-          {keyInsights.map((insight) => (
-            <Card
-              key={insight.title}
-              as="article"
-              variant="subtle"
-              style={insightCardStyle}
-            >
-              <div>
-                <p style={insightTitleStyle}>{insight.title}</p>
-                <p style={insightDetailStyle}>{insight.detail}</p>
-              </div>
-              <Badge>{insight.badge}</Badge>
-            </Card>
-          ))}
-        </div>
-      </DashboardSection>
-
-      <Link
-        href="/"
-        onClick={() =>
-          updateDeerIntelStore((current) => ({
-            ...current,
-            selectedPropertyId: property.id,
-          }))
-        }
-        style={todayLinkStyle}
-        className="di-navbtn"
-      >
-        <SunIcon size={18} />
-        <span>
-          <strong>Weather and today&apos;s movement outlook</strong>
-          <span style={todayLinkHintStyle}>
-            Live conditions, the deer-hours chart, and stand winds for {property.name} are on Today.
-          </span>
-        </span>
-        <span aria-hidden="true" style={{ marginLeft: "auto" }}>→</span>
-      </Link>
-
-      <div style={detailDropdownStackStyle}>
         <CollapsibleSection
           title="Saved Walks"
           description="Trails you've recorded on this property"
@@ -614,7 +510,7 @@ const shortcutStyle: CSSProperties = {
   gap: "0.1rem",
   minHeight: "64px",
   padding: "0.6rem 0.4rem",
-  borderRadius: "14px",
+  borderRadius: "var(--radius)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
   color: "var(--text)",
@@ -648,7 +544,7 @@ const primaryLinkStyle: CSSProperties = {
   marginTop: "1.25rem",
   padding: "0.7rem 1rem",
   border: "1px solid var(--accent)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent)",
   color: "white",
   fontWeight: 700,
@@ -665,14 +561,12 @@ const plannerIntelligenceWrapStyle: CSSProperties = {
   marginTop: "1rem",
 };
 
-
 const summaryCardTitleStyle: CSSProperties = {
   margin: 0,
   color: "var(--text)",
   fontSize: "1.15rem",
   lineHeight: 1.25,
 };
-
 
 const detailDropdownStackStyle: CSSProperties = {
   display: "grid",
@@ -686,144 +580,9 @@ const advancedToolsStyle: CSSProperties = {
   marginTop: "1rem",
 };
 
-const overviewGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))",
-  gap: "1.25rem",
-  alignItems: "start",
-};
-
-const panelSectionStyle: CSSProperties = {
-  marginTop: "1.75rem",
-};
-
-const keyStatListStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(230px, 100%), 1fr))",
-  gap: "0 1.5rem",
-};
-
-const keyStatRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "0.75rem",
-  padding: "0.6rem 0",
-  borderBottom: "1px solid var(--border)",
-};
-
-const keyStatKeyStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "0.55rem",
-  minWidth: 0,
-  color: "var(--text-faint)",
-  fontSize: "0.82rem",
-  fontWeight: 800,
-  letterSpacing: "0.02em",
-  textTransform: "uppercase",
-};
-
-const keyStatIconStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "1.6rem",
-  height: "1.6rem",
-  borderRadius: "8px",
-  flex: "none",
-};
-
-const keyStatIconTone: Record<"green" | "neutral" | "blaze", CSSProperties> = {
-  green: {
-    background: "var(--accent-tint)",
-    border: "1px solid var(--accent-tint-border)",
-    color: "var(--accent-text)",
-  },
-  neutral: {
-    background: "var(--surface-2)",
-    border: "1px solid var(--border)",
-    color: "var(--text-muted)",
-  },
-  blaze: {
-    background: "var(--accent-2-tint)",
-    border: "1px solid var(--accent-2-tint-border)",
-    color: "var(--accent-2-text)",
-  },
-};
-
-const keyStatValueWrapStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "baseline",
-  gap: "0.5rem",
-  flex: "none",
-};
-
-const keyStatNoteStyle: CSSProperties = {
-  color: "var(--text-muted)",
-  fontSize: "0.8rem",
-  fontWeight: 600,
-};
-
-const keyStatValueStyle: CSSProperties = {
-  minWidth: "1.5rem",
-  color: "var(--text)",
-  fontFamily: "var(--font-display), system-ui, sans-serif",
-  fontSize: "1.35rem",
-  fontWeight: 800,
-  lineHeight: 1,
-  fontVariantNumeric: "tabular-nums",
-  textAlign: "right",
-};
-
 const moduleGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(min(240px, 100%), 1fr))",
   gap: "1rem",
 };
 
-const insightListStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.75rem",
-};
-
-const insightCardStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: "1rem",
-  padding: "0.8rem 1rem",
-};
-
-const insightTitleStyle: CSSProperties = {
-  margin: 0,
-  color: "var(--text)",
-  fontSize: "1rem",
-  fontWeight: 850,
-  lineHeight: 1.3,
-};
-
-const insightDetailStyle: CSSProperties = {
-  margin: "0.45rem 0 0",
-  color: "var(--text-muted)",
-  lineHeight: 1.45,
-};
-
-const todayLinkStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.75rem",
-  padding: "0.9rem 1rem",
-  border: "1px solid var(--border)",
-  borderRadius: "12px",
-  background: "var(--surface)",
-  color: "var(--text)",
-  textDecoration: "none",
-};
-
-const todayLinkHintStyle: CSSProperties = {
-  display: "block",
-  marginTop: "0.2rem",
-  color: "var(--text-muted)",
-  fontSize: "0.88rem",
-};

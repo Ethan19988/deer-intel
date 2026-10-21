@@ -109,7 +109,7 @@ const noticeStyle: CSSProperties = {
   gap: "0.45rem",
   padding: "0.65rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
 };
 
@@ -136,7 +136,7 @@ const confirmButtonStyle: CSSProperties = {
   minHeight: "42px",
   padding: "0.5rem 0.85rem",
   border: "1px solid var(--accent)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent)",
   color: "var(--accent-fg)",
   cursor: "pointer",
@@ -148,7 +148,7 @@ const secondaryButtonStyle: CSSProperties = {
   minHeight: "42px",
   padding: "0.5rem 0.85rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
   color: "var(--text)",
   cursor: "pointer",

@@ -16,7 +16,6 @@ import HuntConditionAlerts from "@/components/HuntConditionAlerts";
 import ColdFrontBanner from "@/components/ColdFrontBanner";
 import StandWindGrid from "@/components/StandWindGrid";
 import BuckSlideshow from "@/components/BuckSlideshow";
-import { buildHitListSlides } from "@/lib/hitListSlides";
 import DeerHoursChart from "@/components/DeerHoursChart";
 import {
   ACTIVITY_WINDOW_DAYS,
@@ -35,10 +34,6 @@ import TodayVerdictHero, { type HeroPhoto } from "@/components/TodayVerdictHero"
 import ConditionsStrip from "@/components/ConditionsStrip";
 import CameraPhotoStrip, { type StripPhoto } from "@/components/CameraPhotoStrip";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
-import { useMoonPhase } from "@/lib/useMoonPhase";
-import { readForecastSnapshot, writeForecastSnapshot } from "@/lib/forecastSnapshot";
-import { rememberSunTimes } from "@/lib/theme";
-import { buildTodayVerdict } from "@/lib/todayVerdict";
 import { getPhotoBuckNames, photoRecordTime } from "@/lib/photos";
 import type { PhotoRecord } from "@/types/photo";
 import BackupReminderBanner from "@/components/BackupReminderBanner";
@@ -46,17 +41,9 @@ import SetupChecklist from "@/components/SetupChecklist";
 import { buildSetupChecklist } from "@/lib/setupChecklist";
 import { countRecords } from "@/lib/backupReminder";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
-import {
-  fetchLiveForecast,
-  resolvePropertyWeatherPoint,
-  type LiveForecast,
-} from "@/lib/liveWeather";
-import { useUnitPreferences } from "@/lib/units";
-import { useSeasonCalendar, getSeasonContext } from "@/lib/seasonCalendar";
 import { getHuntPlannerSummary } from "@/lib/huntPlanner";
+import { HYDRATION_SAFE_NOW, usePropertyToday } from "@/lib/usePropertyToday";
 
-// Fixed pre-mount clock (see verdict below); any constant works.
-const HYDRATION_SAFE_NOW = new Date(2000, 0, 1, 12, 0);
 // Below this many of your own timed photos, the regional pattern is shown.
 const OWN_PHOTOS_FOR_CHART = 15;
 
@@ -97,15 +84,17 @@ export default function Home() {
   );
   const hasPatternSignal =
     patternReport.conditionInsights.length > 0 || Boolean(patternReport.hottestCamera);
-  const weatherPoint = resolvePropertyWeatherPoint(
-    activeProperty ?? null,
-    propertyCameras,
-    propertyPins,
-  );
-  const weatherKey = weatherPoint
-    ? `${weatherPoint.lat},${weatherPoint.lng}`
-    : "";
-  const [forecast, setForecast] = useState<LiveForecast | null>(null);
+  const {
+    weatherPoint,
+    weatherKey,
+    forecast,
+    now,
+    moon,
+    seasonCtx,
+    verdict,
+    activeSitKey,
+    hitListSlides,
+  } = usePropertyToday(activePropertyId);
   const { user } = useAuth();
   const [regionalActivity, setRegionalActivity] = useState<RegionalActivity | null>(null);
 
@@ -129,86 +118,8 @@ export default function Home() {
       active = false;
     };
   }, [user, weatherKey]);
-  const units = useUnitPreferences();
-  const seasonPrefs = useSeasonCalendar();
-  const [now, setNow] = useState<Date | null>(null);
-
-  useEffect(() => {
-    // Intentional client-only seed: `now` starts null so server and first
-    // client render match (no hydration mismatch), then the real clock is set
-    // once on mount and ticked each minute. This one-time post-mount set is by
-    // design, not a cascading-render bug.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setNow(new Date());
-    const timer = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const tempUnit = units.temperature;
-  const windUnit = units.wind;
-
-  useEffect(() => {
-    if (!weatherKey) {
-      // Clear a stale forecast when the active property has no weather point.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setForecast(null);
-      return;
-    }
-
-    const [lat, lng] = weatherKey.split(",").map(Number);
-    let active = true;
-    const snapshotKey = `${weatherKey}|${tempUnit}|${windUnit}`;
-
-    // Show the last forecast for this spot right away (if it's from today and
-    // recent) so the verdict isn't a blank card while the fetch runs.
-    const snapshot = readForecastSnapshot(snapshotKey);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setForecast(snapshot);
-
-    fetchLiveForecast(
-      { lat, lng },
-      { temperature: tempUnit, wind: windUnit },
-    ).then((result) => {
-      if (!active) return;
-      if (result.status === "ok") {
-        setForecast(result.forecast);
-        writeForecastSnapshot(snapshotKey, result.forecast);
-      } else if (!snapshot) {
-        setForecast(null);
-      }
-      // Lets the "Follow daylight" theme track this property's real day length.
-      if (result.status === "ok") {
-        rememberSunTimes(result.forecast.sunriseIso, result.forecast.sunsetIso);
-      }
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [weatherKey, tempUnit, windUnit]);
 
   const currentWind = forecast?.current.windDirection;
-  const seasonCtx = getSeasonContext(now ?? new Date(), seasonPrefs, activeProperty?.latitude);
-  const moon = useMoonPhase();
-  // Before mount `now` is null; a fixed stand-in keeps the server render and
-  // the first client render identical, then the real clock takes over.
-  const verdict = buildTodayVerdict({
-    now: now ?? HYDRATION_SAFE_NOW,
-    forecast,
-    stands: propertyStands,
-    hunts: propertyHunts,
-    pins: propertyPins,
-    rutLabel: seasonCtx.phaseLabel,
-    rutActive: ["seeking", "chasing", "peak"].includes(seasonCtx.phase),
-  });
-
-  // The forecast column for the next sit, highlighted in the wind grid.
-  const forecastDays = forecast?.days ?? [];
-  const activeSitKey =
-    verdict.period === "tomorrow"
-      ? forecastDays[1] && `${forecastDays[1].date}-AM`
-      : forecastDays[0] &&
-        `${forecastDays[0].date}-${verdict.period === "morning" ? "AM" : "PM"}`;
   const hourlyActivity = buildHourlyActivity(
     propertyPhotoRecords,
     now ?? HYDRATION_SAFE_NOW,
@@ -219,19 +130,6 @@ export default function Home() {
     hourlyActivity.total < OWN_PHOTOS_FOR_CHART && regionalActivity
       ? regionalActivity
       : hourlyActivity;
-
-  const hitListSlides = activeProperty
-    ? buildHitListSlides({
-        propertyId: activeProperty.id,
-        propertyName: activeProperty.name,
-        profiles: state.deerProfiles,
-        photos: state.photoRecords,
-        cameras: state.cameras,
-        cameraChecks: state.cameraChecks,
-        hunts: state.hunts,
-        pins: state.pins,
-      })
-    : [];
 
   const cameraName = (cameraId: string) =>
     propertyCameras.find((camera) => camera.id === cameraId)?.name ?? "Camera";

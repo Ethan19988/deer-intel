@@ -182,7 +182,7 @@ const statStyle: CSSProperties = {
   display: "grid",
   gap: "0.1rem",
   padding: "0.55rem 0.5rem",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
   border: "1px solid var(--border)",
   textAlign: "center",
@@ -216,7 +216,7 @@ const lastSitStyle: CSSProperties = {
 const hintStyle: CSSProperties = {
   margin: "0.75rem 0 0",
   padding: "0.6rem 0.75rem",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent-2-tint)",
   border: "1px solid var(--accent-2-tint-border)",
   color: "var(--text)",

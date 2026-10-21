@@ -30,13 +30,13 @@ export const THEME_DESCRIPTIONS: Record<ThemePreference, string> = {
   daylight:
     "Light at midday for scouting, dark from mid-afternoon through dawn when you're in the stand.",
   light: "Bright field theme for daylight.",
-  dark: "Dim theme for low-light rooms and blinds.",
+  dark: "The default field theme: dark and easy on the eyes in the woods.",
   night: "Red-on-black to protect your night vision before dawn.",
   auto: "Follow your device's light or dark setting.",
 };
 
 // The default for anyone who hasn't picked a theme.
-export const DEFAULT_THEME_PREFERENCE: ThemePreference = "daylight";
+export const DEFAULT_THEME_PREFERENCE: ThemePreference = "dark";
 
 // "Follow daylight": light in the middle of the day (good in bright sun), dark
 // around the hunting windows (protects dark adaptation, and photos and maps

@@ -113,7 +113,7 @@ const frameWrapStyle: CSSProperties = {
 };
 
 const photoStyle: CSSProperties = {
-  borderRadius: "14px",
+  borderRadius: "var(--radius)",
   border: "none",
   background: "#1d2419",
 };
@@ -123,7 +123,7 @@ const buckTagStyle: CSSProperties = {
   top: "0.5rem",
   left: "0.5rem",
   padding: "0.2rem 0.55rem",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent-2)",
   color: "#fff",
   fontSize: "0.75rem",

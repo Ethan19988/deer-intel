@@ -123,7 +123,7 @@ const baseFrameStyle: CSSProperties = {
   justifyContent: "center",
   overflow: "hidden",
   width: "100%",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   border: "1px solid var(--border)",
   background: "var(--surface-3)",
 };

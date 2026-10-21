@@ -131,7 +131,7 @@ const cellStyle: CSSProperties = {
   minHeight: "62px",
   padding: "0.3rem 0.15rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
   color: "var(--text)",
   cursor: "pointer",
@@ -160,7 +160,7 @@ const todayNumberStyle: CSSProperties = {
   minWidth: "22px",
   height: "22px",
   padding: "0 4px",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent-2)",
   color: "var(--accent-2-fg)",
 };

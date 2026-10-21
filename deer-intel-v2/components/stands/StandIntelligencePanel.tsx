@@ -137,7 +137,7 @@ const recommendationListStyle: CSSProperties = {
 const recommendationStyle: CSSProperties = {
   padding: "0.8rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
 };
 
@@ -168,7 +168,7 @@ const itemListStyle: CSSProperties = {
 const itemStyle: CSSProperties = {
   padding: "0.75rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
 };
 

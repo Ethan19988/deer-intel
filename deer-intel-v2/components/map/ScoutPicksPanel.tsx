@@ -168,7 +168,7 @@ const wrapStyle: CSSProperties = {
   pointerEvents: "auto",
   width: "min(280px, calc(100% - 2rem))",
   border: "1px solid rgba(255, 255, 255, 0.22)",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   background: "rgba(17, 23, 17, 0.82)",
   backdropFilter: "blur(6px)",
   boxShadow: "0 8px 22px rgba(0, 0, 0, 0.34)",
@@ -211,7 +211,7 @@ const listStyle: CSSProperties = {
 
 const itemStyle: CSSProperties = {
   border: "1px solid rgba(255, 255, 255, 0.12)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "rgba(255, 255, 255, 0.04)",
   overflow: "hidden",
 };
@@ -243,7 +243,7 @@ const verdictRowStyle: CSSProperties = {
 
 const verdictChipStyle: CSSProperties = {
   padding: "0.08rem 0.4rem",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   border: "1px solid",
   fontSize: "0.66rem",
   fontWeight: 800,

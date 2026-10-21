@@ -66,7 +66,7 @@ const iconBadgeStyle: CSSProperties = {
   width: "3rem",
   height: "3rem",
   flex: "none",
-  borderRadius: "14px",
+  borderRadius: "var(--radius-sm)",
   background: "rgba(243, 237, 217, 0.15)",
   border: "1px solid rgba(243, 237, 217, 0.35)",
   color: "#f6efd6",
@@ -75,17 +75,18 @@ const iconBadgeStyle: CSSProperties = {
 const eyebrowStyle: CSSProperties = {
   margin: 0,
   color: "rgba(243, 237, 217, 0.82)",
-  fontSize: "0.78rem",
-  fontWeight: 800,
-  letterSpacing: "0.04em",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.7rem",
+  fontWeight: 500,
+  letterSpacing: "0.1em",
   textTransform: "uppercase",
 };
 
 const titleStyle: CSSProperties = {
   margin: "0.25rem 0 0",
   color: "#f6f0dc",
-  fontSize: "2.1rem",
-  lineHeight: 1.1,
+  fontSize: "2.7rem",
+  lineHeight: 0.95,
   textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
 };
 

@@ -86,7 +86,7 @@ const rowStyle: CSSProperties = {
   flexWrap: "wrap",
   padding: "0.75rem 0.9rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
 };
 

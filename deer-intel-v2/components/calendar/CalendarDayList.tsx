@@ -100,7 +100,7 @@ const rowStyle: CSSProperties = {
   padding: "0.5rem 0.6rem",
   border: "1px solid var(--border)",
   borderLeftWidth: "4px",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
 };
 
@@ -122,7 +122,7 @@ const mediaStyle: CSSProperties = {
 const thumbStyle: CSSProperties = {
   width: "48px",
   height: "48px",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   objectFit: "cover",
 };
 

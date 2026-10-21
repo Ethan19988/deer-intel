@@ -114,7 +114,7 @@ const rowStyle: CSSProperties = {
   width: "100%",
   padding: "0.5rem 0.55rem",
   border: "1px solid var(--border)",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
   textAlign: "left",
   cursor: "pointer",

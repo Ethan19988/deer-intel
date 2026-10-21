@@ -65,7 +65,7 @@ export default function CollapsibleSection({
 
 const baseStyle: CSSProperties = {
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
 };
 
@@ -118,7 +118,7 @@ const indicatorStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
   color: "var(--text-muted)",
   fontSize: "1.35rem",

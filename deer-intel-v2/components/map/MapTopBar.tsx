@@ -89,7 +89,7 @@ const chipStyle: CSSProperties = {
   // Same face as the Search and Layers buttons beside it, so the top row
   // reads as one set of controls (the dark/night themes retint all of them).
   border: "1px solid rgba(25, 34, 25, 0.28)",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   background: "rgba(255, 255, 255, 0.96)",
   boxShadow: "0 10px 24px rgba(0, 0, 0, 0.22)",
   color: "#111711",

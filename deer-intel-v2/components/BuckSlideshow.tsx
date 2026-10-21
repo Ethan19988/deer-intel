@@ -168,7 +168,7 @@ const trackStyle: CSSProperties = {
   display: "flex",
   overflowX: "auto",
   scrollSnapType: "x mandatory",
-  borderRadius: "18px",
+  borderRadius: "var(--radius)",
   scrollbarWidth: "none",
   WebkitOverflowScrolling: "touch",
   boxShadow: "0 16px 36px -22px rgba(10, 16, 10, 0.7)",
@@ -223,7 +223,7 @@ const captionStyle: CSSProperties = {
 const ageStyle: CSSProperties = {
   justifySelf: "start",
   padding: "0.15rem 0.5rem",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent-2)",
   color: "#fff",
   fontSize: "0.75rem",

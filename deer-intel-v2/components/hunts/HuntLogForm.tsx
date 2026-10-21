@@ -418,7 +418,7 @@ const formStyle: CSSProperties = {
 const convertBoxStyle: CSSProperties = {
   marginTop: "1rem",
   padding: "0.9rem",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   border: "1px dashed var(--border)",
   background: "var(--surface-2)",
 };
@@ -444,7 +444,7 @@ const inputStyle: CSSProperties = {
   width: "100%",
   minHeight: "46px",
   padding: "0.8rem",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   border: "1px solid var(--border)",
   background: "var(--surface-2)",
   color: "var(--text)",
@@ -461,7 +461,7 @@ const stepperStyle: CSSProperties = {
 
 const stepperButtonStyle: CSSProperties = {
   minHeight: "48px",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
   color: "var(--text)",
@@ -488,7 +488,7 @@ const segmentedStyle: CSSProperties = {
 
 const segmentButtonStyle: CSSProperties = {
   minHeight: "48px",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   border: "1px solid var(--border)",
   background: "var(--surface-2)",
   color: "var(--text-muted)",

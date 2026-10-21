@@ -183,7 +183,7 @@ const cardStyle: CSSProperties = {
   gap: "1rem",
   padding: "1.25rem",
   border: "1px solid var(--border)",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
 };
 
@@ -197,7 +197,7 @@ const tabStyle: CSSProperties = {
   minHeight: "42px",
   padding: "0.5rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
   color: "var(--text-muted)",
   fontSize: "0.9rem",
@@ -232,7 +232,7 @@ const inputStyle: CSSProperties = {
   minHeight: "46px",
   padding: "0.65rem 0.75rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
   color: "var(--text)",
   fontSize: "1rem",

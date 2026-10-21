@@ -222,7 +222,7 @@ const dangerZoneStyle: CSSProperties = {
   gap: "0.6rem",
   padding: "0.9rem 1rem",
   border: "1px solid var(--danger-border)",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--danger-bg)",
 };
 

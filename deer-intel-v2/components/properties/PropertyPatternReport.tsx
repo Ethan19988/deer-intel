@@ -181,7 +181,7 @@ const valueStyle: CSSProperties = {
 const chipStyle: CSSProperties = {
   alignSelf: "center",
   padding: "0.05rem 0.45rem",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   border: "1px solid",
   fontSize: "0.66rem",
   fontWeight: 800,

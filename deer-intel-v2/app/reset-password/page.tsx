@@ -222,7 +222,7 @@ const shellStyle: CSSProperties = {
   maxWidth: "980px",
   display: "grid",
   overflow: "hidden",
-  borderRadius: "24px",
+  borderRadius: "var(--radius)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
   boxShadow: "0 40px 80px -40px rgba(28, 22, 10, 0.55)",
@@ -287,7 +287,7 @@ const cardStyle: CSSProperties = {
   gap: "0.85rem",
   padding: "1.25rem",
   border: "1px solid var(--border)",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
 };
 
@@ -296,7 +296,7 @@ const infoCardStyle: CSSProperties = {
   gap: "0.75rem",
   padding: "1.25rem",
   border: "1px solid var(--border)",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
 };
 
@@ -328,7 +328,7 @@ const inputStyle: CSSProperties = {
   minHeight: "46px",
   padding: "0.65rem 0.75rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
   color: "var(--text)",
   fontSize: "1rem",
@@ -347,7 +347,7 @@ const linkStyle: CSSProperties = {
   justifyContent: "center",
   padding: "0.6rem 0.9rem",
   border: "1px solid var(--accent)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent)",
   color: "white",
   fontWeight: 800,

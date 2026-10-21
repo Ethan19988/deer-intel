@@ -31,10 +31,12 @@ const baseStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   padding: "0.3rem 0.55rem",
-  borderRadius: "8px",
-  fontSize: "0.75rem",
-  fontWeight: 800,
-  letterSpacing: "0.02em",
+  borderRadius: "var(--radius-sm)",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.7rem",
+  fontWeight: 500,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
   lineHeight: 1,
 };
 

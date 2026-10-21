@@ -118,7 +118,7 @@ const optionStyle: CSSProperties = {
   gap: "0.35rem",
   padding: "0.6rem 0.3rem",
   border: "1px solid var(--border)",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
   color: "var(--text)",
   cursor: "pointer",

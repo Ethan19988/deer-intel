@@ -245,7 +245,7 @@ const windEditorStyle: CSSProperties = {
   gap: "0.75rem",
   marginTop: "1rem",
   padding: "1rem 0.75rem",
-  borderRadius: "14px",
+  borderRadius: "var(--radius)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
 };
@@ -254,7 +254,7 @@ const suggestBoxStyle: CSSProperties = {
   display: "grid",
   gap: "0.5rem",
   padding: "0.65rem 0.75rem",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
   border: "1px solid var(--border)",
 };
@@ -272,7 +272,7 @@ const suggestButtonStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   padding: "0.35rem 0.85rem",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   border: "1px solid var(--accent)",
   background: "var(--accent-tint)",
   color: "var(--accent-text)",
@@ -290,7 +290,7 @@ const duplicateStyle: CSSProperties = {
   flexWrap: "wrap",
   marginTop: "0.9rem",
   padding: "0.65rem 0.8rem",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   border: "1px solid var(--warning-border)",
   background: "var(--warning-bg)",
 };
@@ -306,7 +306,7 @@ const duplicateTextStyle: CSSProperties = {
 const deleteButtonStyle: CSSProperties = {
   minHeight: "40px",
   padding: "0.4rem 0.85rem",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   border: "1px solid var(--danger-border)",
   background: "var(--danger-bg)",
   color: "var(--danger-text)",
@@ -336,7 +336,7 @@ const windActionsStyle: CSSProperties = {
 const setWindsButtonStyle: CSSProperties = {
   gridColumn: "1 / -1",
   minHeight: "44px",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   border: "1px dashed var(--accent)",
   background: "var(--accent-tint)",
   color: "var(--accent-text)",
@@ -407,7 +407,7 @@ const openLinkStyle: CSSProperties = {
   justifyContent: "center",
   padding: "0.5rem 0.65rem",
   border: "1px solid var(--accent)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent)",
   color: "white",
   fontSize: "0.85rem",
@@ -441,7 +441,7 @@ const intelligenceWrapStyle: CSSProperties = {
 const detailTileStyle: CSSProperties = {
   padding: "0.6rem 0.75rem",
   border: "1px solid var(--border)",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
 };
 

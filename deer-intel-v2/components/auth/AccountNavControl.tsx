@@ -50,7 +50,7 @@ const baseLinkStyle: CSSProperties = {
   gap: "0.4rem",
   padding: "0.55rem 0.75rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
   color: "var(--text-muted)",
   fontSize: "0.92rem",

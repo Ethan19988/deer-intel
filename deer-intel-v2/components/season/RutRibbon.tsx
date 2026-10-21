@@ -141,7 +141,7 @@ const segStyle: CSSProperties = {
   minHeight: "34px",
   display: "grid",
   placeContent: "center",
-  borderRadius: "7px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-3)",
   border: "1px solid var(--border)",
 };

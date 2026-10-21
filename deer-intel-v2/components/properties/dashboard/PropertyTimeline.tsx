@@ -108,7 +108,7 @@ const iconWrapStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   border: "1px solid var(--accent-tint-border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent-tint)",
   color: "var(--accent-text)",
 };

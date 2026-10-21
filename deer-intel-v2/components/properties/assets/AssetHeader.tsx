@@ -104,7 +104,7 @@ const detailsStyle: CSSProperties = {
   gap: "1rem",
   marginTop: "1.25rem",
   padding: "1rem 1.15rem",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
 };

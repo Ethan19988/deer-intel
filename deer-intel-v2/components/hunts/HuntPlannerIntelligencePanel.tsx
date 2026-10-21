@@ -210,7 +210,7 @@ const itemStyle: CSSProperties = {
   minHeight: "58px",
   padding: "0.8rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
 };
 
@@ -278,7 +278,7 @@ const reasonPillStyle: CSSProperties = {
   alignItems: "center",
   padding: "0.35rem 0.55rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
   color: "var(--text-muted)",
   fontSize: "0.8rem",

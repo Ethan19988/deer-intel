@@ -436,7 +436,7 @@ const layersButtonStyle: CSSProperties = {
   justifyContent: "center",
   padding: "0.68rem 0.95rem",
   border: "1px solid var(--border-strong)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
   color: "var(--text)",
   cursor: "pointer",
@@ -455,7 +455,7 @@ const layersCountStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "0 0.3rem",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent-2)",
   color: "var(--accent-fg)",
   fontSize: "0.74rem",
@@ -534,7 +534,7 @@ const cardStyle: CSSProperties = {
   gap: "0.4rem",
   padding: "0.75rem 0.8rem",
   border: "1px solid var(--border)",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
 };
 
@@ -546,14 +546,14 @@ const tabBarStyle: CSSProperties = {
   gap: "0.25rem",
   margin: "0.6rem 0.85rem 0",
   padding: "0.25rem",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-3)",
 };
 
 const tabStyle: CSSProperties = {
   minHeight: "40px",
   border: 0,
-  borderRadius: "9px",
+  borderRadius: "var(--radius-sm)",
   background: "transparent",
   color: "var(--text-muted)",
   cursor: "pointer",
@@ -603,7 +603,7 @@ const chipStyle: CSSProperties = {
   gap: "0.35rem",
   padding: "0.28rem 0.6rem 0.28rem 0.32rem",
   border: "1px solid var(--accent-tint-border)",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
   color: "var(--text)",
   cursor: "pointer",

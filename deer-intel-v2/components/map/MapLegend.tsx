@@ -162,7 +162,7 @@ const wrapStyle: CSSProperties = {
   overflowY: "auto",
   padding: "0.6rem 0.7rem",
   border: "1px solid rgba(255, 255, 255, 0.2)",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   background: "rgba(17, 23, 17, 0.82)",
   backdropFilter: "blur(6px)",
   boxShadow: "0 8px 22px rgba(0, 0, 0, 0.34)",

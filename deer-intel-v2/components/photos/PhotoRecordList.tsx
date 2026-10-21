@@ -606,7 +606,7 @@ const manageBarStyle: CSSProperties = {
   flexWrap: "wrap",
   padding: "0.65rem 0.75rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
 };
 
@@ -626,7 +626,7 @@ const moveSelectStyle: CSSProperties = {
   minWidth: "150px",
   padding: "0.45rem 0.6rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
   color: "var(--text)",
 };
@@ -648,7 +648,7 @@ const photoCheckboxStyle: CSSProperties = {
 const photoCardStyle: CSSProperties = {
   padding: "0.9rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
 };
 
@@ -713,7 +713,7 @@ const newBuckButtonStyle: CSSProperties = {
   minHeight: "40px",
   padding: "0.45rem 0.7rem",
   border: "1px solid var(--accent)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "transparent",
   color: "var(--accent)",
   fontSize: "0.85rem",
@@ -764,7 +764,7 @@ const thumbStyle: CSSProperties = {
   display: "block",
   padding: 0,
   border: "2px solid transparent",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-3)",
   overflow: "hidden",
   cursor: "pointer",
@@ -868,7 +868,7 @@ const viewerStepStyle: CSSProperties = {
   minHeight: "40px",
   padding: "0 0.75rem",
   border: "1px solid var(--border)",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
   color: "var(--text)",
   fontSize: "0.88rem",
@@ -886,7 +886,7 @@ const viewerCloseStyle: CSSProperties = {
   width: "40px",
   height: "40px",
   border: "1px solid var(--border)",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
   color: "var(--text)",
   fontSize: "1rem",

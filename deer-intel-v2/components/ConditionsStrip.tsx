@@ -129,7 +129,7 @@ const tileStyle: CSSProperties = {
   display: "grid",
   gap: "0.2rem",
   padding: "0.7rem 0.8rem",
-  borderRadius: "14px",
+  borderRadius: "var(--radius)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
   minWidth: 0,

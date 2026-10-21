@@ -198,7 +198,7 @@ const rowStyle: CSSProperties = {
   gap: "0.75rem",
   padding: "0.65rem 0.75rem",
   border: "1px solid var(--border)",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
 };
 

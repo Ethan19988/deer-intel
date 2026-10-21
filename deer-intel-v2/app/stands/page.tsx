@@ -381,7 +381,7 @@ const windBannerStyle: CSSProperties = {
   padding: "0.85rem 1rem",
   border: "1px solid var(--accent-tint-border)",
   borderLeft: "4px solid var(--accent)",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent-tint)",
   color: "var(--accent-text)",
   fontWeight: 700,

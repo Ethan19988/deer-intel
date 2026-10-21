@@ -151,7 +151,7 @@ const heroStyle: CSSProperties = {
   minHeight: "min(68vh, 520px)",
   padding: "clamp(1.1rem, 4vw, 1.75rem)",
   paddingTop: "4.5rem",
-  borderRadius: "20px",
+  borderRadius: "var(--radius)",
   overflow: "hidden",
   color: "#f6f0dc",
   // A fixed dark forest base: the hero text is light in every theme, so the
@@ -210,7 +210,7 @@ const chipListStyle: CSSProperties = {
 const chipStyle: CSSProperties = {
   padding: "0.35rem 0.7rem",
   border: "1px solid",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   fontSize: "0.85rem",
   fontWeight: 700,
   backdropFilter: "blur(6px)",

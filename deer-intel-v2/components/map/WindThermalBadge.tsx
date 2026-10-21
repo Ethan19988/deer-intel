@@ -147,7 +147,7 @@ const badgeStyle: CSSProperties = {
   gap: "0.55rem",
   padding: "0.7rem 0.8rem",
   border: "1px solid rgba(255, 255, 255, 0.22)",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   background: "rgba(17, 23, 17, 0.66)",
   backdropFilter: "blur(6px)",
   color: "#f3f1e6",
@@ -239,7 +239,7 @@ const countChipStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   padding: "0.2rem 0.5rem",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   fontSize: "0.76rem",
   fontWeight: 800,
 };

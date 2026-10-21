@@ -164,7 +164,7 @@ const colHeadStyle: CSSProperties = {
   display: "grid",
   justifyItems: "center",
   padding: "0.25rem 0 0.3rem",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   lineHeight: 1.15,
 };
 
@@ -219,7 +219,7 @@ const cellStyle: CSSProperties = {
   placeItems: "center",
   minHeight: "36px",
   border: "1px solid",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   fontSize: "0.95rem",
   fontWeight: 900,
 };

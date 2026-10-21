@@ -153,7 +153,7 @@ const segmentGridStyle: CSSProperties = {
   gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
   gap: "0.25rem",
   padding: "0.2rem",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-3)",
 };
 
@@ -161,7 +161,7 @@ const segmentStyle: CSSProperties = {
   minHeight: "38px",
   padding: "0 0.2rem",
   border: 0,
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "transparent",
   color: "var(--text-muted)",
   cursor: "pointer",
@@ -207,7 +207,7 @@ const pillStyle: CSSProperties = {
   minHeight: "36px",
   padding: "0 0.7rem",
   border: "1px solid var(--border)",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
   color: "var(--text)",
   cursor: "pointer",

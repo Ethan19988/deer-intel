@@ -158,7 +158,7 @@ const dropZoneStyle: CSSProperties = {
   width: "100%",
   padding: "2rem 1.4rem",
   border: "2px dashed var(--accent)",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
   color: "var(--text)",
   textAlign: "center",

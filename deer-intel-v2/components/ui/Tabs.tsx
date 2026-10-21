@@ -103,8 +103,11 @@ const tabStyle: CSSProperties = {
   borderRadius: "var(--radius-sm)",
   background: "transparent",
   color: "var(--text-muted)",
-  fontSize: "0.95rem",
-  fontWeight: 800,
+  fontFamily: "var(--font-display), \"Arial Narrow\", sans-serif",
+  fontSize: "1.15rem",
+  fontWeight: 400,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
   cursor: "pointer",
   whiteSpace: "nowrap",
 };
@@ -113,7 +116,7 @@ const activeTabStyle: CSSProperties = {
   border: "1px solid var(--border)",
   background: "var(--surface)",
   color: "var(--text)",
-  boxShadow: "var(--shadow-sm)",
+  boxShadow: "inset 0 -2px 0 var(--accent-2)",
 };
 
 const countStyle: CSSProperties = {
@@ -122,7 +125,7 @@ const countStyle: CSSProperties = {
   justifyContent: "center",
   minWidth: "1.3rem",
   padding: "0 0.35rem",
-  borderRadius: "999px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-3)",
   color: "var(--text-muted)",
   fontSize: "0.78rem",

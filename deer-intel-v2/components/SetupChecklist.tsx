@@ -138,7 +138,7 @@ const actionStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   padding: "0.35rem 0.75rem",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent)",
   color: "white",
   fontSize: "0.82rem",

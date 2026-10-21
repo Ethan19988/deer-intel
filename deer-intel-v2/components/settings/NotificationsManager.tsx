@@ -233,7 +233,7 @@ const toggleRowStyle: CSSProperties = {
   gap: "0.75rem",
   padding: "0.65rem 0.75rem",
   border: "1px solid var(--border)",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
 };
 
@@ -256,7 +256,7 @@ const segmentGroupStyle: CSSProperties = {
   padding: "0.2rem",
   gap: "0.2rem",
   border: "1px solid var(--border)",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface-2)",
 };
 
@@ -265,7 +265,7 @@ const segmentStyle: CSSProperties = {
   minWidth: "48px",
   padding: "0.35rem 0.7rem",
   border: "1px solid transparent",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "transparent",
   color: "var(--text-muted)",
   fontWeight: 800,

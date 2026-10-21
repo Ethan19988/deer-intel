@@ -120,7 +120,7 @@ const sheetStyle: CSSProperties = {
   display: "grid",
   gap: "0.75rem",
   padding: "1.25rem",
-  borderRadius: "20px",
+  borderRadius: "var(--radius)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
   color: "var(--text)",

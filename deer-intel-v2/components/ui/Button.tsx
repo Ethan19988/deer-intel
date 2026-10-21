@@ -41,9 +41,12 @@ const baseStyle: CSSProperties = {
   minHeight: "46px",
   padding: "0.72rem 0.95rem",
   border: "1px solid transparent",
-  borderRadius: "8px",
-  fontSize: "0.95rem",
-  fontWeight: 850,
+  borderRadius: "var(--radius-sm)",
+  fontFamily: "var(--font-display), \"Arial Narrow\", sans-serif",
+  fontSize: "1.15rem",
+  fontWeight: 400,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
   lineHeight: 1,
   cursor: "pointer",
   textAlign: "center",
@@ -51,14 +54,15 @@ const baseStyle: CSSProperties = {
 };
 
 const variantStyles: Record<ButtonVariant, CSSProperties> = {
+  // Blaze is the call to action in the tactical look.
   primary: {
-    borderColor: "var(--accent)",
-    background: "var(--accent)",
-    color: "white",
+    borderColor: "var(--accent-2)",
+    background: "var(--accent-2)",
+    color: "var(--accent-2-fg)",
   },
   secondary: {
     borderColor: "var(--border-strong)",
-    background: "var(--surface-2)",
+    background: "transparent",
     color: "var(--text)",
   },
   danger: {

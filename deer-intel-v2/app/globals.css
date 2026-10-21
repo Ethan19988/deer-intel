@@ -55,8 +55,12 @@
   --chart-buck: #d9531e;
 
   /* Effects */
-  --radius: 16px;
-  --radius-sm: 12px;
+  --radius: 4px;
+  --radius-sm: 3px;
+
+  /* Headline face: Bebas Neue (layout.tsx). The sign-in hero reads it as
+     --font-headline. */
+  --font-headline: var(--font-display);
   --shadow-sm: 0 1px 2px rgba(16, 32, 20, 0.05), 0 1px 3px rgba(16, 32, 20, 0.04);
   --shadow-md: 0 2px 4px rgba(16, 32, 20, 0.05), 0 12px 28px rgba(16, 32, 20, 0.08);
 
@@ -70,51 +74,52 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* "Last Light": charcoal-olive, separated by tone steps rather than lines */
-  --bg: #0f1411;
-  --surface: #18201a;
-  --surface-2: #1d261f;
-  --surface-3: #242e26;
+  /* Tactical: near-black and olive, separated by thin lines, with hunter
+     orange saved for the one thing on a screen that matters. */
+  --bg: #0b0d0b;
+  --surface: #121511;
+  --surface-2: #181c16;
+  --surface-3: #1f241c;
 
-  --border: #263028;
-  --border-strong: #354236;
+  --border: #23281f;
+  --border-strong: #3a4134;
 
-  --text: #ece8dc;
-  --text-muted: #a8ae9f;
-  --text-faint: #7a8374;
+  --text: #e8e6df;
+  --text-muted: #a3a89c;
+  --text-faint: #8f948a;
 
-  --accent: #4f9e5f;
-  --accent-strong: #3f8a4f;
+  --accent: #6b7a4f;
+  --accent-strong: #5a6842;
   --accent-fg: #ffffff;
-  --accent-tint: #172a1c;
-  --accent-tint-border: #2d5236;
-  --accent-text: #74c486;
+  --accent-tint: #1a2016;
+  --accent-tint-border: #3a4630;
+  --accent-text: #a9b88a;
 
-  /* Blaze stays the "go" color */
+  /* Blaze is the "go" color: primary calls to action, alerts, active tab */
   --accent-2: #ff6a1a;
   --accent-2-strong: #e0580f;
-  --accent-2-fg: #ffffff;
-  --accent-2-tint: #2e1a0e;
+  --accent-2-fg: #0b0d0b;
+  --accent-2-tint: #24150b;
   --accent-2-tint-border: #6b3816;
-  --accent-2-text: #ff8b4d;
+  --accent-2-text: #ff7a2e;
 
-  --success-bg: #14281b;
-  --success-border: #2a5134;
-  --success-text: #6fd08f;
-  --warning-bg: #2b2310;
+  --success-bg: #161c13;
+  --success-border: #3a4630;
+  --success-text: #a9b88a;
+  --warning-bg: #221d0e;
   --warning-border: #5a4818;
-  --warning-text: #f2c45a;
-  --danger-bg: #2e1514;
+  --warning-text: #e2bd5a;
+  --danger-bg: #261412;
   --danger-border: #5c2c29;
-  --danger-text: #f2898c;
+  --danger-text: #e0907f;
 
-  --camo-ink: #1d261f;
+  --camo-ink: #121511;
 
   --chart-deer: #3a8bd1;
   --chart-buck: #e0581c;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.45), 0 14px 32px rgba(0, 0, 0, 0.55);
+  --shadow-sm: none;
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
 /* ---- Night theme (red-on-black to protect night vision) ---- */
@@ -183,12 +188,25 @@
    it doesn't glow white against a dark page. */
 :root[data-theme="dark"] .di-mobile-nav,
 :root[data-theme="dark"] .di-mobile-settings {
-  background: rgba(18, 21, 13, 0.94);
+  background: rgba(11, 13, 11, 0.97);
 }
 
 :root[data-theme="night"] .di-mobile-nav,
 :root[data-theme="night"] .di-mobile-settings {
   background: rgba(10, 5, 3, 0.94);
+}
+
+/* Tactical shape for the on-map chrome in every theme: square corners and
+   thin borders instead of soft pills. !important beats the inline styles. */
+.di-map-control-button,
+.di-layer-manager-button,
+.di-map-search form,
+.di-map-search button,
+.di-map-topbar .di-map-topbar-chip,
+.di-corner-stack > *,
+.di-wind-badge,
+.di-map-year {
+  border-radius: var(--radius-sm) !important;
 }
 
 /* ---- Map controls per theme ------------------------------------------------
@@ -204,34 +222,31 @@
 :root[data-theme="dark"] .di-layer-manager-button,
 :root[data-theme="dark"] .di-map-search form,
 :root[data-theme="dark"] .di-map-search button {
-  background: rgba(28, 32, 22, 0.93) !important;
-  color: #ecebdc !important;
-  border-color: rgba(69, 79, 56, 0.7) !important;
+  background: rgba(11, 13, 11, 0.92) !important;
+  color: #e8e6df !important;
+  border-color: #3a4134 !important;
+  box-shadow: none !important;
 }
 
 :root[data-theme="dark"] .di-map-search input {
-  color: #ecebdc !important;
+  color: #e8e6df !important;
 }
 
 :root[data-theme="dark"] .di-map-search input::placeholder {
-  color: #a8b096 !important;
+  color: #8f948a !important;
 }
 
-/* Keep the GPS "following" state its distinct green in dark. */
+/* GPS "following" lights up blaze, the one live state on the map. */
 :root[data-theme="dark"] .di-map-gps-button[aria-pressed="true"] {
-  background: #2f8a49 !important;
-  color: #f2f9f2 !important;
-  border-color: #256d38 !important;
+  background: #ff6a1a !important;
+  color: #0b0d0b !important;
+  border-color: #ff6a1a !important;
 }
 
 :root[data-theme="dark"] .di-map-topbar .di-map-topbar-chip {
-  color: #ecebdc !important;
-  border-color: rgba(69, 79, 56, 0.7) !important;
-}
-
-:root[data-theme="dark"] .di-map-topbar .di-map-topbar-chip {
-  background: rgba(20, 24, 16, 0.88) !important;
-  border-color: rgba(69, 79, 56, 0.6) !important;
+  color: #e8e6df !important;
+  background: rgba(11, 13, 11, 0.92) !important;
+  border-color: #3a4134 !important;
 }
 
 /* Night — red-on-black across every control. */
@@ -276,8 +291,8 @@
 :root[data-theme="dark"] .di-corner-stack > *,
 :root[data-theme="dark"] .di-wind-badge,
 :root[data-theme="dark"] .di-map-year {
-  background: rgba(24, 28, 18, 0.9) !important;
-  border-color: rgba(69, 79, 56, 0.55) !important;
+  background: rgba(11, 13, 11, 0.92) !important;
+  border-color: #3a4134 !important;
 }
 
 :root[data-theme="night"] .di-corner-stack > *,
@@ -361,9 +376,16 @@ body {
 h1,
 h2,
 h3 {
-  font-family: var(--font-display), var(--font-geist-sans), ui-rounded,
-    "Segoe UI", system-ui, sans-serif;
-  letter-spacing: -0.02em;
+  font-family: var(--font-display), "Arial Narrow", var(--font-geist-sans),
+    system-ui, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+}
+
+/* Bebas Neue ships one weight; never let the browser smear a fake bold onto
+   it (lots of inline styles still ask for 700-800). */
+html {
+  font-synthesis-weight: none;
 }
 
 /* Action cards feel alive on pointer + keyboard focus: a soft lift, a warmer
@@ -526,9 +548,9 @@ h3 {
   border-bottom: 1px solid rgba(0, 0, 0, 0.18);
   color: var(--camo-fg);
   font-family: var(--font-display), system-ui, sans-serif;
-  font-size: 1.2rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-size: 1.45rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
   text-decoration: none;
 }
 
@@ -750,23 +772,14 @@ textarea:focus {
   overflow: hidden;
   isolation: isolate;
   padding: clamp(1.1rem, 3vw, 1.5rem);
-  border-radius: 18px;
+  border: 1px solid #23281f;
+  border-radius: var(--radius);
   color: #f3edd9;
-  /* Dusk over the timber: no camo texture, so real photos and maps carry the
-     visual weight elsewhere in the app. */
-  background-color: #1a231c;
-  background-image: radial-gradient(
-      420px 260px at 100% 0%,
-      rgba(232, 140, 60, 0.42),
-      transparent 70%
-    ),
-    radial-gradient(
-      380px 260px at 0% 110%,
-      rgba(79, 158, 95, 0.32),
-      transparent 70%
-    ),
-    linear-gradient(160deg, #233025 0%, #141b16 100%);
-  box-shadow: 0 20px 44px -28px rgba(12, 18, 8, 0.7);
+  /* Tactical hero: near-black with faint terrain contours, no glow. */
+  background-color: #10130f;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='300' viewBox='0 0 600 300'%3E%3Cg fill='none' stroke='%231f251c' stroke-width='1'%3E%3Cpath d='M-10 230C90 150 210 120 330 135S540 190 610 240'/%3E%3Cpath d='M40 240C120 185 220 165 325 172S500 215 560 250'/%3E%3Cpath d='M100 250C160 215 230 205 320 210S440 232 490 258'/%3E%3Cpath d='M-10 80C100 40 230 30 340 55S520 80 610 50'/%3E%3Cpath d='M-10 115C110 75 240 68 350 88S530 108 610 84'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: cover;
+  box-shadow: none;
 }
 
 button,
@@ -1111,7 +1124,7 @@ textarea {
     width: 44px;
     height: 44px;
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: rgba(255, 255, 255, 0.94);
     backdrop-filter: blur(12px);
     color: var(--text);
@@ -1126,29 +1139,33 @@ textarea {
     z-index: 2200;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0.35rem;
-    padding: 0.55rem 0.65rem calc(0.65rem + env(safe-area-inset-bottom));
+    gap: 0;
+    padding: 0 0 env(safe-area-inset-bottom);
     border-top: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.94);
+    background: rgba(255, 255, 255, 0.97);
     backdrop-filter: blur(12px);
-    box-shadow: 0 -14px 32px rgba(16, 32, 20, 0.1);
+    box-shadow: none;
   }
 
+  /* Flat tabs: icon over a condensed label; the active tab gets a blaze line
+     along its top edge instead of a tinted bubble. */
   .di-mobile-nav a,
   .di-mobile-nav .di-mobile-more {
     display: inline-flex;
-    min-height: 54px;
+    min-height: 58px;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.15rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface-2);
+    gap: 0.2rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     color: var(--text-muted);
-    font-size: 0.66rem;
-    font-weight: 800;
-    letter-spacing: 0.01em;
+    font-family: var(--font-display), "Arial Narrow", sans-serif;
+    font-size: 0.95rem;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     text-decoration: none;
   }
 
@@ -1160,9 +1177,9 @@ textarea {
   .di-mobile-nav a[aria-current="page"],
   .di-mobile-nav .di-mobile-more[aria-current="page"],
   .di-mobile-nav .di-mobile-more[aria-expanded="true"] {
-    background: var(--accent-tint);
-    border-color: var(--accent-tint-border);
-    color: var(--accent-text);
+    background: transparent;
+    color: var(--text);
+    box-shadow: inset 0 2px 0 var(--accent-2);
   }
 
   .di-mobile-nav-icon {
@@ -1330,7 +1347,7 @@ textarea {
     padding: 0 0.7rem !important;
     min-height: 44px !important;
     height: 44px;
-    border-radius: 999px !important;
+    border-radius: var(--radius-sm) !important;
   }
 
   .di-map-search.di-map-search-collapsed {
@@ -1341,7 +1358,7 @@ textarea {
   .di-map-search.di-map-search-collapsed button {
     width: 44px !important;
     height: 44px !important;
-    border-radius: 999px !important;
+    border-radius: var(--radius-sm) !important;
   }
 
   /* The wayback year stepper sits just under the single top row. */
@@ -1366,7 +1383,7 @@ textarea {
     bottom: 0.85rem !important;
     right: 0.75rem !important;
     gap: 0 !important;
-    border-radius: 14px;
+    border-radius: var(--radius);
     overflow: hidden;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
   }
@@ -1424,7 +1441,7 @@ textarea {
     max-height: 78svh !important;
     border-top: 1px solid var(--border) !important;
     border-left: 0 !important;
-    border-radius: 16px 16px 0 0 !important;
+    border-radius: var(--radius) var(--radius) 0 0 !important;
     transform: translateY(104%);
   }
 
@@ -1551,7 +1568,7 @@ textarea {
     border-right: 0 !important;
     border-bottom: 0 !important;
     border-left: 0 !important;
-    border-radius: 16px 16px 0 0 !important;
+    border-radius: var(--radius) var(--radius) 0 0 !important;
   }
 
   .di-map-bottom-sheet.di-map-bottom-sheet-open {
@@ -1754,7 +1771,7 @@ textarea {
   font-weight: 600;
   line-height: 1;
   padding: 2px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   color: #fff;
   background: rgba(0, 0, 0, 0.65);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
@@ -1776,7 +1793,7 @@ textarea {
   font-weight: 700;
   line-height: 1;
   padding: 2px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   color: #fff;
   background: rgba(0, 0, 0, 0.7);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
@@ -1866,7 +1883,7 @@ textarea {
   gap: 0.9rem;
   padding: 1rem;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow-md);
 }
@@ -1880,11 +1897,14 @@ textarea {
   gap: 0.3rem;
   padding: 0.4rem;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text);
-  font-size: 0.8rem;
-  font-weight: 800;
+  font-family: var(--font-display), "Arial Narrow", sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   text-align: center;
   text-decoration: none;
 }
@@ -1892,10 +1912,10 @@ textarea {
 .di-more-link.di-more-add {
   min-height: 58px;
   padding: 0.35rem 0.2rem;
-  border-color: var(--accent-tint-border);
-  background: var(--accent-tint);
-  color: var(--accent-text);
-  font-size: 0.74rem;
+  border-color: var(--border-strong);
+  background: transparent;
+  color: var(--accent-2-text);
+  font-size: 0.9rem;
 }
 
 .di-more-link[aria-current="page"] {

@@ -68,7 +68,7 @@ const dialogStyle: CSSProperties = {
   maxWidth: "460px",
   padding: "1.25rem",
   border: "1px solid var(--border)",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
   color: "var(--text)",
   boxShadow: "0 18px 45px rgba(0, 0, 0, 0.34)",

@@ -368,7 +368,7 @@ const rutBannerStyle: CSSProperties = {
   padding: "0.85rem 1rem",
   border: "1px solid var(--accent-2-tint-border)",
   borderLeft: "4px solid var(--accent-2)",
-  borderRadius: "12px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--accent-2-tint)",
   color: "var(--accent-2-text)",
   fontWeight: 700,

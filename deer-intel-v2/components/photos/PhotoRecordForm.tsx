@@ -311,7 +311,7 @@ const inputStyle: CSSProperties = {
   width: "100%",
   minHeight: "46px",
   padding: "0.8rem",
-  borderRadius: "8px",
+  borderRadius: "var(--radius-sm)",
   border: "1px solid var(--border)",
   background: "var(--surface-2)",
   color: "var(--text)",
