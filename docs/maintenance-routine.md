@@ -1,76 +1,77 @@
-# Deer Intel — Maintenance Sweep Routine
+# Deer Intel — Maintenance Sweep
 
-A recurring, unattended review of the whole app: code health, production
-runtime signals, a read-only walkthrough of the live website, and a
-roadmap-vs-reality check. Findings accumulate in a living `MAINTENANCE.md`
-backlog on the `claude/maintenance-log` branch — the sweep never changes
-application code, never opens issues or PRs.
+A recurring, unattended, **read-only** check of the app. It looks at Vercel
+builds, runtime errors and Supabase advisors, loads the live site's main
+pages, and reviews the past week's commits. The report arrives as a push
+notification. The sweep never changes app code and never opens issues or
+PRs.
 
-This file is the reference for configuring the Routine in the claude.ai
-Routines UI (claude.ai → Routines), which is where connectors can be
-attached. A connector-less version created in-session already exists under
-the name **"Deer Intel — maintenance sweep (Mon/Wed/Fri)"** — when the UI
-version is live, disable or delete the in-session one so the sweep doesn't
-run twice.
+It runs as the scheduled task **"Deer Intel — maintenance sweep
+(Mon/Wed/Fri)"** in claude.ai.
 
 ## Settings
 
 | Field | Value |
 |---|---|
 | **Name** | Deer Intel — maintenance sweep (Mon/Wed/Fri) |
-| **Schedule** | Mon / Wed / Fri, 13:00 UTC (9am ET / 6am PT) |
+| **Schedule** | Mon / Wed / Fri, 8:47am America/New_York (`CRON_TZ=America/New_York 47 8 * * 1,3,5`) |
 | **Session** | New session each run |
 | **Repository** | `Ethan19988/deer-intel` |
-| **Connectors** | GitHub · Vercel · Supabase |
+| **Connectors** | **Vercel** and **Supabase**. Attach them in the task's settings in claude.ai; they can't be added from a session. Without them, the build, runtime and page checks report "Skipped". |
 | **Notifications** | Push on |
 
-## Environment variables (for the live-site login)
+## Why it works this way
 
-Set these as environment secrets on the execution environment — never in
-the prompt, never committed:
+Scheduled sessions run in a cloud workspace that blocks npm downloads and
+most web requests from the shell. The earlier version ran `npm install`,
+`tsc`, `eslint` and `next build`, so it failed at the first step. It also
+tried to push a log branch that was never created. This version:
 
-- `DEER_INTEL_TEST_EMAIL` — a **dedicated throwaway test account** for
-  https://deer-intel-fghk-deer-intel.vercel.app/login (not a real
-  hunter's account; confirm its email once if Supabase requires it)
-- `DEER_INTEL_TEST_PASSWORD`
+- reads build results from Vercel, which type-checks and builds every
+  commit anyway;
+- checks live pages through the Vercel connector (`web_fetch_vercel_url`)
+  instead of the shell;
+- reviews code with plain `git` (log, diff, grep), so nothing needs
+  installing;
+- puts the full report in its final message, which becomes the
+  notification. Saving a copy to `MAINTENANCE.md` on
+  `claude/maintenance-log` is best effort and never fails the run.
 
-If either is missing, the sweep skips the logged-in pages and only checks
-that the public login page renders — everything else still runs.
+## Task prompt
 
-## Routine prompt
-
-Paste this as the Routine's prompt, verbatim:
+This is the prompt stored on the scheduled task. Keep the two in sync if
+you change it.
 
 ```text
-You are running an automated, unattended MAINTENANCE SWEEP for the Deer Intel app (GitHub repo Ethan19988/deer-intel; the active app lives in deer-intel-v2/, a Next.js 16 + TypeScript + React app; data is local-first via lib/deerIntelStore with opt-in Supabase/Vercel). Your job is to INSPECT and REPORT — do NOT change application behavior and do NOT write real data through the live site.
+You are running an automated, unattended, READ-ONLY maintenance sweep for the Deer Intel app.
 
-Do a thorough pass across these areas:
+Facts:
+- GitHub repo: Ethan19988/deer-intel. The app lives in deer-intel-v2/ (Next.js 16, TypeScript, React, Leaflet; data is local-first in lib/deerIntelStore with optional Supabase sync).
+- Live site: https://deer-intel.vercel.app (the old deer-intel-fghk.vercel.app address should permanently redirect there).
+- Vercel project: deer-intel-fghk (id prj_2PlMzfuQudpKYI2HYmzQ6i0krbfn), team slug deer-intel.
+- This cloud session blocks npm downloads and most outbound web requests from the shell. Do NOT run npm install, tsc, eslint or next build, and do not retry shell network requests. Vercel already type-checks and builds every commit, so read build results from Vercel instead.
 
-1) CODE HEALTH — In deer-intel-v2/: run `npm install`, then `npx tsc --noEmit`, `npx eslint`, and `npm run build` if it completes in reasonable time. Capture real errors/warnings (show actual output, don't paraphrase away failures). Review the last several days of commits on origin/main for regressions, dead/duplicated code, leftover TODOs, and inconsistencies with the coding standards in AGENTS.md.
+Never change application code, never write data through the site, never open issues or PRs. If a step's tool is unavailable, write one line saying so and move on. A missing tool is not a failure of the sweep.
 
-2) RUNTIME + DATA — If the Vercel and Supabase MCP tools are available, use Vercel to check recent runtime errors, runtime logs, and web analytics, and use Supabase get_advisors (security + performance) and recent logs. If those tools are NOT reachable in this session, note that briefly and move on — don't fail the sweep.
+1) BUILDS (Vercel tools): List the latest production and preview deployments for the project. For any deployment in ERROR, or any with build warnings, read its build events and quote the actual error lines. Confirm the newest production deployment is READY and say which commit it is.
 
-3) LIVE WEBSITE WALKTHROUGH (read-only) — The deployed app is at https://deer-intel-fghk-deer-intel.vercel.app with email+password auth at /login. Chromium + Playwright are preinstalled (PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers; do not run `playwright install`). Write and run a headless Playwright script that:
-   - Loads /login and confirms it renders; capture console errors, uncaught exceptions, and failed (4xx/5xx) network requests. If the URL is blocked by Vercel deployment protection (SSO interstitial), note that and stop the walkthrough.
-   - Reads test credentials from process.env.DEER_INTEL_TEST_EMAIL and process.env.DEER_INTEL_TEST_PASSWORD. If either is missing/empty, record "no test credentials configured — authenticated pages skipped", review only the public login page, and continue the rest of the sweep.
-   - If credentials are present, log in through the form, then visit each main route: /, /map, /cameras, /cameras/import, /properties, /stands, /hunt-log, /hit-list, /party, /ai, /settings (confirm against the app/ directory). For each page confirm it renders without crashing and collect console errors, uncaught exceptions, and failed network requests.
-   - STRICTLY read-only: navigate and observe only. Do NOT submit forms, upload photos, or create/edit/delete any data. Do not interact with destructive controls.
-   Report every page that errors, renders broken, or logs console/network errors, with the specific detail.
+2) RUNTIME (Vercel and Supabase tools, if connected): Check Vercel runtime errors and logs for the last 3 days. If Supabase tools are present, run get_advisors (security and performance) and summarize anything WARN or ERROR.
 
-4) PRODUCT / ROADMAP — Read ROADMAP.md and PROJECT.md and compare against the current code. Note roadmap items that are missing, half-finished, or worth prioritizing next.
+3) LIVE SITE, read-only (Vercel web_fetch_vercel_url tool): Fetch these pages on https://deer-intel.vercel.app and confirm each returns HTML containing "Deer Intel" without a server error: /, /login, /map, /cameras, /stands, /hunt-log, /properties, /settings, /ai. Also fetch https://deer-intel-fghk.vercel.app/ and report whether it redirects to deer-intel.vercel.app. Only GET pages. Never submit anything.
 
-Then record findings in a LIVING BACKLOG:
-- Work on the dedicated branch `claude/maintenance-log` (create it from origin/main if it doesn't exist; otherwise fetch and update the existing file — keep all prior dated entries).
-- Update `MAINTENANCE.md` at the repo root: prepend a new section headed with today's date. Categorize findings as: **Broken now**, **Should fix**, **Nice to have**, **Roadmap gaps** — each item one line with a file reference (path:line) or the affected route where relevant. If nothing new is wrong in a category, say "nothing new."
-- Commit and push ONLY `MAINTENANCE.md` to `claude/maintenance-log` (force-with-lease is fine — it's a living log). Do NOT modify application code, do NOT open GitHub issues, and do NOT open pull requests. Never commit credentials.
+4) CODE REVIEW (git only, no installs): In a clone of the repo, review commits on origin/main from the last 7 days (git log -p). Flag likely bugs, leftover debug code, TODOs, duplicated code, and anything against deer-intel-v2/AGENTS.md. Use git grep for TODO/FIXME/console.log in deer-intel-v2/app, components and lib. Read ROADMAP.md and PROJECT.md if they exist and note 1–3 roadmap items worth doing next.
 
-Finish with a concise summary of the top 3–5 findings so it lands in the completion notification. Be honest and specific: real errors with their output, or a brief "clean, nothing new" if that's the truth.
+REPORT: Your final message IS the report, because it is sent as the notification. Write it in plain words for a non-programmer, under 250 words, in this shape:
+- Status: one line, either "All clear" or "N things need attention".
+- Broken now: the item(s), or "nothing".
+- Should fix: up to 5 items, each with the file or page.
+- Worth doing next: up to 3 items.
+- Skipped: list any steps whose tools weren't available.
+
+OPTIONAL LOG: Also try to save the same report, dated, at the top of MAINTENANCE.md on a branch named claude/maintenance-log (create it from origin/main if missing; keep earlier entries). Commit and push only that file. If the push fails for any reason, add one line to the report saying "log not saved: <reason>" and finish normally. The notification report matters more than the branch.
 ```
 
-## How findings are consumed
+## Acting on a report
 
-Each run prepends a dated section to `MAINTENANCE.md` on the
-`claude/maintenance-log` branch, categorized as **Broken now / Should fix /
-Nice to have / Roadmap gaps**, and sends a push notification with the top
-3–5 findings. To act on the backlog, start a Claude Code session and point
-it at an item — the sweep itself deliberately never fixes anything.
+The sweep only reports. To fix something it found, start a Claude session
+on the repo and point it at the item.
