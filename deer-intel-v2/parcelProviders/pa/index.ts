@@ -57,10 +57,6 @@ const LYCOMING_PARCEL_OWNER_SERVICE_URL =
 const POTTER_PARCEL_OWNER_SERVICE_URL =
   "https://maps.pottercountypa.net/arcgis/rest/services/TaxParcel/TaxParcels/MapServer";
 
-// Union County's ArcGIS Online parcels (layer 4).
-const UNION_PARCEL_OWNER_SERVICE_URL =
-  "https://services8.arcgis.com/7YUdLQ8pDBKU1XYI/arcgis/rest/services/Parcels/FeatureServer";
-
 // PASDA hosts a per-county parcel MapServer for every PA county at
 // .../pasda/<County>County/MapServer. Coverage of owner fields varies by
 // county, so each supported county is configured explicitly below.
@@ -405,19 +401,6 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     parcelIdFieldNames: ["Control_Number"],
     parcelLayerId: 0,
     parcelServiceUrl: POTTER_PARCEL_OWNER_SERVICE_URL,
-    source: "County ArcGIS",
-    status: "supported",
-  },
-  Union: {
-    acreageFieldNames: ["mapped_acr", "gross_acre"],
-    addressFieldNames: ["PHYSSTRADD"],
-    geometrySupport: "polygon",
-    notes:
-      "Union County ArcGIS Online parcels. CURR_NAME* is the current owner (JAN1_NAME* is the Jan 1 owner of record).",
-    ownerFieldNames: ["CURR_NAME1", "CURR_NAME2"],
-    parcelIdFieldNames: ["PID", "ACCTNO"],
-    parcelLayerId: 4,
-    parcelServiceUrl: UNION_PARCEL_OWNER_SERVICE_URL,
     source: "County ArcGIS",
     status: "supported",
   },
