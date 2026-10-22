@@ -271,7 +271,60 @@ const COUNTIES = {
     pin: (p) => str(p.ParcelJoin),
     addr: (p) => cleanAddr(joinFields(p, ["ADDRESS", "CITY"])),
   },
+  pike: {
+    // Pike County's own ArcGIS Server; owner parcels are layer 1.
+    layerUrl: "https://gis.pikepa.org/arcgis/rest/services/PikeCo_Parcels/MapServer/1",
+    outFields: ["Name", "Acreage", "Control", "Situs"],
+    owner: (p) => str(p.Name),
+    acres: (p) => toAcres(p.Acreage),
+    pin: (p) => str(p.Control),
+    addr: (p) => cleanAddr(p.Situs),
+  },
+  carbon: {
+    // Carbon County's own ArcGIS Server. OwnerOld/PrvOwner are previous owners,
+    // so only the current Owner is used.
+    layerUrl:
+      "https://gis.carboncounty.com/arcgis/rest/services/Parcels_Universal/MapServer/0",
+    outFields: ["Owner", "DeedAcr", "CALCAC", "PIN", "Location"],
+    owner: (p) => str(p.Owner),
+    acres: (p) => toAcres(p.DeedAcr) || toAcres(p.CALCAC),
+    pin: (p) => str(p.PIN),
+    addr: (p) => cleanAddr(p.Location),
+  },
+  mifflin: {
+    // Mifflin republishes under a new date-stamped service name each update,
+    // so look up the newest one rather than hardcoding it (OID field is fid).
+    resolveLayerUrl: resolveMifflinLayerUrl,
+    layerUrl:
+      "https://gis.mifflincountypa.gov/arcgis/rest/services/Hosted/parcels_102126/FeatureServer/0",
+    orderBy: "fid",
+    outFields: ["short_name", "deed_acres", "avacres", "account", "situs_comb"],
+    owner: (p) => str(p.short_name),
+    acres: (p) => toAcres(p.deed_acres) || toAcres(p.avacres),
+    pin: (p) => str(p.account),
+    addr: (p) => cleanAddr(p.situs_comb),
+  },
 };
+
+// Picks Mifflin's newest Hosted/parcels<MMDDYY> (or parcels_<MMDDYY>) service.
+// Falls back to the configured URL if the folder listing can't be read.
+async function resolveMifflinLayerUrl(cfg) {
+  const root = "https://gis.mifflincountypa.gov/arcgis/rest/services";
+  try {
+    const listing = await fetchJson(`${root}/Hosted?f=json`);
+    let best = null;
+    for (const svc of listing.services || []) {
+      const m = /^Hosted\/parcels_?(\d{2})(\d{2})(\d{2})$/i.exec(svc.name || "");
+      if (!m || svc.type !== "FeatureServer") continue;
+      const stamp = Number(`20${m[3]}${m[1]}${m[2]}`); // YYYYMMDD
+      if (!best || stamp > best.stamp) best = { stamp, name: svc.name };
+    }
+    if (best) return `${root}/${best.name}/FeatureServer/0`;
+  } catch (err) {
+    process.stderr.write(`mifflin: service lookup failed (${err.message}); using default\n`);
+  }
+  return cfg.layerUrl;
+}
 
 async function fetchJson(url) {
   for (let attempt = 1; attempt <= 5; attempt += 1) {
@@ -542,10 +595,13 @@ async function fetchCounty(slug, outPath, labelPath) {
   // only the label anchor, extent and area are retained.
   const parcelSummaries = [];
 
+  const layerUrl = cfg.resolveLayerUrl ? await cfg.resolveLayerUrl(cfg) : cfg.layerUrl;
+  if (layerUrl !== cfg.layerUrl) process.stderr.write(`${slug}: using ${layerUrl}\n`);
+
   let offset = 0;
   let total = 0;
   for (;;) {
-    const url = new URL(`${cfg.layerUrl}/query`);
+    const url = new URL(`${layerUrl}/query`);
     url.searchParams.set("where", "1=1");
     url.searchParams.set("outFields", cfg.outFields.join(","));
     url.searchParams.set("returnGeometry", "true");
