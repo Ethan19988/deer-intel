@@ -178,9 +178,17 @@ function roleOf(feature: Feature, state: LabelStyleState): LabelRole {
 // any centre derived from what's in a tile shifts as the tiles change under it.
 class HoldingLabelSymbolizer {
   private readonly getState: () => LabelStyleState;
+  private readonly anchorOf: (geom: Pt[][]) => Pt | undefined;
+  private readonly dedupPx: number;
 
-  constructor(getState: () => LabelStyleState) {
+  constructor(
+    getState: () => LabelStyleState,
+    anchorOf: (geom: Pt[][]) => Pt | undefined = (geom) => geom[0]?.[0],
+    dedupPx = OWNER_LABEL_DEDUP_MIN_PX,
+  ) {
     this.getState = getState;
+    this.anchorOf = anchorOf;
+    this.dedupPx = dedupPx;
   }
 
   place(layout: Layout, geom: Pt[][], feature: Feature) {
@@ -188,7 +196,7 @@ class HoldingLabelSymbolizer {
     if (!rawOwner) return undefined;
     const owner = ownerDisplayName(rawOwner);
 
-    const anchor = geom[0]?.[0];
+    const anchor = this.anchorOf(geom);
     if (!anchor) return undefined;
 
     const role = roleOf(feature, this.getState());
@@ -248,10 +256,80 @@ class HoldingLabelSymbolizer {
         ],
         draw: makeLabelDraw(lines, textHeight),
         deduplicationKey: rawOwner.toUpperCase(),
-        deduplicationDistance: OWNER_LABEL_DEDUP_MIN_PX,
+        deduplicationDistance: this.dedupPx,
       },
     ];
   }
+}
+
+/** True for owners whose names must always show: yours, tagged, or open. */
+function isPriorityOwner(
+  props: Record<string, unknown>,
+  state: LabelStyleState,
+): boolean {
+  const key = landTagKey(String(props.owner ?? ""));
+  if (!key) return false;
+  return key === state.selected || state.mine.has(key) || Boolean(state.tags[key]);
+}
+
+// A label spot inside one parcel piece, for priority owners when the
+// holding's own label point is off screen. Uses the biggest ring's area
+// centroid (its vertex average when the centroid falls outside, as on an
+// L-shaped lot); pieces too small to read on screen get none.
+function pieceAnchor(geom: Pt[][]): Pt | undefined {
+  let best: Pt[] | undefined;
+  let bestArea = 0;
+  for (const ring of geom) {
+    let a2 = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const p = ring[i];
+      const q = ring[(i + 1) % ring.length];
+      a2 += p.x * q.y - q.x * p.y;
+    }
+    if (Math.abs(a2) > bestArea) {
+      bestArea = Math.abs(a2);
+      best = ring;
+    }
+  }
+  if (!best || best.length < 3) return undefined;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let cx = 0;
+  let cy = 0;
+  let a2 = 0;
+  for (let i = 0; i < best.length; i++) {
+    const p = best[i];
+    const q = best[(i + 1) % best.length];
+    const cross = p.x * q.y - q.x * p.y;
+    a2 += cross;
+    cx += (p.x + q.x) * cross;
+    cy += (p.y + q.y) * cross;
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y);
+    maxY = Math.max(maxY, p.y);
+  }
+  if (maxX - minX < 40 || maxY - minY < 24 || a2 === 0) return undefined;
+  const centroid = { x: cx / (3 * a2), y: cy / (3 * a2) };
+  if (pointInRing(centroid, best)) return centroid;
+  const avg = best.reduce((sum, p) => ({ x: sum.x + p.x, y: sum.y + p.y }), { x: 0, y: 0 });
+  const fallback = { x: avg.x / best.length, y: avg.y / best.length };
+  return pointInRing(fallback, best) ? fallback : undefined;
+}
+
+function pointInRing(point: Pt, ring: Pt[]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i];
+    const b = ring[j];
+    if (a.y > point.y !== b.y > point.y && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x) {
+      inside = !inside;
+    }
+  }
+  return inside;
 }
 
 type LabelLine = {
@@ -527,15 +605,48 @@ export default function ParcelTilesLayer({
           },
         },
       ],
+      // Rule order is priority: a label from an earlier rule bumps any
+      // later-rule label it collides with. So your land, tagged land and the
+      // parcel whose card is open are laid out first and always win over a
+      // neighbor's name.
       labelRules: [
-        // Preferred: the baked holding points. One per owner holding, anchored
-        // over whole parcels, with the zoom it becomes legible baked in as `mz`
-        // — so the name lands in the same spot at every zoom and prints once.
+        // 1. Priority owners at their holding point, from z14 even when the
+        //    baked fit zoom (`mz`) is later — it's your ground, show it.
         {
           dataLayer: "parcel_labels",
           minzoom: PARCEL_TILES_MIN_ZOOM,
           filter: (z, f) =>
             hasOwnerName(f) &&
+            isPriorityOwner(f.props, styleRef.current) &&
+            z >= Math.min(Number(f.props.mz) || PARCEL_TILES_MIN_ZOOM, 14),
+          symbolizer: new HoldingLabelSymbolizer(
+            () => styleRef.current,
+          ) as unknown as LabelSymbolizer,
+        },
+        // 2. Zoomed in close, the holding point can be off screen while the
+        //    land fills it — so priority owners also get a name on the parcel
+        //    pieces in view (one per owner nearby, via the dedup key).
+        {
+          dataLayer: "parcels",
+          minzoom: 15,
+          filter: (_z, f) => hasOwnerName(f) && isPriorityOwner(f.props, styleRef.current),
+          symbolizer: new HoldingLabelSymbolizer(
+            () => styleRef.current,
+            pieceAnchor,
+            // Short reach: only skip a piece when the same name is already
+            // close enough to be on screen with it.
+            220,
+          ) as unknown as LabelSymbolizer,
+        },
+        // 3. Everyone else: the baked holding points. One per owner holding,
+        //    anchored over whole parcels, with the zoom it becomes legible
+        //    baked in as `mz` — the name lands in the same spot at every zoom.
+        {
+          dataLayer: "parcel_labels",
+          minzoom: PARCEL_TILES_MIN_ZOOM,
+          filter: (z, f) =>
+            hasOwnerName(f) &&
+            !isPriorityOwner(f.props, styleRef.current) &&
             z >= (Number(f.props.mz) || PARCEL_TILES_MIN_ZOOM),
           sort: (a, b) => (Number(b.acres) || 0) - (Number(a.acres) || 0),
           symbolizer: new HoldingLabelSymbolizer(
