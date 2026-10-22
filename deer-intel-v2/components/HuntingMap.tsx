@@ -2704,6 +2704,7 @@ export default function HuntingMap() {
   function handleTileOwnerPick(
     pick: ParcelTileOwnerPick | null,
     at: { lat: number; lng: number },
+    options: { countyLookup?: boolean } = {},
   ) {
     // A parcel card replaces any open asset card; tapping empty ground just
     // dismisses the parcel card.
@@ -2714,7 +2715,9 @@ export default function HuntingMap() {
     const requestId = tileOwnerDetailRequestRef.current + 1;
     tileOwnerDetailRequestRef.current = requestId;
 
-    if (!pick) {
+    // A search hit's point is only near the parcel (the owner search samples
+    // the view), so a county lookup there could describe the wrong parcel.
+    if (!pick || options.countyLookup === false) {
       setTileOwnerDetail(IDLE_PARCEL_OWNER_LOOKUP_STATE);
       return;
     }
@@ -3713,6 +3716,7 @@ export default function HuntingMap() {
               handleTileOwnerPick(
                 { ownerName: hit.ownerName, acres: hit.acres, isPublic: hit.isPublic },
                 { lat: hit.lat, lng: hit.lng },
+                { countyLookup: false },
               );
             }}
             onClear={() => {

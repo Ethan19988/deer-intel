@@ -733,10 +733,11 @@ export default function ParcelTilesLayer({
         }
       }
       return [...hits.values()]
-        .sort(
-          (a, b) =>
-            center.distanceTo([a.lat, a.lng]) - center.distanceTo([b.lat, b.lng]),
-        )
+        .sort((a, b) => {
+          const da = (a.lat - center.lat) ** 2 + (a.lng - center.lng) ** 2;
+          const db = (b.lat - center.lat) ** 2 + (b.lng - center.lng) ** 2;
+          return da - db;
+        })
         .slice(0, 12);
     };
     searchReadyRef.current?.(searchInView);
