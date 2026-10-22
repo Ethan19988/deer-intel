@@ -21,7 +21,18 @@ type MapLegendProps = {
   showDeerHeat: boolean;
   showCameraHeat: boolean;
   period: MovementPeriod;
+  /** Parcel lines are drawing (zoomed in far enough): show the land key. */
+  showLand?: boolean;
 };
+
+// Matches the parcel tile styling (ParcelTilesLayer) and the hunt-area outline.
+const LAND_KEY: Array<{ label: string; color: string; fill?: boolean }> = [
+  { label: "Your property", color: "#ff6a1a" },
+  { label: "Permission", color: "#a9b88a", fill: true },
+  { label: "Public land", color: "#5f8c46", fill: true },
+  { label: "Neighbor", color: "#c9ccc2" },
+  { label: "Other private", color: "rgba(255, 255, 255, 0.7)" },
+];
 
 export default function MapLegend({
   showSlope,
@@ -30,6 +41,7 @@ export default function MapLegend({
   showDeerHeat,
   showCameraHeat,
   period,
+  showLand = false,
 }: MapLegendProps) {
   const sections: Array<{ key: string; node: React.ReactNode }> = [];
 
@@ -124,6 +136,33 @@ export default function MapLegend({
           <div style={swatchRowStyle}>
             <span style={rampStyle} aria-hidden="true" />
             <span style={swatchLabelStyle}>fewer → more photos</span>
+          </div>
+        </div>
+      ),
+    });
+  }
+
+  if (showLand) {
+    sections.push({
+      key: "land",
+      node: (
+        <div style={sectionStyle}>
+          <p style={titleStyle}>Land</p>
+          <div style={landKeyStyle}>
+            {LAND_KEY.map((item) => (
+              <div key={item.label} style={swatchRowStyle}>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    ...landSwatchStyle,
+                    borderColor: item.color,
+                    background: item.fill ? item.color : "transparent",
+                    opacity: item.fill ? 0.85 : 1,
+                  }}
+                />
+                <span style={swatchLabelStyle}>{item.label}</span>
+              </div>
+            ))}
           </div>
         </div>
       ),
@@ -290,4 +329,19 @@ const rampStyle: CSSProperties = {
   background: "linear-gradient(90deg, #f2c14e, #ef7a24, #d1352b)",
   boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.25)",
   flex: "0 0 auto",
+};
+
+const landKeyStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.25rem 0.7rem",
+};
+
+const landSwatchStyle: CSSProperties = {
+  flex: "0 0 auto",
+  width: "12px",
+  height: "10px",
+  border: "2px solid",
+  borderRadius: "1px",
+  boxSizing: "border-box",
 };

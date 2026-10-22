@@ -1,31 +1,74 @@
-import type { CSSProperties } from "react";
+"use client";
 
-// A generic owner card: title plus whatever detail lines the lookup produced.
-// Line-driven so both owner sources share it — the ArcGIS point lookup (county,
-// parcel id, address, source) and the tap-on-tile pick (acres, land type).
+import { useState, type CSSProperties } from "react";
+import type { LandTagKind } from "@/lib/landTags";
+
+// The parcel owner card: who owns the land you tapped, how big it is, the
+// county record (parcel ID, address) when the county publishes one, and what
+// you can do with it — mark it as land you can hunt, keep an eye on it as a
+// neighbor, see how far it is from your property, or copy the owner's details.
+// Line-driven so both owner sources share it (the tile pick and the county
+// ArcGIS lookup).
 type ParcelOwnerInfoCardProps = {
   ownerName: string;
+  /** One-line summary above the name, e.g. "Private · 84.2 acres". */
+  summary: string;
   lines: { label: string; value: string }[];
   onClose: () => void;
+  /** Current tag on this owner's land, if any. */
+  tag?: LandTagKind | null;
+  /** Set or clear a tag; omit to hide the tag buttons. */
+  onTag?: (kind: LandTagKind | null) => void;
+  /** e.g. "0.6 mi from Moore Hill Area"; omit when there's no property point. */
+  distanceLabel?: string | null;
 };
 
 export default function ParcelOwnerInfoCard({
   ownerName,
+  summary,
   lines,
   onClose,
+  tag = null,
+  onTag,
+  distanceLabel,
 }: ParcelOwnerInfoCardProps) {
+  const [copied, setCopied] = useState(false);
+  const [showDistance, setShowDistance] = useState(false);
+
+  function copyOwner() {
+    const text = [
+      ownerName,
+      summary,
+      ...lines
+        .filter((line) => line.value && line.value !== "Not listed")
+        .map((line) => `${line.label}: ${line.value}`),
+    ].join("\n");
+    navigator.clipboard
+      ?.writeText(text)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      })
+      .catch(() => undefined);
+  }
+
   return (
     <aside
-      className="di-map-card"
+      className="di-map-card di-owner-card"
       style={cardStyle}
+      aria-label={`Parcel owner: ${ownerName}`}
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
     >
       <div style={headerStyle}>
-        <span style={iconStyle}>ON</span>
         <div style={titleWrapStyle}>
-          <p style={eyebrowStyle}>Parcel Owner</p>
+          <p style={eyebrowStyle}>{summary}</p>
           <h3 style={titleStyle}>{ownerName}</h3>
+          {tag ? (
+            <p style={{ ...tagLineStyle, color: tag === "permission" ? "#a9b88a" : "#c9ccc2" }}>
+              {tag === "permission" ? "■ Permission to hunt" : "■ Neighbor you noted"}
+            </p>
+          ) : null}
         </div>
         <button
           type="button"
@@ -34,25 +77,61 @@ export default function ParcelOwnerInfoCard({
           style={closeButtonStyle}
           onClick={onClose}
         >
-          x
+          ✕
         </button>
       </div>
 
       <div style={detailsStyle}>
         {lines.map((line) => (
-          <InfoLine key={line.label} label={line.label} value={line.value} />
+          <div key={line.label} style={lineStyle}>
+            <span style={lineLabelStyle}>{line.label}</span>
+            <span style={lineValueStyle}>{line.value}</span>
+          </div>
         ))}
+        {showDistance && distanceLabel ? (
+          <div style={lineStyle}>
+            <span style={lineLabelStyle}>Distance</span>
+            <span style={lineValueStyle}>{distanceLabel}</span>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="di-owner-card-actions" style={actionsStyle}>
+        {onTag ? (
+          <>
+            <button
+              type="button"
+              aria-pressed={tag === "permission"}
+              style={tag === "permission" ? primaryButtonStyle : callToActionStyle}
+              onClick={() => onTag(tag === "permission" ? null : "permission")}
+            >
+              {tag === "permission" ? "✓ Permission" : "Mark permission"}
+            </button>
+            <button
+              type="button"
+              aria-pressed={tag === "neighbor"}
+              style={tag === "neighbor" ? activeButtonStyle : buttonStyle}
+              onClick={() => onTag(tag === "neighbor" ? null : "neighbor")}
+            >
+              {tag === "neighbor" ? "✓ Neighbor" : "Add as neighbor"}
+            </button>
+          </>
+        ) : null}
+        {distanceLabel ? (
+          <button
+            type="button"
+            aria-pressed={showDistance}
+            style={buttonStyle}
+            onClick={() => setShowDistance((value) => !value)}
+          >
+            Measure to here
+          </button>
+        ) : null}
+        <button type="button" style={buttonStyle} onClick={copyOwner}>
+          {copied ? "Copied" : "Copy owner"}
+        </button>
       </div>
     </aside>
-  );
-}
-
-function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p style={infoLabelStyle}>{label}</p>
-      <p style={infoValueStyle}>{value}</p>
-    </div>
   );
 }
 
@@ -62,14 +141,14 @@ const cardStyle: CSSProperties = {
   bottom: "7.4rem",
   zIndex: 1100,
   display: "grid",
-  gap: "0.85rem",
-  width: "min(380px, calc(100% - 2rem))",
-  padding: "0.9rem",
-  border: "1px solid rgba(255, 255, 255, 0.72)",
-  borderRadius: "var(--radius-sm)",
-  background: "rgba(17, 23, 17, 0.94)",
-  color: "#f1f5ef",
-  boxShadow: "0 18px 42px rgba(0, 0, 0, 0.35)",
+  gap: "0.6rem",
+  width: "min(400px, calc(100% - 2rem))",
+  padding: "0.85rem 1rem 1rem",
+  border: "1px solid #3a4134",
+  borderRadius: "var(--radius)",
+  background: "rgba(11, 13, 11, 0.97)",
+  color: "#e8e6df",
+  boxShadow: "0 10px 28px rgba(0, 0, 0, 0.45)",
 };
 
 const headerStyle: CSSProperties = {
@@ -77,24 +156,8 @@ const headerStyle: CSSProperties = {
   alignItems: "flex-start",
   gap: "0.7rem",
   // As a grid item this would otherwise refuse to shrink below its content
-  // (min-width:auto), letting a long owner name push the close button out of
-  // the card instead of wrapping.
+  // (min-width:auto), letting a long owner name push the close button out.
   minWidth: 0,
-};
-
-const iconStyle: CSSProperties = {
-  display: "inline-flex",
-  width: "40px",
-  height: "40px",
-  flex: "0 0 auto",
-  alignItems: "center",
-  justifyContent: "center",
-  border: "2px solid #a7d3ff",
-  borderRadius: "999px",
-  background: "#1b2328",
-  color: "#a7d3ff",
-  fontSize: "0.74rem",
-  fontWeight: 900,
 };
 
 const titleWrapStyle: CSSProperties = {
@@ -102,58 +165,114 @@ const titleWrapStyle: CSSProperties = {
   flex: "1 1 auto",
 };
 
-const eyebrowStyle: CSSProperties = {
-  margin: 0,
-  color: "#a7b5a5",
-  fontSize: "0.75rem",
-  fontWeight: 800,
-  letterSpacing: 0,
+const monoStyle: CSSProperties = {
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  letterSpacing: "0.08em",
   textTransform: "uppercase",
 };
 
-// Long owner names wrap onto extra lines (never ellipsized away — the name is
-// the whole point of the card) while the close button stays pinned top-right.
+const eyebrowStyle: CSSProperties = {
+  ...monoStyle,
+  margin: 0,
+  color: "#8f948a",
+  fontSize: "0.68rem",
+};
+
+// Long owner names wrap (never ellipsized away — the name is the point of the
+// card) while the close button stays pinned top-right.
 const titleStyle: CSSProperties = {
-  margin: "0.15rem 0 0",
-  color: "white",
-  fontSize: "1.18rem",
-  lineHeight: 1.2,
+  margin: "0.2rem 0 0",
+  color: "#e8e6df",
+  fontSize: "1.9rem",
+  lineHeight: 1,
   overflowWrap: "anywhere",
+};
+
+const tagLineStyle: CSSProperties = {
+  ...monoStyle,
+  margin: "0.3rem 0 0",
+  fontSize: "0.68rem",
 };
 
 const closeButtonStyle: CSSProperties = {
   display: "inline-flex",
-  width: "34px",
-  minHeight: "34px",
   flex: "0 0 auto",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid rgba(255, 255, 255, 0.24)",
+  width: "40px",
+  minHeight: "40px",
+  border: "1px solid #3a4134",
   borderRadius: "var(--radius-sm)",
-  background: "rgba(255, 255, 255, 0.08)",
-  color: "#f1f5ef",
+  background: "transparent",
+  color: "#e8e6df",
+  fontSize: "0.95rem",
   cursor: "pointer",
-  fontSize: "1rem",
-  fontWeight: 900,
-  lineHeight: 1,
 };
 
 const detailsStyle: CSSProperties = {
   display: "grid",
-  gap: "0.65rem",
 };
 
-const infoLabelStyle: CSSProperties = {
-  margin: 0,
-  color: "#8fa18c",
-  fontSize: "0.78rem",
-  fontWeight: 800,
+const lineStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "baseline",
+  gap: "1rem",
+  padding: "0.45rem 0",
+  borderBottom: "1px solid #23281f",
 };
 
-const infoValueStyle: CSSProperties = {
-  margin: "0.2rem 0 0",
-  color: "#d8e2d6",
-  fontSize: "0.94rem",
-  lineHeight: 1.45,
+const lineLabelStyle: CSSProperties = {
+  ...monoStyle,
+  flex: "none",
+  color: "#8f948a",
+  fontSize: "0.66rem",
+};
+
+const lineValueStyle: CSSProperties = {
+  minWidth: 0,
+  color: "#e8e6df",
+  fontSize: "0.9rem",
+  textAlign: "right",
   overflowWrap: "anywhere",
+};
+
+const actionsStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "0.5rem",
+  paddingTop: "0.2rem",
+};
+
+const buttonStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 0.5rem",
+  border: "1px solid #3a4134",
+  borderRadius: "var(--radius-sm)",
+  background: "transparent",
+  color: "#e8e6df",
+  fontFamily: "var(--font-display), \"Arial Narrow\", sans-serif",
+  fontSize: "1.05rem",
+  letterSpacing: "0.07em",
+  textTransform: "uppercase",
+  cursor: "pointer",
+};
+
+const callToActionStyle: CSSProperties = {
+  ...buttonStyle,
+  borderColor: "#ff6a1a",
+  background: "#ff6a1a",
+  color: "#0b0d0b",
+};
+
+const primaryButtonStyle: CSSProperties = {
+  ...buttonStyle,
+  borderColor: "#a9b88a",
+  background: "#3a4630",
+};
+
+const activeButtonStyle: CSSProperties = {
+  ...buttonStyle,
+  borderColor: "#c9ccc2",
+  background: "#23281f",
 };

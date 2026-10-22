@@ -83,9 +83,11 @@ import ParcelOwnerInfoCard from "@/components/map/ParcelOwnerInfoCard";
 import ParcelTilesLayer, {
   PARCEL_LABEL_MIN_ZOOM,
   PARCEL_TILES_MIN_ZOOM,
+  type ParcelTileOwnerHit,
   type ParcelTileOwnerPick,
 } from "@/components/map/ParcelTilesLayer";
 import { ownerAcresText } from "@/lib/ownerLabel";
+import { landTagKey, setLandTag, useLandTags, type LandTagKind } from "@/lib/landTags";
 import MapSearchBar from "@/components/map/MapSearchBar";
 import GoldenHourFrame from "@/components/map/GoldenHourFrame";
 import WindFlowOverlay from "@/components/map/WindFlowOverlay";
@@ -140,7 +142,10 @@ import {
   coldFrontStatus,
   fetchLiveForecast,
   resolvePropertyWeatherPoint,
+  type ForecastDay,
 } from "@/lib/liveWeather";
+import { buildMovementTimeline } from "@/lib/movementTimeline";
+import MovementTimeline, { type TimelineSlotView } from "@/components/map/MovementTimeline";
 import { parseWindSpeed, thermalCue, type ThermalCue } from "@/lib/windViz";
 import { getStandWindCheck } from "@/lib/standWind";
 import {
@@ -243,19 +248,21 @@ const TRAILS_PREF_KEY = "deer-intel:map-trails";
 
 // Highlight styling for a property's hunt area — a bright, translucent overlay
 // so the ground you hunt reads at a glance without hiding the terrain beneath.
+// Your own ground is blaze orange — the one color on the map that means "mine"
+// (permission land is olive, public green, neighbors gray; see ParcelTilesLayer).
 const HUNT_AREA_PATH_OPTIONS = {
-  color: "#4aa3ff",
-  weight: 2,
-  fillColor: "#4aa3ff",
-  fillOpacity: 0.18,
+  color: "#ff6a1a",
+  weight: 3,
+  fillColor: "#ff6a1a",
+  fillOpacity: 0.08,
 };
 
 const HUNT_AREA_DRAFT_PATH_OPTIONS = {
-  color: "#7ec2ff",
+  color: "#ff9a5c",
   weight: 2,
   dashArray: "6 6",
-  fillColor: "#7ec2ff",
-  fillOpacity: 0.12,
+  fillColor: "#ff9a5c",
+  fillOpacity: 0.08,
 };
 
 function huntAreaVertexIcon(pointNumber: number) {
@@ -1251,7 +1258,9 @@ export default function HuntingMap() {
   // One live-weather fetch feeds both the wind and movement overlays.
   const [forecastStatus, setForecastStatus] =
     useState<WindBadgeStatus>("loading");
-  const [windData, setWindData] = useState<{
+  // Live wind right now. `windData` (below) is what the map draws: the live
+  // reading, or the forecast wind for the window picked on the movement timeline.
+  const [liveWind, setWindData] = useState<{
     fromCompass: string;
     speedLabel: string;
     speedMph: number | null;
@@ -1266,6 +1275,55 @@ export default function HuntingMap() {
     pressureDropInHg?: number | null;
     conditions?: string;
   } | null>(null);
+  // Forecast days (today first) for the movement timeline's future windows.
+  const [forecastDays, setForecastDays] = useState<ForecastDay[]>([]);
+  // The timeline window being shown; null = right now.
+  const [timelineKey, setTimelineKey] = useState<string | null>(null);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const livePeriod = useMemo(
+    () =>
+      forecastMeta
+        ? currentMovementPeriod(
+            new Date(),
+            forecastMeta.sunriseISO,
+            forecastMeta.sunsetISO,
+          )
+        : "midday",
+    [forecastMeta],
+  );
+  const timelineSlots = useMemo(
+    () =>
+      forecastMeta
+        ? buildMovementTimeline({
+            currentPeriod: livePeriod,
+            days: forecastDays,
+            sunrise: forecastMeta.sunriseISO,
+            sunset: forecastMeta.sunsetISO,
+            liveWindFromCompass: liveWind?.fromCompass ?? "",
+            liveWindMph: liveWind?.speedMph ?? null,
+            liveTemperature: forecastMeta.temperature,
+            livePressureTrend: forecastMeta.pressureTrend,
+            liveConditions: forecastMeta.conditions,
+          })
+        : [],
+    [forecastMeta, livePeriod, forecastDays, liveWind?.fromCompass, liveWind?.speedMph],
+  );
+  const selectedSlot = timelineOpen
+    ? timelineSlots.find((slot) => slot.key === timelineKey) ?? null
+    : null;
+  const showingFuture = Boolean(selectedSlot && !selectedSlot.isNow);
+  const windData = useMemo(() => {
+    if (!liveWind || !selectedSlot || selectedSlot.isNow) return liveWind;
+    return {
+      fromCompass: selectedSlot.windFromCompass || liveWind.fromCompass,
+      speedLabel:
+        selectedSlot.windMph !== null ? `${Math.round(selectedSlot.windMph)} mph` : "",
+      speedMph: selectedSlot.windMph,
+      thermal: selectedSlot.thermal,
+    };
+  }, [liveWind, selectedSlot]);
+  // The window the movement layer, legend and badge describe.
+  const movementPeriod = selectedSlot?.period ?? livePeriod;
   const [waybackReleases, setWaybackReleases] = useState<WaybackRelease[]>([]);
   const [selectedRelease, setSelectedRelease] = useState<string>();
 
@@ -1320,6 +1378,24 @@ export default function HuntingMap() {
     IDLE_PARCEL_OWNER_LOOKUP_STATE,
   );
   const tileOwnerDetailRequestRef = useRef(0);
+  // Where the owner card's parcel was tapped (for tags and "Measure to here").
+  const [tileOwnerAt, setTileOwnerAt] = useState<{ lat: number; lng: number } | null>(null);
+  // Owner-name search over the parcels loaded in view, handed up by the tile layer.
+  const [ownerSearch, setOwnerSearchState] = useState<
+    ((query: string) => ParcelTileOwnerHit[]) | null
+  >(null);
+  const setOwnerSearch = useCallback(
+    (fn: ((query: string) => ParcelTileOwnerHit[]) | null) => setOwnerSearchState(() => fn),
+    [],
+  );
+  const landTags = useLandTags();
+  const ownerTagKinds = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(landTags).map(([key, tag]) => [key, tag.kind] as const),
+      ) as Record<string, LandTagKind>,
+    [landTags],
+  );
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [isMobileAssetSheetOpen, setIsMobileAssetSheetOpen] = useState(false);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
@@ -1642,17 +1718,6 @@ export default function HuntingMap() {
     () => buildCorridors(beddingPoints, resourcePoints),
     [beddingPoints, resourcePoints],
   );
-  const movementPeriod = useMemo(
-    () =>
-      forecastMeta
-        ? currentMovementPeriod(
-            new Date(),
-            forecastMeta.sunriseISO,
-            forecastMeta.sunsetISO,
-          )
-        : "midday",
-    [forecastMeta],
-  );
   // The property's own deer photos (with usable capture times) tune the outlook
   // to this ground rather than relying on generic almanac patterns alone.
   const propertyPhotoTimings = useMemo<CameraPhotoTiming[]>(
@@ -1750,8 +1815,42 @@ export default function HuntingMap() {
       ),
     [propertyPhotoTimings, currentMovementPhase, propertyLatitude, customRutPeak],
   );
+  // One movement score per timeline window, from that window's forecast.
+  const timelineForecasts = useMemo<MovementForecast[]>(() => {
+    if (!forecastMeta) return [];
+    const rutPhase = getSeasonContext(new Date(), seasonCalendar, propertyLatitude).phase;
+    return timelineSlots.map((slot) =>
+      movementForecast({
+        period: slot.period,
+        moonPhase: forecastMeta.moonPhase,
+        pressureTrend: slot.pressureTrend,
+        temperature: slot.temperature,
+        pressureDropInHg: slot.isNow ? forecastMeta.pressureDropInHg : null,
+        conditions: slot.conditions,
+        windMph: slot.windMph,
+        rutPhase,
+        propertySignal: propertyMovementSignal(
+          seasonalPhotos.photos,
+          slot.period,
+          forecastMeta.sunriseISO,
+          forecastMeta.sunsetISO,
+        ),
+      }),
+    );
+  }, [forecastMeta, timelineSlots, seasonCalendar, propertyLatitude, seasonalPhotos]);
+  const timelineViews = useMemo<TimelineSlotView[]>(
+    () =>
+      timelineSlots.map((slot, index) => ({
+        ...slot,
+        forecast: timelineForecasts[index] ?? null,
+      })),
+    [timelineSlots, timelineForecasts],
+  );
   const movementOutlook = useMemo<MovementForecast | null>(() => {
     if (!forecastMeta) return null;
+    if (showingFuture && selectedSlot) {
+      return timelineForecasts[timelineSlots.indexOf(selectedSlot)] ?? null;
+    }
 
     const propertySignal = propertyMovementSignal(
       seasonalPhotos.photos,
@@ -1778,6 +1877,10 @@ export default function HuntingMap() {
     windData?.speedMph,
     seasonCalendar,
     propertyLatitude,
+    showingFuture,
+    selectedSlot,
+    timelineForecasts,
+    timelineSlots,
   ]);
   // Push the same camera-timing signal down to each corridor via nearby cameras.
   const corridorEvidenceById = useMemo(
@@ -1835,9 +1938,9 @@ export default function HuntingMap() {
   const SCENT_CONE_HALF_ANGLE = 34;
   const SCENT_RANGE_METERS = 400;
   const pendingScent = useMemo(() => {
-    if (!pendingPin || !pendingWantsWind || !windData?.fromCompass) return null;
+    if (!pendingPin || !pendingWantsWind || !liveWind?.fromCompass) return null;
 
-    const fromDeg = compassToDegrees(windData.fromCompass);
+    const fromDeg = compassToDegrees(liveWind.fromCompass);
     if (fromDeg === null) return null;
 
     const downwindDeg = (fromDeg + 180) % 360;
@@ -1870,7 +1973,7 @@ export default function HuntingMap() {
           : { tone: "good" as const, text: "clear of bedding" };
 
     return { downwindDeg, drift, verdict };
-  }, [pendingPin, pendingWantsWind, windData?.fromCompass, beddingPoints]);
+  }, [pendingPin, pendingWantsWind, liveWind?.fromCompass, beddingPoints]);
   // Nearest existing asset to the pending pin, in yards — for spacing cameras
   // and stands and judging range while positioning a new one.
   const pendingNearest = useMemo(() => {
@@ -1890,7 +1993,7 @@ export default function HuntingMap() {
   // Per-point scent safety for a planned access route: a point is flagged when
   // your scent there blows into bedding (bedding downwind within range) — the
   // same test the pin's scent cone uses, applied along the walk-in.
-  const routeWindFrom = windData?.fromCompass;
+  const routeWindFrom = liveWind?.fromCompass;
   const routeSafety = useMemo(() => {
     const fromDeg = routeWindFrom ? compassToDegrees(routeWindFrom) : null;
 
@@ -2093,12 +2196,14 @@ export default function HuntingMap() {
 
         if (result.status !== "ok") {
           setWindData(null);
+          setForecastDays([]);
           setForecastMeta(null);
           setForecastStatus("error");
           return;
         }
 
         const { current, sunrise, sunset, pressure } = result.forecast;
+        setForecastDays(result.forecast.days);
         setWindData({
           fromCompass: current.windDirection,
           speedLabel: current.windSpeed,
@@ -2604,6 +2709,7 @@ export default function HuntingMap() {
     // dismisses the parcel card.
     if (pick) setSelectedAssetId(null);
     setTileOwnerPick(pick);
+    setTileOwnerAt(pick ? at : null);
 
     const requestId = tileOwnerDetailRequestRef.current + 1;
     tileOwnerDetailRequestRef.current = requestId;
@@ -2805,9 +2911,9 @@ export default function HuntingMap() {
   // comes from) so your scent blows behind you. A starting point, still
   // adjustable by tapping the map.
   function aimIntoWind() {
-    if (!windData?.fromCompass) return;
+    if (!liveWind?.fromCompass) return;
     buzz(14);
-    setPendingFacing(windData.fromCompass);
+    setPendingFacing(liveWind.fromCompass);
   }
 
   // "Confirm" on a camera/stand first advances to the aim step; on anything else
@@ -3597,6 +3703,18 @@ export default function HuntingMap() {
             onCreateAssetHere={createAssetFromSearchResult}
             onSearch={searchAddressOrPlace}
             onSelectResult={selectSearchResult}
+            ownerSearch={ownerSearch}
+            onSelectOwner={(hit) => {
+              setSearchTarget({
+                center: [hit.lat, hit.lng],
+                id: Date.now(),
+                zoom: Math.max(latestMapZoomRef.current, 16),
+              });
+              handleTileOwnerPick(
+                { ownerName: hit.ownerName, acres: hit.acres, isPublic: hit.isPublic },
+                { lat: hit.lat, lng: hit.lng },
+              );
+            }}
             onClear={() => {
               setSearchMessage("");
               setSearchResults([]);
@@ -3876,6 +3994,9 @@ export default function HuntingMap() {
                 !isTrackingBlood
               }
               onOwnerPick={handleTileOwnerPick}
+              ownerTags={ownerTagKinds}
+              selectedOwner={tileOwnerPick?.ownerName ?? null}
+              onSearchReady={setOwnerSearch}
             />
 
             <MapSearchTargetController
@@ -4205,6 +4326,27 @@ export default function HuntingMap() {
             />
           ) : null}
 
+          {forecastStatus === "ok" && timelineViews.length > 0 ? (
+            <div
+              className={
+                timelineOpen
+                  ? "di-movement-timeline-wrap di-movement-timeline-wrap--open"
+                  : "di-movement-timeline-wrap"
+              }
+            >
+              <MovementTimeline
+                open={timelineOpen}
+                onOpenChange={(open) => {
+                  setTimelineOpen(open);
+                  if (!open) setTimelineKey(null);
+                }}
+                slots={timelineViews}
+                selectedKey={timelineKey}
+                onSelect={setTimelineKey}
+              />
+            </div>
+          ) : null}
+
           {/* All three bottom-right cards share one column so they stack instead
               of piling on top of each other. On mobile the wrapper is display:
               contents, so each card keeps its own placement (legend bottom-left,
@@ -4218,6 +4360,7 @@ export default function HuntingMap() {
                 showDeerHeat={showDeerHeat}
                 showCameraHeat={showCameraHeat}
                 period={movementPeriod}
+                showLand={mapZoom >= PARCEL_TILES_MIN_ZOOM}
               />
             ) : null}
 
@@ -4304,7 +4447,7 @@ export default function HuntingMap() {
             playSection={
               selectedPropertyId ? (
                 <TodaysPlayPanel
-                  windFromCompass={windData?.fromCompass ?? ""}
+                  windFromCompass={liveWind?.fromCompass ?? ""}
                   plays={todaysPlay}
                   onSelect={(assetId) => {
                     const asset = visibleAssets.find(
@@ -4391,8 +4534,8 @@ export default function HuntingMap() {
                         : null),
                   }}
                 >
-                  {pendingScent && windData
-                    ? `Wind ${windData.fromCompass} ${windData.speedLabel} · scent → ${pendingScent.drift}${
+                  {pendingScent && liveWind
+                    ? `Wind ${liveWind.fromCompass} ${liveWind.speedLabel} · scent → ${pendingScent.drift}${
                         pendingScent.verdict
                           ? ` · ${pendingScent.verdict.text}`
                           : ""
@@ -4405,13 +4548,13 @@ export default function HuntingMap() {
                   {pendingNearest.yards} yd from {pendingNearest.label}
                 </span>
               ) : null}
-              {pendingStep === "aim" && windData?.fromCompass ? (
+              {pendingStep === "aim" && liveWind?.fromCompass ? (
                 <button
                   type="button"
                   style={pendingSuggestButtonStyle}
                   onClick={aimIntoWind}
                 >
-                  🧭 Face into wind ({windData.fromCompass})
+                  🧭 Face into wind ({liveWind.fromCompass})
                 </button>
               ) : null}
               {pendingStep === "place" ? (
@@ -4837,21 +4980,38 @@ export default function HuntingMap() {
           {tileOwnerPick ? (
             <ParcelOwnerInfoCard
               ownerName={tileOwnerPick.ownerName}
-              lines={[
-                {
-                  label: "Acres",
-                  value: ownerAcresText(tileOwnerPick.acres) || "Not listed",
-                },
-                {
-                  label: "Land",
-                  value: tileOwnerPick.isPublic
-                    ? "Public / government"
-                    : "Private",
-                },
-                ...countyRecordLines(tileOwnerDetail),
-              ]}
+              summary={`${tileOwnerPick.isPublic ? "Public" : "Private"} · ${
+                ownerAcresText(tileOwnerPick.acres) || "acres not listed"
+              }`}
+              lines={countyRecordLines(tileOwnerDetail)}
+              tag={landTags[landTagKey(tileOwnerPick.ownerName)]?.kind ?? null}
+              onTag={
+                tileOwnerAt
+                  ? (kind) =>
+                      setLandTag(
+                        {
+                          ownerName: tileOwnerPick.ownerName,
+                          acres: tileOwnerPick.acres,
+                          lat: tileOwnerAt.lat,
+                          lng: tileOwnerAt.lng,
+                        },
+                        kind,
+                      )
+                  : undefined
+              }
+              distanceLabel={
+                tileOwnerAt && terrainPoint
+                  ? `${(
+                      distanceBetweenMeters(
+                        { ...terrainPoint, at: "" },
+                        { ...tileOwnerAt, at: "" },
+                      ) / 1609.34
+                    ).toFixed(1)} mi from ${selectedProperty?.name ?? "your property"}`
+                  : null
+              }
               onClose={() => {
                 setTileOwnerPick(null);
+                setTileOwnerAt(null);
                 setTileOwnerDetail(IDLE_PARCEL_OWNER_LOOKUP_STATE);
                 tileOwnerDetailRequestRef.current += 1;
               }}

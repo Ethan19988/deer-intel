@@ -10,6 +10,7 @@ import {
   type Layout,
 } from "protomaps-leaflet";
 import { ownerAcresText } from "@/lib/ownerLabel";
+import { landTagKey, type LandTagKind } from "@/lib/landTags";
 
 // Statewide land-owner parcels, served as a single PMTiles vector-tile archive
 // and rendered client-side. Unlike the baked-JSON overlay (which loads every
@@ -536,14 +537,52 @@ type ParcelTilesLayerProps = {
     pick: ParcelTileOwnerPick | null,
     at: { lat: number; lng: number },
   ) => void;
+  /** Owner names you've tagged (keyed by landTagKey) → how to color them. */
+  ownerTags?: Record<string, LandTagKind>;
+  /** Owner of the parcel whose card is open, drawn with a bright outline. */
+  selectedOwner?: string | null;
+  /** Receives a search over the parcels loaded in the current view. */
+  onSearchReady?: (search: ((query: string) => ParcelTileOwnerHit[]) | null) => void;
+};
+
+/** One owner found by searching the parcels already loaded on screen. */
+export type ParcelTileOwnerHit = {
+  ownerName: string;
+  acres: number;
+  isPublic: boolean;
+  lat: number;
+  lng: number;
 };
 
 export default function ParcelTilesLayer({
   enabled,
   pickEnabled = false,
   onOwnerPick,
+  ownerTags,
+  selectedOwner,
+  onSearchReady,
 }: ParcelTilesLayerProps) {
   const map = useMap();
+
+  // Paint rules read tags and the selection through a ref, so tagging a parcel
+  // repaints the tiles instead of rebuilding the whole layer.
+  const styleRef = useRef({
+    tags: ownerTags ?? {},
+    selected: selectedOwner ? landTagKey(selectedOwner) : "",
+  });
+  const layerRef = useRef<{ redraw?: () => void } | null>(null);
+  const tagSignature = JSON.stringify(ownerTags ?? {});
+  const selectedKey = selectedOwner ? landTagKey(selectedOwner) : "";
+  useEffect(() => {
+    styleRef.current = { tags: ownerTags ?? {}, selected: selectedKey };
+    layerRef.current?.redraw?.();
+    // tagSignature stands in for ownerTags so a new-but-equal object doesn't repaint.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tagSignature, selectedKey]);
+  const searchReadyRef = useRef(onSearchReady);
+  useEffect(() => {
+    searchReadyRef.current = onSearchReady;
+  });
 
   // The click handler reads these through a ref so toggling pick mode (e.g.
   // while placing a pin) doesn't tear down and re-create the tile layer.
@@ -555,20 +594,34 @@ export default function ParcelTilesLayer({
   useEffect(() => {
     if (!enabled) return;
 
+    const ownerKeyOf = (feature: { props: Record<string, unknown> }) =>
+      landTagKey(String(feature.props.owner ?? ""));
+    const tagOf = (feature: { props: Record<string, unknown> }) =>
+      styleRef.current.tags[ownerKeyOf(feature)];
+
     const layer = leafletLayer({
       url: PMTILES_URL,
       zIndex: PARCEL_TILES_Z_INDEX,
       // Tiles top out at z15; keep drawing them (overzoomed) past that.
       maxDataZoom: 15,
       paintRules: [
-        // Public / government land gets a translucent blaze fill.
+        // Public / government land gets a translucent green fill.
         {
           dataLayer: "parcels",
           symbolizer: new PolygonSymbolizer({
-            fill: "#f97316",
-            opacity: 0.18,
+            fill: "#5f8c46",
+            opacity: 0.32,
           }),
           filter: (_z, f) => f.props.pub === 1,
+        },
+        // Land you have permission to hunt: a soft olive fill.
+        {
+          dataLayer: "parcels",
+          symbolizer: new PolygonSymbolizer({
+            fill: "#6b7a4f",
+            opacity: 0.28,
+          }),
+          filter: (_z, f) => tagOf(f) === "permission",
         },
         // Boundaries are drawn twice: a dark casing, then the bright line on
         // top of it. A single light hairline is the amateur tell — it holds up
@@ -591,6 +644,35 @@ export default function ParcelTilesLayer({
             opacity: 0.95,
           }),
         },
+        // Tagged land and the parcel you tapped sit on top of the plain lines.
+        {
+          dataLayer: "parcels",
+          symbolizer: new LineSymbolizer({
+            color: "#a9b88a",
+            width: 2.6,
+          }),
+          filter: (_z, f) => tagOf(f) === "permission",
+        },
+        {
+          dataLayer: "parcels",
+          symbolizer: new LineSymbolizer({
+            color: "#c9ccc2",
+            width: 2.2,
+            opacity: 0.9,
+          }),
+          filter: (_z, f) => tagOf(f) === "neighbor",
+        },
+        {
+          dataLayer: "parcels",
+          symbolizer: new LineSymbolizer({
+            color: "#ffffff",
+            width: 3.4,
+          }),
+          filter: (_z, f) => {
+            const selected = styleRef.current.selected;
+            return Boolean(selected) && ownerKeyOf(f) === selected;
+          },
+        },
       ],
       labelRules: [
         // Preferred: the baked holding points. One per owner holding, anchored
@@ -609,6 +691,55 @@ export default function ParcelTilesLayer({
     });
 
     layer.addTo(map);
+    layerRef.current = layer as unknown as { redraw?: () => void };
+
+    // Search the parcels already loaded around the current view by owner name.
+    // The statewide archive has no owner index, so this covers what's on
+    // screen (plus a margin), not the whole state.
+    const searchInView = (query: string): ParcelTileOwnerHit[] => {
+      const needle = query.trim().toUpperCase();
+      if (needle.length < 2) return [];
+      const bounds = map.getBounds();
+      const center = map.getCenter();
+      const hits = new Map<string, ParcelTileOwnerHit>();
+      const latStep = (bounds.getNorth() - bounds.getSouth()) / 4;
+      const lngStep = (bounds.getEast() - bounds.getWest()) / 4;
+      for (let row = 1; row <= 3; row += 1) {
+        for (let col = 1; col <= 3; col += 1) {
+          const lat = bounds.getSouth() + latStep * row;
+          const lng = bounds.getWest() + lngStep * col;
+          const picked = layer.queryTileFeaturesDebug(lng, lat, 256);
+          for (const picks of picked.values()) {
+            for (const pick of picks) {
+              if (pick.layerName !== "parcels") continue;
+              const ownerName = String(pick.feature.props.owner ?? "").trim();
+              if (!ownerName || !ownerName.toUpperCase().includes(needle)) continue;
+              const key = landTagKey(ownerName);
+              const acres = Number(pick.feature.props.acres) || 0;
+              const existing = hits.get(key);
+              if (existing) {
+                existing.acres = Math.max(existing.acres, acres);
+                continue;
+              }
+              hits.set(key, {
+                ownerName,
+                acres,
+                isPublic: pick.feature.props.pub === 1,
+                lat,
+                lng,
+              });
+            }
+          }
+        }
+      }
+      return [...hits.values()]
+        .sort(
+          (a, b) =>
+            center.distanceTo([a.lat, a.lng]) - center.distanceTo([b.lat, b.lng]),
+        )
+        .slice(0, 12);
+    };
+    searchReadyRef.current?.(searchInView);
 
     // Tap-to-identify against the tiles already in the browser (despite the
     // "Debug" name, queryTileFeaturesDebug is the layer's public feature-picking
@@ -646,6 +777,8 @@ export default function ParcelTilesLayer({
     return () => {
       map.off("click", handleClick);
       layer.remove();
+      layerRef.current = null;
+      searchReadyRef.current?.(null);
     };
   }, [enabled, map]);
 

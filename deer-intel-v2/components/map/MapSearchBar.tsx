@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -10,6 +11,8 @@ import {
   type AddressSearchPlace,
   type MapCenter,
 } from "@/lib/propertyMap";
+import type { ParcelTileOwnerHit } from "@/components/map/ParcelTilesLayer";
+import { ownerAcresText } from "@/lib/ownerLabel";
 
 function SearchIcon() {
   return (
@@ -79,6 +82,9 @@ type MapSearchBarProps = {
   onSearch: (query: string) => void;
   onSelectResult: (result: AddressSearchPlace) => void;
   onClear: () => void;
+  /** Owner-name search over the parcels loaded in view (Land Owners on). */
+  ownerSearch?: ((query: string) => ParcelTileOwnerHit[]) | null;
+  onSelectOwner?: (hit: ParcelTileOwnerHit) => void;
 };
 
 export default function MapSearchBar({
@@ -93,6 +99,8 @@ export default function MapSearchBar({
   onSearch,
   onSelectResult,
   onClear,
+  ownerSearch,
+  onSelectOwner,
 }: MapSearchBarProps) {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -139,6 +147,24 @@ export default function MapSearchBar({
       window.clearTimeout(handle);
     };
   }, [query, showSuggestions]);
+
+  // Owner matches come straight from the loaded parcel tiles, so they're
+  // instant and need no debounce.
+  const ownerHits = useMemo(() => {
+    if (!ownerSearch || !showSuggestions || query.trim().length < 2) return [];
+    try {
+      return ownerSearch(query.trim());
+    } catch {
+      return [];
+    }
+  }, [ownerSearch, showSuggestions, query]);
+
+  function handleSelectOwner(hit: ParcelTileOwnerHit) {
+    setShowSuggestions(false);
+    setSuggestions([]);
+    onSelectOwner?.(hit);
+    setIsOpen(false);
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -193,7 +219,8 @@ export default function MapSearchBar({
     );
   }
 
-  const suggestionsVisible = showSuggestions && suggestions.length > 0;
+  const suggestionsVisible =
+    showSuggestions && (suggestions.length > 0 || ownerHits.length > 0);
 
   return (
     <div
@@ -209,7 +236,7 @@ export default function MapSearchBar({
         <input
           ref={inputRef}
           type="search"
-          placeholder="Search address or place"
+          placeholder={ownerSearch ? "Address, place or owner" : "Search address or place"}
           value={query}
           autoComplete="off"
           onChange={(event) => {
@@ -247,6 +274,36 @@ export default function MapSearchBar({
           role="listbox"
           aria-label="Address suggestions"
         >
+          {ownerHits.length > 0 ? (
+            <>
+              <p style={groupLabelStyle}>Owners · parcels in view</p>
+              {ownerHits.map((hit) => (
+                <button
+                  key={`${hit.ownerName}-${hit.lat}-${hit.lng}`}
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  style={suggestionRowStyle}
+                  onClick={() => handleSelectOwner(hit)}
+                >
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      ...ownerSwatchStyle,
+                      background: hit.isPublic ? "#5f8c46" : "#c9ccc2",
+                    }}
+                  />
+                  <span style={suggestionTextStyle}>{hit.ownerName}</span>
+                  <span style={ownerMetaStyle}>
+                    {ownerAcresText(hit.acres) || (hit.isPublic ? "Public" : "")}
+                  </span>
+                </button>
+              ))}
+              {suggestions.length > 0 ? (
+                <p style={groupLabelStyle}>Addresses</p>
+              ) : null}
+            </>
+          ) : null}
           {suggestions.map((text) => (
             <button
               key={text}
@@ -544,4 +601,30 @@ const createAssetTypeStyle: CSSProperties = {
   color: "#d7e7d3",
   fontSize: "0.78rem",
   fontWeight: 800,
+};
+
+const groupLabelStyle: CSSProperties = {
+  margin: 0,
+  padding: "0.45rem 0.7rem 0.3rem",
+  color: "#56705a",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.66rem",
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  borderBottom: "1px solid rgba(17, 23, 17, 0.08)",
+};
+
+const ownerSwatchStyle: CSSProperties = {
+  flex: "0 0 auto",
+  width: "10px",
+  height: "10px",
+  borderRadius: "2px",
+};
+
+const ownerMetaStyle: CSSProperties = {
+  flex: "0 0 auto",
+  marginLeft: "auto",
+  color: "#485248",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.72rem",
 };

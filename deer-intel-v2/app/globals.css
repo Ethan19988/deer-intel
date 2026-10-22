@@ -1170,7 +1170,6 @@ textarea {
   }
 
   .di-mobile-nav .di-mobile-more {
-    font-family: inherit;
     cursor: pointer;
   }
 
@@ -1998,4 +1997,43 @@ textarea {
   --di-brand-accent: #c23a2a;
   background: linear-gradient(180deg, #22100a 0%, #160905 100%);
   color: #ef8f7c;
+}
+
+/* ---- Movement timeline (map) ----------------------------------------------
+   Closed: a small button under the top controls. Open: a strip along the
+   bottom of the map (above the phone nav), over the property panel and
+   compass while it's in use. */
+.di-movement-timeline-wrap {
+  position: absolute;
+  z-index: 1150;
+  left: 50%;
+  bottom: 1rem;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.di-movement-timeline-wrap--open {
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(520px, calc(100% - 2rem));
+}
+
+@media (max-width: 720px) {
+  .di-page-shell-bare .di-movement-timeline-wrap {
+    left: auto;
+    right: 0.75rem;
+    top: 4.35rem;
+    bottom: auto;
+    transform: none;
+  }
+
+  .di-page-shell-bare .di-movement-timeline-wrap--open {
+    top: auto;
+    left: 0.5rem;
+    right: 0.5rem;
+    width: auto;
+    transform: none;
+    bottom: calc(4.4rem + env(safe-area-inset-bottom));
+    z-index: 2100;
+  }
 }
