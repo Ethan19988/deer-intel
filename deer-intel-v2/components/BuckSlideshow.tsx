@@ -233,9 +233,9 @@ const ageStyle: CSSProperties = {
 const nameStyle: CSSProperties = {
   fontFamily: "var(--font-display), system-ui, sans-serif",
   fontSize: "clamp(1.8rem, 8vw, 2.4rem)",
-  fontWeight: 800,
+  fontWeight: 400,
   lineHeight: 1.02,
-  letterSpacing: "-0.01em",
+  letterSpacing: "0.03em",
   textShadow: "0 2px 18px rgba(0, 0, 0, 0.5)",
 };
 

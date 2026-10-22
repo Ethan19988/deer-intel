@@ -14,6 +14,11 @@ import { buildHitListSlides } from "@/lib/hitListSlides";
 import { useMoonPhase } from "@/lib/useMoonPhase";
 import { useUnitPreferences } from "@/lib/units";
 import { useSeasonCalendar, getSeasonContext } from "@/lib/seasonCalendar";
+import { isBuckRecord } from "@/lib/hourlyActivity";
+import { getPhotoBuckNames, photoRecordTime } from "@/lib/photos";
+import type { PhotoRecord } from "@/types/photo";
+import type { HeroPhoto } from "@/components/TodayVerdictHero";
+import type { StripPhoto } from "@/components/CameraPhotoStrip";
 
 // Fixed pre-mount clock; any constant works. Keeps the server render and the
 // first client render identical, then the real clock takes over.
@@ -31,6 +36,7 @@ export function usePropertyToday(propertyId: string) {
   const stands = state.stands.filter((stand) => stand.propertyId === propertyId);
   const pins = state.pins.filter((pin) => pin.propertyId === propertyId);
   const hunts = state.hunts.filter((hunt) => hunt.propertyId === propertyId);
+  const photoRecords = state.photoRecords.filter((photo) => photo.propertyId === propertyId);
 
   const weatherPoint = resolvePropertyWeatherPoint(property ?? null, cameras, pins);
   const weatherKey = weatherPoint ? `${weatherPoint.lat},${weatherPoint.lng}` : "";
@@ -122,7 +128,41 @@ export function usePropertyToday(propertyId: string) {
       })
     : [];
 
+  // Newest photos first; the hero leads with the latest buck (else any deer).
+  const cameraName = (cameraId: string) =>
+    cameras.find((camera) => camera.id === cameraId)?.name ?? "Camera";
+  const photoDateLabel = (photo: PhotoRecord) => {
+    const time = photoRecordTime(photo);
+    return time
+      ? new Date(time).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+      : "";
+  };
+  const recentPhotos = photoRecords
+    .filter((photo) => Boolean(photo.imageId))
+    .sort((a, b) => photoRecordTime(b) - photoRecordTime(a));
+  const heroSource = recentPhotos.find(isBuckRecord) ?? recentPhotos[0];
+  const heroPhoto: HeroPhoto | null = heroSource?.imageId
+    ? {
+        imageId: heroSource.imageId,
+        caption: `${getPhotoBuckNames(heroSource)[0] ?? heroSource.species ?? "Deer"} on ${cameraName(heroSource.cameraSiteId)}`,
+        dateLabel: photoDateLabel(heroSource),
+      }
+    : null;
+
+  const stripPhotos: StripPhoto[] = recentPhotos.slice(0, 8).map((photo) => ({
+    id: photo.id,
+    imageId: photo.imageId!,
+    title: getPhotoBuckNames(photo)[0] ?? (photo.species || "Deer"),
+    subtitle: [cameraName(photo.cameraSiteId), photoDateLabel(photo)]
+      .filter(Boolean)
+      .join(", "),
+    href: `/properties/${photo.propertyId}/assets/${photo.cameraSiteId}#photos`,
+    isBuck: isBuckRecord(photo),
+  }));
+
   return {
+    heroPhoto,
+    stripPhotos,
     weatherPoint,
     weatherKey,
     forecast,

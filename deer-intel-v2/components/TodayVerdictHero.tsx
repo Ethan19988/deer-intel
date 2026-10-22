@@ -156,12 +156,14 @@ const heroStyle: CSSProperties = {
   color: "#f6f0dc",
   // A fixed dark forest base: the hero text is light in every theme, so the
   // no-photo fallback can't follow the (light) theme surface tokens.
-  backgroundColor: "#1f2b1c",
+  backgroundColor: "#10130f",
+  // Faint terrain contours, matching the property hero band.
   backgroundImage:
-    "radial-gradient(420px 300px at 100% 0%, rgba(214, 128, 52, 0.55), transparent 70%), radial-gradient(520px 380px at 0% 100%, rgba(47, 125, 67, 0.5), transparent 70%), linear-gradient(160deg, #2a3a25 0%, #1a2417 100%)",
+    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='300' viewBox='0 0 600 300'%3E%3Cg fill='none' stroke='%231f251c' stroke-width='1'%3E%3Cpath d='M-10 230C90 150 210 120 330 135S540 190 610 240'/%3E%3Cpath d='M40 240C120 185 220 165 325 172S500 215 560 250'/%3E%3Cpath d='M100 250C160 215 230 205 320 210S440 232 490 258'/%3E%3Cpath d='M-10 80C100 40 230 30 340 55S520 80 610 50'/%3E%3Cpath d='M-10 115C110 75 240 68 350 88S530 108 610 84'/%3E%3C/g%3E%3C/svg%3E\")",
   backgroundSize: "cover",
   backgroundPosition: "center 30%",
-  boxShadow: "0 18px 40px rgba(20, 28, 16, 0.28)",
+  border: "1px solid #23281f",
+  boxShadow: "none",
 };
 
 const contextStyle: CSSProperties = {
@@ -182,10 +184,10 @@ const contextPropertyStyle: CSSProperties = {
 const headlineStyle: CSSProperties = {
   margin: 0,
   fontFamily: "var(--font-display), system-ui, sans-serif",
-  fontSize: "clamp(2.4rem, 11vw, 3.6rem)",
-  fontWeight: 800,
+  fontSize: "clamp(2.6rem, 12vw, 3.9rem)",
+  fontWeight: 400,
   lineHeight: 0.98,
-  letterSpacing: "-0.02em",
+  letterSpacing: "0.02em",
   textWrap: "balance",
   textShadow: "0 2px 24px rgba(0, 0, 0, 0.45)",
 };

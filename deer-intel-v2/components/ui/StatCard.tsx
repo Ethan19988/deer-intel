@@ -102,7 +102,7 @@ const valueStyle: CSSProperties = {
   fontSize: "2.6rem",
   fontWeight: 400,
   lineHeight: 1,
-  letterSpacing: "-0.02em",
+  letterSpacing: "0.02em",
   fontVariantNumeric: "tabular-nums",
 };
 

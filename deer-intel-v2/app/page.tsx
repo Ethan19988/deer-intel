@@ -20,7 +20,6 @@ import DeerHoursChart from "@/components/DeerHoursChart";
 import {
   ACTIVITY_WINDOW_DAYS,
   buildHourlyActivity,
-  isBuckRecord,
 } from "@/lib/hourlyActivity";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { getSupabaseClient } from "@/lib/supabaseClient";
@@ -30,12 +29,10 @@ import {
   type RegionalActivity,
 } from "@/lib/sharedSightings";
 import StandCheckPanel from "@/components/StandCheckPanel";
-import TodayVerdictHero, { type HeroPhoto } from "@/components/TodayVerdictHero";
+import TodayVerdictHero from "@/components/TodayVerdictHero";
 import ConditionsStrip from "@/components/ConditionsStrip";
-import CameraPhotoStrip, { type StripPhoto } from "@/components/CameraPhotoStrip";
+import CameraPhotoStrip from "@/components/CameraPhotoStrip";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
-import { getPhotoBuckNames, photoRecordTime } from "@/lib/photos";
-import type { PhotoRecord } from "@/types/photo";
 import BackupReminderBanner from "@/components/BackupReminderBanner";
 import SetupChecklist from "@/components/SetupChecklist";
 import { buildSetupChecklist } from "@/lib/setupChecklist";
@@ -94,6 +91,8 @@ export default function Home() {
     verdict,
     activeSitKey,
     hitListSlides,
+    heroPhoto,
+    stripPhotos,
   } = usePropertyToday(activePropertyId);
   const { user } = useAuth();
   const [regionalActivity, setRegionalActivity] = useState<RegionalActivity | null>(null);
@@ -131,36 +130,6 @@ export default function Home() {
       ? regionalActivity
       : hourlyActivity;
 
-  const cameraName = (cameraId: string) =>
-    propertyCameras.find((camera) => camera.id === cameraId)?.name ?? "Camera";
-  const recentPhotos = propertyPhotoRecords
-    .filter((photo) => Boolean(photo.imageId))
-    .sort((a, b) => photoRecordTime(b) - photoRecordTime(a));
-  const isBuckPhoto = isBuckRecord;
-  const photoDateLabel = (photo: PhotoRecord) => {
-    const time = photoRecordTime(photo);
-    return time
-      ? new Date(time).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-      : "";
-  };
-  const heroSource = recentPhotos.find(isBuckPhoto) ?? recentPhotos[0];
-  const heroPhoto: HeroPhoto | null = heroSource?.imageId
-    ? {
-        imageId: heroSource.imageId,
-        caption: `${getPhotoBuckNames(heroSource)[0] ?? heroSource.species ?? "Deer"} on ${cameraName(heroSource.cameraSiteId)}`,
-        dateLabel: photoDateLabel(heroSource),
-      }
-    : null;
-  const stripPhotos: StripPhoto[] = recentPhotos.slice(0, 8).map((photo) => ({
-    id: photo.id,
-    imageId: photo.imageId!,
-    title: getPhotoBuckNames(photo)[0] ?? (photo.species || "Deer"),
-    subtitle: [cameraName(photo.cameraSiteId), photoDateLabel(photo)]
-      .filter(Boolean)
-      .join(", "),
-    href: `/properties/${photo.propertyId}/assets/${photo.cameraSiteId}#photos`,
-    isBuck: isBuckPhoto(photo),
-  }));
 
   return (
     <PageShell maxWidth="980px">

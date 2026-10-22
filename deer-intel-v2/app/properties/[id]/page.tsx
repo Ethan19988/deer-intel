@@ -27,12 +27,14 @@ import ConditionsStrip from "@/components/ConditionsStrip";
 import StandCheckPanel from "@/components/StandCheckPanel";
 import StandWindGrid from "@/components/StandWindGrid";
 import BuckSlideshow from "@/components/BuckSlideshow";
+import CameraPhotoStrip from "@/components/CameraPhotoStrip";
 import RutRibbon from "@/components/season/RutRibbon";
 import { usePropertyToday } from "@/lib/usePropertyToday";
 import Tabs from "@/components/ui/Tabs";
 import PropertyPatternReport from "@/components/properties/PropertyPatternReport";
 import { buildPropertyPatternReport } from "@/lib/propertyPatterns";
 import {
+  activeCameraCount,
   getAiConfidence,
   getKnowledgeScore,
   getRecentActivity,
@@ -251,7 +253,7 @@ export default function PropertyWorkspacePage() {
       <TodayVerdictHero
         verdict={today.verdict}
         propertyName={property.name}
-        photo={null}
+        photo={today.heroPhoto}
       />
 
       <ConditionsStrip
@@ -285,6 +287,8 @@ export default function PropertyWorkspacePage() {
 
       <BuckSlideshow slides={today.hitListSlides} />
 
+      <CameraPhotoStrip photos={today.stripPhotos} allHref="/cameras" />
+
       <RutRibbon
         phase={today.seasonCtx.phase}
         phaseLabel={today.seasonCtx.phaseLabel}
@@ -293,12 +297,18 @@ export default function PropertyWorkspacePage() {
 
       <nav aria-label="On this property" style={shortcutGridStyle}>
         {[
-          { href: "/cameras", label: "Cameras", count: propertyCameras.length },
+          {
+            href: "/cameras",
+            label: `Cameras · ${activeCameraCount(propertyCameras)} active`,
+            count: propertyCameras.length,
+          },
           { href: "/stands", label: "Stands", count: standCount },
           { href: "/hit-list", label: "Bucks", count: deerProfileCount },
           { href: "/hunt-log", label: "Sits logged", count: propertyHunts.length },
+          { href: "/map", label: "Map pins", count: propertyPins.length },
+          { href: "/map", label: "Saved walks", count: propertyWalkTracks.length },
         ].map((item) => (
-          <Link key={item.href} href={item.href} style={shortcutStyle}>
+          <Link key={item.label} href={item.href} style={shortcutStyle}>
             <span style={shortcutCountStyle}>{item.count}</span>
             <span style={shortcutLabelStyle}>{item.label}</span>
           </Link>
@@ -500,7 +510,7 @@ const backTextLinkStyle: CSSProperties = {
 // (this property stays selected), instead of duplicating them here.
 const shortcutGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
   gap: "0.5rem",
 };
 
