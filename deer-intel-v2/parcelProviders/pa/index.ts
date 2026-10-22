@@ -20,6 +20,21 @@ const NORTHAMPTON_PARCEL_OWNER_SERVICE_URL =
 const WAYNE_PARCEL_OWNER_SERVICE_URL =
   "https://services1.arcgis.com/VMKRr2Ecl6EFwJpm/arcgis/rest/services/TaxParcels/FeatureServer";
 
+// Carbon County runs its own ArcGIS Server; "Parcels Universal" carries the
+// assessment owner, deeded acreage and parcel location.
+const CARBON_PARCEL_OWNER_SERVICE_URL =
+  "https://gis.carboncounty.com/arcgis/rest/services/Parcels_Universal/MapServer";
+
+// Mifflin County republishes its parcels under a date-stamped name (parcelsMMDDYY
+// / parcels_MMDDYY), keeping the older copies. Tap-to-identify points at the
+// Oct 2026 copy; the tile build looks up the newest one each run.
+const MIFFLIN_PARCEL_OWNER_SERVICE_URL =
+  "https://gis.mifflincountypa.gov/arcgis/rest/services/Hosted/parcels_102126/FeatureServer";
+
+// Pike County's own ArcGIS Server parcel layer (layer 1) with assessment owners.
+const PIKE_PARCEL_OWNER_SERVICE_URL =
+  "https://gis.pikepa.org/arcgis/rest/services/PikeCo_Parcels/MapServer";
+
 // PASDA hosts a per-county parcel MapServer for every PA county at
 // .../pasda/<County>County/MapServer. Coverage of owner fields varies by
 // county, so each supported county is configured explicitly below.
@@ -180,6 +195,18 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     source: "County ArcGIS",
     status: "supported",
   },
+  Carbon: {
+    acreageFieldNames: ["DeedAcr", "CALCAC"],
+    addressFieldNames: ["Location"],
+    geometrySupport: "polygon",
+    notes: "Carbon County ArcGIS Server parcels with assessment owner names.",
+    ownerFieldNames: ["Owner"],
+    parcelIdFieldNames: ["PIN", "ParcelID"],
+    parcelLayerId: 0,
+    parcelServiceUrl: CARBON_PARCEL_OWNER_SERVICE_URL,
+    source: "County ArcGIS",
+    status: "supported",
+  },
   Chester: {
     acreageFieldNames: ["ACRE_PLAN_", "ACRE_PLAN1"],
     addressFieldNames: ["LOC_ADDRES"],
@@ -242,6 +269,18 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     source: "PASDA",
     status: "supported",
   },
+  Mifflin: {
+    acreageFieldNames: ["deed_acres", "avacres"],
+    addressFieldNames: ["situs_comb"],
+    geometrySupport: "polygon",
+    notes: "Mifflin County hosted parcels with assessment owner names.",
+    ownerFieldNames: ["short_name"],
+    parcelIdFieldNames: ["account"],
+    parcelLayerId: 0,
+    parcelServiceUrl: MIFFLIN_PARCEL_OWNER_SERVICE_URL,
+    source: "County ArcGIS",
+    status: "supported",
+  },
   Montgomery: {
     acreageFieldNames: ["LAND_ACRES"],
     addressFieldNames: ["LOCATION1"],
@@ -264,6 +303,18 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     parcelIdFieldNames: ["PARCEL_ID", "CAMA_ID"],
     parcelLayerId: 0,
     parcelServiceUrl: NORTHAMPTON_PARCEL_OWNER_SERVICE_URL,
+    source: "County ArcGIS",
+    status: "supported",
+  },
+  Pike: {
+    acreageFieldNames: ["Acreage"],
+    addressFieldNames: ["Situs"],
+    geometrySupport: "polygon",
+    notes: "Pike County ArcGIS Server parcels with assessment owner names.",
+    ownerFieldNames: ["Name"],
+    parcelIdFieldNames: ["Control", "MAP_JOIN"],
+    parcelLayerId: 1,
+    parcelServiceUrl: PIKE_PARCEL_OWNER_SERVICE_URL,
     source: "County ArcGIS",
     status: "supported",
   },
