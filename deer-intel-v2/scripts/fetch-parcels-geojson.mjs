@@ -309,6 +309,80 @@ const COUNTIES = {
     pin: (p) => str(p.account),
     addr: (p) => cleanAddr(p.situs_comb),
   },
+  potter: {
+    layerUrl:
+      "https://maps.pottercountypa.net/arcgis/rest/services/TaxParcel/TaxParcels/MapServer/0",
+    // Owner_Name_2 often holds a "C/O" contact rather than a co-owner, so the
+    // label uses Owner_Name_1 alone.
+    outFields: ["Owner_Name_1", "Acreage", "Control_Number", "Situs_Complete"],
+    owner: (p) => str(p.Owner_Name_1),
+    acres: (p) => toAcres(p.Acreage),
+    pin: (p) => str(p.Control_Number),
+    addr: (p) => {
+      const loc = cleanAddr(p.Situs_Complete);
+      return /^unassigned$/i.test(loc) ? "" : loc;
+    },
+  },
+  lycoming: {
+    // Layer 4 joins the parcel polygons to an attribute table, so every field
+    // (and the GeoJSON property key) carries its table prefix. Layers 0-3 are
+    // single-field views of the same data.
+    layerUrl: "https://gis.lyco.org/arcgis/rest/services/Parcels/MapServer/4",
+    orderBy: "DBO.Parcels.OBJECTID",
+    outFields: [
+      "DBO.ParcelAttributes.FULL_NAME",
+      "DBO.ParcelAttributes.DEED_ACRES",
+      "DBO.Parcels.TXID_NMBR",
+      "DBO.ParcelAttributes.SITUS",
+    ],
+    owner: (p) => str(p["DBO.ParcelAttributes.FULL_NAME"]),
+    acres: (p) => toAcres(p["DBO.ParcelAttributes.DEED_ACRES"]),
+    pin: (p) => str(p["DBO.Parcels.TXID_NMBR"]),
+    addr: (p) => cleanAddr(p["DBO.ParcelAttributes.SITUS"]),
+  },
+  clearfield: {
+    // Served from Centre County's GIS host. ADD1-ADD4 + ZIP look like the
+    // owner's mailing address, so no parcel address is taken.
+    layerUrl:
+      "https://gissites4.centrecountypa.gov/arcgis/rest/services/CentreRoadsAdmin/MapServer/40",
+    outFields: ["NAME", "ACRES", "PIN"],
+    owner: (p) => str(p.NAME),
+    acres: (p) => toAcres(p.ACRES),
+    pin: (p) => str(p.PIN),
+    addr: () => "",
+  },
+  huntingdon: {
+    // Huntingdon's ArcGIS Online parcels joined to CAMA. Assessed acreage
+    // first, mapped acreage as the fallback.
+    layerUrl:
+      "https://services3.arcgis.com/liWtJPxLI3mlx8pH/arcgis/rest/services/Property_Lines/FeatureServer/1",
+    outFields: ["Owner_Name", "CAMA_ACRES", "MAP_ACRES", "TAXIDNUM"],
+    owner: (p) => str(p.Owner_Name),
+    acres: (p) => toAcres(p.CAMA_ACRES) || toAcres(p.MAP_ACRES),
+    pin: (p) => str(p.TAXIDNUM),
+    addr: () => "",
+  },
+  union: {
+    // CURR_NAME* is the current owner; JAN1_NAME* is the Jan 1 owner of record.
+    layerUrl:
+      "https://services8.arcgis.com/7YUdLQ8pDBKU1XYI/arcgis/rest/services/Parcels/FeatureServer/4",
+    orderBy: "FID",
+    outFields: ["CURR_NAME1", "CURR_NAME2", "mapped_acr", "gross_acre", "PID", "PHYSSTRADD"],
+    owner: (p) => joinFields(p, ["CURR_NAME1", "CURR_NAME2"]),
+    acres: (p) => toAcres(p.mapped_acr) || toAcres(p.gross_acre),
+    pin: (p) => str(p.PID),
+    addr: (p) => cleanAddr(p.PHYSSTRADD),
+  },
+  cambria: {
+    // Layer 8 "Surface Owners". Layer 7 "Tax Parcels" has no owner fields.
+    layerUrl:
+      "https://services1.arcgis.com/Fw15y9AZK02r2ZNA/arcgis/rest/services/GIS_Layers/FeatureServer/8",
+    outFields: ["OWNER_NAME_1", "OWNER_NAME_2", "ACREAGE", "CONTROL_NUMBER", "SITUS_DESC_1"],
+    owner: (p) => joinFields(p, ["OWNER_NAME_1", "OWNER_NAME_2"]),
+    acres: (p) => toAcres(p.ACREAGE),
+    pin: (p) => str(p.CONTROL_NUMBER),
+    addr: (p) => cleanAddr(p.SITUS_DESC_1),
+  },
 };
 
 // Picks Mifflin's newest Hosted/parcels<MMDDYY> (or parcels_<MMDDYY>) service.
