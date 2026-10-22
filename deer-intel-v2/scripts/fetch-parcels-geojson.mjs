@@ -132,9 +132,11 @@ const COUNTIES = {
   },
   fulton: {
     // PASDA has no owner data for Fulton; this is the county's own ArcGIS
-    // Online service (its OID field is FID, not OBJECTID).
+    // Online service (its OID field is FID, not OBJECTID). The Oct 2026
+    // republish moved the parcels from layer 0 to layer 6; layer 0's
+    // description still loads but every query on it fails.
     layerUrl:
-      "https://services6.arcgis.com/pcp4UiBBXQK2kACC/arcgis/rest/services/Fulton_Parcels/FeatureServer/0",
+      "https://services6.arcgis.com/pcp4UiBBXQK2kACC/arcgis/rest/services/Fulton_Parcels/FeatureServer/6",
     orderBy: "FID",
     outFields: ["Deeded_Nam", "Deeded_Acr", "PIN", "Location"],
     owner: (p) => str(p.Deeded_Nam),
@@ -177,10 +179,13 @@ const COUNTIES = {
       cleanAddr(joinFields(p, ["SitusSt", "SitusDir", "SitusDesc1", "SitusSufx"])),
   },
   chester: {
+    // The 2026 upload renamed ACRE_PLAN1 to ACRE_PLA_1 and made OBJECTID_1 the
+    // OID field. Requesting a field that no longer exists fails every query.
     layerUrl: PASDA("ChesterCounty", 11),
-    outFields: ["OWN1", "OWN2", "ACRE_PLAN_", "ACRE_PLAN1", "PIN_COMMON", "LOC_ADDRES"],
+    orderBy: "OBJECTID_1",
+    outFields: ["OWN1", "OWN2", "ACRE_PLAN_", "ACRE_PLA_1", "PIN_COMMON", "LOC_ADDRES"],
     owner: (p) => joinFields(p, ["OWN1", "OWN2"]),
-    acres: (p) => toAcres(p.ACRE_PLAN_ || p.ACRE_PLAN1),
+    acres: (p) => toAcres(p.ACRE_PLAN_ || p.ACRE_PLA_1),
     pin: (p) => str(p.PIN_COMMON),
     addr: (p) => cleanAddr(p.LOC_ADDRES),
   },
