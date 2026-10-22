@@ -41,9 +41,11 @@ for county in $COUNTIES; do
   # down is skipped with a warning rather than aborting the whole build.
   ok=0
   labels="$WORK/$county.labels.ndjson"
+  errlog="$WORK/$county.err"
   for attempt in 1 2 3; do
     if NODE_USE_ENV_PROXY="${NODE_USE_ENV_PROXY:-1}" \
-        node "$HERE/fetch-parcels-geojson.mjs" "$county" "$ndjson" "$labels"; then
+        node "$HERE/fetch-parcels-geojson.mjs" "$county" "$ndjson" "$labels" \
+        2> >(tee "$errlog" >&2); then
       ok=1
       break
     fi
@@ -55,6 +57,10 @@ for county in $COUNTIES; do
     [ -s "$labels" ] && labelInputs+=("$labels")
   else
     echo "WARNING: giving up on $county after 3 attempts; excluding it"
+    # A GitHub annotation (not just a log line) so a dropped county shows on
+    # the run summary instead of silently vanishing from the map.
+    reason="$(grep -m1 'FAILED:' "$errlog" 2>/dev/null || tail -n1 "$errlog" 2>/dev/null)"
+    echo "::warning title=Parcel county skipped::$county excluded from tiles after 3 attempts: ${reason:-unknown error}"
     failed+=("$county")
   fi
 done

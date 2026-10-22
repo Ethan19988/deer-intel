@@ -208,7 +208,9 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     status: "supported",
   },
   Chester: {
-    acreageFieldNames: ["ACRE_PLAN_", "ACRE_PLAN1"],
+    // ACRE_PLA_1 was ACRE_PLAN1 before the 2026 upload; a missing field makes
+    // the whole query fail.
+    acreageFieldNames: ["ACRE_PLAN_", "ACRE_PLA_1"],
     addressFieldNames: ["LOC_ADDRES"],
     geometrySupport: "polygon",
     notes: "PASDA Chester County parcel layer with assessment owner names.",
