@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import AddCameraCard from "@/components/cameras/AddCameraCard";
-import CameraCard from "@/components/cameras/CameraCard";
+import CameraSiteRow from "@/components/cameras/CameraSiteRow";
+import CameraPhotoStrip from "@/components/CameraPhotoStrip";
 import EditCameraCard from "@/components/cameras/EditCameraCard";
 import CameraIntelligenceSection from "@/components/cameras/CameraIntelligenceSection";
 import EmptyState from "@/components/ui/EmptyState";
@@ -15,7 +16,7 @@ import {
   PlusIcon,
 } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
-import Section from "@/components/ui/Section";
+import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Tabs from "@/components/ui/Tabs";
 import {
@@ -24,6 +25,7 @@ import {
 import { getCameraIntelligenceSummary } from "@/lib/cameraIntelligence";
 import { photoRecordTime } from "@/lib/photos";
 import { useAddFormRequest } from "@/lib/useAddFormRequest";
+import { buildStripPhotos } from "@/lib/photoStrip";
 import type { Camera } from "@/types/camera";
 
 // Chasing behavior seen on a photo this recent flags the rut-watch banner.
@@ -88,30 +90,22 @@ export default function CamerasPage() {
   if (state.properties.length === 0) {
     return (
       <PageShell>
-        <header className="di-section-hero" style={headerStyle}>
-          <div style={headerLeadStyle}>
-            <span style={headerIconStyle} aria-hidden="true">
-              <CameraIcon size={24} />
-            </span>
-            <div style={headerTitleWrapStyle}>
-              <p style={eyebrowStyle}>Cameras</p>
-              <h1 style={titleStyle}>Cameras</h1>
-            </div>
-          </div>
-        </header>
+        <PageHeader eyebrow="Trail cameras" title="Cameras" />
         <EmptyState
-          illustration={<CameraIcon size={30} />}
+          illustration={<CameraIcon size={28} />}
           title="No properties yet"
-          description="Add a property before setting camera sites."
+          description="Add a property first, then set up its camera sites."
           action={
-            <Link href="/properties" style={primaryLinkStyle} className="di-navbtn">
-              Add Property
+            <Link href="/properties" className="di-link-btn di-link-btn--primary">
+              Add property
             </Link>
           }
         />
       </PageShell>
     );
   }
+
+  const latestPhotos = buildStripPhotos(propertyPhotos, propertyCameras, 6);
 
   const sitesTab = (
     <div style={listStyle}>
@@ -126,9 +120,9 @@ export default function CamerasPage() {
       ) : null}
       {propertyCameras.length === 0 ? (
         <EmptyState
-          illustration={<CameraIcon size={30} />}
-          title="No camera sites for this property"
-          description="Add your first camera site above with its name, type, status, GPS, battery, card, and notes."
+          illustration={<CameraIcon size={28} />}
+          title="No camera sites yet"
+          description="Add your first camera above: name, type, GPS and which way it faces. Then import photos and tag your bucks."
         />
       ) : (
         <>
@@ -144,33 +138,26 @@ export default function CamerasPage() {
             </div>
           ) : null}
 
-          <Section
-            eyebrow="On this property"
-            title="Camera Sites"
-            icon={<CameraIcon size={18} />}
-            style={sectionStyle}
-          >
-            <div style={cardGridStyle}>
-              {propertyCameras.map((camera) => (
-                camera.id === editingId ? (
-                  <EditCameraCard
-                    key={camera.id}
-                    camera={camera}
-                    onDone={() => setEditingId(null)}
-                  />
-                ) : (
-                  <CameraCard
-                    key={camera.id}
-                    camera={camera}
-                    onEdit={editCamera}
-                    photoRecords={propertyPhotos.filter(
-                      (photo) => photo.cameraSiteId === camera.id,
-                    )}
-                  />
-                )
-              ))}
-            </div>
-          </Section>
+          <ul style={rowListStyle} aria-label="Camera sites">
+            {propertyCameras.map((camera) =>
+              camera.id === editingId ? (
+                <li key={camera.id} id={`camera-${camera.id}`} style={editItemStyle}>
+                  <EditCameraCard camera={camera} onDone={() => setEditingId(null)} />
+                </li>
+              ) : (
+                <CameraSiteRow
+                  key={camera.id}
+                  camera={camera}
+                  onEdit={editCamera}
+                  photoRecords={propertyPhotos.filter(
+                    (photo) => photo.cameraSiteId === camera.id,
+                  )}
+                />
+              ),
+            )}
+          </ul>
+
+          <CameraPhotoStrip photos={latestPhotos} layout="grid" />
         </>
       )}
     </div>
@@ -211,37 +198,33 @@ export default function CamerasPage() {
 
   return (
     <PageShell>
-      <header className="di-section-hero" style={headerStyle}>
-        <div style={headerLeadStyle}>
-          <span style={headerIconStyle} aria-hidden="true">
-            <CameraIcon size={24} />
-          </span>
-          <div style={headerTitleWrapStyle}>
-            <p style={eyebrowStyle}>Cameras</p>
-            <h1 style={titleStyle}>{selectedProperty?.name ?? "Cameras"}</h1>
-          </div>
-        </div>
-        <div style={headerRightStyle}>
-          <div style={headerActionsStyle}>
-            <Link href="/cameras/import" style={secondaryLinkStyle} className="di-navbtn">
-              <CameraIcon size={17} />
+      <PageHeader
+        eyebrow={selectedProperty?.name ?? "On this property"}
+        title="Cameras"
+        meta={
+          propertyCameras.length > 0
+            ? `${propertyCameras.length} sites · ${activeCameraCount} active · ${propertyPhotos.length} photos`
+            : undefined
+        }
+        action={
+          <>
+            <Link href="/cameras/import" className="di-link-btn">
               Import photos
             </Link>
             <a
               href="#add-camera"
-              style={primaryLinkStyle}
-              className="di-navbtn"
+              className="di-link-btn di-link-btn--primary"
               onClick={(event) => {
                 event.preventDefault();
                 addForm.request();
               }}
             >
-              <PlusIcon size={17} />
+              <PlusIcon size={16} />
               Add camera
             </a>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <Tabs
         items={[
@@ -266,75 +249,6 @@ function dateTime(date: string | undefined) {
   return Number.isNaN(time) ? 0 : time;
 }
 
-const headerStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: "1rem 1.25rem",
-  flexWrap: "wrap",
-  marginBottom: "1.5rem",
-};
-
-const headerLeadStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.85rem",
-  minWidth: 0,
-};
-
-const headerIconStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "3rem",
-  height: "3rem",
-  flex: "none",
-  borderRadius: "14px",
-  background: "rgba(243, 237, 217, 0.15)",
-  border: "1px solid rgba(243, 237, 217, 0.35)",
-  color: "#f6efd6",
-};
-
-const headerTitleWrapStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.25rem",
-  minWidth: 0,
-};
-
-const headerRightStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.6rem",
-  flex: "1 1 280px",
-  maxWidth: "460px",
-};
-
-const eyebrowStyle: CSSProperties = {
-  margin: 0,
-  color: "rgba(243, 237, 217, 0.82)",
-  fontSize: "0.78rem",
-  fontWeight: 800,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-};
-
-const titleStyle: CSSProperties = {
-  margin: 0,
-  color: "#f6f0dc",
-  fontSize: "2rem",
-  lineHeight: 1.1,
-  textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
-};
-
-
-
-
-// Two equal buttons on one row keeps the header short on a phone.
-const headerActionsStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "0.5rem",
-};
-
 const statGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))",
@@ -351,14 +265,17 @@ const listStyle: CSSProperties = {
   gap: "1rem",
 };
 
-const cardGridStyle: CSSProperties = {
+const rowListStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(min(300px, 100%), 1fr))",
-  gap: "1rem",
+  margin: 0,
+  padding: 0,
+  listStyle: "none",
+  borderTop: "1px solid var(--border)",
 };
 
-const sectionStyle: CSSProperties = {
-  marginTop: "0.25rem",
+const editItemStyle: CSSProperties = {
+  padding: "0.75rem 0",
+  borderBottom: "1px solid var(--border)",
 };
 
 const rutBannerStyle: CSSProperties = {
@@ -382,38 +299,8 @@ const rutIconStyle: CSSProperties = {
   width: "2.1rem",
   height: "2.1rem",
   flex: "none",
-  borderRadius: "10px",
+  borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
   border: "1px solid var(--accent-2-tint-border)",
   color: "var(--accent-2-text)",
-};
-
-const primaryLinkStyle: CSSProperties = {
-  display: "inline-flex",
-  minHeight: "44px",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "0.4rem",
-  padding: "0.7rem 0.95rem",
-  border: "1px solid var(--accent)",
-  borderRadius: "var(--radius-sm)",
-  background: "var(--accent)",
-  color: "white",
-  fontWeight: 800,
-  textDecoration: "none",
-};
-
-const secondaryLinkStyle: CSSProperties = {
-  display: "inline-flex",
-  minHeight: "44px",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "0.4rem",
-  padding: "0.7rem 0.95rem",
-  border: "1px solid rgba(243, 237, 217, 0.32)",
-  borderRadius: "var(--radius-sm)",
-  background: "rgba(243, 237, 217, 0.14)",
-  color: "#f6efd6",
-  fontWeight: 800,
-  textDecoration: "none",
 };

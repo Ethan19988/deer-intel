@@ -77,6 +77,7 @@ export default function TodayVerdictHero({
 
   return (
     <section
+      className="di-night-text"
       aria-label={`Next sit at ${propertyName}`}
       style={{
         ...heroStyle,

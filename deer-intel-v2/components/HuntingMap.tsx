@@ -1921,6 +1921,15 @@ export default function HuntingMap() {
   );
 
   const selectedAsset = mapAssets.find((asset) => asset.id === selectedAssetId);
+  // A card (parcel owner or asset) and the open timeline sheet would stack on
+  // a phone; the card is what was just tapped, so it wins.
+  const cardOpen = Boolean(tileOwnerPick) || Boolean(selectedAssetId);
+  useEffect(() => {
+    if (!cardOpen) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTimelineOpen(false);
+    setTimelineKey(null);
+  }, [cardOpen]);
   const selectedPin = selectedAsset?.pinId
     ? pins.find((pin) => pin.id === selectedAsset.pinId)
     : undefined;
@@ -4340,7 +4349,7 @@ export default function HuntingMap() {
             />
           ) : null}
 
-          {forecastStatus === "ok" && timelineViews.length > 0 ? (
+          {forecastStatus === "ok" && timelineViews.length > 0 && !scoutPanelYields ? (
             <div
               className={
                 timelineOpen
@@ -5557,7 +5566,7 @@ const drawActionBarStyle: CSSProperties = {
   width: "fit-content",
   maxWidth: "calc(100% - 1.5rem)",
   padding: "0.5rem 0.7rem",
-  border: "1px solid rgba(122, 194, 255, 0.55)",
+  border: "1px solid rgba(255, 106, 26, 0.55)",
   borderRadius: "var(--radius-sm)",
   background: "rgba(9, 24, 40, 0.92)",
   boxShadow: "0 6px 18px rgba(0, 0, 0, 0.35)",

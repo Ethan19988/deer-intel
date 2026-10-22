@@ -9,6 +9,8 @@ export type StripPhoto = {
   subtitle: string;
   href: string;
   isBuck: boolean;
+  /** Short date ("Sep 29") for the grid caption. */
+  dateLabel?: string;
 };
 
 // The newest trail-camera photos on the property, side-scrolling, so Today
@@ -16,23 +18,29 @@ export type StripPhoto = {
 export default function CameraPhotoStrip({
   photos,
   allHref,
+  layout = "row",
 }: {
   photos: StripPhoto[];
-  allHref: string;
+  allHref?: string;
+  /** "row" side-scrolls (Today); "grid" is two columns (Cameras page). */
+  layout?: "row" | "grid";
 }) {
   if (photos.length === 0) return null;
+  const grid = layout === "grid";
 
   return (
     <section style={sectionStyle} aria-label="Latest on camera">
       <div style={headerStyle}>
         <h2 style={titleStyle}>Latest on camera</h2>
-        <Link href={allHref} style={allLinkStyle}>
-          All photos
-        </Link>
+        {allHref ? (
+          <Link href={allHref} style={allLinkStyle}>
+            All photos →
+          </Link>
+        ) : null}
       </div>
-      <ul style={rowStyle}>
+      <ul style={grid ? gridStyle : rowStyle}>
         {photos.map((photo) => (
-          <li key={photo.id} style={itemStyle}>
+          <li key={photo.id} style={grid ? gridItemStyle : itemStyle}>
             <Link href={photo.href} style={cardLinkStyle}>
               <div style={frameWrapStyle}>
                 <PhotoImage
@@ -43,8 +51,17 @@ export default function CameraPhotoStrip({
                 />
                 {photo.isBuck ? <span style={buckTagStyle}>Buck</span> : null}
               </div>
-              <span style={photoTitleStyle}>{photo.title}</span>
-              <span style={photoSubStyle}>{photo.subtitle}</span>
+              {grid ? (
+                <span style={gridCaptionStyle}>
+                  <span style={gridTitleStyle}>{photo.title}</span>
+                  <span style={gridDateStyle}>{photo.dateLabel ?? ""}</span>
+                </span>
+              ) : (
+                <>
+                  <span style={photoTitleStyle}>{photo.title}</span>
+                  <span style={photoSubStyle}>{photo.subtitle}</span>
+                </>
+              )}
             </Link>
           </li>
         ))}
@@ -68,17 +85,62 @@ const headerStyle: CSSProperties = {
 const titleStyle: CSSProperties = {
   margin: 0,
   fontFamily: "var(--font-display), system-ui, sans-serif",
-  fontSize: "1.35rem",
-  fontWeight: 800,
+  fontSize: "1.6rem",
+  fontWeight: 400,
+  letterSpacing: "0.03em",
 };
 
 const allLinkStyle: CSSProperties = {
   minHeight: "44px",
   display: "inline-flex",
   alignItems: "center",
-  color: "var(--accent-text)",
-  fontWeight: 700,
+  color: "var(--text)",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.72rem",
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
   textDecoration: "none",
+};
+
+const gridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(min(160px, 45%), 1fr))",
+  gap: "0.5rem",
+  margin: 0,
+  padding: 0,
+  listStyle: "none",
+};
+
+const gridItemStyle: CSSProperties = {
+  minWidth: 0,
+};
+
+const gridCaptionStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "space-between",
+  gap: "0.5rem",
+  minWidth: 0,
+};
+
+const gridTitleStyle: CSSProperties = {
+  overflow: "hidden",
+  color: "var(--text)",
+  fontFamily: "var(--font-display), sans-serif",
+  fontSize: "1.2rem",
+  letterSpacing: "0.03em",
+  textOverflow: "ellipsis",
+  textTransform: "uppercase",
+  whiteSpace: "nowrap",
+};
+
+const gridDateStyle: CSSProperties = {
+  flex: "none",
+  color: "var(--text-muted)",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.68rem",
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
 };
 
 const rowStyle: CSSProperties = {

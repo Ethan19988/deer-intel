@@ -1049,7 +1049,9 @@ textarea {
 
 .di-page-header-action {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
   justify-content: flex-end;
 }
 
@@ -1198,18 +1200,11 @@ textarea {
     grid-template-columns: 1fr !important;
   }
 
-  .di-page-header {
-    display: grid !important;
-    gap: 1rem !important;
-  }
-
   .di-page-title {
-    font-size: 1.72rem !important;
-    line-height: 1.14 !important;
+    font-size: 2.6rem !important;
+    line-height: 0.95 !important;
   }
 
-  .di-page-header-action,
-  .di-page-header-action > *,
   .di-section-action,
   .di-section-action > * {
     width: 100% !important;
@@ -2027,6 +2022,14 @@ textarea {
     transform: none;
   }
 
+  /* One thing at a time in the bottom of a phone map: while a parcel/asset
+     card or the open timeline sheet is up, the layer keys step aside instead
+     of showing through underneath. */
+  .di-page-shell-bare:has(.di-map-card) .di-corner-stack,
+  .di-page-shell-bare:has(.di-movement-timeline-wrap--open) .di-corner-stack {
+    visibility: hidden;
+  }
+
   .di-page-shell-bare .di-movement-timeline-wrap--open {
     top: auto;
     left: 0.5rem;
@@ -2036,4 +2039,75 @@ textarea {
     bottom: calc(4.4rem + env(safe-area-inset-bottom));
     z-index: 2100;
   }
+}
+
+/* Link styled as a tactical button (for <Link> actions in headers and empty
+   states, where <Button> can't be used). */
+.di-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 46px;
+  padding: 0.72rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-display), "Arial Narrow", sans-serif;
+  font-size: 1.15rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.di-link-btn--primary {
+  border-color: var(--accent-2);
+  background: var(--accent-2);
+  color: var(--accent-2-fg);
+}
+
+/* Sit form: the deer-count steppers type numbers, so hide the browser's
+   own tiny spinner arrows. */
+.di-sit-form input[type="number"]::-webkit-inner-spin-button,
+.di-sit-form input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* ---- Night theme: tactical pieces with fixed colours ----
+   The hero bands, the parcel-owner card and the movement timeline were drawn
+   with fixed tactical colours (cream text, olive and blaze buttons). At night
+   everything goes red-on-black so nothing blasts your eyes. */
+:root[data-theme="night"] .di-section-hero {
+  background-color: var(--surface);
+  background-image: none;
+  border-color: var(--border);
+  color: var(--text);
+}
+:root[data-theme="night"] :is(.di-section-hero, .di-night-text)
+  :is(h1, h2, h3, p, span, strong, a, dd, dt, li) {
+  color: var(--text) !important;
+}
+:root[data-theme="night"] :is(.di-map-card, .di-movement-timeline, .di-movement-timeline-toggle) {
+  background: var(--surface) !important;
+  border-color: var(--border-strong) !important;
+  color: var(--text) !important;
+}
+:root[data-theme="night"] :is(.di-map-card, .di-movement-timeline, .di-movement-timeline-toggle)
+  :is(h2, h3, p, span, strong, li, button) {
+  color: var(--text) !important;
+}
+:root[data-theme="night"] :is(.di-map-card, .di-movement-timeline) button {
+  background: transparent !important;
+  border-color: var(--border-strong) !important;
+}
+:root[data-theme="night"] :is(.di-map-card, .di-movement-timeline)
+  button:is([aria-pressed="true"], [aria-selected="true"]) {
+  border-color: var(--accent) !important;
+  background: var(--accent-tint) !important;
+}
+:root[data-theme="night"] .di-movement-timeline [role="tab"] span[style*="height"] {
+  background: var(--accent) !important;
 }

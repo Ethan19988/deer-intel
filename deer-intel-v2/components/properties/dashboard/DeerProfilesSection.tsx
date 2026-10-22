@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import DeerProfileCard from "@/components/deer/DeerProfileCard";
-import DashboardSection from "@/components/properties/DashboardSection";
-import Badge from "@/components/ui/Badge";
+import Link from "next/link";
+import PhotoImage from "@/components/photos/PhotoImage";
 import EmptyState from "@/components/ui/EmptyState";
+import { DeerIcon } from "@/components/ui/FieldIcons";
+import { buildHitListSlides } from "@/lib/hitListSlides";
 import { getDeerConditionInsights } from "@/lib/deerConditionInsights";
 import { getDeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
 import type { DeerProfileSummary } from "@/lib/deerProfiles";
@@ -39,104 +41,134 @@ export default function DeerProfilesSection({
   pins,
   initialProfileId,
 }: DeerProfilesSectionProps) {
+  // The hit list opens collapsed; a link that names a buck (?buck=) opens his.
   const [selectedProfileId, setSelectedProfileId] = useState<string>(() =>
     initialProfileId &&
     summaries.some((summary) => summary.profile.id === initialProfileId)
       ? initialProfileId
-      : (summaries[0]?.profile.id ?? ""),
+      : "",
   );
 
-  // Keep a valid buck selected as profiles are added or removed: fall back to
-  // the first buck whenever the current pick disappears.
+  // A buck that's been deleted can't stay open.
   useEffect(() => {
-    if (summaries.length === 0) {
-      if (selectedProfileId !== "") setSelectedProfileId("");
-      return;
-    }
-
-    const stillExists = summaries.some(
-      (summary) => summary.profile.id === selectedProfileId,
-    );
-
-    if (!stillExists) {
-      setSelectedProfileId(summaries[0].profile.id);
+    if (
+      selectedProfileId &&
+      !summaries.some((summary) => summary.profile.id === selectedProfileId)
+    ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedProfileId("");
     }
   }, [summaries, selectedProfileId]);
+
+  // Scroll a linked buck into view once.
+  useEffect(() => {
+    if (!initialProfileId) return;
+    requestAnimationFrame(() =>
+      document
+        .getElementById(`buck-${initialProfileId}`)
+        ?.scrollIntoView({ block: "start" }),
+    );
+  }, [initialProfileId]);
 
   const deerProfiles = useMemo<DeerProfile[]>(
     () => summaries.map((summary) => summary.profile),
     [summaries],
   );
 
-  const selectedSummary =
-    summaries.find((summary) => summary.profile.id === selectedProfileId) ??
-    summaries[0];
+  // Photo, last-seen and usual-time lines, shared with Today's hit list.
+  const cards = useMemo(() => {
+    const propertyId = summaries[0]?.profile.propertyId ?? "";
+    const slides = buildHitListSlides({
+      propertyId,
+      propertyName,
+      profiles: deerProfiles,
+      photos: photoRecords,
+      cameras,
+      cameraChecks,
+      hunts,
+      pins,
+    });
+    return new Map(slides.map((slide) => [slide.key, slide]));
+  }, [summaries, propertyName, deerProfiles, photoRecords, cameras, cameraChecks, hunts, pins]);
+
+  if (summaries.length === 0) {
+    return (
+      <EmptyState
+        illustration={<DeerIcon size={28} />}
+        title="No bucks on your hit list"
+        description="Tag a buck on a trail-cam photo and he shows up here, with when and where he moves."
+        action={
+          <Link href="/cameras" className="di-link-btn di-link-btn--primary">
+            Go to cameras
+          </Link>
+        }
+      />
+    );
+  }
 
   return (
-    <DashboardSection
-      id="deer-profiles"
-      eyebrow="Property Tool"
-      title="Deer Profiles"
-      action={
-        <Badge variant="success" style={countBadgeStyle}>
-          {summaries.length} {summaries.length === 1 ? "profile" : "profiles"}
-        </Badge>
-      }
-    >
-      {summaries.length === 0 ? (
-        <EmptyState description="No deer profiles yet. Tag a buck on a camera photo to start tracking him." />
-      ) : (
-        <div style={pickerWrapStyle}>
-          <p style={pickerLabelStyle}>Select a buck</p>
-          <div style={pickerRowStyle}>
-            {summaries.map((summary) => {
-              const isSelected =
-                summary.profile.id === selectedSummary?.profile.id;
+    <section id="deer-profiles" aria-label="Hit list">
+      <ul style={listStyle}>
+        {summaries.map((summary) => {
+          const id = summary.profile.id;
+          const card = cards.get(id);
+          const open = id === selectedProfileId;
+          const meta = [
+            card?.lastSeen ? `Last seen ${card.lastSeen}` : "Not seen yet",
+            `${summary.photoCount} ${summary.photoCount === 1 ? "photo" : "photos"}`,
+          ].join(" · ");
 
-              return (
-                <button
-                  key={summary.profile.id}
-                  type="button"
-                  onClick={() => setSelectedProfileId(summary.profile.id)}
-                  aria-pressed={isSelected}
-                  style={{
-                    ...buckChipStyle,
-                    ...(isSelected ? buckChipSelectedStyle : null),
-                  }}
-                >
-                  <span style={buckChipNameStyle}>
-                    {summary.profile.nickname}
+          return (
+            <li key={id} id={`buck-${id}`} style={itemStyle}>
+              <button
+                type="button"
+                aria-expanded={open}
+                onClick={() => setSelectedProfileId(open ? "" : id)}
+                style={{ ...cardStyle, ...(open ? cardOpenStyle : null) }}
+              >
+                {card?.imageId ? (
+                  <PhotoImage
+                    imageId={card.imageId}
+                    alt={`${summary.profile.nickname} on camera`}
+                    aspectRatio={16 / 9}
+                    style={photoStyle}
+                  />
+                ) : (
+                  <span style={noPhotoStyle} aria-hidden="true">
+                    <DeerIcon size={34} />
                   </span>
-                  <span
-                    style={{
-                      ...buckChipMetaStyle,
-                      ...(isSelected ? buckChipMetaSelectedStyle : null),
-                    }}
-                  >
-                    {summary.photoCount}{" "}
-                    {summary.photoCount === 1 ? "photo" : "photos"}
+                )}
+                <span style={captionStyle}>
+                  <span style={captionTextStyle}>
+                    <span style={nameStyle}>
+                      {summary.profile.nickname || "Unnamed buck"}
+                    </span>
+                    <span style={metaStyle}>{meta}</span>
                   </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {selectedSummary ? (
-            <SelectedBuck
-              key={selectedSummary.profile.id}
-              summary={selectedSummary}
-              propertyName={propertyName}
-              cameras={cameras}
-              photoRecords={photoRecords}
-              cameraChecks={cameraChecks}
-              hunts={hunts}
-              pins={pins}
-              deerProfiles={deerProfiles}
-            />
-          ) : null}
-        </div>
-      )}
-    </DashboardSection>
+                  {card?.usualTime ? (
+                    <span style={timeTagStyle}>{card.usualTime}</span>
+                  ) : null}
+                </span>
+              </button>
+              {open ? (
+                <div style={detailStyle}>
+                  <SelectedBuck
+                    summary={summary}
+                    propertyName={propertyName}
+                    cameras={cameras}
+                    photoRecords={photoRecords}
+                    cameraChecks={cameraChecks}
+                    hunts={hunts}
+                    pins={pins}
+                    deerProfiles={deerProfiles}
+                  />
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -193,62 +225,95 @@ function SelectedBuck({
   );
 }
 
-const pickerWrapStyle: CSSProperties = {
-  marginTop: "1rem",
-};
-
-const pickerLabelStyle: CSSProperties = {
-  margin: "0 0 0.6rem",
-  color: "var(--text-faint)",
-  fontSize: "0.78rem",
-  fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: 0,
-};
-
-const pickerRowStyle: CSSProperties = {
-  display: "flex",
-  gap: "0.5rem",
-  flexWrap: "wrap",
-  marginBottom: "1rem",
-};
-
-const buckChipStyle: CSSProperties = {
+const listStyle: CSSProperties = {
   display: "grid",
-  gap: "0.15rem",
-  minHeight: "46px",
-  padding: "0.5rem 0.85rem",
-  border: "1px solid var(--border-strong)",
-  borderRadius: "var(--radius-sm)",
-  background: "var(--surface-2)",
-  color: "var(--text)",
+  gap: "0.75rem",
+  margin: 0,
+  padding: 0,
+  listStyle: "none",
+};
+
+const itemStyle: CSSProperties = {
+  display: "grid",
+  scrollMarginTop: "4.5rem",
+};
+
+const cardStyle: CSSProperties = {
+  display: "grid",
+  width: "100%",
+  padding: 0,
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius)",
+  overflow: "hidden",
+  background: "var(--surface)",
+  color: "inherit",
   textAlign: "left",
   cursor: "pointer",
 };
 
-const buckChipSelectedStyle: CSSProperties = {
-  borderColor: "var(--accent)",
-  background: "var(--accent)",
-  color: "white",
-  boxShadow: "var(--shadow-sm)",
+const cardOpenStyle: CSSProperties = {
+  borderColor: "var(--accent-2)",
 };
 
-const buckChipNameStyle: CSSProperties = {
-  fontSize: "0.95rem",
-  fontWeight: 850,
-  lineHeight: 1.2,
+const photoStyle: CSSProperties = {
+  border: 0,
+  borderRadius: 0,
+  background: "var(--surface-2)",
 };
 
-const buckChipMetaStyle: CSSProperties = {
-  fontSize: "0.72rem",
-  fontWeight: 700,
-  color: "var(--text-faint)",
+const noPhotoStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  aspectRatio: "16 / 6",
+  background: "var(--surface-2)",
+  color: "var(--text-muted)",
 };
 
-const buckChipMetaSelectedStyle: CSSProperties = {
-  color: "rgba(255, 255, 255, 0.85)",
+const captionStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  padding: "0.7rem 0.9rem 0.8rem",
 };
 
-const countBadgeStyle: CSSProperties = {
-  fontSize: "0.78rem",
+const captionTextStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.25rem",
+  minWidth: 0,
+};
+
+const nameStyle: CSSProperties = {
+  color: "var(--text)",
+  fontFamily: "var(--font-display), sans-serif",
+  fontSize: "2rem",
+  letterSpacing: "0.03em",
+  lineHeight: 0.95,
+  textTransform: "uppercase",
+  overflowWrap: "anywhere",
+};
+
+const metaStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.7rem",
+  letterSpacing: "0.07em",
+  textTransform: "uppercase",
+};
+
+const timeTagStyle: CSSProperties = {
+  flex: "none",
+  padding: "0.35rem 0.55rem",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--text)",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.68rem",
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+};
+
+const detailStyle: CSSProperties = {
+  paddingTop: "0.75rem",
 };

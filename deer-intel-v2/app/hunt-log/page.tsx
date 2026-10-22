@@ -3,9 +3,10 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import HuntLogForm from "@/components/hunts/HuntLogForm";
 import HuntLogList from "@/components/hunts/HuntLogList";
-import Card from "@/components/ui/Card";
+import Link from "next/link";
 import EmptyState from "@/components/ui/EmptyState";
-import { ClipboardIcon, StandIcon } from "@/components/ui/FieldIcons";
+import { StandIcon } from "@/components/ui/FieldIcons";
+import PageHeader from "@/components/ui/PageHeader";
 import PageShell from "@/components/ui/PageShell";
 import Tabs from "@/components/ui/Tabs";
 import {
@@ -162,7 +163,7 @@ export default function HuntLogPage() {
   const canLogOrConvert = hasStands || standPins.length > 0;
 
   const logTab = (
-    <Card as="section" variant="elevated" style={formCardStyle}>
+    <section style={formCardStyle} aria-label="Log a sit">
       {canLogOrConvert && !loadedUrlDefaults ? (
         // One frame while today's date, time, and property fill in, instead of
         // a form that flashes blank fields.
@@ -183,10 +184,15 @@ export default function HuntLogPage() {
         <EmptyState
           illustration={<StandIcon size={30} />}
           title="Add a stand first"
-          description="Hunts need a stand. Open a property, add a stand, then come back here to log the sit."
+          description="Every sit is logged from a stand. Add one, then come back here to log the sit."
+          action={
+            <Link href="/stands#add-stand" className="di-link-btn di-link-btn--primary">
+              Add a stand
+            </Link>
+          }
         />
       )}
-    </Card>
+    </section>
   );
 
   const historyTab = (
@@ -199,15 +205,7 @@ export default function HuntLogPage() {
 
   return (
     <PageShell>
-      <header className="di-section-hero" style={headerStyle}>
-        <span style={headerIconStyle} aria-hidden="true">
-          <ClipboardIcon size={24} />
-        </span>
-        <div style={headerTitleWrapStyle}>
-          <p style={eyebrowStyle}>Hunt Log</p>
-          <h1 style={titleStyle}>Hunt Log</h1>
-        </div>
-      </header>
+      <PageHeader eyebrow="Hunt log" title="Log a sit" />
 
       <Tabs
         items={[
@@ -224,49 +222,6 @@ export default function HuntLogPage() {
   );
 }
 
-const headerStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.85rem",
-  marginBottom: "1.5rem",
-};
-
-const headerIconStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "3rem",
-  height: "3rem",
-  flex: "none",
-  borderRadius: "14px",
-  background: "rgba(243, 237, 217, 0.15)",
-  border: "1px solid rgba(243, 237, 217, 0.35)",
-  color: "#f6efd6",
-};
-
-const headerTitleWrapStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.25rem",
-  minWidth: 0,
-};
-
-const eyebrowStyle: CSSProperties = {
-  margin: 0,
-  color: "rgba(243, 237, 217, 0.82)",
-  fontSize: "0.78rem",
-  fontWeight: 800,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-};
-
-const titleStyle: CSSProperties = {
-  margin: 0,
-  color: "#f6f0dc",
-  fontSize: "2rem",
-  lineHeight: 1.1,
-  textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
-};
-
 const formCardStyle: CSSProperties = {
-  padding: "1.25rem",
+  maxWidth: "640px",
 };

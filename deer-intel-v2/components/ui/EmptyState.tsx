@@ -43,58 +43,64 @@ export default function EmptyState({
   );
 }
 
+// Tactical empty state: a flat panel with a dashed edge and faint terrain
+// contours, the icon in a squared outline, a Bebas title and one clear action.
+// Built on theme tokens so it reads in the light and red Night themes too.
 const emptyStateStyle: CSSProperties = {
   margin: "1rem 0 0",
-  padding: "1.25rem",
-  border: "1px dashed rgba(60, 48, 24, 0.35)",
+  padding: "1.1rem 1.15rem",
+  border: "1px dashed var(--border-strong)",
   borderRadius: "var(--radius)",
-  color: "var(--camo-fg-muted)",
-  backgroundColor: "var(--camo-ink)",
-  backgroundImage:
-    "linear-gradient(rgba(233, 226, 206, 0.62), rgba(233, 226, 206, 0.72)), var(--camo)",
-  backgroundSize: "cover",
-  backgroundPosition: "center",
-  fontSize: "1rem",
+  color: "var(--text-muted)",
+  background: "var(--surface)",
+  fontSize: "0.98rem",
   lineHeight: 1.5,
-  textShadow: "0 1px 0 rgba(255, 255, 255, 0.35)",
 };
 
 const illustratedStyle: CSSProperties = {
   display: "grid",
   justifyItems: "center",
   textAlign: "center",
-  gap: "0.5rem",
-  padding: "2rem 1.4rem",
+  gap: "0.45rem",
+  padding: "2rem 1.25rem 1.6rem",
+  backgroundImage: "var(--contours, none)",
+  backgroundSize: "cover",
+  backgroundPosition: "center",
 };
 
 const illustrationStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  width: "3.4rem",
-  height: "3.4rem",
-  marginBottom: "0.15rem",
-  borderRadius: "16px",
-  background: "var(--accent-tint)",
-  border: "1px solid var(--accent-tint-border)",
-  color: "var(--accent-text)",
-  boxShadow: "0 8px 20px -14px rgba(36, 29, 16, 0.6)",
+  width: "3.25rem",
+  height: "3.25rem",
+  marginBottom: "0.35rem",
+  borderRadius: "var(--radius-sm)",
+  border: "1px solid var(--border-strong)",
+  background: "var(--surface-2)",
+  color: "var(--accent-2)",
 };
 
 const titleStyle: CSSProperties = {
   margin: 0,
-  color: "var(--camo-fg)",
-  fontWeight: 850,
+  color: "var(--text)",
+  fontFamily: "var(--font-display), \"Arial Narrow\", sans-serif",
+  fontSize: "1.6rem",
+  fontWeight: 400,
+  letterSpacing: "0.03em",
+  lineHeight: 1,
+  textTransform: "uppercase",
 };
 
 const descriptionStyle: CSSProperties = {
   margin: 0,
+  maxWidth: "34rem",
 };
 
 const titledDescriptionStyle: CSSProperties = {
-  marginTop: "0.35rem",
+  marginTop: "0.2rem",
 };
 
 const actionStyle: CSSProperties = {
-  marginTop: "1rem",
+  marginTop: "0.9rem",
 };

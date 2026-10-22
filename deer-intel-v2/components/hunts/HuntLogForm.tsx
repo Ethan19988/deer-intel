@@ -5,7 +5,6 @@ import type {
   SetStateAction,
 } from "react";
 import Button from "@/components/ui/Button";
-import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import StandPinConvertList from "@/components/hunts/StandPinConvertList";
 import LiveWeatherFill from "@/components/weather/LiveWeatherFill";
 import type {
@@ -79,10 +78,25 @@ export default function HuntLogForm({
     onSubmit();
   }
 
+  const weatherSummary = [
+    [values.windDirection, values.windSpeed].filter(Boolean).join(" "),
+    values.temperature
+      ? `${values.temperature}${/°/.test(values.temperature) ? "" : "°"}`
+      : "",
+    values.weather,
+    values.moonPhase ? `Moon ${values.moonPhase}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const weatherFilled = values.weatherSource !== "manual";
+
+  // One flat column of hairline-separated rows, phone first: the stand and
+  // times up top, the weather as a single filled-in line (editable under it),
+  // the deer counts as big steppers, then the result toggles and notes.
   return (
-    <form onSubmit={handleSubmit} style={formStyle}>
-      <CollapsibleSection title="Hunt Details" defaultOpen>
-        <div className="di-form-grid" style={formGridStyle}>
+    <form onSubmit={handleSubmit} style={formStyle} className="di-sit-form">
+      <div style={rowStyle}>
+        {properties.length > 1 ? (
           <label style={fieldStyle}>
             <span style={labelStyle}>Property</span>
             <select
@@ -98,36 +112,26 @@ export default function HuntLogForm({
               ))}
             </select>
           </label>
+        ) : null}
 
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Stand</span>
-            <select
-              value={values.standId}
-              onChange={(event) => updateField("standId", event.target.value)}
-              style={inputStyle}
-              disabled={!values.propertyId || availableStands.length === 0}
-            >
-              <option value="">
-                {values.propertyId ? "Choose stand" : "Choose property first"}
+        <label style={fieldStyle}>
+          <span style={labelStyle}>Stand</span>
+          <select
+            value={values.standId}
+            onChange={(event) => updateField("standId", event.target.value)}
+            style={inputStyle}
+            disabled={!values.propertyId || availableStands.length === 0}
+          >
+            <option value="">
+              {values.propertyId ? "Choose stand" : "Choose property first"}
+            </option>
+            {availableStands.map((stand) => (
+              <option key={stand.id} value={stand.id}>
+                {stand.name}
               </option>
-              {availableStands.map((stand) => (
-                <option key={stand.id} value={stand.id}>
-                  {stand.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Date</span>
-            <input
-              type="date"
-              value={values.date}
-              onChange={(event) => updateField("date", event.target.value)}
-              style={inputStyle}
-            />
-          </label>
-        </div>
+            ))}
+          </select>
+        </label>
 
         {convertiblePins.length > 0 && onConvertPin ? (
           <div style={convertBoxStyle}>
@@ -144,34 +148,48 @@ export default function HuntLogForm({
             />
           </div>
         ) : null}
+      </div>
 
-        <div
-          className="di-form-grid"
-          style={{ ...formGridStyle, marginTop: "1rem" }}
-        >
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Start Time</span>
-            <input
-              type="time"
-              value={values.startTime}
-              onChange={(event) => updateField("startTime", event.target.value)}
-              style={inputStyle}
-            />
-          </label>
+      <div style={{ ...rowStyle, ...threeColStyle }}>
+        <label style={fieldStyle}>
+          <span style={labelStyle}>Date</span>
+          <input
+            type="date"
+            value={values.date}
+            onChange={(event) => updateField("date", event.target.value)}
+            style={inputStyle}
+          />
+        </label>
+        <label style={fieldStyle}>
+          <span style={labelStyle}>In</span>
+          <input
+            type="time"
+            value={values.startTime}
+            onChange={(event) => updateField("startTime", event.target.value)}
+            style={inputStyle}
+          />
+        </label>
+        <label style={fieldStyle}>
+          <span style={labelStyle}>Out</span>
+          <input
+            type="time"
+            value={values.endTime}
+            onChange={(event) => updateField("endTime", event.target.value)}
+            style={inputStyle}
+          />
+        </label>
+      </div>
 
-          <label style={fieldStyle}>
-            <span style={labelStyle}>End Time</span>
-            <input
-              type="time"
-              value={values.endTime}
-              onChange={(event) => updateField("endTime", event.target.value)}
-              style={inputStyle}
-            />
-          </label>
+      <div style={rowStyle}>
+        <div style={labelRowStyle}>
+          <span style={labelStyle}>Weather</span>
+          {weatherFilled ? (
+            <span style={filledStyle}>Filled from live weather</span>
+          ) : null}
         </div>
-      </CollapsibleSection>
-
-      <CollapsibleSection title="Weather and Wind">
+        <p style={weatherLineStyle}>
+          {weatherSummary || "Not filled in yet"}
+        </p>
         <LiveWeatherFill
           location={weatherLocation}
           autoFetch={!values.windDirection && !values.temperature}
@@ -184,117 +202,108 @@ export default function HuntLogForm({
             }))
           }
         />
-        <div className="di-form-grid" style={formGridStyle}>
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Wind Direction</span>
-            <input
-              placeholder="NW, W, S"
-              value={values.windDirection}
-              onChange={(event) =>
-                updateField("windDirection", event.target.value)
-              }
-              style={inputStyle}
-            />
-          </label>
+        <details style={detailsStyle}>
+          <summary style={summaryStyle}>Edit weather</summary>
+          <div style={weatherGridStyle}>
+            <label style={fieldStyle}>
+              <span style={labelStyle}>Wind direction</span>
+              <input
+                placeholder="NW, W, S"
+                value={values.windDirection}
+                onChange={(event) =>
+                  updateField("windDirection", event.target.value)
+                }
+                style={inputStyle}
+              />
+            </label>
+            <label style={fieldStyle}>
+              <span style={labelStyle}>Wind speed</span>
+              <input
+                placeholder="8 mph"
+                value={values.windSpeed}
+                onChange={(event) => updateField("windSpeed", event.target.value)}
+                style={inputStyle}
+              />
+            </label>
+            <label style={fieldStyle}>
+              <span style={labelStyle}>Temperature</span>
+              <input
+                placeholder="42"
+                value={values.temperature}
+                onChange={(event) =>
+                  updateField("temperature", event.target.value)
+                }
+                style={inputStyle}
+              />
+            </label>
+            <label style={fieldStyle}>
+              <span style={labelStyle}>Weather</span>
+              <input
+                placeholder="Clear, rain, snow, cloudy"
+                value={values.weather}
+                onChange={(event) => updateField("weather", event.target.value)}
+                style={inputStyle}
+              />
+            </label>
+            <label style={fieldStyle}>
+              <span style={labelStyle}>Moon phase</span>
+              <input
+                placeholder="Full, new, waxing"
+                value={values.moonPhase}
+                onChange={(event) => updateField("moonPhase", event.target.value)}
+                style={inputStyle}
+              />
+            </label>
+          </div>
+        </details>
+      </div>
 
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Wind Speed</span>
-            <input
-              placeholder="8 mph"
-              value={values.windSpeed}
-              onChange={(event) => updateField("windSpeed", event.target.value)}
-              style={inputStyle}
-            />
-          </label>
-
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Temperature</span>
-            <input
-              placeholder="42"
-              value={values.temperature}
-              onChange={(event) =>
-                updateField("temperature", event.target.value)
-              }
-              style={inputStyle}
-            />
-          </label>
-        </div>
-
-        <div
-          className="di-form-grid"
-          style={{ ...formGridStyle, marginTop: "1rem" }}
-        >
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Weather</span>
-            <input
-              placeholder="Clear, rain, snow, cloudy"
-              value={values.weather}
-              onChange={(event) => updateField("weather", event.target.value)}
-              style={inputStyle}
-            />
-          </label>
-
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Moon Phase</span>
-            <input
-              placeholder="Full, new, waxing"
-              value={values.moonPhase}
-              onChange={(event) => updateField("moonPhase", event.target.value)}
-              style={inputStyle}
-            />
-          </label>
-        </div>
-      </CollapsibleSection>
-
-      <CollapsibleSection title="Deer Seen" defaultOpen>
-        <div className="di-form-grid" style={formGridStyle}>
+      <div style={rowStyle}>
+        <span style={labelStyle}>What you saw</span>
+        <div>
           <CountField
-            label="Bucks Seen"
+            label="Bucks seen"
             value={values.bucks}
             onChange={(value) => updateField("bucks", value)}
           />
           <CountField
-            label="Does Seen"
+            label="Does seen"
             value={values.does}
             onChange={(value) => updateField("does", value)}
           />
           <CountField
-            label="Fawns Seen"
+            label="Fawns seen"
             value={values.fawns}
             onChange={(value) => updateField("fawns", value)}
           />
         </div>
-      </CollapsibleSection>
+      </div>
 
-      <CollapsibleSection title="Results" defaultOpen>
-        <div className="di-form-grid" style={formGridStyle}>
-          <YesNoField
-            label="Shot Opportunity"
-            value={values.shotOpportunity}
-            onChange={(value) => updateField("shotOpportunity", value)}
-          />
-          <YesNoField
-            label="Harvest"
-            value={values.harvest}
-            onChange={(value) => updateField("harvest", value)}
-          />
-        </div>
-      </CollapsibleSection>
+      <div style={{ ...rowStyle, ...twoColStyle }}>
+        <YesNoField
+          label="Shot opportunity"
+          value={values.shotOpportunity}
+          onChange={(value) => updateField("shotOpportunity", value)}
+        />
+        <YesNoField
+          label="Harvest"
+          value={values.harvest}
+          onChange={(value) => updateField("harvest", value)}
+        />
+      </div>
 
-      <CollapsibleSection title="Notes">
-        <label style={fieldStyle}>
-          <span style={labelStyle}>Notes</span>
-          <textarea
-            placeholder="Deer movement, access, pressure, mistakes, or what you learned"
-            value={values.notes}
-            onChange={(event) => updateField("notes", event.target.value)}
-            style={{ ...inputStyle, minHeight: "110px", resize: "vertical" }}
-          />
-        </label>
-      </CollapsibleSection>
+      <label style={{ ...rowStyle, borderBottom: 0 }}>
+        <span style={labelStyle}>Notes</span>
+        <textarea
+          placeholder="Where they came from, what they did, what you learned"
+          value={values.notes}
+          onChange={(event) => updateField("notes", event.target.value)}
+          style={{ ...inputStyle, minHeight: "96px", resize: "vertical" }}
+        />
+      </label>
 
-      <Button type="submit" disabled={!canSave}>
-        Save Hunt
+      <Button type="submit" disabled={!canSave} style={saveStyle}>
+        Save sit
       </Button>
     </form>
   );
@@ -321,7 +330,7 @@ function parseLocalDateTime(date: string, time: string): Date | null {
   );
 }
 
-// Big −/+ buttons around the count: tapping is faster than the number keyboard
+// Big −/+ buttons beside the count: tapping is faster than the number keyboard
 // with cold hands in a stand, and the field still accepts typing.
 function CountField({
   label,
@@ -335,8 +344,8 @@ function CountField({
   const count = Math.max(0, Math.floor(Number(value) || 0));
 
   return (
-    <div style={fieldStyle}>
-      <span style={labelStyle}>{label}</span>
+    <div style={countRowStyle}>
+      <span style={countLabelStyle}>{label}</span>
       <div style={stepperStyle}>
         <button
           type="button"
@@ -370,8 +379,7 @@ function CountField({
   );
 }
 
-// A two-button toggle instead of a dropdown: one tap, and the answer is
-// visible at a glance.
+// One tap tile: a box that checks on and off, the answer visible at a glance.
 function YesNoField({
   label,
   value,
@@ -381,126 +389,216 @@ function YesNoField({
   value: YesNoValue;
   onChange: (value: YesNoValue) => void;
 }) {
-  const options: YesNoValue[] = ["No", "Yes"];
+  const checked = value === "Yes";
 
   return (
-    <div style={fieldStyle}>
-      <span style={labelStyle}>{label}</span>
-      <div role="radiogroup" aria-label={label} style={segmentedStyle}>
-        {options.map((option) => {
-          const selected = value === option;
-          return (
-            <button
-              key={option}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              onClick={() => onChange(option)}
-              style={{
-                ...segmentButtonStyle,
-                ...(selected ? segmentSelectedStyle : null),
-              }}
-            >
-              {option}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={() => onChange(checked ? "No" : "Yes")}
+      style={{ ...toggleTileStyle, ...(checked ? toggleTileOnStyle : null) }}
+    >
+      <span
+        aria-hidden="true"
+        style={{ ...checkBoxStyle, ...(checked ? checkBoxOnStyle : null) }}
+      >
+        {checked ? "✓" : ""}
+      </span>
+      {label}
+    </button>
   );
 }
 
 const formStyle: CSSProperties = {
   display: "grid",
-  gap: "1rem",
+  gap: 0,
+};
+
+const rowStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.55rem",
+  padding: "0.9rem 0",
+  borderBottom: "1px solid var(--border)",
+};
+
+const threeColStyle: CSSProperties = {
+  gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr)",
+  gap: "0.5rem",
+};
+
+const twoColStyle: CSSProperties = {
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "0.5rem",
 };
 
 const convertBoxStyle: CSSProperties = {
-  marginTop: "1rem",
   padding: "0.9rem",
   borderRadius: "var(--radius-sm)",
   border: "1px dashed var(--border)",
   background: "var(--surface-2)",
 };
 
-const formGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))",
-  gap: "1rem",
-};
-
 const fieldStyle: CSSProperties = {
   display: "grid",
-  gap: "0.45rem",
+  gap: "0.4rem",
+  minWidth: 0,
 };
 
 const labelStyle: CSSProperties = {
   color: "var(--text-muted)",
-  fontSize: "0.9rem",
-  fontWeight: 700,
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.68rem",
+  fontWeight: 500,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+};
+
+const labelRowStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "baseline",
+  gap: "0.5rem",
+};
+
+const filledStyle: CSSProperties = {
+  ...labelStyle,
+  color: "var(--accent-text)",
+};
+
+const weatherLineStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text)",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.85rem",
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+  lineHeight: 1.5,
+};
+
+const detailsStyle: CSSProperties = {
+  display: "grid",
+};
+
+const summaryStyle: CSSProperties = {
+  ...labelStyle,
+  minHeight: "40px",
+  display: "flex",
+  alignItems: "center",
+  color: "var(--text)",
+  cursor: "pointer",
+};
+
+const weatherGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(140px, 100%), 1fr))",
+  gap: "0.75rem",
+  paddingTop: "0.4rem",
 };
 
 const inputStyle: CSSProperties = {
   width: "100%",
-  minHeight: "46px",
-  padding: "0.8rem",
+  minWidth: 0,
+  minHeight: "48px",
+  padding: "0.7rem 0.8rem",
   borderRadius: "var(--radius-sm)",
-  border: "1px solid var(--border)",
+  border: "1px solid var(--border-strong, var(--border))",
   background: "var(--surface-2)",
   color: "var(--text)",
   fontSize: "1rem",
   lineHeight: 1.4,
 };
 
+const countRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  padding: "0.45rem 0",
+  borderBottom: "1px solid var(--border)",
+};
+
+const countLabelStyle: CSSProperties = {
+  color: "var(--text)",
+  fontSize: "0.98rem",
+};
+
 const stepperStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "48px minmax(0, 1fr) 48px",
-  gap: "0.4rem",
+  gridTemplateColumns: "44px 52px 44px",
+  gap: "0.35rem",
   alignItems: "stretch",
+  flex: "none",
 };
 
 const stepperButtonStyle: CSSProperties = {
-  minHeight: "48px",
+  minHeight: "44px",
   borderRadius: "var(--radius-sm)",
-  border: "1px solid var(--border)",
-  background: "var(--surface)",
+  border: "1px solid var(--border-strong, var(--border))",
+  background: "transparent",
   color: "var(--text)",
-  fontSize: "1.4rem",
-  fontWeight: 800,
+  fontSize: "1.3rem",
   lineHeight: 1,
   cursor: "pointer",
   touchAction: "manipulation",
 };
 
 const stepperInputStyle: CSSProperties = {
-  ...inputStyle,
-  minHeight: "48px",
+  width: "100%",
+  minHeight: "44px",
+  padding: 0,
+  border: 0,
+  background: "transparent",
+  color: "var(--text)",
   textAlign: "center",
-  fontWeight: 800,
-  fontSize: "1.15rem",
+  fontFamily: "var(--font-display), sans-serif",
+  fontSize: "1.7rem",
+  MozAppearance: "textfield",
 };
 
-const segmentedStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "0.4rem",
-};
-
-const segmentButtonStyle: CSSProperties = {
-  minHeight: "48px",
+const toggleTileStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.65rem",
+  minHeight: "52px",
+  padding: "0 0.85rem",
   borderRadius: "var(--radius-sm)",
-  border: "1px solid var(--border)",
-  background: "var(--surface-2)",
-  color: "var(--text-muted)",
-  fontSize: "1rem",
-  fontWeight: 700,
+  border: "1px solid var(--border-strong, var(--border))",
+  background: "transparent",
+  color: "var(--text)",
+  fontSize: "0.95rem",
+  textAlign: "left",
   cursor: "pointer",
   touchAction: "manipulation",
 };
 
-const segmentSelectedStyle: CSSProperties = {
+const toggleTileOnStyle: CSSProperties = {
   borderColor: "var(--accent)",
   background: "var(--accent-tint)",
-  color: "var(--accent-text)",
-  fontWeight: 800,
+};
+
+const checkBoxStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "20px",
+  height: "20px",
+  flex: "none",
+  border: "1.5px solid var(--text-muted)",
+  borderRadius: "2px",
+  fontSize: "0.8rem",
+  lineHeight: 1,
+};
+
+const checkBoxOnStyle: CSSProperties = {
+  borderColor: "var(--accent)",
+  background: "var(--accent)",
+  color: "var(--on-accent, #0b0d0b)",
+};
+
+const saveStyle: CSSProperties = {
+  width: "100%",
+  minHeight: "54px",
+  marginTop: "0.5rem",
+  fontSize: "1.25rem",
 };

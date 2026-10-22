@@ -8,7 +8,6 @@ import Section from "@/components/ui/Section";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import Card from "@/components/ui/Card";
 import ErrorBoundary from "@/components/ui/ErrorBoundary";
-import { DeerIcon } from "@/components/ui/FieldIcons";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useActiveParty } from "@/components/party/PartyProvider";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
@@ -51,10 +50,22 @@ export default function HitListPage() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Bucks"
-        title={property ? `Bucks on ${property.name}` : "Bucks"}
-        description="Every buck you're tracking, with the movement pattern learned from your trail-cam photos. Tag a buck on a camera photo to add him."
-        icon={<DeerIcon size={26} />}
+        eyebrow={`Hit list · ${summaries.length} ${summaries.length === 1 ? "buck" : "bucks"}${property ? ` · ${property.name}` : ""}`}
+        title="Bucks"
+        action={
+          available ? (
+            <a
+              href="#share-hit-list"
+              className="di-link-btn"
+              onClick={() => {
+                const section = document.getElementById("share-hit-list");
+                if (section instanceof HTMLDetailsElement) section.open = true;
+              }}
+            >
+              Share
+            </a>
+          ) : undefined
+        }
       />
 
       {property ? (
@@ -75,6 +86,7 @@ export default function HitListPage() {
 
       {available ? (
         <CollapsibleSection
+          id="share-hit-list"
           title="Share your hit list"
           description="Show your bucks and their patterns to your party"
         >

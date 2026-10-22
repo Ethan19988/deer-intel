@@ -2,14 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
-import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
 import { TargetIcon } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
-import Section from "@/components/ui/Section";
 import {
   EMPTY_AI_SCOUT_CONDITIONS,
   buildAiScoutRequestContext,
@@ -215,87 +212,88 @@ export default function AIPage() {
     }
   }
 
+  const conditionCells = [
+    { label: "Wind", value: conditions.windDirection },
+    { label: "Speed", value: conditions.windSpeed },
+    { label: "Temp", value: conditions.temperature },
+    { label: "Moon", value: conditions.moonPhase || moon?.phase || "" },
+  ];
+  const extrasLine = [liveExtras.sky, liveExtras.pressure].filter(Boolean).join(" · ");
+
   return (
     <PageShell>
-      <Card as="section" variant="elevated" style={heroCardStyle}>
-        <PageHeader
-          icon={<TargetIcon size={26} />}
-          eyebrow={selectedProperty ? selectedProperty.name : "Assistant"}
-          title="AI Scout"
-          description="Ask for a stand pick grounded in this property's saved stands, sits, camera checks, buck photos, and terrain read. Today's verdict, best stand, and buck activity live on the Today screen."
-        />
-      </Card>
+      <PageHeader
+        eyebrow={selectedProperty ? `Assistant · ${selectedProperty.name}` : "Assistant"}
+        title="AI Scout"
+      />
 
       {state.properties.length === 0 ? (
-        <Section eyebrow="Property" title="Add a property">
-          <EmptyState
-            illustration={<TargetIcon size={30} />}
-            title="No properties yet"
-            description="Add a property before AI Scout can read its stands, sits, and cameras."
-            action={
-              <Link href="/properties" style={primaryLinkStyle} className="di-navbtn">
-                Add Property
-              </Link>
-            }
-          />
-        </Section>
+        <EmptyState
+          illustration={<TargetIcon size={28} />}
+          title="No properties yet"
+          description="Add a property and AI Scout can read its stands, sits and cameras."
+          action={
+            <Link href="/properties" className="di-link-btn di-link-btn--primary">
+              Add property
+            </Link>
+          }
+        />
       ) : null}
 
       {selectedProperty ? (
         <>
-          <Section
-            eyebrow="Assistant"
-            title="AI Scout"
-          >
-            {!aiScoutEnabled ? (
-              <EmptyState
-                illustration={<TargetIcon size={30} />}
-                title="AI Scout is turned off"
-                description="You've turned off AI Scout recommendations in Settings → AI Scout. Today's verdict and stand check keep working. Turn it back on there whenever you want LLM recommendations."
-              />
-            ) : aiScoutConfigured === null ? (
-              <Card as="div" variant="subtle">
-                <p style={mutedTextStyle}>Checking AI Scout availability…</p>
-              </Card>
-            ) : aiScoutConfigured === false ? (
-              <EmptyState
-                illustration={<TargetIcon size={30} />}
-                title="AI Scout isn't turned on yet"
-                description="This property's saved data hasn't changed — AI Scout just needs an ANTHROPIC_API_KEY set as an environment variable on the server (see the README) before it can make real recommendations. Today's verdict and stand check keep working without it."
-              />
-            ) : (
-              <Card as="div" variant="subtle">
-                <p style={leadStyle}>
-                  Today&apos;s verdict picks a stand by rules. AI Scout reads everything
-                  saved for {selectedProperty.name} — every sit, camera check, buck photo,
-                  and the terrain — and writes a plan: where to sit, why, and what could
-                  go wrong.
-                </p>
-
-                <div style={conditionsSummaryStyle}>
-                  <div>
-                    <p style={labelStyle}>Today&apos;s conditions</p>
-                    <p style={conditionsLineStyle}>
-                      {conditionsSummary(conditions, liveExtras) || "Loading the forecast…"}
-                    </p>
-                    {liveExtras.source === "live" ? (
-                      <p style={conditionsSourceStyle}>Filled in from the live forecast.</p>
-                    ) : null}
-                  </div>
+          {!aiScoutEnabled ? (
+            <EmptyState
+              illustration={<TargetIcon size={28} />}
+              title="AI Scout is off"
+              description="You turned AI Scout off in Settings. Today's verdict and stand check keep working; turn it back on there for written plans."
+              action={
+                <Link href="/settings" className="di-link-btn">
+                  Open settings
+                </Link>
+              }
+            />
+          ) : aiScoutConfigured === null ? (
+            <p style={mutedTextStyle}>Checking AI Scout…</p>
+          ) : aiScoutConfigured === false ? (
+            <EmptyState
+              illustration={<TargetIcon size={28} />}
+              title="AI Scout isn't set up yet"
+              description="It needs an ANTHROPIC_API_KEY set on the server (see the README). Your saved data is fine, and Today's verdict and stand check keep working without it."
+            />
+          ) : (
+            <div style={scoutStyle}>
+              <section aria-label="Today's conditions">
+                <div style={conditionGridStyle}>
+                  {conditionCells.map((cell) => (
+                    <div key={cell.label} style={conditionCellStyle}>
+                      <span style={monoLabelStyle}>{cell.label}</span>
+                      <span style={conditionValueStyle}>{cell.value || "—"}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={conditionFootStyle}>
+                  <span style={monoLabelStyle}>
+                    {liveExtras.source === "live"
+                      ? `Live weather${extrasLine ? ` · ${extrasLine}` : ""}`
+                      : conditionsSummary(conditions, liveExtras)
+                        ? "Your conditions"
+                        : "Loading the forecast…"}
+                  </span>
                   <button
                     type="button"
-                    style={changeButtonStyle}
+                    style={editButtonStyle}
                     aria-expanded={editingConditions}
                     onClick={() => setEditingConditions((current) => !current)}
                   >
-                    {editingConditions ? "Done" : "Change"}
+                    {editingConditions ? "Done" : "Edit"}
                   </button>
                 </div>
 
                 {editingConditions ? (
                   <div style={conditionsGridStyle}>
                     <label style={fieldStyle}>
-                      <span style={labelStyle}>Wind direction</span>
+                      <span style={monoLabelStyle}>Wind direction</span>
                       <input
                         style={inputStyle}
                         value={conditions.windDirection}
@@ -304,7 +302,7 @@ export default function AIPage() {
                       />
                     </label>
                     <label style={fieldStyle}>
-                      <span style={labelStyle}>Wind speed</span>
+                      <span style={monoLabelStyle}>Wind speed</span>
                       <input
                         style={inputStyle}
                         value={conditions.windSpeed}
@@ -313,7 +311,7 @@ export default function AIPage() {
                       />
                     </label>
                     <label style={fieldStyle}>
-                      <span style={labelStyle}>Temperature</span>
+                      <span style={monoLabelStyle}>Temperature</span>
                       <input
                         style={inputStyle}
                         value={conditions.temperature}
@@ -322,7 +320,7 @@ export default function AIPage() {
                       />
                     </label>
                     <label style={fieldStyle}>
-                      <span style={labelStyle}>Moon</span>
+                      <span style={monoLabelStyle}>Moon</span>
                       <input
                         style={inputStyle}
                         value={conditions.moonPhase}
@@ -332,80 +330,94 @@ export default function AIPage() {
                     </label>
                   </div>
                 ) : null}
+              </section>
 
-                <label style={{ ...fieldStyle, marginTop: "0.9rem" }}>
-                  <span style={labelStyle}>Anything else? (optional)</span>
-                  <textarea
-                    style={textareaStyle}
-                    value={conditions.notes}
-                    onChange={(event) => updateCondition("notes", event.target.value)}
-                    placeholder="e.g. pressure from a neighbor, acorns dropping, only have till 10am"
-                    rows={2}
-                  />
-                </label>
+              <label style={fieldStyle}>
+                <span style={monoLabelStyle}>Anything else? (optional)</span>
+                <textarea
+                  style={textareaStyle}
+                  value={conditions.notes}
+                  onChange={(event) => updateCondition("notes", event.target.value)}
+                  placeholder="Pressure from a neighbor, acorns dropping, only have till 10am"
+                  rows={2}
+                />
+              </label>
 
-                <Button
-                  type="button"
-                  variant="primary"
-                  onClick={askAiScout}
-                  disabled={aiScoutStatus === "loading"}
-                  style={{ marginTop: "1.1rem" }}
-                >
-                  {aiScoutStatus === "loading" ? "Asking AI Scout…" : "Ask AI Scout"}
-                </Button>
+              <Button
+                type="button"
+                variant="primary"
+                fullWidth
+                onClick={askAiScout}
+                disabled={aiScoutStatus === "loading"}
+                style={askButtonStyle}
+              >
+                {aiScoutStatus === "loading" ? "Asking AI Scout…" : "Ask AI Scout"}
+              </Button>
+              <p style={leadStyle}>
+                Reads every sit, camera check, buck photo and the terrain saved for{" "}
+                {selectedProperty.name}, then writes where to sit, why, and what could go wrong.
+              </p>
 
-                {aiScoutStatus === "error" ? (
-                  <p style={aiScoutErrorStyle}>{aiScoutError}</p>
-                ) : null}
+              {aiScoutStatus === "error" ? (
+                <p style={aiScoutErrorStyle}>{aiScoutError}</p>
+              ) : null}
 
-                {aiScoutReport ? (
-                  <div style={aiScoutReportStyle}>
-                    <div style={simpleHeaderStyle}>
-                      <div>
-                        <p style={eyebrowStyle}>Recommended Stand</p>
-                        <h2 style={cardTitleStyle}>{aiScoutReport.recommendedStandName}</h2>
-                      </div>
-                      <Badge variant={confidenceBadgeVariant(aiScoutReport.confidence)}>
-                        {aiScoutReport.confidence} confidence
-                      </Badge>
-                    </div>
-                    <p style={mutedTextStyle}>{aiScoutReport.headline}</p>
-                    <p style={mutedTextStyle}>{aiScoutReport.recommendedStandReasoning}</p>
-
-                    {aiScoutReport.keyFactors.length > 0 ? (
-                      <>
-                        <p style={{ ...detailLabelStyle, marginTop: "1rem" }}>Key Factors</p>
-                        <ul style={bulletListStyle}>
-                          {aiScoutReport.keyFactors.map((factor) => (
-                            <li key={factor} style={bulletItemStyle}>
-                              {factor}
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    ) : null}
-
-                    {aiScoutReport.risks.length > 0 ? (
-                      <>
-                        <p style={{ ...detailLabelStyle, marginTop: "1rem" }}>Worth Knowing</p>
-                        <ul style={bulletListStyle}>
-                          {aiScoutReport.risks.map((risk) => (
-                            <li key={risk} style={bulletItemStyle}>
-                              {risk}
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    ) : null}
+              {aiScoutReport ? (
+                <article style={reportStyle} aria-label="AI Scout recommendation">
+                  <div style={reportHeadStyle}>
+                    <span style={monoLabelStyle}>Recommended stand</span>
+                    <span
+                      style={{
+                        ...monoLabelStyle,
+                        color: confidenceColor(aiScoutReport.confidence),
+                      }}
+                    >
+                      {aiScoutReport.confidence} confidence
+                    </span>
                   </div>
-                ) : null}
-              </Card>
-            )}
-          </Section>
+                  <h2 style={standNameStyle}>{aiScoutReport.recommendedStandName}</h2>
+                  {aiScoutReport.headline ? (
+                    <p style={headlineStyle}>{aiScoutReport.headline}</p>
+                  ) : null}
+                  <p style={reasoningStyle}>{aiScoutReport.recommendedStandReasoning}</p>
+
+                  {aiScoutReport.keyFactors.length > 0 ? (
+                    <>
+                      <h3 style={listTitleStyle}>Key factors</h3>
+                      <ol style={numberedListStyle}>
+                        {aiScoutReport.keyFactors.map((factor, index) => (
+                          <li key={factor} style={numberedItemStyle}>
+                            <span style={{ ...monoLabelStyle, color: "var(--accent-text)" }}>
+                              {String(index + 1).padStart(2, "0")}
+                            </span>
+                            <span>{factor}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </>
+                  ) : null}
+
+                  {aiScoutReport.risks.length > 0 ? (
+                    <>
+                      <h3 style={listTitleStyle}>Worth knowing</h3>
+                      <ul style={numberedListStyle}>
+                        {aiScoutReport.risks.map((risk) => (
+                          <li key={risk} style={numberedItemStyle}>
+                            <span style={{ ...monoLabelStyle, color: "var(--accent-2)" }}>!</span>
+                            <span>{risk}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
+                </article>
+              ) : null}
+            </div>
+          )}
 
           <div style={footerActionStyle}>
-            <Link href={`/properties/${selectedProperty.id}`} style={primaryLinkStyle} className="di-navbtn">
-              Open Property Command Center
+            <Link href={`/properties/${selectedProperty.id}`} className="di-link-btn">
+              Open {selectedProperty.name}
             </Link>
           </div>
         </>
@@ -425,20 +437,137 @@ function conditionsSummary(conditions: AiScoutConditions, extras: LiveExtras): s
     .join(" · ");
 }
 
-function confidenceBadgeVariant(confidence: AiScoutReport["confidence"]) {
-  if (confidence === "high") return "success" as const;
-  if (confidence === "medium") return "default" as const;
-
-  return "warning" as const;
+function confidenceColor(confidence: AiScoutReport["confidence"]): string {
+  if (confidence === "high") return "var(--accent-text)";
+  if (confidence === "medium") return "var(--text)";
+  return "var(--accent-2)";
 }
 
-// The PageHeader now carries the golden-hour band itself (di-section-hero), so
-// this wrapper card just passes through without its own surface/padding.
-const heroCardStyle: CSSProperties = {
-  padding: 0,
-  border: "none",
+const mono = "var(--font-geist-mono), ui-monospace, monospace";
+
+const scoutStyle: CSSProperties = {
+  display: "grid",
+  gap: "1rem",
+};
+
+const monoLabelStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontFamily: mono,
+  fontSize: "0.68rem",
+  fontWeight: 500,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+};
+
+const conditionGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  borderTop: "1px solid var(--border)",
+  borderBottom: "1px solid var(--border)",
+};
+
+const conditionCellStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.3rem",
+  minWidth: 0,
+  padding: "0.7rem 0.6rem",
+  borderLeft: "1px solid var(--border)",
+};
+
+const conditionValueStyle: CSSProperties = {
+  overflow: "hidden",
+  color: "var(--text)",
+  fontFamily: "var(--font-display), sans-serif",
+  fontSize: "1.55rem",
+  lineHeight: 1,
+  textOverflow: "ellipsis",
+  textTransform: "uppercase",
+  whiteSpace: "nowrap",
+};
+
+const conditionFootStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  minHeight: "44px",
+  borderBottom: "1px solid var(--border)",
+};
+
+const editButtonStyle: CSSProperties = {
+  ...monoLabelStyle,
+  flex: "none",
+  minHeight: "40px",
+  padding: "0 0.25rem",
+  border: 0,
   background: "transparent",
-  boxShadow: "none",
+  color: "var(--text)",
+  cursor: "pointer",
+};
+
+const askButtonStyle: CSSProperties = {
+  minHeight: "54px",
+  fontSize: "1.3rem",
+};
+
+const reportStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.5rem",
+  paddingTop: "1rem",
+  borderTop: "1px solid var(--border)",
+};
+
+const reportHeadStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+};
+
+const standNameStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text)",
+  fontSize: "2.4rem",
+  lineHeight: 0.95,
+};
+
+const headlineStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text)",
+  fontSize: "1.02rem",
+  fontWeight: 600,
+  lineHeight: 1.5,
+};
+
+const reasoningStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text-muted)",
+  lineHeight: 1.55,
+};
+
+const listTitleStyle: CSSProperties = {
+  margin: "1rem 0 0",
+  paddingBottom: "0.6rem",
+  borderBottom: "1px solid var(--border)",
+  color: "var(--text)",
+  fontSize: "1.5rem",
+};
+
+const numberedListStyle: CSSProperties = {
+  display: "grid",
+  margin: 0,
+  padding: 0,
+  listStyle: "none",
+};
+
+const numberedItemStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1.8rem minmax(0, 1fr)",
+  alignItems: "baseline",
+  gap: "0.5rem",
+  padding: "0.85rem 0",
+  borderBottom: "1px solid var(--border)",
+  color: "var(--text)",
+  lineHeight: 1.5,
 };
 
 const fieldStyle: CSSProperties = {
@@ -446,126 +575,34 @@ const fieldStyle: CSSProperties = {
   gap: "0.45rem",
 };
 
-const labelStyle: CSSProperties = {
-  color: "var(--accent-text)",
-  fontSize: "0.85rem",
-  fontWeight: 800,
-};
 
-const bulletListStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.75rem",
-  margin: 0,
-  paddingLeft: "1.25rem",
-};
 
-const bulletItemStyle: CSSProperties = {
-  color: "var(--text)",
-  fontSize: "1.04rem",
-  lineHeight: 1.55,
-};
 
-const simpleHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: "1rem",
-  flexWrap: "wrap",
-};
 
-const eyebrowStyle: CSSProperties = {
-  margin: 0,
-  color: "var(--accent-text)",
-  fontSize: "0.78rem",
-  fontWeight: 800,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-};
 
-const cardTitleStyle: CSSProperties = {
-  margin: "0.25rem 0 0",
-  color: "var(--text)",
-  fontSize: "1.55rem",
-  lineHeight: 1.2,
-};
 
 const mutedTextStyle: CSSProperties = {
-  margin: "0.7rem 0 0",
+  margin: "1rem 0 0",
   color: "var(--text-muted)",
   lineHeight: 1.55,
 };
 
-const detailLabelStyle: CSSProperties = {
-  margin: 0,
-  color: "var(--text-faint)",
-  fontSize: "0.78rem",
-  fontWeight: 800,
-};
 
 const footerActionStyle: CSSProperties = {
-  marginTop: "1.75rem",
+  marginTop: "1.5rem",
 };
 
-const primaryLinkStyle: CSSProperties = {
-  display: "inline-flex",
-  minHeight: "44px",
-  alignItems: "center",
-  justifyContent: "center",
-  marginTop: "1rem",
-  padding: "0.7rem 0.9rem",
-  border: "1px solid var(--accent)",
-  borderRadius: "var(--radius-sm)",
-  background: "var(--accent)",
-  color: "white",
-  fontWeight: 800,
-  textDecoration: "none",
-};
 
 const leadStyle: CSSProperties = {
-  margin: 0,
-  color: "var(--text)",
-  fontSize: "0.98rem",
-  lineHeight: 1.55,
-};
-
-const conditionsSummaryStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "0.75rem",
-  marginTop: "1rem",
-  padding: "0.75rem 0.85rem",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius-sm)",
-  background: "var(--surface)",
-};
-
-const conditionsLineStyle: CSSProperties = {
-  margin: "0.2rem 0 0",
-  color: "var(--text)",
-  fontSize: "0.98rem",
-  fontWeight: 800,
-  lineHeight: 1.4,
-};
-
-const conditionsSourceStyle: CSSProperties = {
-  margin: "0.15rem 0 0",
+  margin: "-0.4rem 0 0",
   color: "var(--text-muted)",
-  fontSize: "0.78rem",
+  fontSize: "0.88rem",
+  lineHeight: 1.5,
 };
 
-const changeButtonStyle: CSSProperties = {
-  flex: "none",
-  minHeight: "40px",
-  padding: "0 0.85rem",
-  border: "1px solid var(--border-strong)",
-  borderRadius: "var(--radius-sm)",
-  background: "var(--surface-2)",
-  color: "var(--text)",
-  fontSize: "0.88rem",
-  fontWeight: 800,
-  cursor: "pointer",
-};
+
+
+
 
 const conditionsGridStyle: CSSProperties = {
   display: "grid",
@@ -606,9 +643,4 @@ const aiScoutErrorStyle: CSSProperties = {
   lineHeight: 1.5,
 };
 
-const aiScoutReportStyle: CSSProperties = {
-  marginTop: "1.25rem",
-  paddingTop: "1.1rem",
-  borderTop: "1px solid var(--border)",
-};
 

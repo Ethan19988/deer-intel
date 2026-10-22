@@ -19,6 +19,7 @@ import { getPhotoBuckNames, photoRecordTime } from "@/lib/photos";
 import type { PhotoRecord } from "@/types/photo";
 import type { HeroPhoto } from "@/components/TodayVerdictHero";
 import type { StripPhoto } from "@/components/CameraPhotoStrip";
+import { buildStripPhotos } from "@/lib/photoStrip";
 
 // Fixed pre-mount clock; any constant works. Keeps the server render and the
 // first client render identical, then the real clock takes over.
@@ -149,16 +150,7 @@ export function usePropertyToday(propertyId: string) {
       }
     : null;
 
-  const stripPhotos: StripPhoto[] = recentPhotos.slice(0, 8).map((photo) => ({
-    id: photo.id,
-    imageId: photo.imageId!,
-    title: getPhotoBuckNames(photo)[0] ?? (photo.species || "Deer"),
-    subtitle: [cameraName(photo.cameraSiteId), photoDateLabel(photo)]
-      .filter(Boolean)
-      .join(", "),
-    href: `/properties/${photo.propertyId}/assets/${photo.cameraSiteId}#photos`,
-    isBuck: isBuckRecord(photo),
-  }));
+  const stripPhotos: StripPhoto[] = buildStripPhotos(photoRecords, cameras);
 
   return {
     heroPhoto,

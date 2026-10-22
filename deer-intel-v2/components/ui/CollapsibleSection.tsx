@@ -14,6 +14,7 @@ type CollapsibleSectionProps = {
   // Sections sharing a `name` form a native single-open accordion: opening one
   // closes its siblings. Leave unset for independent open/close behavior.
   name?: string;
+  id?: string;
 };
 
 export default function CollapsibleSection({
@@ -24,11 +25,13 @@ export default function CollapsibleSection({
   variant = "default",
   style,
   name,
+  id,
 }: CollapsibleSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
     <details
+      id={id}
       className={`di-collapsible-section di-collapsible-${variant}`}
       name={name}
       open={isOpen}
