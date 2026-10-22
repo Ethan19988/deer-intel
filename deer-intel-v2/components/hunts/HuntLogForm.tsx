@@ -150,8 +150,8 @@ export default function HuntLogForm({
         ) : null}
       </div>
 
-      <div style={{ ...rowStyle, ...threeColStyle }}>
-        <label style={fieldStyle}>
+      <div style={{ ...rowStyle, ...timeGridStyle }}>
+        <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
           <span style={labelStyle}>Date</span>
           <input
             type="date"
@@ -190,20 +190,20 @@ export default function HuntLogForm({
         <p style={weatherLineStyle}>
           {weatherSummary || "Not filled in yet"}
         </p>
-        <LiveWeatherFill
-          location={weatherLocation}
-          autoFetch={!values.windDirection && !values.temperature}
-          when={parseLocalDateTime(values.date, values.startTime)}
-          onApply={(fields, source) =>
-            onChange((current) => ({
-              ...current,
-              ...fields,
-              weatherSource: source,
-            }))
-          }
-        />
         <details style={detailsStyle}>
           <summary style={summaryStyle}>Edit weather</summary>
+          <LiveWeatherFill
+            location={weatherLocation}
+            autoFetch={!values.windDirection && !values.temperature}
+            when={parseLocalDateTime(values.date, values.startTime)}
+            onApply={(fields, source) =>
+              onChange((current) => ({
+                ...current,
+                ...fields,
+                weatherSource: source,
+              }))
+            }
+          />
           <div style={weatherGridStyle}>
             <label style={fieldStyle}>
               <span style={labelStyle}>Wind direction</span>
@@ -422,9 +422,9 @@ const rowStyle: CSSProperties = {
   borderBottom: "1px solid var(--border)",
 };
 
-const threeColStyle: CSSProperties = {
-  gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr)",
-  gap: "0.5rem",
+const timeGridStyle: CSSProperties = {
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "0.75rem 0.5rem",
 };
 
 const twoColStyle: CSSProperties = {

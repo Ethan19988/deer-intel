@@ -114,7 +114,11 @@ export default function DeerProfilesSection({
           const card = cards.get(id);
           const open = id === selectedProfileId;
           const meta = [
-            card?.lastSeen ? `Last seen ${card.lastSeen}` : "Not seen yet",
+            card?.lastSeen
+              ? `Last seen ${card.lastSeen}`
+              : summary.lastSeen
+                ? `Last seen ${shortDay(summary.lastSeen)}`
+                : "Not seen yet",
             `${summary.photoCount} ${summary.photoCount === 1 ? "photo" : "photos"}`,
           ].join(" · ");
 
@@ -225,6 +229,14 @@ function SelectedBuck({
   );
 }
 
+// "2026-09-29" → "Sep 29"; anything unparseable is shown as given.
+function shortDay(value: string): string {
+  const time = Date.parse(value.length === 10 ? `${value}T12:00:00` : value);
+  return Number.isNaN(time)
+    ? value
+    : new Date(time).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 const listStyle: CSSProperties = {
   display: "grid",
   gap: "0.75rem",
@@ -265,7 +277,7 @@ const noPhotoStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  aspectRatio: "16 / 6",
+  aspectRatio: "16 / 5",
   background: "var(--surface-2)",
   color: "var(--text-muted)",
 };

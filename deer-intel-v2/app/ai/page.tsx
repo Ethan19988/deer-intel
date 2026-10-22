@@ -215,7 +215,12 @@ export default function AIPage() {
   const conditionCells = [
     { label: "Wind", value: conditions.windDirection },
     { label: "Speed", value: conditions.windSpeed },
-    { label: "Temp", value: conditions.temperature },
+    {
+      label: "Temp",
+      value: /^-?\d+(\.\d+)?$/.test(conditions.temperature.trim())
+        ? `${conditions.temperature.trim()}°`
+        : conditions.temperature,
+    },
     { label: "Moon", value: conditions.moonPhase || moon?.phase || "" },
   ];
   const extrasLine = [liveExtras.sky, liveExtras.pressure].filter(Boolean).join(" · ");
@@ -268,7 +273,14 @@ export default function AIPage() {
                   {conditionCells.map((cell) => (
                     <div key={cell.label} style={conditionCellStyle}>
                       <span style={monoLabelStyle}>{cell.label}</span>
-                      <span style={conditionValueStyle}>{cell.value || "—"}</span>
+                      <span
+                        style={{
+                          ...conditionValueStyle,
+                          ...(cell.value.length > 7 ? conditionLongValueStyle : null),
+                        }}
+                      >
+                        {cell.value || "—"}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -483,6 +495,14 @@ const conditionValueStyle: CSSProperties = {
   textOverflow: "ellipsis",
   textTransform: "uppercase",
   whiteSpace: "nowrap",
+};
+
+// Moon phase names ("Waxing gibbous") wrap at a smaller size instead of
+// being cut off.
+const conditionLongValueStyle: CSSProperties = {
+  fontSize: "1.05rem",
+  lineHeight: 1.05,
+  whiteSpace: "normal",
 };
 
 const conditionFootStyle: CSSProperties = {
