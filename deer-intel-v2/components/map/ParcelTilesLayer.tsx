@@ -9,7 +9,7 @@ import {
   type LabelSymbolizer,
   type Layout,
 } from "protomaps-leaflet";
-import { ownerAcresText } from "@/lib/ownerLabel";
+import { ownerAcresText, ownerDisplayName } from "@/lib/ownerLabel";
 import { landTagKey, type LandTagKind } from "@/lib/landTags";
 
 // Statewide land-owner parcels, served as a single PMTiles vector-tile archive
@@ -52,36 +52,12 @@ const LABEL_MIN_ZOOM = PARCEL_TILES_MIN_ZOOM;
 // names" and "I see nothing" have different fixes.
 export const PARCEL_LABEL_MIN_ZOOM = LABEL_MIN_ZOOM;
 
-// Spartan-Forge-style labels: a uniform, modest font (not sized to the parcel),
-// plain white regular-weight lettering (no halo, no bold), the owner in CAPS
-// with the acreage spelled out on the line below. Long names wrap to fit the
-// parcel width instead of shrinking.
-// Bright white lettering, regular weight. The dark halo behind it is what keeps
-// it legible on pale ground (stubble, snow, sunlit field) where plain white
-// would wash out — over timber the white is doing all the work on its own.
-const OWNER_LABEL_TEXT = "#ffffff";
-const OWNER_LABEL_HALO = "rgba(17, 24, 39, 0.88)";
-// The acreage caption sits a step back from the name so the two read as a
-// hierarchy rather than one block of shouting — the name is what you're
-// scanning for, the acreage is confirmation once you've found it.
-const OWNER_ACRES_TEXT = "rgba(255, 255, 255, 0.82)";
-// A touch of tracking on the caps name. Uppercase set solid reads cramped and
-// screen-ish; opening it slightly is most of what makes a map label look drawn
-// rather than typed. MUST be applied to the measuring context too, or the fit
-// gate would measure narrower text than we draw and let names spill their lot.
-const OWNER_LABEL_TRACKING = "0.4px";
-// Stroked width is centred on the glyph outline, so ~half of this shows either
-// side. Wider smears thin strokes together and closes up letters like "e".
-const OWNER_LABEL_HALO_PX = 3;
+// Spartan-Forge-style labels: owner in CAPS with the acreage beneath, placed
+// once per holding. Styling (type, colours, tags) lives with the symbolizer.
+// A thin dark edge under every glyph; the soft shadow does the rest.
+const OWNER_LABEL_EDGE = "rgba(0, 0, 0, 0.55)";
+const OWNER_LABEL_EDGE_PX = 2;
 
-// A footprint narrower than this can't hold a label at any useful length, so
-// it's rejected before any measuring or pole-of-inaccessibility work happens.
-const OWNER_LABEL_MIN_BOX_PX = 26;
-
-const OWNER_NAME_FONT_PX = 13;
-const OWNER_ACRES_FONT_PX = 11;
-const OWNER_NAME_LINE_PX = OWNER_NAME_FONT_PX * 1.18;
-const OWNER_ACRES_LINE_PX = OWNER_ACRES_FONT_PX * 1.3;
 // Don't wrap a name into more lines than this — beyond it the block is too tall
 // to sit cleanly in a parcel, so the label is gated out until you zoom in.
 const OWNER_NAME_MAX_LINES = 3;
@@ -91,24 +67,8 @@ const OWNER_NAME_MAX_LINES = 3;
 // would otherwise print once per piece — cluttered and confusing. Tag each label
 // with the owner name so protomaps' labeler drops a repeat of the same owner
 // within a radius, collapsing a holding to a single name.
-//
-// The radius scales with the piece being labelled rather than being one fixed
-// number, because the right answer differs by two orders of magnitude: state
-// game lands spread their pieces further apart than a whole suburban block is
-// wide. A flat radius big enough to collapse the game lands erased genuinely
-// separate owners in town — measured in Franklin County, a flat 2400px took the
-// labelled owners from 10 down to 6. Scaling by the piece's own size collapsed
-// the game lands to one name AND kept all 10.
-const OWNER_LABEL_DEDUP_SCALE = 3;
-const OWNER_LABEL_DEDUP_MIN_PX = 600;
-const OWNER_LABEL_DEDUP_MAX_PX = 6000;
 
-// Aptos leads the stack (user preference). It ships with modern Windows and
-// Office but not iOS/Android; Seravek (bundled with iOS) is the closest
-// Aptos-like face on iPhones, then the system font — canvas text falls back
-// per-device just like DOM text.
-const LABEL_FONT_STACK =
-  "Aptos, Seravek, system-ui, -apple-system, Segoe UI, sans-serif";
+const OWNER_LABEL_DEDUP_MIN_PX = 600;
 
 // Every parcel with an owner is a label candidate; whether it actually gets one
 // is decided geometrically in the symbolizer, by whether the name fits inside
@@ -159,153 +119,121 @@ function wrapWords(
   return lines;
 }
 
-// Squared distance from (px, py) to the segment a-b.
-function segDistSq(px: number, py: number, a: Pt, b: Pt): number {
-  let x = a.x;
-  let y = a.y;
-  const dx0 = b.x - x;
-  const dy0 = b.y - y;
-  if (dx0 !== 0 || dy0 !== 0) {
-    const t = ((px - x) * dx0 + (py - y) * dy0) / (dx0 * dx0 + dy0 * dy0);
-    if (t > 1) {
-      x = b.x;
-      y = b.y;
-    } else if (t > 0) {
-      x += dx0 * t;
-      y += dy0 * t;
-    }
-  }
-  const dx = px - x;
-  const dy = py - y;
-  return dx * dx + dy * dy;
-}
-
-// Signed distance from a point to the ring boundary: positive inside the ring,
-// negative outside (even-odd rule).
-function signedRingDist(px: number, py: number, ring: Pt[]): number {
-  let inside = false;
-  let minSq = Infinity;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[i];
-    const b = ring[j];
-    if (
-      a.y > py !== b.y > py &&
-      px < ((b.x - a.x) * (py - a.y)) / (b.y - a.y) + a.x
-    ) {
-      inside = !inside;
-    }
-    minSq = Math.min(minSq, segDistSq(px, py, a, b));
-  }
-  return (inside ? 1 : -1) * Math.sqrt(minSq);
-}
-
-// Pole of inaccessibility (Mapbox's polylabel, simplified): the interior point
-// farthest from every edge — the visual center a person would label, robust for
-// L-shaped/concave parcels where the plain centroid sits near an edge or even
-// outside the polygon. Grid cells are refined only while they might still beat
-// the best point found, to a tolerance that scales with the ring's size.
-function poleOfInaccessibility(ring: Pt[]): Pt {
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (const p of ring) {
-    if (p.x < minX) minX = p.x;
-    if (p.x > maxX) maxX = p.x;
-    if (p.y < minY) minY = p.y;
-    if (p.y > maxY) maxY = p.y;
-  }
-  const width = maxX - minX;
-  const height = maxY - minY;
-  const cellSize = Math.min(width, height);
-  const bboxCenter: Pt = { x: minX + width / 2, y: minY + height / 2 };
-  if (cellSize <= 0) return bboxCenter;
-  const precision = Math.max(cellSize / 16, 1);
-
-  type Cell = { x: number; y: number; h: number; d: number; max: number };
-  const makeCell = (x: number, y: number, h: number): Cell => {
-    const d = signedRingDist(x, y, ring);
-    return { x, y, h, d, max: d + h * Math.SQRT2 };
-  };
-
-  let best = makeCell(bboxCenter.x, bboxCenter.y, 0);
-  const queue: Cell[] = [];
-  const h0 = cellSize / 2;
-  for (let x = minX; x < maxX; x += cellSize) {
-    for (let y = minY; y < maxY; y += cellSize) {
-      queue.push(makeCell(x + h0, y + h0, h0));
-    }
-  }
-
-  while (queue.length) {
-    // Pop the most promising cell (small queues make a linear scan fine here).
-    let bi = 0;
-    for (let i = 1; i < queue.length; i++) {
-      if (queue[i].max > queue[bi].max) bi = i;
-    }
-    const cell = queue[bi];
-    queue[bi] = queue[queue.length - 1];
-    queue.pop();
-
-    if (cell.d > best.d) best = cell;
-    if (cell.max - best.d <= precision) continue;
-
-    const h = cell.h / 2;
-    queue.push(
-      makeCell(cell.x - h, cell.y - h, h),
-      makeCell(cell.x + h, cell.y - h, h),
-      makeCell(cell.x - h, cell.y + h, h),
-      makeCell(cell.x + h, cell.y + h, h),
-    );
-  }
-
-  return { x: best.x, y: best.y };
-}
-
 // Width a holding name wraps to. The point layer carries no polygon, so there
 // is nothing to measure against — but the zoom at which the name fits its
 // ground was already decided at build time (the baked `mz`), so this only has
 // to keep long names to a tidy block rather than one long streak.
 const HOLDING_LABEL_WRAP_PX = 150;
 
+// What a label needs to know about you: your tags, the owners whose land sits
+// under your drawn hunt areas, and the owner whose card is open. Read when a
+// tile's labels are laid out, so changing any of it re-lays the labels.
+export type LabelStyleState = {
+  tags: Record<string, LandTagKind>;
+  mine: Set<string>;
+  selected: string;
+};
+
+type LabelRole = LandTagKind | "mine" | "public" | "selected" | "plain";
+
+// Name colour and the small tag line under the acres, per role. Untagged
+// owners stay white so the colours only ever mean "this is about you".
+const ROLE_STYLE: Record<LabelRole, { color: string; tag: string }> = {
+  mine: { color: "#ff7a2e", tag: "YOUR PROPERTY" },
+  permission: { color: "#b9c79a", tag: "PERMISSION" },
+  neighbor: { color: "#c9ccc2", tag: "NEIGHBOR" },
+  public: { color: "#9cc47f", tag: "PUBLIC" },
+  selected: { color: "#ffffff", tag: "" },
+  plain: { color: "#ffffff", tag: "" },
+};
+
+// Tactical label type: owner names in the app's display face (Bebas Neue —
+// narrow caps, so long names take less room), acres and tags in Geist Mono.
+// next/font hashes the family names, so the real ones are read from the CSS
+// variables once the page is up; until then the fallbacks stand in.
+export const labelFonts = {
+  display: '"Bebas Neue", "Arial Narrow", sans-serif',
+  mono: 'ui-monospace, "SFMono-Regular", Menlo, monospace',
+};
+
+const NAME_PX = 17;
+const NAME_SELECTED_PX = 21;
+const ACRES_PX = 9.5;
+const TAG_PX = 8.5;
+const LINE = { name: 1.0, small: 1.45 };
+
+function roleOf(feature: Feature, state: LabelStyleState): LabelRole {
+  const key = landTagKey(String(feature.props.owner ?? ""));
+  if (state.selected && key === state.selected) return "selected";
+  if (state.mine.has(key)) return "mine";
+  const tag = state.tags[key];
+  if (tag) return tag;
+  if (feature.props.pub === 1) return "public";
+  return "plain";
+}
+
 // Labels for the baked holding points: one per owner holding, at an anchor
 // computed over whole parcels at build time. Nothing here depends on polygon
 // geometry, which is the entire point — a tile clips polygons at its seams, so
 // any centre derived from what's in a tile shifts as the tiles change under it.
 class HoldingLabelSymbolizer {
+  private readonly getState: () => LabelStyleState;
+
+  constructor(getState: () => LabelStyleState) {
+    this.getState = getState;
+  }
+
   place(layout: Layout, geom: Pt[][], feature: Feature) {
-    const owner = String(feature.props.owner ?? "")
-      .trim()
-      .toUpperCase();
-    if (!owner) return undefined;
+    const rawOwner = String(feature.props.owner ?? "").trim();
+    if (!rawOwner) return undefined;
+    const owner = ownerDisplayName(rawOwner);
 
     const anchor = geom[0]?.[0];
     if (!anchor) return undefined;
 
-    const acresText = ownerAcresText(Number(feature.props.acres) || 0);
-    const nameFont = `400 ${OWNER_NAME_FONT_PX}px ${LABEL_FONT_STACK}`;
-    const acresFont = `400 ${OWNER_ACRES_FONT_PX}px ${LABEL_FONT_STACK}`;
+    const role = roleOf(feature, this.getState());
+    const { color, tag } = ROLE_STYLE[role];
+    const namePx = role === "selected" ? NAME_SELECTED_PX : NAME_PX;
+    const acresText = ownerAcresText(Number(feature.props.acres) || 0).toUpperCase();
 
-    layout.scratch.letterSpacing = OWNER_LABEL_TRACKING;
+    const nameFont = `400 ${namePx}px ${labelFonts.display}`;
+    const smallFont = (px: number) => `400 ${px}px ${labelFonts.mono}`;
+    const nameTracking = `${(namePx * 0.05).toFixed(2)}px`;
+    const smallTracking = "0.8px";
+
+    const lines: LabelLine[] = [];
     layout.scratch.font = nameFont;
-    const nameLines = wrapWords(
-      layout.scratch,
-      owner,
-      HOLDING_LABEL_WRAP_PX,
-      OWNER_NAME_MAX_LINES,
-    );
-
-    let textWidth = 0;
-    for (const line of nameLines) {
-      textWidth = Math.max(textWidth, layout.scratch.measureText(line).width);
+    layout.scratch.letterSpacing = nameTracking;
+    for (const line of wrapWords(layout.scratch, owner, HOLDING_LABEL_WRAP_PX, OWNER_NAME_MAX_LINES)) {
+      lines.push({
+        text: line,
+        font: nameFont,
+        tracking: nameTracking,
+        color,
+        height: namePx * LINE.name,
+        width: layout.scratch.measureText(line).width,
+      });
     }
+    const addSmall = (text: string, px: number, lineColor: string) => {
+      const font = smallFont(px);
+      layout.scratch.font = font;
+      layout.scratch.letterSpacing = smallTracking;
+      lines.push({
+        text,
+        font,
+        tracking: smallTracking,
+        color: lineColor,
+        height: px * LINE.small,
+        width: layout.scratch.measureText(text).width,
+      });
+    };
     if (acresText) {
-      layout.scratch.font = acresFont;
-      textWidth = Math.max(textWidth, layout.scratch.measureText(acresText).width);
+      addSmall(acresText, ACRES_PX, role === "selected" ? "#ffffff" : "rgba(255, 255, 255, 0.85)");
     }
-    const textHeight =
-      nameLines.length * OWNER_NAME_LINE_PX +
-      (acresText ? OWNER_ACRES_LINE_PX : 0);
+    if (tag) addSmall(`■ ${tag}`, TAG_PX, color);
+
+    const textWidth = Math.max(...lines.map((line) => line.width));
+    const textHeight = lines.reduce((sum, line) => sum + line.height, 0) + 2;
 
     return [
       {
@@ -318,203 +246,52 @@ class HoldingLabelSymbolizer {
             maxY: anchor.y + textHeight / 2,
           },
         ],
-        draw: makeLabelDraw(nameLines, acresText, nameFont, acresFont, textHeight),
-        deduplicationKey: owner,
+        draw: makeLabelDraw(lines, textHeight),
+        deduplicationKey: rawOwner.toUpperCase(),
         deduplicationDistance: OWNER_LABEL_DEDUP_MIN_PX,
       },
     ];
   }
 }
 
-// Shared glyph painting for both label symbolizers.
-function makeLabelDraw(
-  nameLines: string[],
-  acresText: string,
-  nameFont: string,
-  acresFont: string,
-  textHeight: number,
-) {
+type LabelLine = {
+  text: string;
+  font: string;
+  tracking: string;
+  color: string;
+  height: number;
+  width: number;
+};
+
+// Lettering sits straight on aerial imagery, which runs from near-black timber
+// to sunlit stubble and snow. A thin dark edge plus a soft shadow keeps it
+// readable on all of it without the heavy "stamped on" outline.
+function makeLabelDraw(lines: LabelLine[], textHeight: number) {
   return (ctx: CanvasRenderingContext2D) => {
+    const dpr = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
     ctx.miterLimit = 2;
-    ctx.letterSpacing = OWNER_LABEL_TRACKING;
 
-    let y = -textHeight / 2;
-    const fillLine = (
-      line: string,
-      font: string,
-      linePx: number,
-      color: string,
-    ) => {
-      ctx.font = font;
-      const baseline = y + linePx / 2;
-      ctx.strokeStyle = OWNER_LABEL_HALO;
-      ctx.lineWidth = OWNER_LABEL_HALO_PX;
-      ctx.strokeText(line, 0, baseline);
-      ctx.fillStyle = color;
-      ctx.fillText(line, 0, baseline);
-      y += linePx;
-    };
-    for (const line of nameLines) {
-      fillLine(line, nameFont, OWNER_NAME_LINE_PX, OWNER_LABEL_TEXT);
+    let y = -textHeight / 2 + 1;
+    for (const line of lines) {
+      const baseline = y + line.height / 2;
+      ctx.font = line.font;
+      ctx.letterSpacing = line.tracking;
+      ctx.shadowColor = "transparent";
+      ctx.strokeStyle = OWNER_LABEL_EDGE;
+      ctx.lineWidth = OWNER_LABEL_EDGE_PX;
+      ctx.strokeText(line.text, 0, baseline);
+      ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
+      ctx.shadowBlur = 4 * dpr;
+      ctx.fillStyle = line.color;
+      ctx.fillText(line.text, 0, baseline);
+      y += line.height;
     }
-    if (acresText) {
-      fillLine(acresText, acresFont, OWNER_ACRES_LINE_PX, OWNER_ACRES_TEXT);
-    }
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
   };
-}
-
-// A protomaps label symbolizer that renders each owner name as a uniform,
-// Spartan-Forge-style label centered in the parcel: CAPS name (wrapped to fit
-// the width) with the acreage spelled out beneath, in plain white. The label is
-// only placed once the parcel's on-screen footprint can hold the block — small
-// parcels stay unlabeled until you zoom in far enough.
-class FitToParcelOwnerSymbolizer {
-  place(layout: Layout, geom: Pt[][], feature: Feature) {
-    const owner = String(feature.props.owner ?? "")
-      .trim()
-      .toUpperCase();
-    if (!owner) return undefined;
-
-    // The largest ring *by area* (not vertex count — a tiny but vertex-dense
-    // ring must not win) carries the label. A hole is always smaller than the
-    // ring enclosing it, so the largest is necessarily an exterior ring.
-    let largest: Pt[] = geom[0] ?? [];
-    let largestArea = -1;
-    for (const ring of geom) {
-      let area2 = 0;
-      for (let i = 0; i < ring.length; i++) {
-        const p = ring[i];
-        const q = ring[(i + 1) % ring.length];
-        area2 += p.x * q.y - q.x * p.y;
-      }
-      const area = Math.abs(area2);
-      if (area > largestArea) {
-        largestArea = area;
-        largest = ring;
-      }
-    }
-    if (largest.length === 0) return undefined;
-
-    // Measure the ring the name is actually drawn in — NOT the union of every
-    // ring. A parcel that comes in several pieces (a farm either side of a
-    // road, or any feature split across a tile boundary) spans a combined box
-    // far bigger than the piece carrying the label, and fitting against that
-    // box let names sprawl clean off their own ground: in Franklin County a
-    // five-ring parcel took a 164px name on a 49px piece, 230% over, because
-    // the pieces together spanned 227px.
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (const p of largest) {
-      if (p.x < minX) minX = p.x;
-      if (p.x > maxX) maxX = p.x;
-      if (p.y < minY) minY = p.y;
-      if (p.y > maxY) maxY = p.y;
-    }
-    if (!Number.isFinite(minX)) return undefined;
-
-    const widthPx = maxX - minX;
-    const heightPx = maxY - minY;
-
-    // Cheapest possible reject, before any text measuring or the pole search:
-    // a footprint that can't hold one line at the label font never will. Fit is
-    // now the only gate, so at low zoom this rejects most parcels in view and
-    // keeps that from costing anything.
-    if (widthPx < OWNER_LABEL_MIN_BOX_PX || heightPx < OWNER_NAME_LINE_PX) {
-      return undefined;
-    }
-
-    const acresText = ownerAcresText(Number(feature.props.acres) || 0);
-
-    // Wrap the CAPS name to the parcel width at the fixed font, then lay out the
-    // (optional) acreage caption beneath it.
-    const nameFont = `400 ${OWNER_NAME_FONT_PX}px ${LABEL_FONT_STACK}`;
-    const acresFont = `400 ${OWNER_ACRES_FONT_PX}px ${LABEL_FONT_STACK}`;
-    const widthBudget = widthPx * 0.92;
-
-    // Same tracking the draw pass uses, so every width measured below — the
-    // wrap points and the fit gate — describes the text that actually lands on
-    // the canvas. Browsers without letterSpacing ignore it in both places and
-    // stay consistent.
-    layout.scratch.letterSpacing = OWNER_LABEL_TRACKING;
-    layout.scratch.font = nameFont;
-    const nameLines = wrapWords(
-      layout.scratch,
-      owner,
-      widthBudget,
-      OWNER_NAME_MAX_LINES,
-    );
-
-    let textWidth = 0;
-    for (const line of nameLines) {
-      textWidth = Math.max(textWidth, layout.scratch.measureText(line).width);
-    }
-    if (acresText) {
-      layout.scratch.font = acresFont;
-      textWidth = Math.max(textWidth, layout.scratch.measureText(acresText).width);
-    }
-
-    const textHeight =
-      nameLines.length * OWNER_NAME_LINE_PX +
-      (acresText ? OWNER_ACRES_LINE_PX : 0);
-
-    // The one rule that matters: the name is only placed once it actually fits
-    // inside the parcel. Zooming in grows every footprint, so parcels reveal
-    // their owners smallest-last, all the way down, with no acreage cutoff
-    // deciding it for them.
-    if (textWidth > widthPx * 0.98 || textHeight > heightPx * 0.98) {
-      return undefined;
-    }
-
-    // Only now, for a label that's actually going to be drawn, pay for the pole
-    // of inaccessibility — the interior point farthest from every boundary — so
-    // the name sits where a person would hand-place it, even on L-shaped or
-    // concave parcels where a plain centroid drifts to an edge (or clean out of
-    // the lot). Kept after the fit gate because it's the expensive step.
-    const anchor = poleOfInaccessibility(largest);
-
-    const bboxes = [
-      {
-        minX: anchor.x - textWidth / 2,
-        minY: anchor.y - textHeight / 2,
-        maxX: anchor.x + textWidth / 2,
-        maxY: anchor.y + textHeight / 2,
-      },
-    ];
-
-    // Halo, then glyph, shared with the holding-point labels. The names sit
-    // straight on aerial imagery, which runs from near-black timber to sunlit
-    // field and snow, so a plain fill of any single colour disappears
-    // somewhere; stroking a contrasting outline around every glyph is what
-    // keeps a name readable on all of it.
-    const draw = makeLabelDraw(
-      nameLines,
-      acresText,
-      nameFont,
-      acresFont,
-      textHeight,
-    );
-
-    return [
-      {
-        anchor,
-        bboxes,
-        draw,
-        deduplicationKey: owner,
-        deduplicationDistance: Math.min(
-          OWNER_LABEL_DEDUP_MAX_PX,
-          Math.max(
-            OWNER_LABEL_DEDUP_MIN_PX,
-            Math.hypot(widthPx, heightPx) * OWNER_LABEL_DEDUP_SCALE,
-          ),
-        ),
-      },
-    ];
-  }
 }
 
 // A parcel picked by tapping the map: the owner record under the tap, straight
@@ -543,7 +320,72 @@ type ParcelTilesLayerProps = {
   selectedOwner?: string | null;
   /** Receives a search over the parcels loaded in the current view. */
   onSearchReady?: (search: ((query: string) => ParcelTileOwnerHit[]) | null) => void;
+  /** Your drawn hunt areas: owners of the land under them get orange names. */
+  ownedAreas?: Array<Array<{ lat: number; lng: number }>>;
 };
+
+type LatLngPoint = { lat: number; lng: number };
+
+function insideArea(point: LatLngPoint, ring: LatLngPoint[]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i];
+    const b = ring[j];
+    if (
+      a.lat > point.lat !== b.lat > point.lat &&
+      point.lng < ((b.lng - a.lng) * (point.lat - a.lat)) / (b.lat - a.lat) + a.lng
+    ) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+// Sample points spread through a hunt area, for finding whose land it covers.
+function samplePoints(ring: LatLngPoint[], perSide = 7): LatLngPoint[] {
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLng = Infinity;
+  let maxLng = -Infinity;
+  for (const p of ring) {
+    minLat = Math.min(minLat, p.lat);
+    maxLat = Math.max(maxLat, p.lat);
+    minLng = Math.min(minLng, p.lng);
+    maxLng = Math.max(maxLng, p.lng);
+  }
+  const points: LatLngPoint[] = [];
+  for (let row = 0; row < perSide; row += 1) {
+    for (let col = 0; col < perSide; col += 1) {
+      const point = {
+        lat: minLat + ((row + 0.5) / perSide) * (maxLat - minLat),
+        lng: minLng + ((col + 0.5) / perSide) * (maxLng - minLng),
+      };
+      if (insideArea(point, ring)) points.push(point);
+    }
+  }
+  return points;
+}
+
+// next/font serves its faces under hashed family names; read the real ones
+// from the CSS variables the root layout sets, then wait for them to load so
+// labels aren't measured in a fallback face.
+async function loadLabelFonts(): Promise<boolean> {
+  if (typeof document === "undefined") return false;
+  const css = getComputedStyle(document.documentElement);
+  const display = css.getPropertyValue("--font-display").trim();
+  const mono = css.getPropertyValue("--font-geist-mono").trim();
+  if (display) labelFonts.display = display;
+  if (mono) labelFonts.mono = mono;
+  try {
+    await Promise.all([
+      document.fonts.load(`400 17px ${labelFonts.display}`, "MOORE HILL"),
+      document.fonts.load(`400 10px ${labelFonts.mono}`, "84.2 ACRES"),
+    ]);
+  } catch {
+    // A face that won't load just leaves the fallback in place.
+  }
+  return true;
+}
 
 /** One owner found by searching the parcels already loaded on screen. */
 export type ParcelTileOwnerHit = {
@@ -561,24 +403,35 @@ export default function ParcelTilesLayer({
   ownerTags,
   selectedOwner,
   onSearchReady,
+  ownedAreas,
 }: ParcelTilesLayerProps) {
   const map = useMap();
 
-  // Paint rules read tags and the selection through a ref, so tagging a parcel
-  // repaints the tiles instead of rebuilding the whole layer.
-  const styleRef = useRef({
+  // Paint and label rules read tags, your land and the selection through a
+  // ref, so tagging a parcel re-lays the labels instead of rebuilding the layer.
+  const styleRef = useRef<LabelStyleState>({
     tags: ownerTags ?? {},
+    mine: new Set(),
     selected: selectedOwner ? landTagKey(selectedOwner) : "",
   });
-  const layerRef = useRef<{ redraw?: () => void } | null>(null);
+  const layerRef = useRef<{ refresh: () => void; findMine: () => void } | null>(null);
   const tagSignature = JSON.stringify(ownerTags ?? {});
   const selectedKey = selectedOwner ? landTagKey(selectedOwner) : "";
   useEffect(() => {
-    styleRef.current = { tags: ownerTags ?? {}, selected: selectedKey };
-    layerRef.current?.redraw?.();
+    styleRef.current = { ...styleRef.current, tags: ownerTags ?? {}, selected: selectedKey };
+    layerRef.current?.refresh();
     // tagSignature stands in for ownerTags so a new-but-equal object doesn't repaint.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tagSignature, selectedKey]);
+  const areasRef = useRef(ownedAreas ?? []);
+  const areasSignature = JSON.stringify(ownedAreas ?? []);
+  useEffect(() => {
+    areasRef.current = ownedAreas ?? [];
+    styleRef.current = { ...styleRef.current, mine: new Set() };
+    layerRef.current?.findMine();
+    // areasSignature stands in for ownedAreas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areasSignature]);
   const searchReadyRef = useRef(onSearchReady);
   useEffect(() => {
     searchReadyRef.current = onSearchReady;
@@ -685,13 +538,63 @@ export default function ParcelTilesLayer({
             hasOwnerName(f) &&
             z >= (Number(f.props.mz) || PARCEL_TILES_MIN_ZOOM),
           sort: (a, b) => (Number(b.acres) || 0) - (Number(a.acres) || 0),
-          symbolizer: new HoldingLabelSymbolizer() as unknown as LabelSymbolizer,
+          symbolizer: new HoldingLabelSymbolizer(
+            () => styleRef.current,
+          ) as unknown as LabelSymbolizer,
         },
       ],
     });
 
     layer.addTo(map);
-    layerRef.current = layer as unknown as { redraw?: () => void };
+
+    // Re-lay every label (tags, your land or the selection changed, or the
+    // label fonts finished loading) and repaint the tiles already on screen.
+    let cancelled = false;
+    const refresh = () => {
+      if (cancelled) return;
+      layer.clearLayout();
+      layer.rerenderTiles();
+    };
+
+    // Whose land sits under your hunt areas: sample each area against the
+    // loaded tiles and keep owners covering a real share of it (a sliver of a
+    // neighbor's lot along the edge doesn't make it yours). Grows as more of
+    // your areas come into view; never shrinks until the areas change.
+    const findMine = () => {
+      if (cancelled || map.getZoom() < PARCEL_TILES_MIN_ZOOM) return;
+      const mine = new Set(styleRef.current.mine);
+      const before = mine.size;
+      const view = map.getBounds();
+      for (const area of areasRef.current) {
+        if (area.length < 3) continue;
+        const points = samplePoints(area).filter((point) => view.contains([point.lat, point.lng]));
+        if (points.length === 0) continue;
+        const counts = new Map<string, number>();
+        for (const point of points) {
+          const seen = new Set<string>();
+          for (const picks of layer.queryTileFeaturesDebug(point.lng, point.lat, 1).values()) {
+            for (const pick of picks) {
+              if (pick.layerName !== "parcels") continue;
+              const key = landTagKey(String(pick.feature.props.owner ?? ""));
+              if (key) seen.add(key);
+            }
+          }
+          for (const key of seen) counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        const needed = Math.max(1, Math.ceil(points.length * 0.15));
+        for (const [key, count] of counts) if (count >= needed) mine.add(key);
+      }
+      if (mine.size !== before) {
+        styleRef.current = { ...styleRef.current, mine };
+        refresh();
+      }
+    };
+    layer.on("load", findMine);
+    layerRef.current = { refresh, findMine };
+
+    loadLabelFonts().then((changed) => {
+      if (changed) refresh();
+    });
 
     // Search the parcels already loaded around the current view by owner name.
     // The statewide archive has no owner index, so this covers what's on
@@ -776,7 +679,9 @@ export default function ParcelTilesLayer({
     map.on("click", handleClick);
 
     return () => {
+      cancelled = true;
       map.off("click", handleClick);
+      layer.off("load", findMine);
       layer.remove();
       layerRef.current = null;
       searchReadyRef.current?.(null);

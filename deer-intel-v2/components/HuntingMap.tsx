@@ -1389,6 +1389,15 @@ export default function HuntingMap() {
     [],
   );
   const landTags = useLandTags();
+  // Every property's drawn hunt area: the parcel layer names the land under
+  // them in orange as yours.
+  const ownedAreas = useMemo(
+    () =>
+      state.properties
+        .map((property) => property.huntArea)
+        .filter((area): area is NonNullable<typeof area> => huntAreaIsValid(area)),
+    [state.properties],
+  );
   const ownerTagKinds = useMemo(
     () =>
       Object.fromEntries(
@@ -4001,6 +4010,7 @@ export default function HuntingMap() {
               ownerTags={ownerTagKinds}
               selectedOwner={tileOwnerPick?.ownerName ?? null}
               onSearchReady={setOwnerSearch}
+              ownedAreas={ownedAreas}
             />
 
             <MapSearchTargetController
