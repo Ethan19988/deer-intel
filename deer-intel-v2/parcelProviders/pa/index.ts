@@ -35,6 +35,32 @@ const MIFFLIN_PARCEL_OWNER_SERVICE_URL =
 const PIKE_PARCEL_OWNER_SERVICE_URL =
   "https://gis.pikepa.org/arcgis/rest/services/PikeCo_Parcels/MapServer";
 
+// Cambria County's ArcGIS Online "Surface Owners" layer (8). Its layer 7
+// "Tax Parcels" carries no owner fields.
+const CAMBRIA_PARCEL_OWNER_SERVICE_URL =
+  "https://services1.arcgis.com/Fw15y9AZK02r2ZNA/arcgis/rest/services/GIS_Layers/FeatureServer";
+
+// Clearfield County's parcels are served from Centre County's GIS host.
+const CLEARFIELD_PARCEL_OWNER_SERVICE_URL =
+  "https://gissites4.centrecountypa.gov/arcgis/rest/services/CentreRoadsAdmin/MapServer";
+
+// Huntingdon County's ArcGIS Online parcels joined to CAMA (layer 1).
+const HUNTINGDON_PARCEL_OWNER_SERVICE_URL =
+  "https://services3.arcgis.com/liWtJPxLI3mlx8pH/arcgis/rest/services/Property_Lines/FeatureServer";
+
+// Lycoming County's own ArcGIS Server. Layer 4 is a join, so its field names
+// carry the table prefix (DBO.ParcelAttributes.FULL_NAME, …).
+const LYCOMING_PARCEL_OWNER_SERVICE_URL =
+  "https://gis.lyco.org/arcgis/rest/services/Parcels/MapServer";
+
+// Potter County's own ArcGIS Server tax parcels.
+const POTTER_PARCEL_OWNER_SERVICE_URL =
+  "https://maps.pottercountypa.net/arcgis/rest/services/TaxParcel/TaxParcels/MapServer";
+
+// Union County's ArcGIS Online parcels (layer 4).
+const UNION_PARCEL_OWNER_SERVICE_URL =
+  "https://services8.arcgis.com/7YUdLQ8pDBKU1XYI/arcgis/rest/services/Parcels/FeatureServer";
+
 // PASDA hosts a per-county parcel MapServer for every PA county at
 // .../pasda/<County>County/MapServer. Coverage of owner fields varies by
 // county, so each supported county is configured explicitly below.
@@ -195,6 +221,18 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     source: "County ArcGIS",
     status: "supported",
   },
+  Cambria: {
+    acreageFieldNames: ["ACREAGE"],
+    addressFieldNames: ["SITUS_DESC_1"],
+    geometrySupport: "polygon",
+    notes: "Cambria County ArcGIS Online Surface Owners layer.",
+    ownerFieldNames: ["OWNER_NAME_1", "OWNER_NAME_2"],
+    parcelIdFieldNames: ["CONTROL_NUMBER", "MAP_NUMBER"],
+    parcelLayerId: 8,
+    parcelServiceUrl: CAMBRIA_PARCEL_OWNER_SERVICE_URL,
+    source: "County ArcGIS",
+    status: "supported",
+  },
   Carbon: {
     acreageFieldNames: ["DeedAcr", "CALCAC"],
     addressFieldNames: ["Location"],
@@ -221,6 +259,19 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     source: "PASDA",
     status: "supported",
   },
+  Clearfield: {
+    // No address: ADD1-ADD4 look like the owner's mailing address.
+    acreageFieldNames: ["ACRES"],
+    addressFieldNames: [],
+    geometrySupport: "polygon",
+    notes: "Clearfield County parcels, served from Centre County's GIS host.",
+    ownerFieldNames: ["NAME"],
+    parcelIdFieldNames: ["PIN", "PARCEL_ID"],
+    parcelLayerId: 40,
+    parcelServiceUrl: CLEARFIELD_PARCEL_OWNER_SERVICE_URL,
+    source: "County ArcGIS",
+    status: "supported",
+  },
   Forest: {
     acreageFieldNames: ["ACRES"],
     addressFieldNames: ["SITUS"],
@@ -243,6 +294,19 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     parcelLayerId: 0,
     parcelServiceUrl: pasdaCountyParcelServiceUrl("Franklin"),
     source: "PASDA",
+    status: "supported",
+  },
+  Huntingdon: {
+    // No parcel address published; Owner_Addr is the mailing address.
+    acreageFieldNames: ["CAMA_ACRES", "MAP_ACRES"],
+    addressFieldNames: [],
+    geometrySupport: "polygon",
+    notes: "Huntingdon County ArcGIS Online parcels joined to CAMA.",
+    ownerFieldNames: ["Owner_Name"],
+    parcelIdFieldNames: ["TAXIDNUM"],
+    parcelLayerId: 1,
+    parcelServiceUrl: HUNTINGDON_PARCEL_OWNER_SERVICE_URL,
+    source: "County ArcGIS",
     status: "supported",
   },
   Indiana: {
@@ -269,6 +333,18 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     parcelLayerId: 0,
     parcelServiceUrl: pasdaCountyParcelServiceUrl("Juniata"),
     source: "PASDA",
+    status: "supported",
+  },
+  Lycoming: {
+    acreageFieldNames: ["DBO.ParcelAttributes.DEED_ACRES"],
+    addressFieldNames: ["DBO.ParcelAttributes.SITUS"],
+    geometrySupport: "polygon",
+    notes: "Lycoming County ArcGIS Server parcels (layer 4, joined attributes).",
+    ownerFieldNames: ["DBO.ParcelAttributes.FULL_NAME"],
+    parcelIdFieldNames: ["DBO.Parcels.TXID_NMBR", "DBO.Parcels.PARCEL"],
+    parcelLayerId: 4,
+    parcelServiceUrl: LYCOMING_PARCEL_OWNER_SERVICE_URL,
+    source: "County ArcGIS",
     status: "supported",
   },
   Mifflin: {
@@ -317,6 +393,31 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     parcelIdFieldNames: ["Control", "MAP_JOIN"],
     parcelLayerId: 1,
     parcelServiceUrl: PIKE_PARCEL_OWNER_SERVICE_URL,
+    source: "County ArcGIS",
+    status: "supported",
+  },
+  Potter: {
+    acreageFieldNames: ["Acreage"],
+    addressFieldNames: ["Situs_Complete"],
+    geometrySupport: "polygon",
+    notes: "Potter County ArcGIS Server tax parcels.",
+    ownerFieldNames: ["Owner_Name_1", "Owner_Name_2"],
+    parcelIdFieldNames: ["Control_Number"],
+    parcelLayerId: 0,
+    parcelServiceUrl: POTTER_PARCEL_OWNER_SERVICE_URL,
+    source: "County ArcGIS",
+    status: "supported",
+  },
+  Union: {
+    acreageFieldNames: ["mapped_acr", "gross_acre"],
+    addressFieldNames: ["PHYSSTRADD"],
+    geometrySupport: "polygon",
+    notes:
+      "Union County ArcGIS Online parcels. CURR_NAME* is the current owner (JAN1_NAME* is the Jan 1 owner of record).",
+    ownerFieldNames: ["CURR_NAME1", "CURR_NAME2"],
+    parcelIdFieldNames: ["PID", "ACCTNO"],
+    parcelLayerId: 4,
+    parcelServiceUrl: UNION_PARCEL_OWNER_SERVICE_URL,
     source: "County ArcGIS",
     status: "supported",
   },
