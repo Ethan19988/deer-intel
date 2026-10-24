@@ -3492,22 +3492,25 @@ export default function HuntingMap() {
   // the panel sits above them (z1100 vs z1000) and covers them anyway. There is
   // no free corner at that width, so the keys yield while the panel is open and
   // come straight back when it closes. Nothing is hidden on a wide screen.
-  const mapKeysHidden = isNarrowViewport && scoutPanelOpen;
-
   // Same corner fight from the other side: the bottom mode pill (aim / move /
   // place / draw) and the scout panel share the phone's bottom slot, and the
   // panel sits above it (z1100 vs z1000), covering the pill's wording and
   // Cancel. The pill is the interaction the hunter is mid-way through, so the
   // panel yields while a mode is live and returns the moment it ends.
-  const scoutPanelYields =
-    isNarrowViewport &&
-    (Boolean(aimingTarget) ||
-      Boolean(movingPin) ||
-      Boolean(pendingPin) ||
-      isPlacingPin ||
-      isDrawingArea ||
-      isPlanningRoute ||
-      isTrackingBlood);
+  const mapModeLive =
+    Boolean(aimingTarget) ||
+    Boolean(movingPin) ||
+    Boolean(pendingPin) ||
+    isPlacingPin ||
+    isDrawingArea ||
+    isPlanningRoute ||
+    isTrackingBlood;
+  const scoutPanelYields = isNarrowViewport && mapModeLive;
+
+  // The "On now" keys sit in that same bottom-left slot on a phone and paint
+  // over the mode pill too (aiming a stand showed only "…oints" and Cancel),
+  // so they yield to a live mode as well.
+  const mapKeysHidden = isNarrowViewport && (scoutPanelOpen || mapModeLive);
 
   return (
     <div className="di-map-layout" style={mapLayoutStyle}>
