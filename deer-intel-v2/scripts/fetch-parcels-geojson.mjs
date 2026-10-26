@@ -362,17 +362,6 @@ const COUNTIES = {
     pin: (p) => str(p.TAXIDNUM),
     addr: () => "",
   },
-  union: {
-    // CURR_NAME* is the current owner; JAN1_NAME* is the Jan 1 owner of record.
-    layerUrl:
-      "https://services8.arcgis.com/7YUdLQ8pDBKU1XYI/arcgis/rest/services/Parcels/FeatureServer/4",
-    orderBy: "FID",
-    outFields: ["CURR_NAME1", "CURR_NAME2", "mapped_acr", "gross_acre", "PID", "PHYSSTRADD"],
-    owner: (p) => joinFields(p, ["CURR_NAME1", "CURR_NAME2"]),
-    acres: (p) => toAcres(p.mapped_acr) || toAcres(p.gross_acre),
-    pin: (p) => str(p.PID),
-    addr: (p) => cleanAddr(p.PHYSSTRADD),
-  },
   cambria: {
     // Layer 8 "Surface Owners". Layer 7 "Tax Parcels" has no owner fields.
     layerUrl:
