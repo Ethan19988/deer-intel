@@ -83,6 +83,7 @@ import ParcelOwnerInfoCard from "@/components/map/ParcelOwnerInfoCard";
 import ParcelTilesLayer, {
   PARCEL_LABEL_MIN_ZOOM,
   PARCEL_TILES_MIN_ZOOM,
+  PARCEL_OFFLINE_SOURCE,
   type ParcelTileOwnerHit,
   type ParcelTileOwnerPick,
 } from "@/components/map/ParcelTilesLayer";
@@ -1534,8 +1535,10 @@ export default function HuntingMap() {
     selectedMapLayer.isWayback && selectedRelease
       ? waybackTileUrl(selectedRelease)
       : selectedMapLayer.url;
-  // Tile sources the current base map draws from — the base layer plus any
-  // reference overlays — so an offline save captures exactly what's on screen.
+  // Tile sources the map draws from — the base layer plus any reference
+  // overlays, the always-on water and parcel layers, and the slope/contour
+  // overlays when they're on — so an offline save captures what's on screen.
+  // The WMS entries mirror the props on their layers below.
   const offlineTileSources = useMemo<OfflineTileSource[]>(() => {
     const base: OfflineTileSource = {
       url: baseTileUrl,
@@ -1545,9 +1548,51 @@ export default function HuntingMap() {
       url: overlay.url,
       maxNativeZoom: 19,
     }));
+    // USGS's hydro cache 404s tiles it has no water in; those save as empty.
+    const water: OfflineTileSource = {
+      url: WATER_TILE_URL,
+      maxNativeZoom: 16,
+      sparse: true,
+    };
+    const terrain: OfflineTileSource[] = [];
+    if (showSlope) {
+      terrain.push({
+        kind: "wms",
+        url: SLOPE_WMS_URL,
+        maxNativeZoom: 19,
+        wms: { layers: SLOPE_WMS_LAYER, styles: "default", version: "1.3.0" },
+      });
+    }
+    if (showContours) {
+      terrain.push(
+        {
+          kind: "wms",
+          url: CONTOUR_WMS_URL,
+          minNativeZoom: CONTOUR_MIN_ZOOM,
+          maxNativeZoom: CONTOUR_FINE_ZOOM - 1,
+          wms: {
+            layers: CONTOUR_WMS_COARSE_LINES,
+            version: "1.3.0",
+            pixelSize: 512,
+          },
+        },
+        {
+          kind: "wms",
+          url: CONTOUR_FINE_WMS_URL,
+          minNativeZoom: CONTOUR_FINE_ZOOM,
+          maxNativeZoom: 19,
+          wms: {
+            layers: CONTOUR_FINE_WMS_LAYER,
+            styles: "default",
+            version: "1.3.0",
+            pixelSize: 512,
+          },
+        },
+      );
+    }
 
-    return [base, ...overlays];
-  }, [baseTileUrl, selectedMapLayer]);
+    return [base, ...overlays, water, ...terrain, PARCEL_OFFLINE_SOURCE];
+  }, [baseTileUrl, selectedMapLayer, showSlope, showContours]);
   const canBrowseImagery =
     Boolean(selectedMapLayer.isWayback) && waybackReleases.length > 1;
   // The year stepper stays hidden until asked for ("Browse older imagery" in
@@ -3896,7 +3941,7 @@ export default function HuntingMap() {
             ) : null}
 
             {showSlope ? (
-              <WMSTileLayer
+              <SuperWMSTileLayer
                 key="slope-overlay"
                 className="di-slope-overlay"
                 url={SLOPE_WMS_URL}
