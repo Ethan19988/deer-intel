@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { hourLabel, type HourlyActivity } from "@/lib/hourlyActivity";
+import { PA_LEGAL_LIGHT_MINUTES } from "@/lib/todayVerdict";
 
 type DeerHoursChartProps = {
   activity: HourlyActivity;
@@ -22,8 +23,9 @@ const PLOT_W = W - PAD_L - PAD_R;
 const PLOT_H = H - PAD_T - PAD_B;
 const SLOT = PLOT_W / 24;
 const BAR_W = Math.max(4, SLOT - 4);
-// Shooting light runs from 30 min before sunrise to 30 min after sunset.
-const LIGHT_PAD_HOURS = 0.5;
+// Legal shooting light (PA hours, one shared constant).
+const LIGHT_BEFORE_HOURS = PA_LEGAL_LIGHT_MINUTES.beforeSunrise / 60;
+const LIGHT_AFTER_HOURS = PA_LEGAL_LIGHT_MINUTES.afterSunset / 60;
 
 const x = (hour: number) => PAD_L + hour * SLOT;
 
@@ -72,9 +74,9 @@ export default function DeerHoursChart({
       >
         {sunriseHour !== undefined && sunsetHour !== undefined ? (
           <rect
-            x={x(Math.max(0, sunriseHour - LIGHT_PAD_HOURS))}
+            x={x(Math.max(0, sunriseHour - LIGHT_BEFORE_HOURS))}
             y={PAD_T}
-            width={x(Math.min(24, sunsetHour + LIGHT_PAD_HOURS)) - x(Math.max(0, sunriseHour - LIGHT_PAD_HOURS))}
+            width={x(Math.min(24, sunsetHour + LIGHT_AFTER_HOURS)) - x(Math.max(0, sunriseHour - LIGHT_BEFORE_HOURS))}
             height={PLOT_H}
             rx={6}
             fill="var(--accent-2)"
