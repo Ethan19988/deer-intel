@@ -1,3 +1,4 @@
+import { throttleByIp } from "@/lib/apiGuard";
 export const dynamic = "force-dynamic";
 
 async function fetchJson(url: string, timeoutMs = 6000): Promise<unknown> {
@@ -21,8 +22,12 @@ async function fetchJson(url: string, timeoutMs = 6000): Promise<unknown> {
 // CORS headers, so it runs server-side. Best-effort: any failure returns [] so
 // the search box keeps working without suggestions.
 export async function GET(request: Request): Promise<Response> {
+  // Typeahead fires per keystroke, so the limit is looser than full search.
+  const limited = throttleByIp(request, "geocode-suggest", 90, 60_000);
+  if (limited) return limited;
+
   const params = new URL(request.url).searchParams;
-  const text = params.get("q")?.trim() ?? "";
+  const text = (params.get("q")?.trim() ?? "").slice(0, 200);
 
   if (text.length < 3) return Response.json({ suggestions: [] });
 

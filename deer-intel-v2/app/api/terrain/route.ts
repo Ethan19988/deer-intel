@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { throttleByIp } from "@/lib/apiGuard";
 import { analyzeTerrain, type ElevationGrid } from "@/lib/terrainAnalysis";
 import type { TerrainMovementSet } from "@/lib/terrainMovement";
 
@@ -13,8 +14,10 @@ const GRID_N = 20; // GRID_N x GRID_N samples; chunked into <=100-point requests
 const SPACING_M = 70;
 const CHUNK = 100; // elevation APIs cap at 100 coordinates per request
 
-// Terrain doesn't change, so cache each property's read hard (per process).
+// Terrain doesn't change, so cache each property's read hard (per process),
+// bounded so a stream of random coordinates can't grow memory forever.
 const cache = new Map<string, TerrainMovementSet | null>();
+const MAX_CACHED_READS = 500;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -40,6 +43,10 @@ export async function GET(request: Request) {
   if (cache.has(key)) {
     return json(cache.get(key) ?? null);
   }
+
+  // Each uncached read makes several calls to free elevation services.
+  const limited = throttleByIp(request, "terrain", 20, 60_000);
+  if (limited) return limited;
 
   const points = buildGridPoints(geom.centerLat, geom.centerLng, geom.spacingM);
   const fetched = await fetchElevations(points);
@@ -70,6 +77,10 @@ export async function GET(request: Request) {
     `Live ${fetched.resolution} terrain read · Penn State rules`,
   );
 
+  if (cache.size >= MAX_CACHED_READS) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
   cache.set(key, set);
   return json(set);
 }

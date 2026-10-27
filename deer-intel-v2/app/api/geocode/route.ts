@@ -1,3 +1,4 @@
+import { throttleByIp } from "@/lib/apiGuard";
 import type {
   AddressSearchPlace,
   AddressSearchResult,
@@ -247,8 +248,17 @@ function mergePlaces(
   return merged.slice(0, 6);
 }
 
+// Each search fans out to three free geocoders; keep it to normal typing.
+const MAX_QUERY_LENGTH = 200;
+
 export async function GET(request: Request): Promise<Response> {
-  const query = new URL(request.url).searchParams.get("q")?.trim() ?? "";
+  const limited = throttleByIp(request, "geocode", 30, 60_000);
+  if (limited) return limited;
+
+  const query = (new URL(request.url).searchParams.get("q")?.trim() ?? "").slice(
+    0,
+    MAX_QUERY_LENGTH,
+  );
 
   if (!query) {
     const empty: AddressSearchResult = {
