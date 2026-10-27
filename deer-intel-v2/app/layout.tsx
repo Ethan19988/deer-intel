@@ -9,6 +9,7 @@ import PartyBuckPhotoSync from "@/components/party/PartyBuckPhotoSync";
 import AuthGate from "@/components/auth/AuthGate";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import StoragePersistenceBanner from "@/components/StoragePersistenceBanner";
+import AccountSwitchPrompt from "@/components/auth/AccountSwitchPrompt";
 import ThemeManager from "@/components/ThemeManager";
 
 // Runs before first paint to set <html data-theme> from the saved preference,
@@ -78,6 +79,7 @@ export default function RootLayout({
             <SharedSightingsManager />
             <AuthGate>{children}</AuthGate>
           </PartyProvider>
+          <AccountSwitchPrompt />
         </AuthProvider>
         <StoragePersistenceBanner />
       </body>

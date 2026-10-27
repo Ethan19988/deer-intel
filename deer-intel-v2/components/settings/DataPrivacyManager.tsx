@@ -14,13 +14,15 @@ import {
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
 // localStorage keys that hold the hunter's saved records. Kept in sync with
-// lib/deerIntelStore (state + legacy properties) and lib/cloudSync (sync meta).
+// lib/deerIntelStore (state + legacy properties) and lib/cloudSync (sync meta,
+// device owner).
 // Cleared schema-agnostically (remove + reload) so this never has to construct a
 // state object as the store's shape evolves.
 const RECORD_STORAGE_KEYS = [
   "deer-intel:state",
   "deer-intel:properties",
   "deer-intel:sync-meta",
+  "deer-intel:device-owner",
 ];
 
 type DataPrivacyManagerProps = {
