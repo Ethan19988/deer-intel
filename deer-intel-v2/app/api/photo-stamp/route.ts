@@ -6,6 +6,7 @@ import {
   type PhotoStampUnit,
 } from "@/lib/photoStampVision";
 import type { KnownBuckSummary } from "@/types/photoStamp";
+import { guardPaidRoute } from "@/lib/apiGuard";
 
 // Reading the printed info bar off a photo is opt-in and pay-per-call, so:
 //   GET  -> cheap "is this configured" check the client uses before uploading
@@ -17,6 +18,19 @@ const MAX_BASE64_LENGTH = 2_000_000;
 // A property should not have hundreds of tracked bucks; cap the list and the
 // per-field lengths so the prompt cannot be ballooned.
 const MAX_KNOWN_BUCKS = 40;
+// Image types the vision API accepts; anything else falls back to JPEG.
+const ALLOWED_MEDIA_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+// A camera-card import can read a few hundred photos in one sitting.
+const PHOTO_STAMP_LIMITS = {
+  limit: 400,
+  windowMs: 60 * 60 * 1000,
+  maxBodyBytes: MAX_BASE64_LENGTH + 100_000,
+};
 
 function sanitizeKnownBucks(value: unknown): KnownBuckSummary[] {
   if (!Array.isArray(value)) return [];
@@ -50,18 +64,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  let body: unknown;
+  const guard = await guardPaidRoute(request, "photo-stamp", PHOTO_STAMP_LIMITS);
+  if (!guard.ok) return guard.response;
 
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { error: "Request body must be JSON." },
-      { status: 400 },
-    );
-  }
-
-  const input = body as {
+  const input = guard.body as {
     imageBase64?: unknown;
     mediaType?: unknown;
     unit?: unknown;
@@ -86,7 +92,9 @@ export async function POST(request: Request) {
   }
 
   const mediaType =
-    input && typeof input.mediaType === "string" && input.mediaType
+    input &&
+    typeof input.mediaType === "string" &&
+    ALLOWED_MEDIA_TYPES.has(input.mediaType)
       ? input.mediaType
       : "image/jpeg";
   const unit: PhotoStampUnit = input && input.unit === "C" ? "C" : "F";

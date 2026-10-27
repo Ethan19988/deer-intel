@@ -161,7 +161,39 @@ type OpenMeteoResponse = {
   daily?: OpenMeteoDaily;
 };
 
-const liveWeatherCache = new Map<string, LiveWeatherResult>();
+// Weather is cached briefly so pages sharing a spot don't refetch, but never
+// across a long gap or a date change: a phone that keeps the app open
+// overnight must not plan today off yesterday's forecast.
+const WEATHER_CACHE_TTL_MS = 20 * 60 * 1000;
+
+type CachedWeather<T> = { value: T; fetchedAt: number; day: string };
+
+function localDayKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function readWeatherCache<T>(cache: Map<string, CachedWeather<T>>, key: string): T | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+
+  const now = new Date();
+  if (
+    now.getTime() - entry.fetchedAt > WEATHER_CACHE_TTL_MS ||
+    entry.day !== localDayKey(now)
+  ) {
+    cache.delete(key);
+    return null;
+  }
+
+  return entry.value;
+}
+
+function writeWeatherCache<T>(cache: Map<string, CachedWeather<T>>, key: string, value: T): void {
+  const now = new Date();
+  cache.set(key, { value, fetchedAt: now.getTime(), day: localDayKey(now) });
+}
+
+const liveWeatherCache = new Map<string, CachedWeather<LiveWeatherResult>>();
 
 /** True only for a real-world coordinate — finite and inside lat/lng bounds. */
 function isUsableCoordinate(lat: number, lng: number): boolean {
@@ -250,7 +282,7 @@ export async function fetchLiveWeather(
   }
 
   const cacheKey = `${point.lat.toFixed(3)},${point.lng.toFixed(3)}|${units.temperature}|${units.wind}`;
-  const cached = liveWeatherCache.get(cacheKey);
+  const cached = readWeatherCache(liveWeatherCache, cacheKey);
 
   if (cached) return cached;
 
@@ -294,7 +326,7 @@ export async function fetchLiveWeather(
 
     const result = buildLiveWeatherResult(point, payload.current, units);
 
-    liveWeatherCache.set(cacheKey, result);
+    writeWeatherCache(liveWeatherCache, cacheKey, result);
 
     return result;
   } catch {
@@ -305,7 +337,7 @@ export async function fetchLiveWeather(
   }
 }
 
-const liveForecastCache = new Map<string, LiveForecastResult>();
+const liveForecastCache = new Map<string, CachedWeather<LiveForecastResult>>();
 
 // Richer fetch for the dashboard: current conditions plus today's sunrise /
 // sunset (shooting light) and a short daily forecast (planning which day to
@@ -323,7 +355,7 @@ export async function fetchLiveForecast(
   }
 
   const cacheKey = `${point.lat.toFixed(3)},${point.lng.toFixed(3)}|${units.temperature}|${units.wind}`;
-  const cached = liveForecastCache.get(cacheKey);
+  const cached = readWeatherCache(liveForecastCache, cacheKey);
 
   if (cached) return cached;
 
@@ -420,7 +452,7 @@ export async function fetchLiveForecast(
       },
     };
 
-    liveForecastCache.set(cacheKey, result);
+    writeWeatherCache(liveForecastCache, cacheKey, result);
 
     return result;
   } catch {

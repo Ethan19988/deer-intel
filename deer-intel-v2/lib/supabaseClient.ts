@@ -68,3 +68,22 @@ export function getSupabaseClient(): SupabaseClient | null {
 
   return cachedClient;
 }
+
+/**
+ * Authorization header for calls to this app's own paid API routes, which
+ * require a signed-in session when cloud sync is configured. Returns an empty
+ * object when signed out or when Supabase isn't set up (local dev).
+ */
+export async function authHeaders(): Promise<Record<string, string>> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return {};
+
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+
+    return token ? { authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}

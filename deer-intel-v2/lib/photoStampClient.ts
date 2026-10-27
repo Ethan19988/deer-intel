@@ -1,5 +1,6 @@
 "use client";
 
+import { authHeaders } from "@/lib/supabaseClient";
 import type {
   KnownBuckSummary,
   PhotoStamp,
@@ -57,7 +58,7 @@ export async function requestPhotoStamp(
   try {
     const response = await fetch("/api/photo-stamp", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify({
         imageBase64: cropped.base64,
         mediaType: cropped.mediaType,

@@ -1,6 +1,7 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { HYDRATION_SAFE_NOW } from "@/lib/usePropertyToday";
 import {
   getSeasonContext,
   useSeasonCalendar,
@@ -18,7 +19,14 @@ type SeasonRutCardProps = {
 // the dashboard or a property page unchanged.
 export default function SeasonRutCard({ latitude }: SeasonRutCardProps) {
   const prefs = useSeasonCalendar();
-  const context = getSeasonContext(new Date(), prefs, latitude);
+  // Fixed date for the server render, the real one after mount, so the
+  // countdown never mismatches between server HTML and the client.
+  const [now, setNow] = useState<Date>(HYDRATION_SAFE_NOW);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNow(new Date());
+  }, []);
+  const context = getSeasonContext(now, prefs, latitude);
 
   return (
     <div style={{ ...cardStyle, ...toneStyle(context.phase) }}>

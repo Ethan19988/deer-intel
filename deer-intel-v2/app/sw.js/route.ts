@@ -25,6 +25,55 @@ const SERVICE_WORKER = `// Deer Intel service worker (generated per deploy — s
 const CACHE = "deer-intel-app-${VERSION}";
 // Warm the routes a hunter reaches for offline; others are cached as visited.
 const PRECACHE = ["/", "/map"];
+// Upper bound on build assets warmed at install, so a surprise can't balloon it.
+const MAX_WARM_ASSETS = 400;
+// Matches "/_next/static/…" in HTML and the bare "static/…" chunk paths
+// Turbopack's runtime uses for lazily loaded chunks. (No backslashes: this
+// text sits inside a template literal, which would swallow them.)
+const ASSET_PATTERN = /(?:[/]?_next[/])?static[/](?:immutable[/])?(?:chunks|css|media)[/][A-Za-z0-9_~./-]+[.](?:js|css|woff2)/g;
+
+function assetPaths(text) {
+  const found = new Set();
+  for (const match of text.matchAll(ASSET_PATTERN)) {
+    const bare = match[0].replace(/^[/]/, "").replace(/^_next[/]/, "");
+    found.add("/_next/" + bare);
+  }
+  return found;
+}
+
+// A new deploy deletes the previous build's cache, chunks included. Warm the
+// chunks the precached pages need, and the chunks those chunks load (the map
+// itself is a lazily loaded chunk), so the map opens offline even if the
+// phone never visited /map since the last deploy.
+async function warmBuildAssets(cache) {
+  const queue = [];
+  const seen = new Set();
+
+  for (const path of PRECACHE) {
+    const response = await cache.match(path);
+    if (!response) continue;
+    for (const asset of assetPaths(await response.text())) queue.push(asset);
+  }
+
+  while (queue.length > 0 && seen.size < MAX_WARM_ASSETS) {
+    const asset = queue.shift();
+    if (seen.has(asset)) continue;
+    seen.add(asset);
+
+    try {
+      const response = await fetch(asset);
+      if (!response.ok) continue;
+      await cache.put(asset, response.clone());
+      if (asset.endsWith(".js")) {
+        for (const next of assetPaths(await response.text())) {
+          if (!seen.has(next)) queue.push(next);
+        }
+      }
+    } catch {
+      // Skip; it will be cached on first use instead.
+    }
+  }
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -34,6 +83,7 @@ self.addEventListener("install", (event) => {
       await Promise.all(
         PRECACHE.map((path) => cache.add(path).catch(() => undefined)),
       );
+      await warmBuildAssets(cache).catch(() => undefined);
       await self.skipWaiting();
     })(),
   );
@@ -74,8 +124,11 @@ self.addEventListener("fetch", (event) => {
       (async () => {
         try {
           const response = await fetch(request);
-          const cache = await caches.open(CACHE);
-          cache.put(request, response.clone());
+          // Never let an error page replace the good cached shell.
+          if (response.ok) {
+            const cache = await caches.open(CACHE);
+            cache.put(request, response.clone());
+          }
           return response;
         } catch {
           const cached = await caches.match(request);

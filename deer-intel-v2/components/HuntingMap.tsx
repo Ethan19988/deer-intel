@@ -424,15 +424,32 @@ const PENDING_PIN_TYPE_OPTIONS = PROPERTY_ASSET_PIN_TYPES.map((type) => {
 // unavailable, never as the owner data being unpublished, since the tile is
 // usually showing an owner name right above this line. A lookup that simply
 // fails adds nothing, leaving the tile's own owner/acres card intact.
+function comparableOwner(name: string): string {
+  return name.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
 function countyRecordLines(
   state: ParcelOwnerLookupState,
+  tileOwnerName?: string,
 ): Array<{ label: string; value: string }> {
   if (state.status === "loading") {
     return [{ label: "County record", value: "Looking up…" }];
   }
 
   if (state.status === "found" && state.parcel) {
+    // The name above comes from the monthly tile build; the county answers
+    // live. If they disagree (a recent sale, or a tap near a boundary where the
+    // ID/address below belong to the neighbouring parcel), show the county's
+    // owner so the ID and address aren't read as the tile owner's.
+    const countyOwner = state.parcel.ownerName;
+    const ownerDiffers =
+      Boolean(countyOwner && tileOwnerName) &&
+      comparableOwner(countyOwner) !== comparableOwner(tileOwnerName ?? "");
+
     return [
+      ...(ownerDiffers
+        ? [{ label: "County owner", value: `${countyOwner} (county's current record)` }]
+        : []),
       { label: "County", value: `${state.parcel.countyName} County` },
       { label: "Parcel ID", value: state.parcel.parcelId ?? "Not listed" },
       { label: "Address", value: state.parcel.address ?? "Not listed" },
@@ -3373,10 +3390,13 @@ export default function HuntingMap() {
         controller.signal,
       );
 
-      const skipped = pack.tileCount;
+      const failed = pack.failedTiles ?? 0;
       setOfflineStatus({
         phase: "done",
-        message: `Saved ${pending.targetLabel} — ${skipped.toLocaleString()} tiles ready offline.`,
+        message:
+          failed > 0
+            ? `Saved ${pending.targetLabel} — ${pack.tileCount.toLocaleString()} tiles ready, ${failed.toLocaleString()} missed. Save it again on a good signal to fill the gaps.`
+            : `Saved ${pending.targetLabel} — ${pack.tileCount.toLocaleString()} tiles ready offline.`,
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -5009,7 +5029,7 @@ export default function HuntingMap() {
               summary={`${tileOwnerPick.isPublic ? "Public" : "Private"} · ${
                 ownerAcresText(tileOwnerPick.acres) || "acres not listed"
               }`}
-              lines={countyRecordLines(tileOwnerDetail)}
+              lines={countyRecordLines(tileOwnerDetail, tileOwnerPick.ownerName)}
               tag={landTags[landTagKey(tileOwnerPick.ownerName)]?.kind ?? null}
               onTag={
                 tileOwnerAt

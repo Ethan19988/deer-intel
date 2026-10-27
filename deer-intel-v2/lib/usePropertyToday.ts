@@ -60,6 +60,9 @@ export function usePropertyToday(propertyId: string) {
   }, []);
 
   const [forecast, setForecast] = useState<LiveForecast | null>(null);
+  // Changes every 20 minutes; drives a forecast refresh (the cache expires on
+  // the same schedule and at midnight).
+  const weatherSlot = now ? Math.floor(now.getTime() / (20 * 60 * 1000)) : 0;
   useEffect(() => {
     if (!weatherKey) {
       // Clear a stale forecast when the property has no weather point.
@@ -95,9 +98,13 @@ export function usePropertyToday(propertyId: string) {
     return () => {
       active = false;
     };
-  }, [weatherKey, tempUnit, windUnit]);
+    // weatherSlot re-runs this every 20 minutes (and when the phone wakes
+    // the minute tick), so wind and the cold-front cue stay current.
+  }, [weatherKey, tempUnit, windUnit, weatherSlot]);
 
-  const seasonCtx = getSeasonContext(now ?? new Date(), seasonPrefs, property?.latitude);
+  // HYDRATION_SAFE_NOW on the server/first render so the rut ribbon's
+  // "peak in N days" matches between server HTML and the client.
+  const seasonCtx = getSeasonContext(now ?? HYDRATION_SAFE_NOW, seasonPrefs, property?.latitude);
   const verdict = buildTodayVerdict({
     now: now ?? HYDRATION_SAFE_NOW,
     forecast,

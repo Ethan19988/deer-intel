@@ -1,5 +1,6 @@
 "use client";
 
+import { localDateKey } from "@/lib/standPressure";
 import { useSyncExternalStore } from "react";
 
 // Local hunting-condition notifications. These fire while Deer Intel is open and
@@ -147,8 +148,9 @@ export function useNotificationPrefs(): NotificationPrefs {
 
 // --- Delivery + per-day dedupe ---------------------------------------------
 
+// Local calendar day, so an alert doesn't repeat when UTC rolls over at 8 pm.
 function todayKey(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateKey(new Date());
 }
 
 function readDedupe(): Record<string, string> {

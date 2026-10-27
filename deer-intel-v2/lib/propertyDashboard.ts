@@ -109,10 +109,24 @@ export function activeCameraCount(cameras: Camera[]) {
   return cameras.filter((camera) => camera.status === "Active").length;
 }
 
+// Hunt dates are stored date-only ("YYYY-MM-DD"). Date.parse reads those as
+// UTC midnight, which shows a day early in US time zones; read them as local.
+function parseActivityDate(date: string): number {
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+
+  return dateOnly
+    ? new Date(
+        Number(dateOnly[1]),
+        Number(dateOnly[2]) - 1,
+        Number(dateOnly[3]),
+      ).getTime()
+    : Date.parse(date);
+}
+
 function activityTime(date: string | undefined) {
   if (!date) return 0;
 
-  const time = Date.parse(date);
+  const time = parseActivityDate(date);
 
   return Number.isNaN(time) ? 0 : time;
 }
@@ -120,7 +134,7 @@ function activityTime(date: string | undefined) {
 function formatActivityDate(date: string | undefined) {
   if (!date) return "No date";
 
-  const time = Date.parse(date);
+  const time = parseActivityDate(date);
 
   if (Number.isNaN(time)) return date;
 
