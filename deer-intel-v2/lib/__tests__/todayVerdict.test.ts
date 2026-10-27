@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { LiveForecast } from "@/lib/liveWeather";
-import { buildDaylight, buildTodayVerdict } from "@/lib/todayVerdict";
+import {
+  buildDaylight,
+  buildTodayVerdict,
+  legalEnd,
+  legalStart,
+  PA_LEGAL_LIGHT_MINUTES,
+} from "@/lib/todayVerdict";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { Stand } from "@/types/stand";
 
@@ -38,7 +44,7 @@ describe("buildTodayVerdict", () => {
 
     expect(verdict.period).toBe("morning");
     expect(verdict.headline).toBe("Sit Creek");
-    expect(verdict.detail).toBe("S wind. Be in the stand by 6:43 AM.");
+    expect(verdict.detail).toBe("S wind. Be in the stand by 6:43 AM; legal light 6:58 AM.");
   });
 
   it("plans tomorrow morning after last light", () => {
@@ -52,7 +58,7 @@ describe("buildTodayVerdict", () => {
   it("says to head in now when it's past the settle time", () => {
     const verdict = buildTodayVerdict({ ...base, now: at(17, 15), stands: [stand("Ridge", "SW")] });
 
-    expect(verdict.detail).toBe("SW wind. Head in now; light ends 6:57 PM.");
+    expect(verdict.detail).toBe("SW wind. Head in now; legal light ends 6:57 PM.");
   });
 
   it("recommends resting when no stand fits", () => {
@@ -74,20 +80,38 @@ describe("buildTodayVerdict", () => {
 });
 
 describe("buildDaylight", () => {
-  it("counts light left to last light (sunset + 30 min)", () => {
+  it("counts legal light left to legal end (sunset + 30 min)", () => {
     const light = buildDaylight(at(16, 10), forecast.sunriseIso, forecast.sunsetIso);
 
-    expect(light?.label).toBe("2 h 47 m of light left");
-    expect(light?.lastLightLabel).toBe("6:57 PM");
+    expect(light?.label).toBe("2 h 47 m of legal light left");
+    expect(light?.legalStartLabel).toBe("6:58 AM");
+    expect(light?.legalEndLabel).toBe("6:57 PM");
+    expect(light?.sunsetLabel).toBe("6:27 PM");
     expect(light?.isDark).toBe(false);
   });
 
-  it("counts down to sunrise before dawn and clamps progress", () => {
+  it("counts down to legal light before dawn and clamps progress", () => {
     const light = buildDaylight(at(6, 0), forecast.sunriseIso, forecast.sunsetIso);
 
-    expect(light?.label).toBe("Sunrise in 1 h 28 m");
+    expect(light?.label).toBe("Legal light in 58 min");
     expect(light?.progress).toBe(0);
     expect(light?.isDark).toBe(true);
+  });
+
+  it("is shootable between legal light and sunrise", () => {
+    const light = buildDaylight(at(7, 10), forecast.sunriseIso, forecast.sunsetIso);
+
+    expect(light?.isDark).toBe(false);
+    expect(light?.progress).toBeGreaterThan(0);
+  });
+
+  it("is still legal just after sunset, gone after legal end", () => {
+    expect(buildDaylight(at(18, 45), forecast.sunriseIso, forecast.sunsetIso)?.label).toBe(
+      "12 min of legal light left",
+    );
+    expect(buildDaylight(at(18, 58), forecast.sunriseIso, forecast.sunsetIso)?.label).toBe(
+      "Light's gone for today",
+    );
   });
 
   it("reports dark after last light", () => {
@@ -95,5 +119,13 @@ describe("buildDaylight", () => {
 
     expect(light?.label).toBe("Light's gone for today");
     expect(light?.progress).toBe(1);
+  });
+});
+
+describe("legal shooting light (PA)", () => {
+  it("starts 30 min before sunrise and ends 30 min after sunset", () => {
+    expect(PA_LEGAL_LIGHT_MINUTES).toEqual({ beforeSunrise: 30, afterSunset: 30 });
+    expect(legalStart(at(7, 28))).toEqual(at(6, 58));
+    expect(legalEnd(at(18, 27))).toEqual(at(18, 57));
   });
 });

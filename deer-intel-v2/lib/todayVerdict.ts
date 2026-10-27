@@ -15,12 +15,16 @@ export type SitPeriodKey = "morning" | "evening" | "tomorrow";
 export type VerdictChip = { label: string; tone: "good" | "warn" | "info" };
 
 export type DaylightState = {
-  /** 0-1 position of "now" between sunrise and last light, clamped. */
+  /** 0-1 position of "now" between legal start and legal end, clamped. */
   progress: number;
-  /** Plain-language status, e.g. "2 h 33 m of light left". */
+  /** Plain-language status, e.g. "2 h 33 m of legal light left". */
   label: string;
   sunriseLabel: string;
-  lastLightLabel: string;
+  sunsetLabel: string;
+  /** First legal shooting light (sunrise minus the PA offset). */
+  legalStartLabel: string;
+  /** Last legal shooting light (sunset plus the PA offset). */
+  legalEndLabel: string;
   isDark: boolean;
 };
 
@@ -36,9 +40,13 @@ export type TodayVerdict = {
   daylight: DaylightState | null;
 };
 
-// Last light is taken as 30 minutes after sunset (deer hunting hours in
-// Pennsylvania and most states end then). Check your state's regulations.
-export const LAST_LIGHT_MINUTES = 30;
+// Legal shooting hours. These are Pennsylvania rules: deer hunting hours run
+// from 30 minutes before sunrise to 30 minutes after sunset. Other states
+// differ; check your regulations.
+export const PA_LEGAL_LIGHT_MINUTES = {
+  beforeSunrise: 30,
+  afterSunset: 30,
+} as const;
 // After this long past sunrise the morning sit is over; plan the evening.
 const MORNING_SIT_MINUTES = 150;
 // Be settled this long before sunset for an evening sit, and in the stand this
@@ -73,6 +81,16 @@ function duration(minutes: number): string {
   return rest === 0 ? `${hours} h` : `${hours} h ${rest} m`;
 }
 
+/** First legal shooting light for a sunrise, per PA_LEGAL_LIGHT_MINUTES. */
+export function legalStart(sunrise: Date): Date {
+  return new Date(sunrise.getTime() - PA_LEGAL_LIGHT_MINUTES.beforeSunrise * 60_000);
+}
+
+/** Last legal shooting light for a sunset, per PA_LEGAL_LIGHT_MINUTES. */
+export function legalEnd(sunset: Date): Date {
+  return new Date(sunset.getTime() + PA_LEGAL_LIGHT_MINUTES.afterSunset * 60_000);
+}
+
 export function buildDaylight(
   now: Date,
   sunriseIso: string | undefined,
@@ -82,18 +100,18 @@ export function buildDaylight(
   const sunset = parseLocal(sunsetIso);
   if (!sunrise || !sunset) return null;
 
-  const lastLight = new Date(sunset.getTime() + LAST_LIGHT_MINUTES * 60_000);
-  const span = lastLight.getTime() - sunrise.getTime();
-  const elapsed = now.getTime() - sunrise.getTime();
+  const legal = { start: legalStart(sunrise), end: legalEnd(sunset) };
+  const span = legal.end.getTime() - legal.start.getTime();
+  const elapsed = now.getTime() - legal.start.getTime();
   const progress = Math.min(1, Math.max(0, elapsed / span));
-  const minutesLeft = (lastLight.getTime() - now.getTime()) / 60_000;
-  const minutesToSunrise = (sunrise.getTime() - now.getTime()) / 60_000;
+  const minutesLeft = (legal.end.getTime() - now.getTime()) / 60_000;
+  const minutesToLegal = (legal.start.getTime() - now.getTime()) / 60_000;
 
   let label: string;
-  if (minutesToSunrise > 0) {
-    label = `Sunrise in ${duration(minutesToSunrise)}`;
+  if (minutesToLegal > 0) {
+    label = `Legal light in ${duration(minutesToLegal)}`;
   } else if (minutesLeft > 0) {
-    label = `${duration(minutesLeft)} of light left`;
+    label = `${duration(minutesLeft)} of legal light left`;
   } else {
     label = "Light's gone for today";
   }
@@ -102,8 +120,10 @@ export function buildDaylight(
     progress,
     label,
     sunriseLabel: clock(sunrise),
-    lastLightLabel: clock(lastLight),
-    isDark: minutesLeft <= 0 || minutesToSunrise > 0,
+    sunsetLabel: clock(sunset),
+    legalStartLabel: clock(legal.start),
+    legalEndLabel: clock(legal.end),
+    isDark: minutesLeft <= 0 || minutesToLegal > 0,
   };
 }
 
@@ -117,10 +137,10 @@ function pickPeriod(now: Date, forecast: LiveForecast | null): SitPeriodKey {
   }
 
   const morningOver = sunrise.getTime() + MORNING_SIT_MINUTES * 60_000;
-  const lastLight = sunset.getTime() + LAST_LIGHT_MINUTES * 60_000;
+  const lightEnds = legalEnd(sunset).getTime();
 
   if (now.getTime() < morningOver) return "morning";
-  if (now.getTime() < lastLight) return "evening";
+  if (now.getTime() < lightEnds) return "evening";
   return "tomorrow";
 }
 
@@ -159,14 +179,14 @@ export function entryAdvice(
     const settleBy = new Date(sunset.getTime() - EVENING_SETTLE_MINUTES * 60_000);
     return now.getTime() < settleBy.getTime()
       ? `${windPart}. Head in by ${clock(settleBy)} to be settled.`
-      : `${windPart}. Head in now; light ends ${clock(new Date(sunset.getTime() + LAST_LIGHT_MINUTES * 60_000))}.`;
+      : `${windPart}. Head in now; legal light ends ${clock(legalEnd(sunset))}.`;
   }
 
   if (sunrise) {
     // Tomorrow's sunrise is within a minute or two of today's.
     const arriveBy = new Date(sunrise.getTime() - MORNING_ARRIVE_MINUTES * 60_000);
     if (period === "tomorrow" || now.getTime() < arriveBy.getTime()) {
-      return `${windPart}. Be in the stand by ${clock(arriveBy)}.`;
+      return `${windPart}. Be in the stand by ${clock(arriveBy)}; legal light ${clock(legalStart(sunrise))}.`;
     }
     return `${windPart}. Still good for a late-morning sit.`;
   }
