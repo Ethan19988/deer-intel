@@ -23,9 +23,12 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { saveDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import { backupLocalImages } from "@/lib/imageStore";
 import {
+  backupGapNote,
   buildFullBackup,
   isFullBackup,
+  restoreFullBackupFiles,
   restoreFullBackupImages,
+  type FullBackupFile,
   type FullBackupImage,
 } from "@/lib/fullBackup";
 import { countRecords as recordCount, recordBackup } from "@/lib/backupReminder";
@@ -84,6 +87,7 @@ export default function SettingsPage() {
     state: DeerIntelState;
     fileName: string;
     images?: FullBackupImage[];
+    files?: FullBackupFile[];
   } | null>(null);
   const [isBackingUpPhotos, setIsBackingUpPhotos] = useState(false);
   const [photoBackupStatus, setPhotoBackupStatus] = useState<string | null>(
@@ -150,13 +154,18 @@ export default function SettingsPage() {
     setFullExportStatus("Bundling your photos…");
 
     try {
-      const backup = await buildFullBackup(state, (done, total) => {
-        setFullExportStatus(
-          total === 0
-            ? "Preparing backup…"
-            : `Bundling photo ${done} of ${total}…`,
-        );
-      });
+      const { backup, missingPhotos, missingDocuments } = await buildFullBackup(
+        state,
+        (done, total) => {
+          setFullExportStatus(
+            total === 0
+              ? "Preparing backup…"
+              : `Bundling photos and documents ${done} of ${total}…`,
+          );
+        },
+      );
+      const gapNote = backupGapNote(missingPhotos, missingDocuments);
+      const fileCount = backup.files?.length ?? 0;
       const today = localDateKey(new Date());
 
       downloadJson(
@@ -165,13 +174,18 @@ export default function SettingsPage() {
       );
       recordBackup(totalRecords);
 
-      setFullExportStatus(
-        backup.images.length === 0
-          ? "Backup downloaded. No photos are stored on this device, so it holds your records only."
-          : `Backup downloaded — ${totalRecords} records and ${backup.images.length} photo${
+      const contents =
+        backup.images.length === 0 && fileCount === 0
+          ? "Backup downloaded. No photos or documents were found, so it holds your records only."
+          : `Backup downloaded — ${totalRecords} records, ${backup.images.length} photo${
               backup.images.length === 1 ? "" : "s"
-            } in one file. Keep it somewhere safe.`,
-      );
+            }${
+              fileCount > 0
+                ? ` and ${fileCount} document${fileCount === 1 ? "" : "s"}`
+                : ""
+            } in one file. Keep it somewhere safe.`;
+
+      setFullExportStatus(gapNote ? `${contents} ${gapNote}` : contents);
     } catch {
       setFullExportStatus("Couldn't build the backup right now. Please try again.");
     } finally {
@@ -208,6 +222,7 @@ export default function SettingsPage() {
             state: parsed.state,
             fileName: file.name,
             images: parsed.images,
+            files: parsed.files,
           });
           return;
         }
@@ -244,29 +259,76 @@ export default function SettingsPage() {
   async function handleConfirmImport() {
     if (!pendingImport) return;
 
-    const { state: importState, fileName, images } = pendingImport;
+    const { state: importState, fileName, images, files } = pendingImport;
 
     setPendingImport(null);
     saveDeerIntelStore(importState);
 
-    if (images && images.length > 0) {
-      setImportMessage(
-        `Restoring ${images.length} photo${images.length === 1 ? "" : "s"}…`,
-      );
+    const imageCount = images?.length ?? 0;
+    const fileCount = files?.length ?? 0;
 
-      const result = await restoreFullBackupImages(images);
-
+    if (imageCount === 0 && fileCount === 0) {
       setImportMessage(
-        `Import complete. Replaced local data with "${fileName}" and restored ${result.restored} of ${result.total} photo${
-          result.total === 1 ? "" : "s"
-        }${result.failed ? ` — ${result.failed} couldn't be restored.` : "."}`,
+        `Import complete. Replaced local data with the backup from "${fileName}".`,
       );
       return;
     }
 
     setImportMessage(
-      `Import complete. Replaced local data with the backup from "${fileName}".`,
+      `Restoring ${imageCount} photo${imageCount === 1 ? "" : "s"}${
+        fileCount > 0
+          ? ` and ${fileCount} document${fileCount === 1 ? "" : "s"}`
+          : ""
+      }…`,
     );
+
+    const photos = images?.length
+      ? await restoreFullBackupImages(images)
+      : null;
+    const documents = files?.length ? await restoreFullBackupFiles(files) : null;
+
+    const parts = [`Import complete. Replaced local data with "${fileName}"`];
+
+    if (photos) {
+      parts.push(
+        `restored ${photos.restored} of ${photos.total} photo${
+          photos.total === 1 ? "" : "s"
+        }${photos.failed ? ` (${photos.failed} couldn't be restored)` : ""}`,
+      );
+    }
+    if (documents) {
+      parts.push(
+        `restored ${documents.restored} of ${documents.total} document${
+          documents.total === 1 ? "" : "s"
+        }${documents.failed ? ` (${documents.failed} couldn't be restored)` : ""}`,
+      );
+    }
+
+    const summary = `${parts.join(", ")}.`;
+    setImportMessage(summary);
+
+    // Restored photos only live on this device until uploaded; when signed in,
+    // back them up to the cloud so they survive eviction and reach other
+    // devices. Best-effort — a failure leaves them local, as before.
+    if (cloudActive && photos && photos.restoredIds.length > 0) {
+      try {
+        const upload = await backupLocalImages((done, total) => {
+          setImportMessage(`${summary} Backing up to the cloud ${done} of ${total}…`);
+        }, photos.restoredIds);
+
+        setImportMessage(
+          upload.failed
+            ? `${summary} ${upload.failed} photo${
+                upload.failed === 1 ? "" : "s"
+              } couldn't back up to the cloud — use Back Up My Photos to retry.`
+            : `${summary} Photos backed up to the cloud.`,
+        );
+      } catch {
+        setImportMessage(
+          `${summary} Couldn't back up the photos to the cloud — use Back Up My Photos to retry.`,
+        );
+      }
+    }
   }
 
   function handleCancelImport() {
@@ -555,8 +617,8 @@ export default function SettingsPage() {
             this browser.
           </p>
           <p style={mutedTextStyle}>
-            <strong>Full backup</strong> puts your records <em>and</em> your
-            photos in a single file, so you can move to a new phone or browser
+            <strong>Full backup</strong> puts your records, your photos, and
+            your attached documents in a single file, so you can move to a new phone or browser
             without losing pictures — no account needed. <strong>Records
             only</strong> is a smaller file that leaves photos behind. Importing
             either one restores whatever it contains.
@@ -792,8 +854,9 @@ export default function SettingsPage() {
                     }`
                   : ""
               }. Importing it will permanently replace the ${totalRecords} records currently saved in this browser${
-                pendingImport.images && pendingImport.images.length > 0
-                  ? " and restore its photos to this device"
+                (pendingImport.images?.length ?? 0) > 0 ||
+                (pendingImport.files?.length ?? 0) > 0
+                  ? " and restore its photos and documents to this device"
                   : ""
               }. This can't be undone unless you have another backup.`
             : ""

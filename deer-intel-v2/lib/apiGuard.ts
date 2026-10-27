@@ -135,3 +135,32 @@ export async function guardPaidRoute(
     return fail("Request body must be JSON.", 400);
   }
 }
+
+function clientIp(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for") ?? "";
+  const first = forwarded.split(",")[0]?.trim();
+
+  return first || request.headers.get("x-real-ip")?.trim() || "unknown";
+}
+
+/**
+ * Best-effort per-IP throttle for the free, unauthenticated helper routes
+ * (address search, terrain). Their upstreams (Nominatim, USGS, Open-Meteo)
+ * ban servers that send too much, which would break the feature for everyone.
+ * Returns a 429 response when over the limit, otherwise null.
+ */
+export function throttleByIp(
+  request: Request,
+  routeKey: string,
+  limit: number,
+  windowMs: number,
+): NextResponse | null {
+  if (takeToken(`${routeKey}:ip:${clientIp(request)}`, limit, windowMs)) {
+    return null;
+  }
+
+  return NextResponse.json(
+    { error: "Too many requests. Wait a minute and try again." },
+    { status: 429 },
+  );
+}

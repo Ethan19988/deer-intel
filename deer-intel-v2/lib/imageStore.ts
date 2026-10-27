@@ -148,8 +148,8 @@ export async function getAllLocalImageEntries(): Promise<
 /**
  * Write an image blob straight to local IndexedDB. Unlike putPhotoImage this
  * does not kick off a cloud upload — it restores a photo from a full-backup file
- * on the device the user is importing to. If cloud sync is on, the normal save
- * paths back these up later.
+ * on the device the user is importing to. When signed in, the caller backs the
+ * restored ids up with backupLocalImages(onProgress, ids).
  */
 export function restoreLocalImage(id: string, blob: Blob): Promise<boolean> {
   return runTransaction("readwrite", (store) => store.put(blob, id)).then(
@@ -162,12 +162,14 @@ export function restoreLocalImage(id: string, blob: Blob): Promise<boolean> {
  * Upload every image already saved on THIS device to the cloud backup — the
  * catch-up for photos saved before backup existed. Run it on the device that
  * holds the pictures (usually the phone). Best-effort and idempotent: images
- * already backed up just re-upsert.
+ * already backed up just re-upsert. Pass `onlyIds` to back up just those (e.g.
+ * the images a full-backup restore just wrote).
  */
 export async function backupLocalImages(
   onProgress?: (done: number, total: number) => void,
+  onlyIds?: string[],
 ): Promise<{ total: number; uploaded: number; failed: number }> {
-  const ids = await getAllLocalImageIds();
+  const ids = onlyIds ?? (await getAllLocalImageIds());
   let uploaded = 0;
   let failed = 0;
 

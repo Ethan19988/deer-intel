@@ -110,11 +110,13 @@ export default function TodayVerdictHero({
         <div style={lightWrapStyle}>
           <div style={lightLabelRowStyle}>
             <span style={lightLeftStyle}>{daylight.label}</span>
-            <span style={lightRightStyle}>Last light {daylight.lastLightLabel}</span>
+            <span style={lightRightStyle}>
+              Sun {daylight.sunriseLabel}–{daylight.sunsetLabel}
+            </span>
           </div>
           <div
             role="meter"
-            aria-label="Daylight used"
+            aria-label="Legal shooting light used"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(daylight.progress * 100)}
@@ -129,8 +131,8 @@ export default function TodayVerdictHero({
             />
           </div>
           <div style={lightScaleStyle}>
-            <span>{daylight.sunriseLabel}</span>
-            <span>{daylight.lastLightLabel}</span>
+            <span>Legal light {daylight.legalStartLabel}</span>
+            <span>Legal end {daylight.legalEndLabel}</span>
           </div>
         </div>
       ) : null}
@@ -244,14 +246,14 @@ const lightRightStyle: CSSProperties = {
   fontWeight: 600,
 };
 
-// Dawn amber through pale midday to dusk orange, ending in the half hour of
-// last light after sunset.
+// Legal light to legal end: the half hour before sunrise, dawn amber, pale
+// midday, dusk orange, then the half hour of legal light after sunset.
 const trackStyle: CSSProperties = {
   position: "relative",
   height: "8px",
   borderRadius: "999px",
   background:
-    "linear-gradient(90deg, #e79a4c 0%, #f3d79a 14%, #eef0d8 45%, #f3d79a 78%, #e0732f 93%, #4b3a5a 100%)",
+    "linear-gradient(90deg, #4b3a5a 0%, #e79a4c 7%, #f3d79a 18%, #eef0d8 45%, #f3d79a 78%, #e0732f 93%, #4b3a5a 100%)",
   boxShadow: "inset 0 0 0 1px rgba(0, 0, 0, 0.15)",
 };
 

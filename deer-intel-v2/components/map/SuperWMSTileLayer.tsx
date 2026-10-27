@@ -6,6 +6,7 @@
 // lines instead of the jagged/pixelly ones you get when tiles are drawn at 1:1
 // device pixels (which is all `detectRetina` gives you on a 2x phone). The tile
 // footprint on screen is unchanged — only the fetched image is denser.
+// Tiles saved in an offline pack are served from the cache first.
 
 import {
   createElementObject,
@@ -14,8 +15,10 @@ import {
   withPane,
 } from "@react-leaflet/core";
 import { TileLayer } from "leaflet";
-import type { Coords, WMSOptions, WMSParams } from "leaflet";
+import type { Coords, DoneCallback, WMSOptions, WMSParams } from "leaflet";
 import type { WMSTileLayerProps } from "react-leaflet";
+import { createCachedTile } from "@/components/map/CachedTileLayer";
+import { offlineTilesAvailable, offlineWmsTileKey } from "@/lib/offlineMaps";
 
 // @types/leaflet exposes `TileLayer.WMS` only through a namespace that doesn't
 // merge off this import, so describe the WMS instance/constructor explicitly and
@@ -31,6 +34,26 @@ const WMSTileLayerCtor = (TileLayer as unknown as { WMS: WMSConstructor }).WMS;
 
 class SuperSampledWMS extends WMSTileLayerCtor {
   _superSample = 1;
+  _serviceUrl = "";
+
+  // Offline-first: a WMS tile saved in an offline pack is keyed by service,
+  // layers and z/x/y (the live bbox string isn't reproducible), so look it up
+  // under that key and fall back to the live GetMap request.
+  createTile(coords: Coords, done: DoneCallback): HTMLElement {
+    const url = this.getTileUrl(coords);
+    // Nothing saved → no key needed; createCachedTile goes straight to url.
+    if (!offlineTilesAvailable() || !this._serviceUrl) {
+      return createCachedTile(this, done, url);
+    }
+    const key = offlineWmsTileKey(
+      this._serviceUrl,
+      String(this.wmsParams.layers ?? ""),
+      coords.z,
+      coords.x,
+      coords.y,
+    );
+    return createCachedTile(this, done, url, key);
+  }
 
   getTileUrl(coords: Coords): string {
     const ss = Math.max(1, this._superSample || 1);
@@ -64,6 +87,7 @@ const SuperWMSTileLayer = createTileLayerComponent<
       withPane(options, context) as WMSOptions,
     );
     layer._superSample = Number(superSample) || 1;
+    layer._serviceUrl = url as string;
     return createElementObject(layer, context);
   },
   function updateSuperWMSTileLayer(layer, props, prevProps) {

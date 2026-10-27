@@ -12,6 +12,12 @@ import {
   buildAiScoutRequestContext,
 } from "@/lib/aiScoutContext";
 import { checkAiScoutConfigured, requestAiScoutReport } from "@/lib/aiScoutClient";
+import {
+  formatSavedAgo,
+  readSavedAiScoutReport,
+  writeSavedAiScoutReport,
+  type SavedAiScoutReport,
+} from "@/lib/aiScoutHistory";
 import { useAiScoutEnabled } from "@/lib/aiScoutPreferences";
 import {
   useDeerIntelStore,
@@ -95,6 +101,18 @@ export default function AIPage() {
   const [aiScoutStatus, setAiScoutStatus] = useState<"idle" | "loading" | "error">("idle");
   const [aiScoutError, setAiScoutError] = useState<string>("");
   const [aiScoutReport, setAiScoutReport] = useState<AiScoutReport | null>(null);
+  // The last report saved on this device for this property, shown until a
+  // fresh one comes back (and kept on screen if the fresh call fails).
+  const [savedScout, setSavedScout] = useState<
+    { entry: SavedAiScoutReport; agoLabel: string } | null
+  >(null);
+
+  useEffect(() => {
+    const entry = readSavedAiScoutReport(selectedPropertyId);
+    // Client-only read of device storage after mount, per property.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSavedScout(entry ? { entry, agoLabel: formatSavedAgo(entry.savedAt, Date.now()) } : null);
+  }, [selectedPropertyId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,6 +180,7 @@ export default function AIPage() {
   if (selectedPropertyId !== lastScoutPropertyId) {
     setLastScoutPropertyId(selectedPropertyId);
     setAiScoutReport(null);
+    setSavedScout(null);
     setAiScoutStatus("idle");
     setAiScoutError("");
     setConditions(EMPTY_AI_SCOUT_CONDITIONS);
@@ -179,6 +198,19 @@ export default function AIPage() {
     setAiScoutError("");
 
     try {
+      // Blank moon falls back to today's detected phase, so AI Scout always
+      // has the lunar timing to reason about.
+      const usedConditions: AiScoutConditions = {
+        ...conditions,
+        moonPhase: conditions.moonPhase || moon?.phase || "",
+        notes: [
+          conditions.notes.trim(),
+          liveExtras.sky ? `Sky: ${liveExtras.sky}.` : "",
+          liveExtras.pressure ? `Barometric ${liveExtras.pressure}.` : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      };
       const context = buildAiScoutRequestContext({
         property: selectedProperty,
         stands: propertyStands,
@@ -187,25 +219,20 @@ export default function AIPage() {
         hunts: propertyHunts,
         photoRecords: propertyPhotoRecords,
         deerProfiles: propertyDeerProfiles,
-        // Fall back to today's detected moon phase when the hunter left it
-        // blank, so AI Scout always has the lunar timing to reason about.
-        conditions: {
-          ...conditions,
-          moonPhase: conditions.moonPhase || moon?.phase || "",
-          notes: [
-            conditions.notes.trim(),
-            liveExtras.sky ? `Sky: ${liveExtras.sky}.` : "",
-            liveExtras.pressure ? `Barometric ${liveExtras.pressure}.` : "",
-          ]
-            .filter(Boolean)
-            .join(" "),
-        },
+        conditions: usedConditions,
         scoutPicks,
       });
       const report = await requestAiScoutReport(context);
 
       setAiScoutReport(report);
       setAiScoutStatus("idle");
+      // Keep it on this device (latest per property) for no-signal reopen.
+      writeSavedAiScoutReport({
+        propertyId: selectedProperty.id,
+        savedAt: Date.now(),
+        conditions: usedConditions,
+        report,
+      });
     } catch (error) {
       setAiScoutStatus("error");
       setAiScoutError(error instanceof Error ? error.message : "AI Scout request failed.");
@@ -224,6 +251,19 @@ export default function AIPage() {
     { label: "Moon", value: conditions.moonPhase || moon?.phase || "" },
   ];
   const extrasLine = [liveExtras.sky, liveExtras.pressure].filter(Boolean).join(" · ");
+  // A fresh report wins; otherwise show the one saved on this device.
+  const shownSaved = aiScoutReport ? null : savedScout;
+  const shownReport = aiScoutReport ?? shownSaved?.entry.report ?? null;
+  const savedConditionsLine = shownSaved
+    ? [
+        shownSaved.entry.conditions.windDirection,
+        shownSaved.entry.conditions.windSpeed,
+        shownSaved.entry.conditions.temperature,
+      ]
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join(" · ")
+    : "";
 
   return (
     <PageShell>
@@ -363,7 +403,11 @@ export default function AIPage() {
                 disabled={aiScoutStatus === "loading"}
                 style={askButtonStyle}
               >
-                {aiScoutStatus === "loading" ? "Asking AI Scout…" : "Ask AI Scout"}
+                {aiScoutStatus === "loading"
+                  ? "Asking AI Scout…"
+                  : shownSaved
+                    ? "Ask again"
+                    : "Ask AI Scout"}
               </Button>
               <p style={leadStyle}>
                 Reads every sit, camera check, buck photo and the terrain saved for{" "}
@@ -374,30 +418,36 @@ export default function AIPage() {
                 <p style={aiScoutErrorStyle}>{aiScoutError}</p>
               ) : null}
 
-              {aiScoutReport ? (
+              {shownReport ? (
                 <article style={reportStyle} aria-label="AI Scout recommendation">
+                  {shownSaved ? (
+                    <p style={{ ...monoLabelStyle, margin: 0 }}>
+                      From {shownSaved.agoLabel}
+                      {savedConditionsLine ? ` · ${savedConditionsLine}` : ""} · saved on this device
+                    </p>
+                  ) : null}
                   <div style={reportHeadStyle}>
                     <span style={monoLabelStyle}>Recommended stand</span>
                     <span
                       style={{
                         ...monoLabelStyle,
-                        color: confidenceColor(aiScoutReport.confidence),
+                        color: confidenceColor(shownReport.confidence),
                       }}
                     >
-                      {aiScoutReport.confidence} confidence
+                      {shownReport.confidence} confidence
                     </span>
                   </div>
-                  <h2 style={standNameStyle}>{aiScoutReport.recommendedStandName}</h2>
-                  {aiScoutReport.headline ? (
-                    <p style={headlineStyle}>{aiScoutReport.headline}</p>
+                  <h2 style={standNameStyle}>{shownReport.recommendedStandName}</h2>
+                  {shownReport.headline ? (
+                    <p style={headlineStyle}>{shownReport.headline}</p>
                   ) : null}
-                  <p style={reasoningStyle}>{aiScoutReport.recommendedStandReasoning}</p>
+                  <p style={reasoningStyle}>{shownReport.recommendedStandReasoning}</p>
 
-                  {aiScoutReport.keyFactors.length > 0 ? (
+                  {shownReport.keyFactors.length > 0 ? (
                     <>
                       <h3 style={listTitleStyle}>Key factors</h3>
                       <ol style={numberedListStyle}>
-                        {aiScoutReport.keyFactors.map((factor, index) => (
+                        {shownReport.keyFactors.map((factor, index) => (
                           <li key={factor} style={numberedItemStyle}>
                             <span style={{ ...monoLabelStyle, color: "var(--accent-text)" }}>
                               {String(index + 1).padStart(2, "0")}
@@ -409,11 +459,11 @@ export default function AIPage() {
                     </>
                   ) : null}
 
-                  {aiScoutReport.risks.length > 0 ? (
+                  {shownReport.risks.length > 0 ? (
                     <>
                       <h3 style={listTitleStyle}>Worth knowing</h3>
                       <ul style={numberedListStyle}>
-                        {aiScoutReport.risks.map((risk) => (
+                        {shownReport.risks.map((risk) => (
                           <li key={risk} style={numberedItemStyle}>
                             <span style={{ ...monoLabelStyle, color: "var(--accent-2)" }}>!</span>
                             <span>{risk}</span>

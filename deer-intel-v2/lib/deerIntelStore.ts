@@ -923,6 +923,11 @@ export function saveDeerIntelStore(nextState: DeerIntelState): DeerIntelState {
   return normalizedState;
 }
 
+/** A fresh, empty state (what a brand-new device starts with). */
+export function createEmptyDeerIntelState(): DeerIntelState {
+  return { ...DEFAULT_STATE };
+}
+
 export function updateDeerIntelStore(
   updater: (currentState: DeerIntelState) => DeerIntelState,
 ) {
