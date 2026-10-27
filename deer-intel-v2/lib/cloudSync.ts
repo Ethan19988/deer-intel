@@ -97,6 +97,75 @@ export function writeSyncMeta(meta: SyncMeta): void {
   }
 }
 
+// Which account the local data on this device belongs to. Unlike sync meta it
+// survives sign-out, so a DIFFERENT account signing in next is detected instead
+// of silently receiving (or overwriting) the previous person's data.
+const DEVICE_OWNER_KEY = "deer-intel:device-owner";
+
+export type DeviceOwner = {
+  userId: string;
+  // True when the owner signed out with edits their cloud never received.
+  unsyncedEdits?: boolean;
+};
+
+export function readDeviceOwner(): DeviceOwner | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(DEVICE_OWNER_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<DeviceOwner>;
+    if (typeof parsed.userId !== "string" || !parsed.userId) return null;
+
+    return { userId: parsed.userId, unsyncedEdits: parsed.unsyncedEdits === true };
+  } catch {
+    return null;
+  }
+}
+
+export function writeDeviceOwner(owner: DeviceOwner): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(DEVICE_OWNER_KEY, JSON.stringify(owner));
+  } catch {
+    // Ignore; the owner check is a best-effort guard.
+  }
+}
+
+export type AccountSwitch = {
+  previousUserId: string;
+  // The previous account's local edits never reached its cloud, so loading the
+  // new account's data would lose them.
+  unsyncedEdits: boolean;
+};
+
+/**
+ * On sign-in: does this device hold real data that belongs to a DIFFERENT
+ * account than the one signing in? Returns null for a first-ever sign-in (no
+ * known owner), the same account, or a device with nothing worth keeping —
+ * those reconcile normally. Owner comes from the persisted device owner, or the
+ * sync meta when the previous session never signed out.
+ */
+export function detectAccountSwitch(
+  local: DeerIntelState,
+  owner: DeviceOwner | null,
+  meta: SyncMeta | null,
+  signingInUserId: string,
+): AccountSwitch | null {
+  const previousUserId = meta?.userId ?? owner?.userId;
+
+  if (!previousUserId || previousUserId === signingInUserId) return null;
+  if (!hasMeaningfulData(local)) return null;
+
+  const unsyncedEdits =
+    (meta?.userId === previousUserId && meta.pendingLocalEdits === true) ||
+    (owner?.userId === previousUserId && owner.unsyncedEdits === true);
+
+  return { previousUserId, unsyncedEdits };
+}
+
 export function clearSyncMeta(): void {
   if (typeof window === "undefined") return;
 

@@ -12,9 +12,11 @@ import {
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
+  createEmptyDeerIntelState,
   saveDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
+import { backupLocalImages } from "@/lib/imageStore";
 import {
   getSupabaseClient,
   isAuthRequired,
@@ -23,11 +25,16 @@ import {
 import {
   clearSyncMeta,
   decideReconcile,
+  detectAccountSwitch,
+  hasMeaningfulData,
   pullRemoteState,
   pushRemoteState,
+  readDeviceOwner,
   readSyncMeta,
   serializeState,
+  writeDeviceOwner,
   writeSyncMeta,
+  type AccountSwitch,
 } from "@/lib/cloudSync";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 
@@ -37,6 +44,15 @@ type SyncStatus = "idle" | "reconciling" | "syncing" | "synced" | "error";
 export type AuthUser = { id: string; email: string | null };
 
 type ActionResult = { error?: string; needsConfirmation?: boolean };
+
+// A different account signed in on a device that holds someone else's data.
+// Nothing syncs until the hunter picks one of the two choices.
+export type PendingAccountSwitch = AccountSwitch & {
+  // The account signing in already has real data in its cloud.
+  remoteHasData: boolean;
+};
+
+export type AccountSwitchChoice = "load-account" | "move-device-data";
 
 type AuthContextValue = {
   configured: boolean;
@@ -54,6 +70,8 @@ type AuthContextValue = {
   updatePassword: (password: string) => Promise<ActionResult>;
   signOut: () => Promise<void>;
   syncNow: () => Promise<void>;
+  accountSwitch: PendingAccountSwitch | null;
+  resolveAccountSwitch: (choice: AccountSwitchChoice) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -84,6 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [accountSwitch, setAccountSwitch] =
+    useState<PendingAccountSwitch | null>(null);
 
   // Serialized snapshot of the state we believe is in sync with the cloud.
   // Kept in a ref so applying a pulled state can suppress the echo push. It is
@@ -116,6 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const syncedAt = serverTime || new Date().toISOString();
       lastSyncedSnapshotRef.current = snapshot;
       writeSyncMeta({ updatedAt: syncedAt, pendingLocalEdits: false, userId });
+      // The local data now belongs to this account (survives sign-out).
+      writeDeviceOwner({ userId });
       setLastSyncedAt(syncedAt);
     },
     [],
@@ -149,7 +171,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const remote = await pullRemoteState(activeUser.id);
-        const decision = decideReconcile(currentState, readSyncMeta(), remote);
+        const localMeta = readSyncMeta();
+
+        // This device holds another account's data: don't push it into this
+        // account or pull over it. Leave the baseline unset (which gates the
+        // push effect and focus refresh) until the hunter chooses.
+        const switched = detectAccountSwitch(
+          currentState,
+          readDeviceOwner(),
+          localMeta,
+          activeUser.id,
+        );
+
+        if (switched) {
+          // Pin the owner (it may only have been known from sync meta) so the
+          // prompt comes back after a reload or sign-out until resolved.
+          writeDeviceOwner({
+            userId: switched.previousUserId,
+            unsyncedEdits: switched.unsyncedEdits,
+          });
+          lastSyncedSnapshotRef.current = null;
+          setAccountSwitch({
+            ...switched,
+            remoteHasData: !!remote && hasMeaningfulData(remote.state),
+          });
+          setSyncStatus("idle");
+          setSyncMessage(
+            "This device has another account's data. Choose what to load before syncing.",
+          );
+          return;
+        }
+
+        setAccountSwitch(null);
+        const decision = decideReconcile(currentState, localMeta, remote);
 
         if (decision.action === "pull") {
           const saved = applyRemoteState(decision.state);
@@ -160,6 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           recordSynced(snapshot, activeUser.id, savedAt);
         } else {
           lastSyncedSnapshotRef.current = serializeState(currentState);
+          writeDeviceOwner({ userId: activeUser.id });
           setLastSyncedAt(readSyncMeta()?.updatedAt ?? null);
         }
 
@@ -193,6 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSyncStatus("idle");
         setSyncMessage(null);
         setLastSyncedAt(null);
+        setAccountSwitch(null);
       }
     }
 
@@ -437,12 +493,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Save the last few seconds of edits before the session goes away.
+    let unsyncedEdits = false;
     if (user && hasUnpushedEdits()) {
       try {
         await pushRemoteState(user.id, stateRef.current);
       } catch {
         // Local data stays on this device either way.
+        unsyncedEdits = true;
       }
+    } else if (user && lastSyncedSnapshotRef.current !== null) {
+      // An earlier push failed (offline) and nothing changed since.
+      const meta = readSyncMeta();
+      unsyncedEdits = meta?.userId === user.id && meta?.pendingLocalEdits === true;
+    }
+
+    // Remember whose data stays on this device so a different account signing
+    // in next is asked before anything syncs. Skipped while an account switch
+    // is unresolved: the data still belongs to the previous owner.
+    if (user && lastSyncedSnapshotRef.current !== null) {
+      writeDeviceOwner({ userId: user.id, unsyncedEdits });
     }
 
     if (supabase) await supabase.auth.signOut();
@@ -452,6 +521,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearSyncMeta();
     reconciledUserIdRef.current = null;
     lastSyncedSnapshotRef.current = null;
+    setAccountSwitch(null);
   }, [user, hasUnpushedEdits]);
 
   const syncNow = useCallback(async () => {
@@ -459,6 +529,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     await reconcile(user);
   }, [user, reconcile]);
+
+  // The hunter's answer to the account-switch prompt.
+  const resolveAccountSwitch = useCallback(
+    async (choice: AccountSwitchChoice) => {
+      if (!user || !accountSwitch) return;
+
+      setSyncStatus("syncing");
+      setSyncMessage(
+        choice === "load-account"
+          ? "Loading this account's data…"
+          : "Moving this device's data into this account…",
+      );
+
+      try {
+        if (choice === "load-account") {
+          // Replace local data with this account's cloud copy (or a fresh
+          // start when it has none). The previous account's synced data stays
+          // in its own cloud backup.
+          const remote = await pullRemoteState(user.id);
+          const saved = applyRemoteState(
+            remote?.state ?? createEmptyDeerIntelState(),
+          );
+          recordSynced(serializeState(saved), user.id, remote?.updatedAt);
+          setSyncMessage("Loaded this account's data.");
+        } else {
+          const pending = stateRef.current;
+          const snapshot = serializeState(pending);
+          const savedAt = await pushRemoteState(user.id, pending);
+          recordSynced(snapshot, user.id, savedAt);
+          // Photo bytes were backed up under the previous account; copy them
+          // into this one too so its other devices can see them.
+          void backupLocalImages().catch(() => undefined);
+          setSyncMessage("Moved this device's data into this account.");
+        }
+
+        setAccountSwitch(null);
+        setSyncStatus("synced");
+      } catch (error) {
+        // Leave the prompt up so the hunter can retry; nothing was replaced.
+        setSyncStatus("error");
+        setSyncMessage(`Couldn't finish: ${errorMessage(error)}`);
+      }
+    },
+    [user, accountSwitch, applyRemoteState, recordSynced],
+  );
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -477,6 +592,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updatePassword,
       signOut,
       syncNow,
+      accountSwitch,
+      resolveAccountSwitch,
     }),
     [
       configured,
@@ -494,6 +611,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updatePassword,
       signOut,
       syncNow,
+      accountSwitch,
+      resolveAccountSwitch,
     ],
   );
 
