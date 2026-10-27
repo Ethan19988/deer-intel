@@ -32,11 +32,32 @@ export type OfflineMapBounds = {
   east: number;
 };
 
-// One tile source (a base map or one of its overlays). maxNativeZoom caps how
-// deep this source has real tiles — we never fetch past it.
+// One tile source a pack saves. maxNativeZoom caps how deep this source has
+// real tiles — we never fetch past it — and minNativeZoom (default 0) is the
+// shallowest zoom it draws at.
+//
+// - "xyz" (default; packs saved before `kind` existed are xyz): a {z}/{x}/{y}
+//   raster template, cached under its real URL.
+// - "wms": a dynamic WMS GetMap service. Leaflet builds each tile's URL from a
+//   float bbox, so tiles are cached under a stable synthetic key per
+//   (service, layers, z/x/y) — see offlineWmsTileKey — not the request URL.
+// - "pmtiles": a PMTiles vector archive (the parcel layer). Decoded tiles are
+//   cached under offlinePmtilesTileKey, so the map can draw them offline with
+//   no header/directory range reads at all.
 export type OfflineTileSource = {
   url: string;
   maxNativeZoom: number;
+  kind?: "xyz" | "wms" | "pmtiles";
+  minNativeZoom?: number;
+  /** The server 404s tiles it has no data for; save those as empty tiles. */
+  sparse?: boolean;
+  wms?: {
+    layers: string;
+    styles?: string;
+    version: string;
+    /** Requested image width/height (supersampled layers ask for 512). */
+    pixelSize?: number;
+  };
 };
 
 export type OfflineMapPack = {
@@ -125,6 +146,72 @@ function countTilesInBounds(
   return total;
 }
 
+const WEB_MERCATOR_HALF_WORLD = Math.PI * 6378137;
+
+// Stable cache key for one WMS tile, independent of the exact bbox string
+// Leaflet would build (float formatting makes that unreliable to reproduce).
+// Built through URL so it matches Cache Storage's canonical request.url.
+export function offlineWmsTileKey(
+  serviceUrl: string,
+  layers: string,
+  zoom: number,
+  x: number,
+  y: number,
+): string {
+  const url = new URL(serviceUrl);
+  url.searchParams.set("di-offline-layers", layers);
+  url.searchParams.set("z", String(zoom));
+  url.searchParams.set("x", String(x));
+  url.searchParams.set("y", String(y));
+  return url.href;
+}
+
+// Stable cache key for one decoded vector tile of a PMTiles archive.
+export function offlinePmtilesTileKey(
+  archiveUrl: string,
+  zoom: number,
+  x: number,
+  y: number,
+): string {
+  const url = new URL(archiveUrl);
+  url.searchParams.set("z", String(zoom));
+  url.searchParams.set("x", String(x));
+  url.searchParams.set("y", String(y));
+  return url.href;
+}
+
+// The GetMap request for one XYZ tile, in the same parameter shape Leaflet's
+// WMS layer sends (EPSG:3857, x/y axis order for both 1.1.1 and 1.3.0).
+function wmsTileRequestUrl(
+  source: OfflineTileSource,
+  zoom: number,
+  x: number,
+  y: number,
+): string {
+  const wms = source.wms ?? { layers: "", version: "1.1.1" };
+  const span = (2 * WEB_MERCATOR_HALF_WORLD) / 2 ** zoom;
+  const minX = -WEB_MERCATOR_HALF_WORLD + x * span;
+  const maxY = WEB_MERCATOR_HALF_WORLD - y * span;
+  const pixels = String(wms.pixelSize ?? 256);
+  const params: Array<[string, string]> = [
+    ["service", "WMS"],
+    ["request", "GetMap"],
+    ["layers", wms.layers],
+    ["styles", wms.styles ?? ""],
+    ["format", "image/png"],
+    ["transparent", "true"],
+    ["version", wms.version],
+    ["width", pixels],
+    ["height", pixels],
+    [parseFloat(wms.version) >= 1.3 ? "crs" : "srs", "EPSG:3857"],
+    ["bbox", [minX, maxY - span, minX + span, maxY].join(",")],
+  ];
+  const query = params
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+    .join("&");
+  return `${source.url}${source.url.includes("?") ? "&" : "?"}${query}`;
+}
+
 function fillTemplate(
   template: string,
   zoom: number,
@@ -138,31 +225,91 @@ function fillTemplate(
     .replace("{y}", String(y));
 }
 
-// Every tile URL a pack needs, across all its sources and zoom levels. Each
-// source only contributes zooms up to its own native depth.
+type PackTile = {
+  source: OfflineTileSource;
+  zoom: number;
+  x: number;
+  y: number;
+};
+
+function packTileKey(
+  source: OfflineTileSource,
+  zoom: number,
+  x: number,
+  y: number,
+): string {
+  if (source.kind === "pmtiles") {
+    return offlinePmtilesTileKey(source.url, zoom, x, y);
+  }
+  if (source.kind === "wms") {
+    return offlineWmsTileKey(source.url, source.wms?.layers ?? "", zoom, x, y);
+  }
+  return fillTemplate(source.url, zoom, x, y);
+}
+
+// The zooms a source needs for a pack spanning minZoom..maxZoom, or null.
+function sourceZoomRange(
+  source: OfflineTileSource,
+  minZoom: number,
+  maxZoom: number,
+): { from: number; to: number } | null {
+  const shallowest = source.minNativeZoom ?? 0;
+  if (maxZoom < shallowest) return null;
+
+  // WMS layers have no native depth to overzoom from: they draw only within
+  // their own zoom band, so fetch exactly that band.
+  if (source.kind === "wms") {
+    const from = Math.max(minZoom, shallowest);
+    const to = Math.min(maxZoom, source.maxNativeZoom);
+    return from <= to ? { from, to } : null;
+  }
+
+  // Tile and vector layers overzoom their deepest native level, so a pack that
+  // starts past it still needs that level. protomaps-leaflet may also draw a
+  // display zoom from the data zoom one level up (its levelDiff), so vector
+  // packs reach one zoom shallower.
+  const deepest = source.maxNativeZoom;
+  const wantFrom = source.kind === "pmtiles" ? minZoom - 1 : minZoom;
+  const from = Math.min(deepest, Math.max(shallowest, wantFrom));
+  const to = Math.min(deepest, maxZoom);
+  return from <= to ? { from, to } : null;
+}
+
+// Every tile a pack needs, across all its sources and zoom levels, keyed by
+// its cache key.
+function enumeratePackTiles(
+  sources: OfflineTileSource[],
+  bounds: OfflineMapBounds,
+  minZoom: number,
+  maxZoom: number,
+): Map<string, PackTile> {
+  const tiles = new Map<string, PackTile>();
+
+  for (const source of sources) {
+    const range = sourceZoomRange(source, minZoom, maxZoom);
+    if (!range) continue;
+
+    for (let zoom = range.from; zoom <= range.to; zoom += 1) {
+      const { xMin, xMax, yMin, yMax } = tileRangeForZoom(bounds, zoom);
+
+      for (let x = xMin; x <= xMax; x += 1) {
+        for (let y = yMin; y <= yMax; y += 1) {
+          tiles.set(packTileKey(source, zoom, x, y), { source, zoom, x, y });
+        }
+      }
+    }
+  }
+
+  return tiles;
+}
+
 function enumeratePackTileUrls(
   sources: OfflineTileSource[],
   bounds: OfflineMapBounds,
   minZoom: number,
   maxZoom: number,
 ): string[] {
-  const urls = new Set<string>();
-
-  for (const source of sources) {
-    const deepest = Math.min(maxZoom, source.maxNativeZoom);
-
-    for (let zoom = minZoom; zoom <= deepest; zoom += 1) {
-      const { xMin, xMax, yMin, yMax } = tileRangeForZoom(bounds, zoom);
-
-      for (let x = xMin; x <= xMax; x += 1) {
-        for (let y = yMin; y <= yMax; y += 1) {
-          urls.add(fillTemplate(source.url, zoom, x, y));
-        }
-      }
-    }
-  }
-
-  return [...urls];
+  return [...enumeratePackTiles(sources, bounds, minZoom, maxZoom).keys()];
 }
 
 // Plan a pack for the given bounds, trimming the deepest zoom until the tile
@@ -173,8 +320,13 @@ export function planOfflinePack(
   minZoom: number,
   requestedMaxZoom: number,
 ): OfflinePackPlan {
+  // Depth follows the raster tile sources (the imagery); WMS and vector
+  // layers just come along for whatever range that gives.
   const deepestNative = sources.reduce(
-    (deepest, source) => Math.max(deepest, source.maxNativeZoom),
+    (deepest, source) =>
+      (source.kind ?? "xyz") === "xyz"
+        ? Math.max(deepest, source.maxNativeZoom)
+        : deepest,
     0,
   );
   let maxZoom = Math.min(requestedMaxZoom, deepestNative);
@@ -210,36 +362,124 @@ export function planOfflinePack(
 
 // --- Cache storage ----------------------------------------------------------
 
-async function fetchAndStoreTile(
-  cache: Cache,
-  url: string,
-  signal?: AbortSignal,
-): Promise<number> {
-  const existing = await cache.match(url);
-  if (existing) {
-    const blob = await existing.blob();
-    return blob.size;
-  }
+type TileBody = { buffer: ArrayBuffer; contentType: string };
 
+const EMPTY_TILE: TileBody = {
+  buffer: new ArrayBuffer(0),
+  contentType: "application/octet-stream",
+};
+
+async function fetchRasterTile(
+  url: string,
+  sparse: boolean,
+  signal?: AbortSignal,
+): Promise<TileBody> {
   const response = await fetch(url, {
     mode: "cors",
     credentials: "omit",
     signal,
   });
+  // A sparse cache 404s where it has no data: that tile is legitimately empty.
+  if (sparse && response.status === 404) return EMPTY_TILE;
   if (!response.ok) {
     throw new Error(`Tile request failed (${response.status})`);
   }
 
+  return {
+    buffer: await response.arrayBuffer(),
+    contentType: response.headers.get("content-type") ?? "image/png",
+  };
+}
+
+type PmtilesArchive = {
+  getZxy(
+    z: number,
+    x: number,
+    y: number,
+    signal?: AbortSignal,
+  ): Promise<{ data: ArrayBuffer } | undefined>;
+};
+
+// One reader per archive per download, so its header and directories are read
+// once and shared by every tile. Loaded lazily: only a download needs it.
+async function openPmtilesArchive(url: string): Promise<PmtilesArchive> {
+  const { PMTiles } = await import("pmtiles");
+  return new PMTiles(url);
+}
+
+async function loadPackTile(
+  tile: PackTile,
+  archives: Map<string, Promise<PmtilesArchive>>,
+  signal?: AbortSignal,
+): Promise<TileBody> {
+  const { source, zoom, x, y } = tile;
+
+  if (source.kind === "pmtiles") {
+    let archive = archives.get(source.url);
+    if (!archive) {
+      archive = openPmtilesArchive(source.url);
+      archives.set(source.url, archive);
+    }
+    // getZxy returns the decompressed MVT bytes, or undefined where the
+    // archive has no tile (no parcels there) — saved as an empty tile.
+    const result = await (await archive).getZxy(zoom, x, y, signal);
+    if (!result) return EMPTY_TILE;
+    return {
+      buffer: result.data,
+      contentType: "application/vnd.mapbox-vector-tile",
+    };
+  }
+
+  if (source.kind === "wms") {
+    return fetchRasterTile(
+      wmsTileRequestUrl(source, zoom, x, y),
+      Boolean(source.sparse),
+      signal,
+    );
+  }
+
+  return fetchRasterTile(
+    fillTemplate(source.url, zoom, x, y),
+    Boolean(source.sparse),
+    signal,
+  );
+}
+
+async function fetchAndStoreTile(
+  cache: Cache,
+  key: string,
+  load: () => Promise<TileBody>,
+): Promise<number> {
+  const existing = await cache.match(key);
+  if (existing) {
+    const blob = await existing.blob();
+    return blob.size;
+  }
+
+  const { buffer, contentType } = await load();
+
   // Re-wrap the body as a clean 200 response so it is always cacheable and
   // readable back, regardless of the original headers.
-  const buffer = await response.arrayBuffer();
-  const contentType = response.headers.get("content-type") ?? "image/png";
   await cache.put(
-    url,
+    key,
     new Response(buffer, { headers: { "Content-Type": contentType } }),
   );
 
   return buffer.byteLength;
+}
+
+// Ask the browser to keep the saved maps through storage pressure (iOS Safari
+// and Chrome otherwise evict "best-effort" storage). Best effort and silent:
+// unsupported or denied just leaves storage as it was.
+function requestPersistentStorage(): void {
+  try {
+    if (typeof navigator === "undefined") return;
+    const storage = navigator.storage;
+    if (!storage || typeof storage.persist !== "function") return;
+    storage.persist().catch(() => undefined);
+  } catch {
+    // Ignore — persistence is a nice-to-have.
+  }
 }
 
 export async function downloadOfflinePack(
@@ -261,17 +501,24 @@ export async function downloadOfflinePack(
     throw new Error("Offline maps aren't supported in this browser.");
   }
 
-  const urls = enumeratePackTileUrls(
-    params.sources,
-    params.bounds,
-    params.minZoom,
-    params.maxZoom,
-  );
+  // First pack on this device: request persistent storage now, synchronously
+  // inside the user's Download tap (Firefox prompts and wants the gesture).
+  if (readOfflinePacks().length === 0) requestPersistentStorage();
+
+  const tiles = [
+    ...enumeratePackTiles(
+      params.sources,
+      params.bounds,
+      params.minZoom,
+      params.maxZoom,
+    ),
+  ];
+  const archives = new Map<string, Promise<PmtilesArchive>>();
   const cache = await caches.open(OFFLINE_TILE_CACHE);
 
   const progress: OfflineDownloadProgress = {
     completed: 0,
-    total: urls.length,
+    total: tiles.length,
     failed: 0,
     bytes: 0,
   };
@@ -279,14 +526,16 @@ export async function downloadOfflinePack(
   let cursor = 0;
 
   async function worker() {
-    while (cursor < urls.length) {
+    while (cursor < tiles.length) {
       if (signal?.aborted) return;
 
-      const url = urls[cursor];
+      const [key, tile] = tiles[cursor];
       cursor += 1;
 
       try {
-        progress.bytes += await fetchAndStoreTile(cache, url, signal);
+        progress.bytes += await fetchAndStoreTile(cache, key, () =>
+          loadPackTile(tile, archives, signal),
+        );
       } catch {
         if (signal?.aborted) return;
         progress.failed += 1;
@@ -299,7 +548,7 @@ export async function downloadOfflinePack(
 
   await Promise.all(
     Array.from(
-      { length: Math.min(DOWNLOAD_CONCURRENCY, urls.length) },
+      { length: Math.min(DOWNLOAD_CONCURRENCY, tiles.length) },
       worker,
     ),
   );
@@ -373,6 +622,37 @@ export async function matchOfflineTile(url: string): Promise<string | null> {
   }
 }
 
+// A saved vector tile's decoded bytes, or null if it isn't downloaded. An empty
+// buffer means "saved, and the archive has no tile here". Used by the parcel
+// layer's offline-first PMTiles reader.
+export async function matchOfflineVectorTile(
+  archiveUrl: string,
+  zoom: number,
+  x: number,
+  y: number,
+): Promise<ArrayBuffer | null> {
+  if (!offlineCachesSupported()) return null;
+
+  try {
+    const cache = await openOfflineTileCache();
+    const response = await cache.match(
+      offlinePmtilesTileKey(archiveUrl, zoom, x, y),
+    );
+    return response ? await response.arrayBuffer() : null;
+  } catch {
+    return null;
+  }
+}
+
+// Cache Storage reports keys as canonical request URLs; compare like with like.
+function canonicalCacheKey(key: string): string {
+  try {
+    return new URL(key).href;
+  } catch {
+    return key;
+  }
+}
+
 // Delete a pack's metadata and any of its tiles that no other pack still needs.
 async function pruneOrphanTiles(remaining: OfflineMapPack[]): Promise<void> {
   if (!offlineCachesSupported()) return;
@@ -387,7 +667,7 @@ async function pruneOrphanTiles(remaining: OfflineMapPack[]): Promise<void> {
       pack.minZoom,
       pack.maxZoom,
     )) {
-      keep.add(url);
+      keep.add(canonicalCacheKey(url));
     }
   }
 

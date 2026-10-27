@@ -9,8 +9,14 @@ import {
   type LabelSymbolizer,
   type Layout,
 } from "protomaps-leaflet";
+import { PMTiles } from "pmtiles";
 import { ownerAcresText, ownerDisplayName } from "@/lib/ownerLabel";
 import { landTagKey, type LandTagKind } from "@/lib/landTags";
+import {
+  matchOfflineVectorTile,
+  useOfflineMapPacks,
+  type OfflineTileSource,
+} from "@/lib/offlineMaps";
 
 // Statewide land-owner parcels, served as a single PMTiles vector-tile archive
 // and rendered client-side. Unlike the baked-JSON overlay (which loads every
@@ -30,6 +36,40 @@ const PMTILES_URL =
 // map opens at z8, so callers need this to explain the empty screen rather than
 // leaving the overlay looking broken.
 export const PARCEL_TILES_MIN_ZOOM = 12;
+
+// Deepest zoom the archive has real tiles for; deeper zooms overzoom it.
+const PARCEL_TILES_MAX_DATA_ZOOM = 15;
+
+// What an offline map pack saves of this layer: the archive's decoded vector
+// tiles over the pack area, z12–15 (see lib/offlineMaps).
+export const PARCEL_OFFLINE_SOURCE: OfflineTileSource = {
+  kind: "pmtiles",
+  url: PMTILES_URL,
+  minNativeZoom: PARCEL_TILES_MIN_ZOOM,
+  maxNativeZoom: PARCEL_TILES_MAX_DATA_ZOOM,
+};
+
+// Offline-first archive reader, used only once a pack has saved parcel tiles.
+// A saved tile is returned straight from Cache Storage — no header/directory
+// range reads, so it works with no signal — and anything not saved falls
+// through to the normal range-request read from R2.
+class OfflineFirstPMTiles extends PMTiles {
+  constructor(url: string) {
+    super(url);
+  }
+
+  async getZxy(
+    z: number,
+    x: number,
+    y: number,
+    signal?: AbortSignal,
+  ): Promise<Awaited<ReturnType<PMTiles["getZxy"]>>> {
+    const saved = await matchOfflineVectorTile(PMTILES_URL, z, x, y);
+    // An empty saved tile means the archive has no parcels there.
+    if (saved) return saved.byteLength > 0 ? { data: saved } : undefined;
+    return super.getZxy(z, x, y, signal);
+  }
+}
 
 // Every other tile overlay on this map sets an explicit zIndex inside the
 // tilePane — base imagery 650+, land cover 660, water 670, slope 690, contours
@@ -484,6 +524,12 @@ export default function ParcelTilesLayer({
   ownedAreas,
 }: ParcelTilesLayerProps) {
   const map = useMap();
+  // Only switch to the offline-first reader once a saved pack holds parcel
+  // tiles; with none saved, the layer streams from R2 exactly as before.
+  const offlinePacks = useOfflineMapPacks();
+  const hasOfflineParcels = offlinePacks.some((pack) =>
+    pack.sources.some((source) => source.kind === "pmtiles" && source.url === PMTILES_URL),
+  );
 
   // Paint and label rules read tags, your land and the selection through a
   // ref, so tagging a parcel re-lays the labels instead of rebuilding the layer.
@@ -531,10 +577,10 @@ export default function ParcelTilesLayer({
       styleRef.current.tags[ownerKeyOf(feature)];
 
     const layer = leafletLayer({
-      url: PMTILES_URL,
+      url: hasOfflineParcels ? new OfflineFirstPMTiles(PMTILES_URL) : PMTILES_URL,
       zIndex: PARCEL_TILES_Z_INDEX,
       // Tiles top out at z15; keep drawing them (overzoomed) past that.
-      maxDataZoom: 15,
+      maxDataZoom: PARCEL_TILES_MAX_DATA_ZOOM,
       paintRules: [
         // Public / government land gets a translucent green fill.
         {
@@ -797,7 +843,7 @@ export default function ParcelTilesLayer({
       layerRef.current = null;
       searchReadyRef.current?.(null);
     };
-  }, [enabled, map]);
+  }, [enabled, map, hasOfflineParcels]);
 
   return null;
 }
