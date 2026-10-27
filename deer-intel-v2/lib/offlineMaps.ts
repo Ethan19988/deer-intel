@@ -53,6 +53,8 @@ export type OfflineMapPack = {
   sizeBytes: number;
   createdAt: string;
   sources: OfflineTileSource[];
+  /** Tiles that couldn't be downloaded; saving the area again fills them in. */
+  failedTiles?: number;
 };
 
 export type OfflineDownloadProgress = {
@@ -178,9 +180,11 @@ export function planOfflinePack(
   let maxZoom = Math.min(requestedMaxZoom, deepestNative);
   let clamped = false;
 
+  // Count every source (base plus overlays) so layers with reference
+  // overlays can't triple the real download past the cap.
   while (
     maxZoom > minZoom &&
-    countTilesInBounds(bounds, minZoom, maxZoom, deepestNative) >
+    enumeratePackTileUrls(sources, bounds, minZoom, maxZoom).length >
       MAX_TILES_PER_PACK
   ) {
     maxZoom -= 1;
@@ -209,6 +213,7 @@ export function planOfflinePack(
 async function fetchAndStoreTile(
   cache: Cache,
   url: string,
+  signal?: AbortSignal,
 ): Promise<number> {
   const existing = await cache.match(url);
   if (existing) {
@@ -216,7 +221,11 @@ async function fetchAndStoreTile(
     return blob.size;
   }
 
-  const response = await fetch(url, { mode: "cors", credentials: "omit" });
+  const response = await fetch(url, {
+    mode: "cors",
+    credentials: "omit",
+    signal,
+  });
   if (!response.ok) {
     throw new Error(`Tile request failed (${response.status})`);
   }
@@ -277,8 +286,9 @@ export async function downloadOfflinePack(
       cursor += 1;
 
       try {
-        progress.bytes += await fetchAndStoreTile(cache, url);
+        progress.bytes += await fetchAndStoreTile(cache, url, signal);
       } catch {
+        if (signal?.aborted) return;
         progress.failed += 1;
       }
 
@@ -298,6 +308,12 @@ export async function downloadOfflinePack(
     throw new DOMException("Download canceled", "AbortError");
   }
 
+  // Nothing saved (no signal, storage full): report a failure rather than
+  // recording an empty pack the map would treat as ready.
+  if (progress.completed - progress.failed <= 0) {
+    throw new Error("No map tiles could be saved.");
+  }
+
   const pack: OfflineMapPack = {
     id: createOfflinePackId(),
     propertyId: params.propertyId,
@@ -312,6 +328,7 @@ export async function downloadOfflinePack(
     sizeBytes: progress.bytes,
     createdAt: new Date().toISOString(),
     sources: params.sources,
+    failedTiles: progress.failed,
   };
 
   saveOfflinePackRecord(pack);
@@ -513,4 +530,25 @@ export function formatOfflineSize(bytes: number): string {
   if (bytes <= 0) return "0 MB";
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * The Esri Wayback imagery release the newest saved pack was downloaded with,
+ * or null. Offline, the map should ask for this release so saved tiles match.
+ */
+export function newestSavedWaybackRelease(): string | null {
+  const packs = [...readOfflinePacks()].sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt),
+  );
+
+  for (const pack of packs) {
+    for (const source of pack.sources) {
+      const match = /\/wayback\.maptiles\.arcgis\.com\/.*\/tile\/(\d+)\//.exec(
+        source.url,
+      );
+      if (match) return match[1];
+    }
+  }
+
+  return null;
 }

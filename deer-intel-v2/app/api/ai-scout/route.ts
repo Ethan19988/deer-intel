@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { AiScoutError, generateAiScoutReport, isAiScoutConfigured } from "@/lib/aiScout";
+import { guardPaidRoute } from "@/lib/apiGuard";
 import type { AiScoutRequestContext } from "@/types/aiScout";
 
 // AI Scout is opt-in and pay-per-call, so this route intentionally does two
@@ -12,16 +13,19 @@ export async function GET() {
   return NextResponse.json({ configured: isAiScoutConfigured() });
 }
 
+// The client trims the context (capped lists, short notes), so a real request
+// is a few KB. These limits stop a script from running up the API bill.
+const AI_SCOUT_LIMITS = {
+  limit: 20,
+  windowMs: 60 * 60 * 1000,
+  maxBodyBytes: 200_000,
+};
+
 export async function POST(request: Request) {
-  let body: unknown;
+  const guard = await guardPaidRoute(request, "ai-scout", AI_SCOUT_LIMITS);
+  if (!guard.ok) return guard.response;
 
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Request body must be JSON." }, { status: 400 });
-  }
-
-  const context = body as Partial<AiScoutRequestContext> | null;
+  const context = guard.body as Partial<AiScoutRequestContext> | null;
 
   if (!context || typeof context !== "object" || !context.property) {
     return NextResponse.json(

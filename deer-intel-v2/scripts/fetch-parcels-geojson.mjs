@@ -709,7 +709,13 @@ async function fetchCounty(slug, outPath, labelPath) {
       if (summary) parcelSummaries.push(summary);
     }
 
-    if (features.length < PAGE_SIZE) break;
+    // A server whose maxRecordCount is below PAGE_SIZE returns short pages
+    // but flags that more remain; only a short page WITHOUT that flag is the end.
+    const more =
+      page.exceededTransferLimit === true ||
+      page.properties?.exceededTransferLimit === true;
+    if (features.length === 0) break;
+    if (features.length < PAGE_SIZE && !more) break;
     offset += features.length;
     if (offset % 10000 === 0) process.stderr.write(`  ${slug}: ${total}...\n`);
   }

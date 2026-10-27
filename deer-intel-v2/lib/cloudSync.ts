@@ -13,11 +13,14 @@ const TABLE_NAME = "deer_intel_state";
 const SYNC_META_KEY = "deer-intel:sync-meta";
 
 export type SyncMeta = {
-  // ISO timestamp of the last time we wrote local state (edit or pull-apply).
+  // Server timestamp of the last successful push or pull.
   updatedAt: string;
-  // Serialized snapshot of the last state we know is in sync with the cloud.
-  // The push effect compares against this to decide whether a push is needed.
-  lastSyncedSnapshot: string | null;
+  // True while this device has edits the cloud hasn't received yet (still in
+  // the push debounce, offline, or a failed push). Survives reloads so a
+  // newer cloud copy never silently replaces them.
+  pendingLocalEdits?: boolean;
+  // Account the bookkeeping belongs to.
+  userId?: string;
 };
 
 export type RemoteState = {
@@ -71,12 +74,13 @@ export function readSyncMeta(): SyncMeta | null {
     const parsed = JSON.parse(raw) as Partial<SyncMeta>;
     if (typeof parsed.updatedAt !== "string") return null;
 
+    // Older builds also stored a full copy of the state here
+    // (lastSyncedSnapshot), doubling localStorage use; it is dropped on the
+    // next write.
     return {
       updatedAt: parsed.updatedAt,
-      lastSyncedSnapshot:
-        typeof parsed.lastSyncedSnapshot === "string"
-          ? parsed.lastSyncedSnapshot
-          : null,
+      pendingLocalEdits: parsed.pendingLocalEdits === true,
+      userId: typeof parsed.userId === "string" ? parsed.userId : undefined,
     };
   } catch {
     return null;
@@ -142,6 +146,8 @@ export async function pushRemoteState(
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error("Cloud sync is not configured.");
 
+  // The database stamps updated_at with its own clock (see the trigger in
+  // supabase/schema.sql), so devices with skewed clocks still order correctly.
   const savedAt = new Date().toISOString();
 
   const { data, error } = await supabase
@@ -194,6 +200,12 @@ export function decideReconcile(
 
   if (!localHasData && !remoteHasData) {
     return { action: "pull", state: remote.state, reason: "Synced with the cloud." };
+  }
+
+  // This device has edits the cloud never received: keep them. Pulling here
+  // would silently discard them.
+  if (localMeta?.pendingLocalEdits) {
+    return { action: "push", reason: "Uploaded this device's unsaved changes to the cloud." };
   }
 
   // Both sides have real data: keep whichever was edited most recently.

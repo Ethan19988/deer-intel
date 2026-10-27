@@ -109,13 +109,11 @@ async function queryParcelOwnerProvider(
   lng: number,
 ) {
   const serviceLayerUrl = `${provider.parcelServiceUrl}/${provider.parcelLayerId}`;
-  const outFields = [
-    ...provider.ownerFieldNames,
-    ...provider.parcelIdFieldNames,
-    ...provider.acreageFieldNames,
-    ...provider.addressFieldNames,
-    ...(provider.addressFieldGroups?.flat() ?? []),
-  ];
+  // Ask for every field and pick ours from the result. Naming one field the
+  // layer doesn't have (counties rename fields on re-upload) fails the whole
+  // query, which blanked the owner card for that county. One parcel's full
+  // record is small.
+  const outFields = ["*"];
   const response = await queryArcGisPoint({
     lat,
     lng,
@@ -140,6 +138,8 @@ async function queryParcelOwnerProvider(
   };
 }
 
+const PARCEL_QUERY_TIMEOUT_MS = 15_000;
+
 async function queryArcGisPoint({
   lat,
   lng,
@@ -156,17 +156,33 @@ async function queryArcGisPoint({
   queryUrl.searchParams.set("returnGeometry", "false");
   queryUrl.searchParams.set("spatialRel", "esriSpatialRelIntersects");
 
-  const response = await fetch(queryUrl.toString(), {
-    headers: {
-      Accept: "application/json",
-    },
-  });
+  // County servers can hang on a weak signal; give up rather than leave the
+  // owner card on "Looking up…" forever.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PARCEL_QUERY_TIMEOUT_MS);
+  let result: unknown;
 
-  if (!response.ok) {
-    throw new Error("Parcel query failed.");
+  try {
+    const response = await fetch(queryUrl.toString(), {
+      headers: {
+        Accept: "application/json",
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error("Parcel query failed.");
+    }
+
+    result = await response.json();
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error("The county parcel service took too long to answer.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const result: unknown = await response.json();
 
   if (!isArcGisQueryResponse(result)) {
     throw new Error("Unexpected parcel query result.");

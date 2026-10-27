@@ -907,7 +907,7 @@ export function useDeerIntelStore() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-export function saveDeerIntelStore(nextState: DeerIntelState) {
+export function saveDeerIntelStore(nextState: DeerIntelState): DeerIntelState {
   const normalizedState = normalizeState(nextState) ?? DEFAULT_STATE;
   memoryState = normalizedState;
   cachedStorage = null;
@@ -919,6 +919,8 @@ export function saveDeerIntelStore(nextState: DeerIntelState) {
   setStoragePersistenceFailed(!persisted);
 
   notifyListeners();
+
+  return normalizedState;
 }
 
 export function updateDeerIntelStore(

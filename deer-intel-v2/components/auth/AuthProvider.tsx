@@ -92,19 +92,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const lastSyncedSnapshotRef = useRef<string | null>(null);
   const reconciledUserIdRef = useRef<string | null>(null);
   const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Latest local state, for callbacks (focus refresh, sign-out) that must see
+  // edits made after they were created.
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // Apply a state we pulled from the cloud without triggering a push back up.
-  const applyRemoteState = useCallback((remote: DeerIntelState) => {
-    lastSyncedSnapshotRef.current = serializeState(remote);
-    saveDeerIntelStore(remote);
+  // The store normalizes what it saves, so the baseline is the saved form;
+  // otherwise the difference would look like an edit and echo a push.
+  const applyRemoteState = useCallback(
+    (remote: DeerIntelState): DeerIntelState => {
+      const saved = saveDeerIntelStore(remote);
+      lastSyncedSnapshotRef.current = serializeState(saved);
+      return saved;
+    },
+    [],
+  );
+
+  const recordSynced = useCallback(
+    (snapshot: string, userId: string, serverTime?: string) => {
+      const syncedAt = serverTime || new Date().toISOString();
+      lastSyncedSnapshotRef.current = snapshot;
+      writeSyncMeta({ updatedAt: syncedAt, pendingLocalEdits: false, userId });
+      setLastSyncedAt(syncedAt);
+    },
+    [],
+  );
+
+  // Remember (across reloads) that this device holds edits the cloud lacks.
+  const markPendingEdits = useCallback((userId: string) => {
+    const meta = readSyncMeta();
+    if (meta?.pendingLocalEdits && meta.userId === userId) return;
+    writeSyncMeta({
+      updatedAt: meta?.updatedAt ?? "",
+      pendingLocalEdits: true,
+      userId,
+    });
   }, []);
 
-  const recordSynced = useCallback((snapshot: string) => {
-    const now = new Date().toISOString();
-    lastSyncedSnapshotRef.current = snapshot;
-    writeSyncMeta({ updatedAt: now, lastSyncedSnapshot: snapshot });
-    setLastSyncedAt(now);
-  }, []);
+  const hasUnpushedEdits = useCallback(
+    () =>
+      lastSyncedSnapshotRef.current !== null &&
+      serializeState(stateRef.current) !== lastSyncedSnapshotRef.current,
+    [],
+  );
 
   // First sync after a user signs in: compare local vs cloud and pick a safe
   // action. Runs once per user id.
@@ -119,12 +152,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const decision = decideReconcile(currentState, readSyncMeta(), remote);
 
         if (decision.action === "pull") {
-          applyRemoteState(decision.state);
-          recordSynced(serializeState(decision.state));
+          const saved = applyRemoteState(decision.state);
+          recordSynced(serializeState(saved), activeUser.id, remote?.updatedAt);
         } else if (decision.action === "push") {
           const snapshot = serializeState(currentState);
-          await pushRemoteState(activeUser.id, currentState);
-          recordSynced(snapshot);
+          const savedAt = await pushRemoteState(activeUser.id, currentState);
+          recordSynced(snapshot, activeUser.id, savedAt);
         } else {
           lastSyncedSnapshotRef.current = serializeState(currentState);
           setLastSyncedAt(readSyncMeta()?.updatedAt ?? null);
@@ -200,15 +233,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const snapshot = serializeState(state);
     if (snapshot === lastSyncedSnapshotRef.current) return;
 
+    markPendingEdits(user.id);
+
     if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
 
     pushTimerRef.current = setTimeout(async () => {
+      pushTimerRef.current = null;
       setSyncStatus("syncing");
       setSyncMessage("Saving changes to the cloud…");
 
       try {
-        await pushRemoteState(user.id, state);
-        recordSynced(snapshot);
+        const savedAt = await pushRemoteState(user.id, state);
+        recordSynced(snapshot, user.id, savedAt);
         setSyncStatus("synced");
         setSyncMessage("All changes saved to the cloud.");
       } catch (error) {
@@ -220,13 +256,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
     };
-  }, [state, user, recordSynced]);
+  }, [state, user, recordSynced, markPendingEdits]);
 
   // Pull newer cloud data when the tab regains focus (covers other devices).
   const refreshFromCloud = useCallback(async () => {
     if (!user) return;
 
+    // Wait for the first reconcile; it decides the starting point.
+    if (reconciledUserIdRef.current !== user.id) return;
+    if (lastSyncedSnapshotRef.current === null) return;
+
     try {
+      // This device has edits the cloud hasn't received (debounce still
+      // running, offline, or a failed push). Send them now instead of pulling,
+      // which would silently replace them.
+      if (hasUnpushedEdits()) {
+        if (pushTimerRef.current) {
+          clearTimeout(pushTimerRef.current);
+          pushTimerRef.current = null;
+        }
+        const pending = stateRef.current;
+        const snapshot = serializeState(pending);
+        setSyncStatus("syncing");
+        setSyncMessage("Saving changes to the cloud…");
+        const savedAt = await pushRemoteState(user.id, pending);
+        recordSynced(snapshot, user.id, savedAt);
+        setSyncStatus("synced");
+        setSyncMessage("All changes saved to the cloud.");
+        return;
+      }
+
       const remote = await pullRemoteState(user.id);
       if (!remote) return;
 
@@ -237,11 +296,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const remoteTime = Date.parse(remote.updatedAt) || 0;
       const localTime = Date.parse(localMeta?.updatedAt ?? "") || 0;
 
-      // Only adopt the cloud copy when it is newer than our last local change,
-      // so we never stomp on unsaved edits made on this device.
+      // An edit may have landed while the pull was in flight; keep it.
+      if (hasUnpushedEdits()) return;
+
       if (remoteTime > localTime) {
-        applyRemoteState(remote.state);
-        recordSynced(remoteSnapshot);
+        const saved = applyRemoteState(remote.state);
+        recordSynced(serializeState(saved), user.id, remote.updatedAt);
         setSyncStatus("synced");
         setSyncMessage("Loaded newer data from the cloud.");
       }
@@ -249,7 +309,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSyncStatus("error");
       setSyncMessage(`Cloud refresh failed: ${errorMessage(error)}`);
     }
-  }, [user, applyRemoteState, recordSynced]);
+  }, [user, applyRemoteState, recordSynced, hasUnpushedEdits]);
 
   useEffect(() => {
     if (!user) return;
@@ -371,7 +431,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     const supabase = getSupabaseClient();
 
-    if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    if (pushTimerRef.current) {
+      clearTimeout(pushTimerRef.current);
+      pushTimerRef.current = null;
+    }
+
+    // Save the last few seconds of edits before the session goes away.
+    if (user && hasUnpushedEdits()) {
+      try {
+        await pushRemoteState(user.id, stateRef.current);
+      } catch {
+        // Local data stays on this device either way.
+      }
+    }
 
     if (supabase) await supabase.auth.signOut();
 
@@ -380,7 +452,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearSyncMeta();
     reconciledUserIdRef.current = null;
     lastSyncedSnapshotRef.current = null;
-  }, []);
+  }, [user, hasUnpushedEdits]);
 
   const syncNow = useCallback(async () => {
     if (!user) return;

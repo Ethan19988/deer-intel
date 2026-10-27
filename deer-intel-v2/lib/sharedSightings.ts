@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { localDateKey } from "@/lib/standPressure";
 import type { HourlyActivity } from "@/lib/hourlyActivity";
 import { isBuckRecord, isTimedDeerPhoto } from "@/lib/hourlyActivity";
 import { toFahrenheit, toMph } from "@/lib/movementModel";
@@ -222,7 +223,7 @@ export async function fetchRegionalActivity(
   windowDays: number,
   now: Date = new Date(),
 ): Promise<RegionalActivity | null> {
-  const since = new Date(now.getTime() - windowDays * 86_400_000).toISOString().slice(0, 10);
+  const since = localDateKey(new Date(now.getTime() - windowDays * 86_400_000));
   const { data, error } = await client.rpc("regional_movement", {
     p_region: region,
     p_since: since,

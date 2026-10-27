@@ -11,6 +11,11 @@ name: Build parcel tiles
 
 on:
   workflow_dispatch:
+    inputs:
+      allow_shrink:
+        description: "Publish even if the new archive is much smaller than the live one"
+        type: boolean
+        default: false
   schedule:
     - cron: "0 6 1 * *" # 06:00 UTC on the 1st of each month
 
@@ -66,10 +71,23 @@ jobs:
             exit 1
           fi
           size="$(du -h "$file" | cut -f1)"
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
+          # Guard: a county that failed every retry is left out of the build.
+          # Refuse to replace the live archive with one that lost a big chunk,
+          # so one flaky county server can't blank its land owners for a month.
+          new_bytes="$(stat -c %s "$file")"
+          live_bytes="$(aws s3api head-object --bucket "$R2_BUCKET" --key pa-parcels.pmtiles \
+            --endpoint-url "$endpoint" --query ContentLength --output text 2>/dev/null || echo 0)"
+          if [ "${live_bytes:-0}" -gt 0 ] && [ "$new_bytes" -lt $(( live_bytes * 85 / 100 )) ] \
+             && [ "${{ inputs.allow_shrink || false }}" != "true" ]; then
+            echo "::error title=Parcel tiles shrank::New archive is ${new_bytes} bytes vs ${live_bytes} live (over 15% smaller). Not publishing. Check the skipped-county warnings, or re-run with allow_shrink."
+            exit 1
+          fi
 
           # Primary: upload to the R2 bucket the app streams from (CORS + range).
           aws s3 cp "$file" "s3://${R2_BUCKET}/pa-parcels.pmtiles" \
-            --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" \
+            --endpoint-url "$endpoint" \
             --content-type application/octet-stream
 
           # Backup: keep a versioned copy on the GitHub Release.

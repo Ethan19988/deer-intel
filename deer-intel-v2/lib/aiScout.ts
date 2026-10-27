@@ -11,7 +11,7 @@ const ANTHROPIC_VERSION = "2023-06-01";
 // Default model used when ANTHROPIC_MODEL is not set. Haiku keeps the shared
 // deployment's per-call cost low; set ANTHROPIC_MODEL to a bigger model if
 // recommendations ever need more horsepower.
-const DEFAULT_MODEL = "claude-haiku-4-5";
+const DEFAULT_MODEL = "claude-haiku-5-5";
 
 const REPORT_TOOL_NAME = "submit_scout_report";
 
@@ -142,6 +142,8 @@ export async function generateAiScoutReport(
         tools: [REPORT_TOOL],
         tool_choice: { type: "tool", name: REPORT_TOOL_NAME },
       }),
+      // Fail with a clear message before the platform's own function timeout.
+      signal: AbortSignal.timeout(50_000),
     });
   } catch {
     throw new AiScoutError(
@@ -168,16 +170,25 @@ export async function generateAiScoutReport(
       );
     }
 
-    if (status === 429) {
+    if (status === 429 || status === 529) {
       throw new AiScoutError(
-        "The AI service is rate-limited right now. Wait a moment and try again.",
+        "The AI service is busy right now. Wait a moment and try again.",
         429,
       );
     }
 
+    if (status === 404) {
+      throw new AiScoutError(
+        "The AI model this app is set to use isn't available. Update ANTHROPIC_MODEL (or the default in lib/aiScout.ts).",
+        502,
+      );
+    }
+
+    if (detail) console.error("AI Scout request failed:", status, detail);
+
     throw new AiScoutError(
-      detail || `AI Scout request failed (status ${status}).`,
-      status,
+      `AI Scout request failed (status ${status}). Try again in a minute.`,
+      status >= 500 ? 502 : status,
     );
   }
 

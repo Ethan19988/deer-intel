@@ -1,5 +1,6 @@
 "use client";
 
+import { localDateKey } from "@/lib/standPressure";
 import Link from "next/link";
 import { useRef, useState, type ChangeEvent, type CSSProperties } from "react";
 import Badge from "@/components/ui/Badge";
@@ -136,7 +137,7 @@ export default function SettingsPage() {
     setImportMessage(null);
     setFullExportStatus(null);
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateKey(new Date());
 
     downloadJson(JSON.stringify(state, null, 2), `deer-intel-backup-${today}.json`);
     recordBackup(totalRecords);
@@ -156,7 +157,7 @@ export default function SettingsPage() {
             : `Bundling photo ${done} of ${total}…`,
         );
       });
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localDateKey(new Date());
 
       downloadJson(
         JSON.stringify(backup),

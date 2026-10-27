@@ -16,7 +16,7 @@ const ANTHROPIC_VERSION = "2023-06-01";
 // model. Haiku reads the printed bar and identifies the animal at roughly a
 // third of Sonnet's price — set ANTHROPIC_MODEL to a bigger model if buck
 // matching ever needs more horsepower.
-const DEFAULT_MODEL = "claude-haiku-4-5";
+const DEFAULT_MODEL = "claude-haiku-5-5";
 
 const STAMP_TOOL_NAME = "submit_photo_stamp";
 
