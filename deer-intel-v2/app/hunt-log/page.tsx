@@ -15,18 +15,28 @@ import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import {
+  deleteHuntFromState,
+  huntFormValuesFromHunt,
+  updateHuntInState,
+} from "@/lib/deerIntelStoreHunts";
+import {
   createHuntFromValues,
   EMPTY_HUNT_FORM_VALUES,
   newHuntFormValues,
 } from "@/lib/huntFormValues";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { createStandFromPin, findStandForPin, getStandPins } from "@/lib/standPins";
+import type { HuntLogEntry } from "@/types/hunt";
 import type { MapPin } from "@/types/mapPin";
 
 export default function HuntLogPage() {
   const state = useDeerIntelStore();
   const [huntValues, setHuntValues] = useState(EMPTY_HUNT_FORM_VALUES);
   const [loadedUrlDefaults, setLoadedUrlDefaults] = useState(false);
+  // Editing a saved sit (History tab) uses its own copy of the form values so
+  // a half-typed new sit on the Log tab isn't lost.
+  const [editingHuntId, setEditingHuntId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState(EMPTY_HUNT_FORM_VALUES);
   const hasStands = state.stands.length > 0;
   const standPins = getStandPins(state.pins);
   const weatherLocation = resolvePropertyWeatherPoint(
@@ -106,6 +116,40 @@ export default function HuntLogPage() {
         standId: newHunt.standId,
       }),
     );
+  }
+
+  function startEditingHunt(hunt: HuntLogEntry) {
+    setEditValues(huntFormValuesFromHunt(hunt));
+    setEditingHuntId(hunt.id);
+  }
+
+  function cancelEditingHunt() {
+    setEditingHuntId(null);
+    setEditValues(EMPTY_HUNT_FORM_VALUES);
+  }
+
+  function saveEditedHunt() {
+    if (!editingHuntId) return;
+
+    const updatedHunt = createHuntFromValues({
+      id: editingHuntId,
+      values: editValues,
+      stands: state.stands,
+    });
+
+    if (!updatedHunt) return;
+
+    updateDeerIntelStore((currentState) =>
+      updateHuntInState(currentState, updatedHunt),
+    );
+    cancelEditingHunt();
+  }
+
+  function deleteHunt(huntId: string) {
+    updateDeerIntelStore((currentState) =>
+      deleteHuntFromState(currentState, huntId),
+    );
+    if (editingHuntId === huntId) cancelEditingHunt();
   }
 
   function convertPinToStand(pin: MapPin) {
@@ -195,11 +239,36 @@ export default function HuntLogPage() {
     </section>
   );
 
+  const editWeatherLocation = resolvePropertyWeatherPoint(
+    state.properties.find((property) => property.id === editValues.propertyId),
+    state.cameras.filter((camera) => camera.propertyId === editValues.propertyId),
+    state.pins.filter((pin) => pin.propertyId === editValues.propertyId),
+  );
+
   const historyTab = (
     <HuntLogList
       hunts={state.hunts}
       getPropertyName={getPropertyName}
       emptyDescription="No hunts logged yet. Save your first sit from the Log a sit tab."
+      onEdit={startEditingHunt}
+      onDelete={deleteHunt}
+      editingHuntId={editingHuntId}
+      editor={
+        editingHuntId ? (
+          <HuntLogForm
+            values={editValues}
+            properties={state.properties}
+            stands={state.stands}
+            weatherLocation={editWeatherLocation}
+            getPropertyName={getPropertyName}
+            onChange={setEditValues}
+            onSubmit={saveEditedHunt}
+            onCancel={cancelEditingHunt}
+            submitLabel="Save changes"
+            autoFillWeather={false}
+          />
+        ) : null
+      }
     />
   );
 

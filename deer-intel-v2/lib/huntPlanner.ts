@@ -4,6 +4,7 @@ import {
 } from "@/lib/cameraChecks";
 import { formatHuntDate, formatHuntTimeRange, sortHuntsChronologically } from "@/lib/hunts";
 import type { ForecastDay } from "@/lib/liveWeather";
+import { parseCompassPoint } from "@/lib/compass";
 import { getStandWindCheck, type StandWindStatus } from "@/lib/standWind";
 import type { Camera } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
@@ -210,11 +211,12 @@ export type HuntWindow = {
   reasons: string[];
 };
 
-/** Pull the leading compass point out of a day's wind string ("NW 8 mph"). */
-export function parseWindCompass(wind: string): string | null {
-  const match = /^([NSEW]{1,3})/i.exec(wind.trim());
-  return match ? match[1].toUpperCase() : null;
-}
+/**
+ * The compass point in a day's wind string ("NW 8 mph" → "NW"). Shares the
+ * whole-token parser in lib/compass with stand wind notes, so "Nearly calm" is
+ * no wind rather than north.
+ */
+export const parseWindCompass = parseCompassPoint;
 
 // Scoring weights. A falling barometer (front) is the strongest single movement
 // trigger, so it outweighs a lone wind match; two good stands caps the wind
@@ -224,15 +226,21 @@ const PER_GOOD_STAND = 1.5;
 const MAX_GOOD_STAND_BONUS = 3;
 const BLOWOUT_PENALTY = 1;
 
-function standsForWind(stands: Stand[], windCompass: string | null) {
+// `windText` is the full forecast string ("SE 2 mph"); its speed lets a calm
+// sit grade "Light & variable" instead of good or wrong.
+function standsForWind(
+  stands: Stand[],
+  windCompass: string | null,
+  windText?: string,
+) {
   if (!windCompass) return { good: [] as Stand[], avoid: [] as Stand[] };
 
   return {
     good: stands.filter(
-      (stand) => getStandWindCheck(stand, windCompass).status === "good",
+      (stand) => getStandWindCheck(stand, windCompass, windText).status === "good",
     ),
     avoid: stands.filter(
-      (stand) => getStandWindCheck(stand, windCompass).status === "avoid",
+      (stand) => getStandWindCheck(stand, windCompass, windText).status === "avoid",
     ),
   };
 }
@@ -250,7 +258,7 @@ function buildSits(day: ForecastDay, stands: Stand[]): HuntSitWindow[] {
       return {
         period,
         windCompass,
-        goodStandNames: standsForWind(stands, windCompass)
+        goodStandNames: standsForWind(stands, windCompass, wind)
           .good.map((stand) => stand.name)
           .slice(0, 3),
       };
@@ -278,7 +286,12 @@ export function buildHuntWindows(
       const windCompass = bestSit
         ? bestSit.windCompass
         : parseWindCompass(day.wind);
-      const { good, avoid } = standsForWind(stands, windCompass);
+      const windText = bestSit
+        ? bestSit.period === "AM"
+          ? day.morningWind
+          : day.eveningWind
+        : day.wind;
+      const { good, avoid } = standsForWind(stands, windCompass, windText);
       const isFront = day.pressureTrend === "falling";
 
       let score = 1;
@@ -327,6 +340,8 @@ export type WindMatrixColumn = {
   dayLabel: string;
   period: SitPeriod;
   windCompass: string | null;
+  /** The sit's forecast wind string, e.g. "NW 8 mph" (its speed grades calm). */
+  windText: string;
   isFront: boolean;
 };
 
@@ -352,6 +367,7 @@ export function buildWindMatrix(days: ForecastDay[], stands: Stand[]): WindMatri
       dayLabel: day.label,
       period,
       windCompass: parseWindCompass(wind ?? ""),
+      windText: wind ?? "",
       isFront: day.pressureTrend === "falling",
     })),
   );
@@ -360,7 +376,7 @@ export function buildWindMatrix(days: ForecastDay[], stands: Stand[]): WindMatri
     stand,
     cells: columns.map((column) =>
       column.windCompass
-        ? getStandWindCheck(stand, column.windCompass).status
+        ? getStandWindCheck(stand, column.windCompass, column.windText).status
         : ("unknown" as StandWindStatus),
     ),
   }));

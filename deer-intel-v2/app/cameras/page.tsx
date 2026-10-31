@@ -23,7 +23,7 @@ import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { getCameraIntelligenceSummary } from "@/lib/cameraIntelligence";
-import { photoRecordTime } from "@/lib/photos";
+import { dateInputTime, photoRecordTime } from "@/lib/photos";
 import { useAddFormRequest } from "@/lib/useAddFormRequest";
 import { buildStripPhotos } from "@/lib/photoStrip";
 import type { Camera } from "@/types/camera";
@@ -244,7 +244,8 @@ export default function CamerasPage() {
 function dateTime(date: string | undefined) {
   if (!date) return 0;
 
-  const time = Date.parse(date);
+  // Local midnight for a bare "YYYY-MM-DD" (Date.parse would read it as UTC).
+  const time = dateInputTime(date);
 
   return Number.isNaN(time) ? 0 : time;
 }

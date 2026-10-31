@@ -1,18 +1,28 @@
-import type {
-  CSSProperties,
-  Dispatch,
-  FormEvent,
-  SetStateAction,
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type Dispatch,
+  type FormEvent,
+  type SetStateAction,
 } from "react";
 import Button from "@/components/ui/Button";
 import StandPinConvertList from "@/components/hunts/StandPinConvertList";
-import LiveWeatherFill from "@/components/weather/LiveWeatherFill";
+import LiveWeatherFill, {
+  type WeatherFillInfo,
+} from "@/components/weather/LiveWeatherFill";
 import type {
   HuntFormValues,
   YesNoValue,
 } from "@/lib/huntFormValues";
 import { getConvertibleStandPins } from "@/lib/standPins";
-import type { WeatherPoint } from "@/lib/liveWeather";
+import {
+  mergeWeatherFill,
+  WEATHER_FILL_FIELDS,
+  type LiveWeatherFields,
+  type WeatherPoint,
+} from "@/lib/liveWeather";
 import type { MapPin } from "@/types/mapPin";
 import type { Property } from "@/types/property";
 import type { Stand } from "@/types/stand";
@@ -29,7 +39,20 @@ type HuntLogFormProps = {
   // latest values instead of overwriting taps made while they were loading.
   onChange: Dispatch<SetStateAction<HuntFormValues>>;
   onSubmit: () => void;
+  /** Save button text; "Save sit" by default, e.g. "Save changes" when editing. */
+  submitLabel?: string;
+  /** When given (editing), shows a Cancel button beside Save. */
+  onCancel?: () => void;
+  /**
+   * Fill the weather on its own and refresh it when the date or start time
+   * changes (fields typed by hand are kept). Off when editing a saved sit, so
+   * opening one never rewrites its recorded weather.
+   */
+  autoFillWeather?: boolean;
 };
+
+// How long Save stays locked after a tap, so a double-tap can't log twice.
+const SUBMIT_LOCK_MS = 1000;
 
 export default function HuntLogForm({
   values,
@@ -41,7 +64,62 @@ export default function HuntLogForm({
   onConvertPin,
   onChange,
   onSubmit,
+  submitLabel = "Save sit",
+  onCancel,
+  autoFillWeather = true,
 }: HuntLogFormProps) {
+  // What the last automatic weather fill wrote, field by field. A field still
+  // matching it is the fill's to refresh; one the hunter changed is theirs.
+  // Kept in a ref (read by async fills) and mirrored in state for the tag.
+  const autoFilledRef = useRef<Partial<LiveWeatherFields>>({});
+  const [autoFilled, setAutoFilled] = useState<Partial<LiveWeatherFields>>({});
+  const [fillLabel, setFillLabel] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const submitLock = useRef(false);
+  const unlockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Latest rendered values, for fills that resolve after an await.
+  const valuesRef = useRef(values);
+  valuesRef.current = values;
+
+  useEffect(
+    () => () => {
+      if (unlockTimer.current) clearTimeout(unlockTimer.current);
+    },
+    [],
+  );
+
+  function rememberAutoFilled(next: Partial<LiveWeatherFields>) {
+    autoFilledRef.current = next;
+    setAutoFilled(next);
+  }
+
+  function applyWeather(
+    fields: LiveWeatherFields,
+    source: HuntFormValues["weatherSource"],
+    info: WeatherFillInfo,
+  ) {
+    if (info.auto) {
+      const previous = autoFilledRef.current;
+      const preview = mergeWeatherFill(valuesRef.current, fields, previous);
+
+      rememberAutoFilled(preview.autoFilled);
+      if (preview.changed) setFillLabel(info.label);
+
+      // Merge again inside the updater so typing since the last render wins.
+      onChange((current) => {
+        const merged = mergeWeatherFill(current, fields, previous);
+        return merged.changed
+          ? { ...merged.values, weatherSource: source }
+          : current;
+      });
+      return;
+    }
+
+    // A tap on the button is an explicit ask: replace every weather field.
+    onChange((current) => ({ ...current, ...fields, weatherSource: source }));
+    rememberAutoFilled({ ...fields });
+    setFillLabel(info.label);
+  }
   const availableStands = stands.filter(
     (stand) => stand.propertyId === values.propertyId,
   );
@@ -75,7 +153,18 @@ export default function HuntLogForm({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canSave || submitLock.current) return;
+
+    submitLock.current = true;
+    setSubmitting(true);
     onSubmit();
+    // A fresh form starts with no auto-fill history.
+    rememberAutoFilled({});
+    setFillLabel("");
+    unlockTimer.current = setTimeout(() => {
+      submitLock.current = false;
+      setSubmitting(false);
+    }, SUBMIT_LOCK_MS);
   }
 
   const weatherSummary = [
@@ -88,7 +177,17 @@ export default function HuntLogForm({
   ]
     .filter(Boolean)
     .join(" · ");
-  const weatherFilled = values.weatherSource !== "manual";
+  // Which weather fields the hunter has changed since the last fill.
+  const editedAfterFill =
+    Boolean(fillLabel) &&
+    WEATHER_FILL_FIELDS.some(
+      (field) => autoFilled[field] !== undefined && values[field] !== autoFilled[field],
+    );
+  const fillTag = fillLabel
+    ? `${fillLabel}${editedAfterFill ? " · edited" : ""}`
+    : values.weatherSource !== "manual"
+      ? "Saved weather"
+      : "";
 
   // One flat column of hairline-separated rows, phone first: the stand and
   // times up top, the weather as a single filled-in line (editable under it),
@@ -183,9 +282,7 @@ export default function HuntLogForm({
       <div style={rowStyle}>
         <div style={labelRowStyle}>
           <span style={labelStyle}>Weather</span>
-          {weatherFilled ? (
-            <span style={filledStyle}>Filled from live weather</span>
-          ) : null}
+          {fillTag ? <span style={filledStyle}>{fillTag}</span> : null}
         </div>
         <p style={weatherLineStyle}>
           {weatherSummary || "Not filled in yet"}
@@ -194,15 +291,9 @@ export default function HuntLogForm({
           <summary style={summaryStyle}>Edit weather</summary>
           <LiveWeatherFill
             location={weatherLocation}
-            autoFetch={!values.windDirection && !values.temperature}
+            autoFetch={autoFillWeather}
             when={parseLocalDateTime(values.date, values.startTime)}
-            onApply={(fields, source) =>
-              onChange((current) => ({
-                ...current,
-                ...fields,
-                weatherSource: source,
-              }))
-            }
+            onApply={applyWeather}
           />
           <div style={weatherGridStyle}>
             <label style={fieldStyle}>
@@ -302,9 +393,25 @@ export default function HuntLogForm({
         />
       </label>
 
-      <Button type="submit" disabled={!canSave} style={saveStyle}>
-        Save sit
-      </Button>
+      <div style={onCancel ? submitRowStyle : undefined}>
+        {onCancel ? (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onCancel}
+            style={saveStyle}
+          >
+            Cancel
+          </Button>
+        ) : null}
+        <Button
+          type="submit"
+          disabled={!canSave || submitting}
+          style={saveStyle}
+        >
+          {submitting ? "Saving..." : submitLabel}
+        </Button>
+      </div>
     </form>
   );
 }
@@ -594,6 +701,12 @@ const checkBoxOnStyle: CSSProperties = {
   borderColor: "var(--accent)",
   background: "var(--accent)",
   color: "var(--on-accent, #0b0d0b)",
+};
+
+const submitRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 2fr",
+  gap: "0.5rem",
 };
 
 const saveStyle: CSSProperties = {

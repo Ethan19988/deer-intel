@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { LiveForecast } from "@/lib/liveWeather";
 import {
   buildDaylight,
+  buildGoodWindAlert,
   buildTodayVerdict,
+  sitStartTime,
   legalEnd,
   legalStart,
   PA_LEGAL_LIGHT_MINUTES,
@@ -127,5 +129,114 @@ describe("legal shooting light (PA)", () => {
     expect(PA_LEGAL_LIGHT_MINUTES).toEqual({ beforeSunrise: 30, afterSunset: 30 });
     expect(legalStart(at(7, 28))).toEqual(at(6, 58));
     expect(legalEnd(at(18, 27))).toEqual(at(18, 57));
+  });
+});
+
+describe("verdict sit wind", () => {
+  it("carries the sit wind speed and grades on the sit wind, not current", () => {
+    // Current wind is S; the evening sit wind is SW.
+    const verdict = buildTodayVerdict({ ...base, now: at(14), stands: [stand("Ridge", "SW")] });
+
+    expect(verdict.wind).toBe("SW");
+    expect(verdict.windSpeed).toBe("7 mph");
+    expect(verdict.calm).toBe(false);
+    expect(verdict.check.rows[0].wind.status).toBe("good");
+  });
+
+  it("calls a sub-3 mph sit light & variable with no wind pick", () => {
+    // Morning sit wind is "S 3 mph" in the fixture; make it 2 mph.
+    const calmForecast: LiveForecast = {
+      ...forecast,
+      days: [{ ...forecast.days[0], morningWind: "S 2 mph" }, forecast.days[1]],
+    };
+    const verdict = buildTodayVerdict({
+      ...base,
+      forecast: calmForecast,
+      now: at(5, 30),
+      stands: [stand("Creek", "S")],
+    });
+
+    expect(verdict.calm).toBe(true);
+    expect(verdict.check.pick).toBeNull();
+    expect(verdict.check.rows[0].wind.label).toBe("Light & variable");
+    expect(verdict.headline).toBe("Light & variable wind");
+  });
+});
+
+describe("legal light with the property's UTC offset", () => {
+  it("compares real instants, not the phone's time zone", () => {
+    // Property on EDT (UTC-4). 18:27 local sunset = 22:27 UTC, legal end 22:57 UTC.
+    const offsetForecast = { ...forecast, utcOffsetSeconds: -4 * 3600 };
+    const justBefore = new Date(Date.UTC(2026, 9, 18, 22, 45));
+    const justAfter = new Date(Date.UTC(2026, 9, 18, 23, 0));
+
+    expect(
+      buildDaylight(justBefore, offsetForecast.sunriseIso, offsetForecast.sunsetIso, -4 * 3600)
+        ?.label,
+    ).toBe("12 min of legal light left");
+    expect(
+      buildDaylight(justAfter, offsetForecast.sunriseIso, offsetForecast.sunsetIso, -4 * 3600)
+        ?.label,
+    ).toBe("Light's gone for today");
+    // Labels stay on the property's clock.
+    expect(
+      buildDaylight(justBefore, offsetForecast.sunriseIso, offsetForecast.sunsetIso, -4 * 3600)
+        ?.legalEndLabel,
+    ).toBe("6:57 PM");
+  });
+});
+
+describe("buildGoodWindAlert", () => {
+  const stands = [stand("Ridge", "SW")];
+  const input = (now: Date) => ({
+    verdict: buildTodayVerdict({ ...base, now, stands }),
+    forecast,
+    now,
+    propertyId: "p",
+    propertyName: "Home",
+  });
+
+  it("alerts on the evening sit wind within 4 h of the sit", () => {
+    // Evening sit starts 3 h before the 18:27 sunset = 15:27.
+    const alert = buildGoodWindAlert(input(at(13)));
+
+    expect(alert?.key).toBe("goodwind:p:2026-10-18:PM:Ridge");
+    expect(alert?.body).toBe("Home: a SW wind tonight favors Ridge.");
+  });
+
+  it("stays quiet too early before the sit", () => {
+    // 11:00 is past the morning sit (sunrise + 150 min) so the plan is the
+    // evening, but that's 4.5 h before it starts.
+    expect(buildGoodWindAlert(input(at(11)))).toBeNull();
+  });
+
+  it("keys a morning alert to that morning's AM sit", () => {
+    const alert = buildGoodWindAlert({
+      ...input(at(5, 30)),
+      verdict: buildTodayVerdict({ ...base, now: at(5, 30), stands: [stand("Creek", "S")] }),
+    });
+
+    expect(alert?.key).toBe("goodwind:p:2026-10-18:AM:Creek");
+  });
+
+  it("doesn't alert without a good stand", () => {
+    expect(
+      buildGoodWindAlert({
+        ...input(at(13)),
+        verdict: buildTodayVerdict({ ...base, now: at(13), stands: [stand("Ridge", "E")] }),
+      }),
+    ).toBeNull();
+  });
+
+  it("gives the same key across a day of wind wobbles", () => {
+    expect(buildGoodWindAlert(input(at(12)))?.key).toBe(buildGoodWindAlert(input(at(15)))?.key);
+  });
+});
+
+describe("sitStartTime", () => {
+  it("is legal light for a morning sit and 3 h before sunset for the evening", () => {
+    expect(sitStartTime("morning", forecast)).toEqual(at(6, 58));
+    expect(sitStartTime("evening", forecast)).toEqual(at(15, 27));
+    expect(sitStartTime("tomorrow", forecast)).toEqual(new Date(2026, 9, 19, 6, 58));
   });
 });

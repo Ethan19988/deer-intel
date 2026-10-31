@@ -44,6 +44,7 @@ import { getPropertyIntelligenceCards } from "@/lib/propertyIntelligence";
 import { getHuntPlannerIntelligence } from "@/lib/huntPlannerIntelligence";
 import { getPropertyWeatherSummary } from "@/lib/weather";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
+import { dateInputTime } from "@/lib/photos";
 
 type DashboardModule = {
   title: string;
@@ -459,7 +460,8 @@ function getLatestByDate<Item>(
 function dateTime(date: string | undefined) {
   if (!date) return 0;
 
-  const time = Date.parse(date);
+  // Local midnight for a bare "YYYY-MM-DD" (Date.parse would read it as UTC).
+  const time = dateInputTime(date);
 
   return Number.isNaN(time) ? 0 : time;
 }

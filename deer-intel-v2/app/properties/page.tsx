@@ -23,7 +23,17 @@ import {
   formatPropertyCoordinate,
   parsePropertyCoordinate,
 } from "@/lib/propertyLocation";
+import { deleteFile } from "@/lib/fileStore";
+import { deletePhotoImage } from "@/lib/imageStore";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import type { DeerIntelState } from "@/types/deerIntelStore";
 import type { Property } from "@/types/property";
+import {
+  cascadeSummary,
+  describePropertyCascade,
+  removePropertyFromState,
+  type PropertyCascade,
+} from "./propertyCascade";
 
 const EMPTY_PROPERTY_FORM_VALUES: PropertyFormValues = {
   name: "",
@@ -34,8 +44,8 @@ const EMPTY_PROPERTY_FORM_VALUES: PropertyFormValues = {
 };
 
 export default function PropertiesPage() {
-  const { properties, cameras, stands, hunts, photoRecords } =
-    useDeerIntelStore();
+  const state = useDeerIntelStore();
+  const { properties, cameras, stands, hunts, photoRecords } = state;
 
   const [newPropertyValues, setNewPropertyValues] =
     useState<PropertyFormValues>(EMPTY_PROPERTY_FORM_VALUES);
@@ -153,53 +163,65 @@ export default function PropertiesPage() {
     cancelEditingProperty();
   }
 
-  function deleteProperty(propertyId: string) {
-    const propertyToDelete = properties.find(
-      (property) => property.id === propertyId,
-    );
+  // Delete asks first (with counts of what goes with it), then removes the
+  // property, everything filed under it, and the stored photo and document
+  // files so they don't linger in device storage.
+  const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(
+    null,
+  );
+  const deletingProperty = deletingPropertyId
+    ? properties.find((property) => property.id === deletingPropertyId)
+    : undefined;
+  const deletingSummary = deletingProperty
+    ? cascadeSummary(describePropertyCascade(state, deletingProperty.id).counts)
+    : "";
 
-    if (!propertyToDelete) return;
-    if (!window.confirm(`Delete ${propertyToDelete.name}?`)) return;
+  function deleteProperty(propertyId: string) {
+    setDeletingPropertyId(propertyId);
+  }
+
+  function confirmDeleteProperty() {
+    const propertyId = deletingPropertyId;
+    setDeletingPropertyId(null);
+
+    if (!propertyId) return;
+
+    // Filled in by the updater (it runs synchronously) from the latest state.
+    const result: {
+      cascade: PropertyCascade | null;
+      remaining: DeerIntelState | null;
+    } = { cascade: null, remaining: null };
 
     updateDeerIntelStore((currentState) => {
-      const nextProperties = currentState.properties.filter(
-        (property) => property.id !== propertyToDelete.id,
-      );
-      const selectedPropertyExists = nextProperties.some(
-        (property) => property.id === currentState.selectedPropertyId,
-      );
-
-      return {
-        ...currentState,
-        properties: nextProperties,
-        selectedPropertyId: selectedPropertyExists
-          ? currentState.selectedPropertyId
-          : nextProperties[0]?.id ?? "",
-        cameras: currentState.cameras.filter(
-          (camera) => camera.propertyId !== propertyToDelete.id,
-        ),
-        cameraChecks: currentState.cameraChecks.filter(
-          (check) => check.propertyId !== propertyToDelete.id,
-        ),
-        stands: currentState.stands.filter(
-          (stand) => stand.propertyId !== propertyToDelete.id,
-        ),
-        pins: currentState.pins.filter(
-          (pin) => pin.propertyId !== propertyToDelete.id,
-        ),
-        hunts: currentState.hunts.filter(
-          (hunt) => hunt.propertyId !== propertyToDelete.id,
-        ),
-        photoRecords: currentState.photoRecords.filter(
-          (photo) => photo.propertyId !== propertyToDelete.id,
-        ),
-        deerProfiles: currentState.deerProfiles.filter(
-          (profile) => profile.propertyId !== propertyToDelete.id,
-        ),
-      };
+      const nextState = removePropertyFromState(currentState, propertyId);
+      result.cascade = describePropertyCascade(currentState, propertyId);
+      result.remaining = nextState;
+      return nextState;
     });
 
-    if (editingPropertyId === propertyToDelete.id) {
+    const { cascade, remaining } = result;
+
+    if (cascade && remaining) {
+      // Another record could share a blob id (e.g. a restored backup); only
+      // delete files nothing left in the store still points at.
+      const stillUsedImages = new Set(
+        remaining.photoRecords.map((photo) => photo.imageId ?? ""),
+      );
+      const stillUsedFiles = new Set(
+        remaining.documents.map((document) => document.fileId),
+      );
+
+      for (const imageId of cascade.imageIds) {
+        if (!stillUsedImages.has(imageId)) void deletePhotoImage(imageId);
+      }
+      for (const fileId of cascade.fileIds) {
+        if (!stillUsedFiles.has(fileId)) {
+          void deleteFile(fileId).catch(() => undefined);
+        }
+      }
+    }
+
+    if (editingPropertyId === propertyId) {
       cancelEditingProperty();
     }
   }
@@ -285,6 +307,20 @@ export default function PropertiesPage() {
           },
           { id: "add", label: "Add property", content: addTab },
         ]}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deletingProperty)}
+        title={`Delete ${deletingProperty?.name ?? "this property"}?`}
+        description={
+          deletingSummary
+            ? `This also deletes its ${deletingSummary}, including stored photo and document files. It can't be undone.`
+            : "Nothing else is filed under this property. It can't be undone."
+        }
+        confirmLabel="Delete property"
+        confirmVariant="danger"
+        onCancel={() => setDeletingPropertyId(null)}
+        onConfirm={confirmDeleteProperty}
       />
     </PageShell>
   );

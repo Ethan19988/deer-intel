@@ -145,3 +145,24 @@ describe("buildWindMatrix", () => {
     expect(matrix.rows[0].cells).toEqual(["unknown", "unknown"]);
   });
 });
+
+describe("calm sit winds", () => {
+  it("grades a sub-3 mph sit as marginal in the wind grid", () => {
+    const matrix = buildWindMatrix(
+      [{ ...day("2024-11-05", "S 6 mph"), morningWind: "NW 2 mph", eveningWind: "NW 9 mph" }],
+      [stand("Oak Ridge", "NW")],
+    );
+
+    expect(matrix.columns[0].windText).toBe("NW 2 mph");
+    expect(matrix.rows[0].cells).toEqual(["marginal", "good"]);
+  });
+
+  it("doesn't count a calm sit's stands as good", () => {
+    const [window] = buildHuntWindows(
+      [{ ...day("2024-11-05", "NW 2 mph"), morningWind: "NW 1 mph", eveningWind: "NW 2 mph" }],
+      [stand("Oak Ridge", "NW")],
+    );
+
+    expect(window.goodStandNames).toEqual([]);
+  });
+});

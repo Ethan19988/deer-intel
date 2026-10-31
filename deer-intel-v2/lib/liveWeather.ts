@@ -4,6 +4,7 @@ import type { Camera } from "@/types/camera";
 import type { MapPin } from "@/types/mapPin";
 import type { Property } from "@/types/property";
 import { hasPropertyCoordinate } from "@/lib/propertyLocation";
+import { degreesToCompass } from "@/lib/compass";
 import { describeMoonPhase } from "@/lib/moonPhase";
 import {
   DEFAULT_UNITS,
@@ -56,9 +57,10 @@ export type ForecastDay = {
   /** Day-over-day barometric direction, for the movement outlook. */
   pressureTrend?: PressureTrend;
   /**
-   * Average wind across the morning sit (sunrise → +3h) and the evening sit
-   * (last 3h before sunset), e.g. "NW 8 mph". The daily dominant wind can hide
-   * a swing between dawn and dusk, and a stand is sat at one or the other.
+   * Average wind across the morning sit (legal light → +3h) and the evening
+   * sit (sunset −3h → legal end), e.g. "NW 8 mph"; see sitWindowHours. The
+   * daily dominant wind can hide a swing between dawn and dusk, and a stand is
+   * sat at one or the other.
    */
   morningWind?: string;
   eveningWind?: string;
@@ -85,6 +87,12 @@ export type LiveForecast = {
    */
   sunriseIso?: string;
   sunsetIso?: string;
+  /**
+   * The property's UTC offset (Open-Meteo `utc_offset_seconds`), so the local
+   * times above can be turned into real instants even when the phone is set to
+   * another time zone. Missing on older cached snapshots.
+   */
+  utcOffsetSeconds?: number;
   days: ForecastDay[];
   pressure?: PressureReading;
 };
@@ -156,6 +164,7 @@ type OpenMeteoDaily = {
 };
 
 type OpenMeteoResponse = {
+  utc_offset_seconds?: number;
   current?: OpenMeteoCurrent;
   hourly?: OpenMeteoHourly;
   daily?: OpenMeteoDaily;
@@ -447,6 +456,10 @@ export async function fetchLiveForecast(
         sunset: formatClockTime(daily.sunset?.[0]),
         sunriseIso: daily.sunrise?.[0],
         sunsetIso: daily.sunset?.[0],
+        utcOffsetSeconds:
+          typeof payload.utc_offset_seconds === "number"
+            ? payload.utc_offset_seconds
+            : undefined,
         days,
         pressure: buildPressureReading(payload.current, payload.hourly),
       },
@@ -599,12 +612,15 @@ type OpenMeteoWeatherHourly = {
 // One fetched day of hourly history, cached so importing a whole card pull only
 // hits Open-Meteo once per unique (location, day) instead of once per photo.
 const historicalDayCache = new Map<string, OpenMeteoWeatherHourly | null>();
+const recentDayCache = new Map<string, CachedWeather<OpenMeteoWeatherHourly>>();
 
 /**
- * Look up the actual temperature, wind, and sky at the hour a trail-cam photo
- * was captured, using Open-Meteo's history. Recent dates (within ~90 days) come
- * from the forecast endpoint — which has no reanalysis delay — and older dates
- * from the archive endpoint. Returns null when history isn't available.
+ * Look up the temperature, wind, and sky at a given hour, using Open-Meteo's
+ * hourly data: the actual conditions for a past hour (a trail-cam photo, a sit
+ * logged after the fact) or the hourly forecast for a future one (up to ~16
+ * days out). Recent and future dates come from the forecast endpoint — which
+ * has no reanalysis delay — and dates over ~90 days back from the archive
+ * endpoint. Returns null when no hourly data is available.
  */
 export async function fetchHistoricalWeather(
   point: WeatherPoint,
@@ -622,11 +638,20 @@ export async function fetchHistoricalWeather(
   const dateKey = toLocalDateKey(when);
   const cacheKey = `${point.lat.toFixed(3)},${point.lng.toFixed(3)}|${dateKey}|${units.temperature}|${units.wind}`;
 
-  let hourly = historicalDayCache.get(cacheKey);
+  // Past days are settled and cached for the session. Today's and future
+  // hours are still forecasts, so they only get the short live-weather TTL.
+  const isPastDay = dateKey < toLocalDateKey(new Date());
+  let hourly = isPastDay
+    ? historicalDayCache.get(cacheKey)
+    : (readWeatherCache(recentDayCache, cacheKey) ?? undefined);
 
   if (hourly === undefined) {
     hourly = await fetchHistoricalDay(point, dateKey, when, units);
-    historicalDayCache.set(cacheKey, hourly);
+    if (isPastDay) {
+      historicalDayCache.set(cacheKey, hourly);
+    } else if (hourly) {
+      writeWeatherCache(recentDayCache, cacheKey, hourly);
+    }
   }
 
   if (!hourly) return null;
@@ -858,8 +883,19 @@ function formatWind(
   return [dir, spd].filter(Boolean).join(" ");
 }
 
-// How many hours after sunrise / before sunset count as the morning and
-// evening sit. Three hours covers walking in plus the prime movement window.
+// Legal shooting hours. These are Pennsylvania rules: deer hunting hours run
+// from 30 minutes before sunrise to 30 minutes after sunset. Other states
+// differ; check your regulations. Defined here (and re-exported by
+// lib/todayVerdict) so the sit-window winds and the Today verdict share it
+// without a circular import.
+export const PA_LEGAL_LIGHT_MINUTES = {
+  beforeSunrise: 30,
+  afterSunset: 30,
+} as const;
+
+// How many hours from legal light in the morning / before sunset in the
+// evening count as the sit. Three hours covers walking in plus the prime
+// movement window.
 const SIT_WINDOW_HOURS = 3;
 
 /** Local hour (0-23) of an Open-Meteo "YYYY-MM-DDTHH:MM" time, or null. */
@@ -923,7 +959,61 @@ export function averageWind(
   return { direction, speed: speedSum / count };
 }
 
-/** Morning (sunrise → +3h) and evening (sunset −3h → sunset) sit winds. */
+/** Local minutes past midnight of an Open-Meteo "YYYY-MM-DDTHH:MM", or null. */
+function localMinutes(iso: string): number | null {
+  const hour = Number.parseInt(iso.slice(11, 13), 10);
+  const minute = Number.parseInt(iso.slice(14, 16), 10);
+
+  if (!Number.isFinite(hour)) return null;
+
+  return hour * 60 + (Number.isFinite(minute) ? minute : 0);
+}
+
+/**
+ * The hourly windows the morning and evening sit winds are averaged over,
+ * covering PA legal light: the morning runs from legal start (sunrise − 30 min,
+ * floored to its hour) for SIT_WINDOW_HOURS; the evening from sunset −
+ * SIT_WINDOW_HOURS through legal end (sunset + 30 min, rounded up to the hour).
+ * Hours are local and inclusive, matching averageWind.
+ */
+export function sitWindowHours(
+  sunriseIso: string | undefined,
+  sunsetIso: string | undefined,
+): {
+  morning: { fromHour: number; toHour: number } | null;
+  evening: { fromHour: number; toHour: number } | null;
+} {
+  const sunrise = sunriseIso ? localMinutes(sunriseIso) : null;
+  const sunset = sunsetIso ? localMinutes(sunsetIso) : null;
+
+  let morning: { fromHour: number; toHour: number } | null = null;
+  if (sunrise !== null) {
+    const fromHour = Math.max(
+      0,
+      Math.floor((sunrise - PA_LEGAL_LIGHT_MINUTES.beforeSunrise) / 60),
+    );
+    morning = { fromHour, toHour: fromHour + SIT_WINDOW_HOURS };
+  }
+
+  let evening: { fromHour: number; toHour: number } | null = null;
+  if (sunset !== null) {
+    const sunsetHour = Math.floor(sunset / 60);
+    evening = {
+      fromHour: Math.max(0, sunsetHour - SIT_WINDOW_HOURS),
+      toHour: Math.min(
+        23,
+        Math.ceil((sunset + PA_LEGAL_LIGHT_MINUTES.afterSunset) / 60),
+      ),
+    };
+  }
+
+  return { morning, evening };
+}
+
+/**
+ * Morning (legal start → +3h) and evening (sunset −3h → legal end) sit winds.
+ * Both windows include the half hour of legal light outside sunrise/sunset.
+ */
 export function sitWindowWinds(
   sunriseIso: string | undefined,
   sunsetIso: string | undefined,
@@ -931,24 +1021,23 @@ export function sitWindowWinds(
   units: UnitPreferences = DEFAULT_UNITS,
 ): Pick<ForecastDay, "morningWind" | "eveningWind"> {
   const result: Pick<ForecastDay, "morningWind" | "eveningWind"> = {};
+  const windows = sitWindowHours(sunriseIso, sunsetIso);
 
-  const sunriseHour = sunriseIso ? localHour(sunriseIso) : null;
-  if (sunriseIso && sunriseHour !== null) {
+  if (sunriseIso && windows.morning) {
     const wind = averageWind(
       sunriseIso.slice(0, 10),
-      sunriseHour,
-      sunriseHour + SIT_WINDOW_HOURS,
+      windows.morning.fromHour,
+      windows.morning.toHour,
       hourly,
     );
     if (wind) result.morningWind = formatWind(wind.direction, wind.speed, units);
   }
 
-  const sunsetHour = sunsetIso ? localHour(sunsetIso) : null;
-  if (sunsetIso && sunsetHour !== null) {
+  if (sunsetIso && windows.evening) {
     const wind = averageWind(
       sunsetIso.slice(0, 10),
-      sunsetHour - SIT_WINDOW_HOURS,
-      sunsetHour,
+      windows.evening.fromHour,
+      windows.evening.toHour,
       hourly,
     );
     if (wind) result.eveningWind = formatWind(wind.direction, wind.speed, units);
@@ -1043,30 +1132,8 @@ function buildLiveWeatherResult(
   };
 }
 
-export function degreesToCompass(degrees: number): string {
-  const compassPoints = [
-    "N",
-    "NNE",
-    "NE",
-    "ENE",
-    "E",
-    "ESE",
-    "SE",
-    "SSE",
-    "S",
-    "SSW",
-    "SW",
-    "WSW",
-    "W",
-    "WNW",
-    "NW",
-    "NNW",
-  ];
-  const normalized = ((degrees % 360) + 360) % 360;
-  const index = Math.round(normalized / 22.5) % compassPoints.length;
-
-  return compassPoints[index];
-}
+// Kept as an export of this module for older importers; lives in lib/compass.
+export { degreesToCompass };
 
 function describeWeatherCode(code: number): string {
   const weatherCodeLabels: Record<number, string> = {
@@ -1105,4 +1172,69 @@ function describeWeatherCode(code: number): string {
 
 function isOpenMeteoResponse(value: unknown): value is OpenMeteoResponse {
   return typeof value === "object" && value !== null;
+}
+
+// --- Weather fill for a record at a given time -------------------------------
+
+/**
+ * Which weather a form fill should use for a record's date/time:
+ * - "current": within WEATHER_FILL_NOW_MINUTES of now (or no time given), so
+ *   live conditions are the best read;
+ * - "history": an hour already past, even earlier today — the hourly actuals;
+ * - "forecast": a time still ahead — the hourly forecast for that hour.
+ */
+export type WeatherFillMode = "current" | "history" | "forecast";
+
+export const WEATHER_FILL_NOW_MINUTES = 30;
+
+export function weatherFillMode(when: Date | null, now: Date): WeatherFillMode {
+  if (!when || Number.isNaN(when.getTime())) return "current";
+
+  const minutesAhead = (when.getTime() - now.getTime()) / 60_000;
+
+  if (Math.abs(minutesAhead) <= WEATHER_FILL_NOW_MINUTES) return "current";
+  return minutesAhead < 0 ? "history" : "forecast";
+}
+
+export type WeatherFillField = keyof LiveWeatherFields;
+
+export const WEATHER_FILL_FIELDS: readonly WeatherFillField[] = [
+  "temperature",
+  "windDirection",
+  "windSpeed",
+  "weather",
+  "moonPhase",
+];
+
+/**
+ * Merge an automatic weather fill into a form without clobbering hand edits.
+ * A field is replaced only when it's empty or still holds exactly what the
+ * last auto-fill put there (`autoFilled`); anything the hunter typed since is
+ * kept. Returns the merged values plus the new auto-filled record (fields the
+ * user owns drop out of it, so later fills keep leaving them alone).
+ */
+export function mergeWeatherFill<Values extends LiveWeatherFields>(
+  current: Values,
+  fill: LiveWeatherFields,
+  autoFilled: Partial<LiveWeatherFields>,
+): { values: Values; autoFilled: Partial<LiveWeatherFields>; changed: boolean } {
+  const values = { ...current };
+  const nextAutoFilled: Partial<LiveWeatherFields> = {};
+  let changed = false;
+
+  for (const field of WEATHER_FILL_FIELDS) {
+    const existing = current[field];
+    const ownedByFill = !existing || existing === autoFilled[field];
+
+    if (!ownedByFill) continue;
+
+    if (fill[field] && fill[field] !== existing) {
+      (values as LiveWeatherFields)[field] = fill[field];
+      changed = true;
+    }
+
+    if (values[field]) nextAutoFilled[field] = values[field];
+  }
+
+  return { values, autoFilled: nextAutoFilled, changed };
 }

@@ -3,24 +3,11 @@
 // facing direction, plus the bearing between two camera sites for
 // camera-to-camera travel legs.
 
-export const COMPASS_16: readonly string[] = [
-  "N",
-  "NNE",
-  "NE",
-  "ENE",
-  "E",
-  "ESE",
-  "SE",
-  "SSE",
-  "S",
-  "SSW",
-  "SW",
-  "WSW",
-  "W",
-  "WNW",
-  "NW",
-  "NNW",
-];
+import { compassToDegrees, degreesToCompass } from "@/lib/compass";
+
+// The 16-wind list and point/degree conversions live in lib/compass; they are
+// re-exported here because many screens import them from this module.
+export { COMPASS_16, compassToDegrees, degreesToCompass } from "@/lib/compass";
 
 const COMPASS_8: readonly string[] = [
   "N",
@@ -41,20 +28,6 @@ export const FRAME_DIRECTION_VALUES: readonly string[] = [
   "Toward camera",
   "Away from camera",
 ];
-
-/** "NW" → 315; null for anything that isn't a 16-wind compass point. */
-export function compassToDegrees(point: string): number | null {
-  const index = COMPASS_16.indexOf(point.trim().toUpperCase());
-
-  return index < 0 ? null : index * 22.5;
-}
-
-/** Any bearing in degrees → the nearest 16-wind compass point. */
-export function degreesToCompass(degrees: number): string {
-  const normalized = ((degrees % 360) + 360) % 360;
-
-  return COMPASS_16[Math.round(normalized / 22.5) % 16];
-}
 
 /**
  * Collapse a 16-wind point to its nearest 8-wind sector ("NNE" → "NE" side of

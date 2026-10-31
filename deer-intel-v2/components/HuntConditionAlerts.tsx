@@ -1,116 +1,78 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import {
-  coldFrontStatus,
-  fetchLiveForecast,
-  type WeatherPoint,
-} from "@/lib/liveWeather";
-import { getStandWindCheck } from "@/lib/standWind";
+import { useEffect } from "react";
+import { coldFrontStatus, type LiveForecast } from "@/lib/liveWeather";
 import {
   fireNotification,
   getNotificationPermission,
   useNotificationPrefs,
 } from "@/lib/notifications";
-import { useUnitPreferences } from "@/lib/units";
-import type { Stand } from "@/types/stand";
+import { buildGoodWindAlert, type TodayVerdict } from "@/lib/todayVerdict";
 
 type HuntConditionAlertsProps = {
+  propertyId: string;
   propertyName: string;
-  point: WeatherPoint | null;
-  stands: Stand[];
+  /** The Today forecast (from usePropertyToday); null while it loads. */
+  forecast: LiveForecast | null;
+  /** The Today verdict, so the alert grades the same next-sit wind. */
+  verdict: TodayVerdict;
+  /** The page clock; null before mount. */
+  now: Date | null;
 };
 
-// Headless: on the dashboard, when the active property's live forecast loads,
-// fire local notifications for the conditions the hunter opted into (a falling
-// barometer / a stand that matches today's wind). Deduped per day in
-// lib/notifications, so opening the app repeatedly won't spam. The forecast
-// fetch is cached (same point + units) so this piggybacks on the weather panel.
+// Headless: on the dashboard, fire local notifications for the conditions the
+// hunter opted into: a falling barometer, and a stand with a good wind for the
+// NEXT SIT (the verdict's forecast sit wind, not the wind right now). The
+// good-wind alert only fires in the few hours before that sit starts and is
+// keyed per sit day + AM/PM + stand, so a wind that wobbles through the day
+// doesn't re-alert. Deduped per day in lib/notifications.
 export default function HuntConditionAlerts({
+  propertyId,
   propertyName,
-  point,
-  stands,
+  forecast,
+  verdict,
+  now,
 }: HuntConditionAlertsProps) {
   const prefs = useNotificationPrefs();
-  const units = useUnitPreferences();
 
-  // Keep the latest stands without making the effect re-run on every render
-  // (the dashboard rebuilds the array each time); a content signature drives it.
-  const standsRef = useRef(stands);
-  standsRef.current = stands;
-  const standsSignature = stands
-    .map((stand) => `${stand.id}:${stand.bestWinds}:${stand.avoidWinds}`)
-    .join("|");
+  const front = coldFrontStatus(forecast?.pressure);
+  const frontText =
+    prefs.coldFront && front.isFront
+      ? `${propertyName}: barometer falling${
+          front.dropInHg !== null
+            ? ` (down ${front.dropInHg.toFixed(2)} inHg)`
+            : ""
+        } — prime deer movement likely.`
+      : "";
 
-  const pointKey = point ? `${point.lat},${point.lng}` : "";
+  const goodWind =
+    prefs.goodWind && now
+      ? buildGoodWindAlert({ verdict, forecast, now, propertyId, propertyName })
+      : null;
+
+  // Strings, not objects, drive the effect: the page rebuilds the verdict
+  // every render, and the clock ticks each minute.
+  const goodWindKey = goodWind?.key ?? "";
+  const goodWindBody = goodWind?.body ?? "";
+  const goodWindTitle = goodWind?.title ?? "";
 
   useEffect(() => {
-    if (!point || !pointKey) return;
     if (getNotificationPermission() !== "granted") return;
-    if (!prefs.coldFront && !prefs.goodWind) return;
+    if (!frontText) return;
 
-    let active = true;
+    void fireNotification(
+      `coldfront:${propertyName}`,
+      "Cold front moving in",
+      frontText,
+    );
+  }, [frontText, propertyName]);
 
-    fetchLiveForecast(point, units).then((result) => {
-      if (!active || result.status !== "ok") return;
+  useEffect(() => {
+    if (getNotificationPermission() !== "granted") return;
+    if (!goodWindKey) return;
 
-      const forecast = result.forecast;
-
-      if (prefs.coldFront) {
-        const front = coldFrontStatus(forecast.pressure);
-
-        if (front.isFront) {
-          const dropText =
-            front.dropInHg !== null
-              ? ` (down ${front.dropInHg.toFixed(2)} inHg)`
-              : "";
-
-          void fireNotification(
-            `coldfront:${propertyName}`,
-            "Cold front moving in",
-            `${propertyName}: barometer falling${dropText} — prime deer movement likely.`,
-          );
-        }
-      }
-
-      if (prefs.goodWind) {
-        const wind = forecast.current.windDirection;
-        const goodStands = wind
-          ? standsRef.current.filter(
-              (stand) => getStandWindCheck(stand, wind).status === "good",
-            )
-          : [];
-
-        if (goodStands.length > 0) {
-          const names = goodStands
-            .slice(0, 3)
-            .map((stand) => stand.name)
-            .join(", ");
-          const extra = goodStands.length > 3 ? " and more" : "";
-
-          void fireNotification(
-            `goodwind:${propertyName}:${wind}`,
-            "Good wind for a stand",
-            `${propertyName}: a ${wind} wind favors ${names}${extra}.`,
-          );
-        }
-      }
-    });
-
-    return () => {
-      active = false;
-    };
-    // standsSignature stands in for the stands array identity.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    pointKey,
-    prefs.coldFront,
-    prefs.goodWind,
-    units.temperature,
-    units.wind,
-    propertyName,
-    standsSignature,
-  ]);
+    void fireNotification(goodWindKey, goodWindTitle, goodWindBody);
+  }, [goodWindKey, goodWindTitle, goodWindBody]);
 
   return null;
 }

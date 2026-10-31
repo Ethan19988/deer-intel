@@ -40,6 +40,7 @@ import { countRecords } from "@/lib/backupReminder";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
 import { getHuntPlannerSummary } from "@/lib/huntPlanner";
 import { HYDRATION_SAFE_NOW, usePropertyToday } from "@/lib/usePropertyToday";
+import type { SitPeriodKey } from "@/lib/todayVerdict";
 
 // Below this many of your own timed photos, the regional pattern is shown.
 const OWN_PHOTOS_FOR_CHART = 15;
@@ -134,9 +135,11 @@ export default function Home() {
   return (
     <PageShell maxWidth="980px">
       <HuntConditionAlerts
+        propertyId={activePropertyId}
         propertyName={activeProperty?.name ?? "This property"}
-        point={weatherPoint}
-        stands={propertyStands}
+        forecast={forecast}
+        verdict={verdict}
+        now={now}
       />
       <BackupReminderBanner
         currentRecordCount={countRecords(state)}
@@ -227,9 +230,12 @@ export default function Home() {
               }
             />
             <div style={instrumentsRowStyle}>
+              {/* Graded on the verdict's next-sit wind, like the headline. */}
               <WindCompass
-                wind={currentWind}
-                windSpeed={forecast?.current.windSpeed}
+                wind={verdict.wind}
+                windSpeed={verdict.windSpeed}
+                label={SIT_WIND_LABEL[verdict.period]}
+                currentWind={currentWind}
                 stands={propertyStands}
               />
               <MoonPhaseCard />
@@ -249,6 +255,13 @@ export default function Home() {
     </PageShell>
   );
 }
+
+// Which sit the wind dial is reading, matching the verdict's period.
+const SIT_WIND_LABEL: Record<SitPeriodKey, string> = {
+  morning: "Morning sit wind",
+  evening: "Tonight's sit wind",
+  tomorrow: "Tomorrow AM sit wind",
+};
 
 /** Fractional local hour from an Open-Meteo "YYYY-MM-DDTHH:MM" time. */
 function isoHour(iso: string | undefined): number | undefined {
