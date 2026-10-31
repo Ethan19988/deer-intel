@@ -1,0 +1,48 @@
+name: CI
+
+# Type-check, test and build the app on every pull request and on pushes to
+# main, so a change is checked before it reaches the live site.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: deer-intel-v2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: deer-intel-v2/package-lock.json
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Tests
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
