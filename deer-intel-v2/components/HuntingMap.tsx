@@ -87,7 +87,7 @@ import ParcelTilesLayer, {
   type ParcelTileOwnerHit,
   type ParcelTileOwnerPick,
 } from "@/components/map/ParcelTilesLayer";
-import { ownerAcresText } from "@/lib/ownerLabel";
+import { ownerAcresText, ownersMatch } from "@/lib/ownerLabel";
 import { landTagKey, setLandTag, useLandTags, type LandTagKind } from "@/lib/landTags";
 import MapSearchBar from "@/components/map/MapSearchBar";
 import GoldenHourFrame from "@/components/map/GoldenHourFrame";
@@ -153,6 +153,7 @@ import {
   deleteOfflinePack,
   downloadOfflinePack,
   offlineMapsSupported,
+  offlineVectorTrimNote,
   planOfflinePack,
   useOfflineMapPacks,
   type OfflineMapBounds,
@@ -425,10 +426,6 @@ const PENDING_PIN_TYPE_OPTIONS = PROPERTY_ASSET_PIN_TYPES.map((type) => {
 // unavailable, never as the owner data being unpublished, since the tile is
 // usually showing an owner name right above this line. A lookup that simply
 // fails adds nothing, leaving the tile's own owner/acres card intact.
-function comparableOwner(name: string): string {
-  return name.toUpperCase().replace(/[^A-Z0-9]/g, "");
-}
-
 function countyRecordLines(
   state: ParcelOwnerLookupState,
   tileOwnerName?: string,
@@ -443,9 +440,11 @@ function countyRecordLines(
     // ID/address below belong to the neighbouring parcel), show the county's
     // owner so the ID and address aren't read as the tile owner's.
     const countyOwner = state.parcel.ownerName;
+    // Tolerant: spacing, punctuation, legal suffixes and one name being a
+    // shortened form of the other (a co-owner left off) aren't a mismatch.
     const ownerDiffers =
       Boolean(countyOwner && tileOwnerName) &&
-      comparableOwner(countyOwner) !== comparableOwner(tileOwnerName ?? "");
+      !ownersMatch(countyOwner, tileOwnerName ?? "");
 
     return [
       ...(ownerDiffers
@@ -460,6 +459,16 @@ function countyRecordLines(
 
   if (state.status === "unsupported") {
     return [{ label: "County record", value: "Not available for this county" }];
+  }
+
+  // A failed lookup says so (e.g. no signal) rather than leaving a blank.
+  if (state.status === "error") {
+    return [
+      {
+        label: "County record",
+        value: state.message || "County record unavailable right now",
+      },
+    ];
   }
 
   return [];
@@ -1423,6 +1432,15 @@ export default function HuntingMap() {
       ) as Record<string, LandTagKind>,
     [landTags],
   );
+  // Where each tag was saved, so the parcel layer colours only that owner's
+  // land near there, not every same-named owner statewide.
+  const ownerTagPoints = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(landTags).map(([key, tag]) => [key, { lat: tag.lat, lng: tag.lng }] as const),
+      ),
+    [landTags],
+  );
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [isMobileAssetSheetOpen, setIsMobileAssetSheetOpen] = useState(false);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
@@ -1523,6 +1541,8 @@ export default function HuntingMap() {
     maxZoom: number;
     targetLabel: string;
     propertyName: string;
+    /** Set when the tile cap kept parcel tiles shallower than their data zoom. */
+    parcelNote?: string;
   } | null>(null);
 
   const selectedProperty =
@@ -2795,8 +2815,8 @@ export default function HuntingMap() {
     const requestId = tileOwnerDetailRequestRef.current + 1;
     tileOwnerDetailRequestRef.current = requestId;
 
-    // A search hit's point is only near the parcel (the owner search samples
-    // the view), so a county lookup there could describe the wrong parcel.
+    // A search hit's point comes from simplified tile geometry, so near a
+    // boundary a county lookup there could describe the wrong parcel.
     if (!pick || options.countyLookup === false) {
       setTileOwnerDetail(IDLE_PARCEL_OWNER_LOOKUP_STATE);
       return;
@@ -3346,11 +3366,13 @@ export default function HuntingMap() {
 
     pendingOfflineRef.current = {
       bounds,
-      sources: offlineTileSources,
+      // The plan's sources: parcel tiles carry how deep to save them.
+      sources: plan.sources,
       minZoom: plan.minZoom,
       maxZoom: plan.maxZoom,
       targetLabel,
       propertyName: selectedProperty?.name ?? "Map",
+      parcelNote: offlineVectorTrimNote(plan) || undefined,
     };
     setOfflineStatus({ phase: "preview", plan, targetLabel });
   }
@@ -3436,12 +3458,13 @@ export default function HuntingMap() {
       );
 
       const failed = pack.failedTiles ?? 0;
+      const parcelNote = pending.parcelNote ? ` ${pending.parcelNote}` : "";
       setOfflineStatus({
         phase: "done",
         message:
           failed > 0
-            ? `Saved ${pending.targetLabel} — ${pack.tileCount.toLocaleString()} tiles ready, ${failed.toLocaleString()} missed. Save it again on a good signal to fill the gaps.`
-            : `Saved ${pending.targetLabel} — ${pack.tileCount.toLocaleString()} tiles ready offline.`,
+            ? `Saved ${pending.targetLabel} — ${pack.tileCount.toLocaleString()} tiles ready, ${failed.toLocaleString()} missed. Save it again on a good signal to fill the gaps.${parcelNote}`
+            : `Saved ${pending.targetLabel} — ${pack.tileCount.toLocaleString()} tiles ready offline.${parcelNote}`,
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -4085,6 +4108,7 @@ export default function HuntingMap() {
               }
               onOwnerPick={handleTileOwnerPick}
               ownerTags={ownerTagKinds}
+              ownerTagPoints={ownerTagPoints}
               selectedOwner={tileOwnerPick?.ownerName ?? null}
               onSearchReady={setOwnerSearch}
               ownedAreas={ownedAreas}

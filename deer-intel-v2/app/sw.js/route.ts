@@ -1,8 +1,8 @@
 // Serves /sw.js with a per-deploy cache name baked in, so every deploy produces
 // a byte-different service worker. The browser's update check then detects the
 // new worker, its skipWaiting + clients.claim activate it immediately, and
-// ServiceWorkerRegistration reloads the page onto the fresh bundle — no manual
-// cache clear.
+// ServiceWorkerRegistration shows an "Update ready — tap to refresh" prompt
+// (never an automatic reload, which would kill an offline-map download).
 //
 // This replaces the old static public/sw.js, whose version was hand-bumped:
 // deploys that forgot to bump it produced an identical /sw.js, so returning

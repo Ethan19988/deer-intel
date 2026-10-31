@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import {
   formatOfflineSize,
+  offlineVectorTrimNote,
   type OfflineDownloadProgress,
   type OfflinePackPlan,
 } from "@/lib/offlineMaps";
@@ -44,6 +45,9 @@ export default function OfflineDownloadStatus({
             ? " (trimmed to keep the download reasonable)"
             : ""}
         </p>
+        {offlineVectorTrimNote(status.plan) ? (
+          <p style={noticeBodyStyle}>{offlineVectorTrimNote(status.plan)}</p>
+        ) : null}
         <div style={noticeButtonRowStyle}>
           <button type="button" style={confirmButtonStyle} onClick={onConfirm}>
             Download

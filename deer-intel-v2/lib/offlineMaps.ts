@@ -51,6 +51,13 @@ export type OfflineTileSource = {
   minNativeZoom?: number;
   /** The server 404s tiles it has no data for; save those as empty tiles. */
   sparse?: boolean;
+  /**
+   * Vector (pmtiles) sources only: save this source down to this zoom even
+   * when the pack itself stops shallower. Parcel lines and owner names come
+   * from the deepest data zoom, so a pack saved from a zoomed-out view still
+   * needs it. Set by planOfflinePack; capped at maxNativeZoom.
+   */
+  throughZoom?: number;
   wms?: {
     layers: string;
     styles?: string;
@@ -92,6 +99,13 @@ export type OfflinePackPlan = {
   tileCount: number;
   estimatedBytes: number;
   clamped: boolean;
+  /**
+   * Deepest zoom the plan saves for vector (parcel) sources, and whether the
+   * tile cap stopped it short of their deepest data zoom. Undefined when the
+   * pack has no vector source.
+   */
+  vectorMaxZoom?: number;
+  vectorTrimmed?: boolean;
 };
 
 function offlineCachesSupported(): boolean {
@@ -254,7 +268,11 @@ function sourceZoomRange(
   maxZoom: number,
 ): { from: number; to: number } | null {
   const shallowest = source.minNativeZoom ?? 0;
-  if (maxZoom < shallowest) return null;
+  const vectorThrough =
+    source.kind === "pmtiles" && typeof source.throughZoom === "number"
+      ? source.throughZoom
+      : -Infinity;
+  if (Math.max(maxZoom, vectorThrough) < shallowest) return null;
 
   // WMS layers have no native depth to overzoom from: they draw only within
   // their own zoom band, so fetch exactly that band.
@@ -270,8 +288,9 @@ function sourceZoomRange(
   // packs reach one zoom shallower.
   const deepest = source.maxNativeZoom;
   const wantFrom = source.kind === "pmtiles" ? minZoom - 1 : minZoom;
+  const wantTo = Math.max(maxZoom, vectorThrough);
   const from = Math.min(deepest, Math.max(shallowest, wantFrom));
-  const to = Math.min(deepest, maxZoom);
+  const to = Math.min(deepest, wantTo);
   return from <= to ? { from, to } : null;
 }
 
@@ -343,20 +362,87 @@ export function planOfflinePack(
     clamped = true;
   }
 
+  // Vector (parcel) sources draw lines and owner names from their deepest
+  // data zoom, so save them that deep even when the imagery stops shallower
+  // (a view saved from zoom 10 otherwise had no zoom-15 parcels). Go as deep
+  // as the cap allows, and say so if it can't reach the bottom.
+  const vector = extendVectorSources(sources, bounds, minZoom, maxZoom);
+  const plannedSources = vector.sources;
+
   const tileCount = enumeratePackTileUrls(
-    sources,
+    plannedSources,
     bounds,
     minZoom,
     maxZoom,
   ).length;
 
   return {
-    sources,
+    sources: plannedSources,
     minZoom,
     maxZoom,
     tileCount,
     estimatedBytes: tileCount * ESTIMATED_BYTES_PER_TILE,
     clamped,
+    vectorMaxZoom: vector.reached,
+    vectorTrimmed: vector.trimmed,
+  };
+}
+
+/**
+ * An honest note for when the tile cap kept parcel (vector) tiles from their
+ * deepest data zoom, or "" when they're saved in full (or not in the pack).
+ */
+export function offlineVectorTrimNote(plan: OfflinePackPlan): string {
+  if (!plan.vectorTrimmed) return "";
+  if (plan.vectorMaxZoom === undefined) {
+    return "Property lines aren't included — this area is too big for parcel detail. Zoom in and save a smaller area to take them offline.";
+  }
+  return `Property lines only to zoom ${plan.vectorMaxZoom} — this area is too big for full parcel detail. Zoom in and save a smaller area to get every line and owner name offline.`;
+}
+
+function extendVectorSources(
+  sources: OfflineTileSource[],
+  bounds: OfflineMapBounds,
+  minZoom: number,
+  maxZoom: number,
+): { sources: OfflineTileSource[]; reached?: number; trimmed?: boolean } {
+  const vectors = sources.filter((source) => source.kind === "pmtiles");
+  if (vectors.length === 0) return { sources };
+  const vectorDeepest = Math.max(...vectors.map((source) => source.maxNativeZoom));
+  const vectorShallowest = Math.min(...vectors.map((source) => source.minNativeZoom ?? 0));
+
+  // Counted arithmetically, not enumerated: from a zoomed-out view the deepest
+  // parcel zoom can be millions of tiles, far too many to list just to reject.
+  // The extra zooms sit below everything the pack already saves for these
+  // sources, so they add to the base count without overlap.
+  const baseCount = enumeratePackTileUrls(sources, bounds, minZoom, maxZoom).length;
+  const extraCount = (through: number) =>
+    vectors.reduce((total, source) => {
+      const from = Math.max(maxZoom + 1, source.minNativeZoom ?? 0);
+      return from > through
+        ? total
+        : total + countTilesInBounds(bounds, from, through, source.maxNativeZoom);
+    }, 0);
+
+  for (let through = vectorDeepest; through > maxZoom; through -= 1) {
+    if (baseCount + extraCount(through) <= MAX_TILES_PER_PACK) {
+      return {
+        sources: sources.map((source) =>
+          source.kind === "pmtiles" ? { ...source, throughZoom: through } : source,
+        ),
+        reached: through,
+        trimmed: through < vectorDeepest,
+      };
+    }
+  }
+
+  // Not even one level deeper fits: the vector layers stop with the pack —
+  // or, above their shallowest zoom, aren't in it at all (reached undefined).
+  const reached = Math.min(vectorDeepest, maxZoom);
+  return {
+    sources,
+    reached: reached >= vectorShallowest ? reached : undefined,
+    trimmed: reached < vectorDeepest,
   };
 }
 
@@ -482,6 +568,34 @@ function requestPersistentStorage(): void {
   }
 }
 
+// --- Download-running flag -------------------------------------------------
+//
+// Other parts of the app must not pull the rug out from under a download:
+// deleting a pack prunes tiles the running download is writing, and a service
+// worker update reload would kill it. They check this flag (or listen for the
+// change event) instead.
+
+export const OFFLINE_DOWNLOAD_CHANGE_EVENT = "deer-intel:offline-download-change";
+
+let runningDownloads = 0;
+let pruneDeferred = false;
+
+export function isOfflineDownloadRunning(): boolean {
+  return runningDownloads > 0;
+}
+
+function setDownloadRunning(delta: 1 | -1): void {
+  runningDownloads = Math.max(0, runningDownloads + delta);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(OFFLINE_DOWNLOAD_CHANGE_EVENT));
+  }
+  if (runningDownloads === 0 && pruneDeferred) {
+    pruneDeferred = false;
+    // Packs are read fresh here, so a pack that download just saved is kept.
+    pruneOrphanTiles(readOfflinePacks()).catch(() => undefined);
+  }
+}
+
 export async function downloadOfflinePack(
   params: {
     propertyId: string;
@@ -501,6 +615,19 @@ export async function downloadOfflinePack(
     throw new Error("Offline maps aren't supported in this browser.");
   }
 
+  setDownloadRunning(1);
+  try {
+    return await runOfflineDownload(params, onProgress, signal);
+  } finally {
+    setDownloadRunning(-1);
+  }
+}
+
+async function runOfflineDownload(
+  params: Parameters<typeof downloadOfflinePack>[0],
+  onProgress?: (progress: OfflineDownloadProgress) => void,
+  signal?: AbortSignal,
+): Promise<OfflineMapPack> {
   // First pack on this device: request persistent storage now, synchronously
   // inside the user's Download tap (Firefox prompts and wants the gesture).
   if (readOfflinePacks().length === 0) requestPersistentStorage();
@@ -682,6 +809,12 @@ async function pruneOrphanTiles(remaining: OfflineMapPack[]): Promise<void> {
 export async function deleteOfflinePack(id: string): Promise<void> {
   const remaining = readOfflinePacks().filter((pack) => pack.id !== id);
   writeOfflinePacks(remaining);
+  // A running download's tiles belong to no saved pack yet, so pruning now
+  // would delete them mid-download. Prune once every download has finished.
+  if (isOfflineDownloadRunning()) {
+    pruneDeferred = true;
+    return;
+  }
   await pruneOrphanTiles(remaining);
 }
 

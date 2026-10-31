@@ -10,8 +10,25 @@ import {
   type Layout,
 } from "protomaps-leaflet";
 import { PMTiles } from "pmtiles";
-import { ownerAcresText, ownerDisplayName } from "@/lib/ownerLabel";
+import { isPublicOwnerName, ownerAcresText, ownerDisplayName } from "@/lib/ownerLabel";
 import { landTagKey, type LandTagKind } from "@/lib/landTags";
+import {
+  OWNER_NEAR_KM,
+  boundsIntersect,
+  boundsOfRing,
+  distanceKm,
+  geomBoxCenter,
+  geomInteriorPoint,
+  nearBounds,
+  parcelAcresRank,
+  parseTileKey,
+  pointInTileRing,
+  tileBounds,
+  tilePixelToLatLng,
+  type GeoBounds,
+  type GeoPoint,
+  type TileCoord,
+} from "@/lib/parcelTileMath";
 import {
   matchOfflineVectorTile,
   useOfflineMapPacks,
@@ -38,7 +55,7 @@ const PMTILES_URL =
 export const PARCEL_TILES_MIN_ZOOM = 12;
 
 // Deepest zoom the archive has real tiles for; deeper zooms overzoom it.
-const PARCEL_TILES_MAX_DATA_ZOOM = 15;
+export const PARCEL_TILES_MAX_DATA_ZOOM = 15;
 
 // What an offline map pack saves of this layer: the archive's decoded vector
 // tiles over the pack area, z12–15 (see lib/offlineMaps).
@@ -168,11 +185,32 @@ const HOLDING_LABEL_WRAP_PX = 150;
 // What a label needs to know about you: your tags, the owners whose land sits
 // under your drawn hunt areas, and the owner whose card is open. Read when a
 // tile's labels are laid out, so changing any of it re-lays the labels.
+//
+// Tags and "mine" follow an owner NAME (the tiles carry no parcel id), so
+// `near` limits them to parcels close to where they belong — the tag's saved
+// spot, or your hunt areas — or tagging one "SMITH JOHN" would colour every
+// John Smith in the state.
 export type LabelStyleState = {
   tags: Record<string, LandTagKind>;
   mine: Set<string>;
   selected: string;
+  near: (feature: Feature, key: string, what: "tag" | "mine") => boolean;
 };
+
+const NEAR_ANYWHERE: LabelStyleState["near"] = () => true;
+
+/** Your tag on this parcel, if it's tagged and near where you tagged it. */
+function tagOfFeature(feature: Feature, state: LabelStyleState): LandTagKind | undefined {
+  const key = landTagKey(String(feature.props.owner ?? ""));
+  const tag = key ? state.tags[key] : undefined;
+  return tag && state.near(feature, key, "tag") ? tag : undefined;
+}
+
+/** Whether this parcel is the land under (or right by) your hunt areas. */
+function isMineFeature(feature: Feature, state: LabelStyleState): boolean {
+  const key = landTagKey(String(feature.props.owner ?? ""));
+  return Boolean(key) && state.mine.has(key) && state.near(feature, key, "mine");
+}
 
 type LabelRole = LandTagKind | "mine" | "public" | "selected" | "plain";
 
@@ -205,8 +243,8 @@ const LINE = { name: 1.0, small: 1.45 };
 function roleOf(feature: Feature, state: LabelStyleState): LabelRole {
   const key = landTagKey(String(feature.props.owner ?? ""));
   if (state.selected && key === state.selected) return "selected";
-  if (state.mine.has(key)) return "mine";
-  const tag = state.tags[key];
+  if (isMineFeature(feature, state)) return "mine";
+  const tag = tagOfFeature(feature, state);
   if (tag) return tag;
   if (feature.props.pub === 1) return "public";
   return "plain";
@@ -295,7 +333,7 @@ class HoldingLabelSymbolizer {
           },
         ],
         draw: makeLabelDraw(lines, textHeight),
-        deduplicationKey: rawOwner.toUpperCase(),
+        deduplicationKey: landTagKey(rawOwner),
         deduplicationDistance: this.dedupPx,
       },
     ];
@@ -303,13 +341,14 @@ class HoldingLabelSymbolizer {
 }
 
 /** True for owners whose names must always show: yours, tagged, or open. */
-function isPriorityOwner(
-  props: Record<string, unknown>,
-  state: LabelStyleState,
-): boolean {
-  const key = landTagKey(String(props.owner ?? ""));
+function isPriorityOwner(feature: Feature, state: LabelStyleState): boolean {
+  const key = landTagKey(String(feature.props.owner ?? ""));
   if (!key) return false;
-  return key === state.selected || state.mine.has(key) || Boolean(state.tags[key]);
+  return (
+    key === state.selected ||
+    isMineFeature(feature, state) ||
+    Boolean(tagOfFeature(feature, state))
+  );
 }
 
 // A label spot inside one parcel piece, for priority owners when the
@@ -354,22 +393,10 @@ function pieceAnchor(geom: Pt[][]): Pt | undefined {
   }
   if (maxX - minX < 40 || maxY - minY < 24 || a2 === 0) return undefined;
   const centroid = { x: cx / (3 * a2), y: cy / (3 * a2) };
-  if (pointInRing(centroid, best)) return centroid;
+  if (pointInTileRing(centroid, best)) return centroid;
   const avg = best.reduce((sum, p) => ({ x: sum.x + p.x, y: sum.y + p.y }), { x: 0, y: 0 });
   const fallback = { x: avg.x / best.length, y: avg.y / best.length };
-  return pointInRing(fallback, best) ? fallback : undefined;
-}
-
-function pointInRing(point: Pt, ring: Pt[]): boolean {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[i];
-    const b = ring[j];
-    if (a.y > point.y !== b.y > point.y && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x) {
-      inside = !inside;
-    }
-  }
-  return inside;
+  return pointInTileRing(fallback, best) ? fallback : undefined;
 }
 
 type LabelLine = {
@@ -434,6 +461,12 @@ type ParcelTilesLayerProps = {
   ) => void;
   /** Owner names you've tagged (keyed by landTagKey) → how to color them. */
   ownerTags?: Record<string, LandTagKind>;
+  /**
+   * Where each tag was saved (keyed like ownerTags). A tag only colours
+   * parcels within OWNER_NEAR_KM of its spot, so one tagged "SMITH JOHN"
+   * doesn't mark every John Smith statewide. A tag with no spot colours all.
+   */
+  ownerTagPoints?: Record<string, GeoPoint>;
   /** Owner of the parcel whose card is open, drawn with a bright outline. */
   selectedOwner?: string | null;
   /** Receives a search over the parcels loaded in the current view. */
@@ -484,6 +517,37 @@ function samplePoints(ring: LatLngPoint[], perSide = 7): LatLngPoint[] {
   return points;
 }
 
+// protomaps-leaflet keeps each view's decoded tiles in a cache it doesn't
+// type publicly: layer.views → view.tileCache → cache (Map keyed "x:y:z" →
+// { data: Map<layerName, Feature[]> }), parsed at tileCache.tileSize px per
+// tile. Read defensively — if a release reshapes it, callers fall back.
+type CachedTileLike = { data?: unknown };
+type TileCacheLike = { cache?: unknown; tileSize?: unknown };
+
+function forEachCachedTile(
+  layer: unknown,
+  visit: (tile: TileCoord, tileSize: number, data: Map<string, Feature[]>) => void,
+): boolean {
+  const views = (layer as { views?: unknown } | null)?.views;
+  if (!(views instanceof Map)) return false;
+  let reached = false;
+  for (const view of views.values()) {
+    const tileCache = (view as { tileCache?: TileCacheLike } | null)?.tileCache;
+    const cache = tileCache?.cache;
+    if (!(cache instanceof Map)) continue;
+    reached = true;
+    const tileSize =
+      typeof tileCache?.tileSize === "number" && tileCache.tileSize > 0 ? tileCache.tileSize : 512;
+    for (const [key, entry] of cache.entries()) {
+      const data = (entry as CachedTileLike | null)?.data;
+      if (typeof key !== "string" || !(data instanceof Map)) continue;
+      const tile = parseTileKey(key);
+      if (tile) visit(tile, tileSize, data as Map<string, Feature[]>);
+    }
+  }
+  return reached;
+}
+
 // next/font serves its faces under hashed family names; read the real ones
 // from the CSS variables the root layout sets, then wait for them to load so
 // labels aren't measured in a fallback face.
@@ -519,6 +583,7 @@ export default function ParcelTilesLayer({
   pickEnabled = false,
   onOwnerPick,
   ownerTags,
+  ownerTagPoints,
   selectedOwner,
   onSearchReady,
   ownedAreas,
@@ -537,20 +602,32 @@ export default function ParcelTilesLayer({
     tags: ownerTags ?? {},
     mine: new Set(),
     selected: selectedOwner ? landTagKey(selectedOwner) : "",
+    near: NEAR_ANYWHERE,
   });
   const layerRef = useRef<{ refresh: () => void; findMine: () => void } | null>(null);
-  const tagSignature = JSON.stringify(ownerTags ?? {});
+  const tagPointsRef = useRef<Record<string, GeoPoint>>({});
+  const tagSignature = JSON.stringify([ownerTags ?? {}, ownerTagPoints ?? {}]);
   const selectedKey = selectedOwner ? landTagKey(selectedOwner) : "";
   useEffect(() => {
+    const points: Record<string, GeoPoint> = {};
+    for (const [key, at] of Object.entries(ownerTagPoints ?? {})) {
+      if (Number.isFinite(at?.lat) && Number.isFinite(at?.lng)) points[key] = at;
+    }
+    tagPointsRef.current = points;
     styleRef.current = { ...styleRef.current, tags: ownerTags ?? {}, selected: selectedKey };
     layerRef.current?.refresh();
     // tagSignature stands in for ownerTags so a new-but-equal object doesn't repaint.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tagSignature, selectedKey]);
   const areasRef = useRef(ownedAreas ?? []);
+  const areaBoundsRef = useRef<GeoBounds[]>([]);
   const areasSignature = JSON.stringify(ownedAreas ?? []);
   useEffect(() => {
     areasRef.current = ownedAreas ?? [];
+    areaBoundsRef.current = (ownedAreas ?? [])
+      .filter((area) => area.length >= 3)
+      .map(boundsOfRing)
+      .filter((bounds): bounds is GeoBounds => bounds !== null);
     styleRef.current = { ...styleRef.current, mine: new Set() };
     layerRef.current?.findMine();
     // areasSignature stands in for ownedAreas.
@@ -573,8 +650,7 @@ export default function ParcelTilesLayer({
 
     const ownerKeyOf = (feature: { props: Record<string, unknown> }) =>
       landTagKey(String(feature.props.owner ?? ""));
-    const tagOf = (feature: { props: Record<string, unknown> }) =>
-      styleRef.current.tags[ownerKeyOf(feature)];
+    const tagOf = (feature: Feature) => tagOfFeature(feature, styleRef.current);
 
     const layer = leafletLayer({
       url: hasOfflineParcels ? new OfflineFirstPMTiles(PMTILES_URL) : PMTILES_URL,
@@ -663,7 +739,7 @@ export default function ParcelTilesLayer({
           minzoom: PARCEL_TILES_MIN_ZOOM,
           filter: (z, f) =>
             hasOwnerName(f) &&
-            isPriorityOwner(f.props, styleRef.current) &&
+            isPriorityOwner(f, styleRef.current) &&
             z >= Math.min(Number(f.props.mz) || PARCEL_TILES_MIN_ZOOM, 14),
           symbolizer: new HoldingLabelSymbolizer(
             () => styleRef.current,
@@ -675,7 +751,7 @@ export default function ParcelTilesLayer({
         {
           dataLayer: "parcels",
           minzoom: 15,
-          filter: (_z, f) => hasOwnerName(f) && isPriorityOwner(f.props, styleRef.current),
+          filter: (_z, f) => hasOwnerName(f) && isPriorityOwner(f, styleRef.current),
           symbolizer: new HoldingLabelSymbolizer(
             () => styleRef.current,
             pieceAnchor,
@@ -692,7 +768,7 @@ export default function ParcelTilesLayer({
           minzoom: PARCEL_TILES_MIN_ZOOM,
           filter: (z, f) =>
             hasOwnerName(f) &&
-            !isPriorityOwner(f.props, styleRef.current) &&
+            !isPriorityOwner(f, styleRef.current) &&
             z >= (Number(f.props.mz) || PARCEL_TILES_MIN_ZOOM),
           sort: (a, b) => (Number(b.acres) || 0) - (Number(a.acres) || 0),
           symbolizer: new HoldingLabelSymbolizer(
@@ -703,6 +779,59 @@ export default function ParcelTilesLayer({
     });
 
     layer.addTo(map);
+
+    // Where each loaded feature sits on the map, so tags and "your land" can be
+    // limited to parcels near where they belong. Built per tile the first time
+    // a filter asks about one of its features (one pass over that tile's
+    // features), then a WeakMap lookup — cheap enough for every paint on a
+    // phone. Features the cache can't place stay unrestricted.
+    const featurePos = new WeakMap<Feature, GeoPoint>();
+    const indexedTiles = new WeakSet<object>();
+    // A miss is only re-scanned once the tile cache has changed, so a
+    // feature the cache can't place doesn't cost a scan on every paint.
+    let scannedSignature = -1;
+    const cacheSignature = () => {
+      let total = 0;
+      const views = (layer as unknown as { views?: unknown }).views;
+      if (views instanceof Map) {
+        for (const view of views.values()) {
+          const cache = (view as { tileCache?: TileCacheLike } | null)?.tileCache?.cache;
+          if (cache instanceof Map) total += cache.size;
+        }
+      }
+      return total;
+    };
+    const positionOf = (feature: Feature): GeoPoint | undefined => {
+      const known = featurePos.get(feature);
+      if (known) return known;
+      const signature = cacheSignature();
+      if (signature === scannedSignature) return undefined;
+      scannedSignature = signature;
+      forEachCachedTile(layer, (tile, tileSize, data) => {
+        if (indexedTiles.has(data)) return;
+        indexedTiles.add(data);
+        for (const features of data.values()) {
+          if (!Array.isArray(features)) continue;
+          for (const f of features) {
+            const center = f?.geom ? geomBoxCenter(f.geom) : undefined;
+            if (center) featurePos.set(f, tilePixelToLatLng(tile, tileSize, center));
+          }
+        }
+      });
+      return featurePos.get(feature);
+    };
+    styleRef.current = {
+      ...styleRef.current,
+      near: (feature, key, what) => {
+        const at = positionOf(feature);
+        if (!at) return true;
+        if (what === "tag") {
+          const tagAt = tagPointsRef.current[key];
+          return !tagAt || distanceKm(at, tagAt) <= OWNER_NEAR_KM;
+        }
+        return areaBoundsRef.current.some((bounds) => nearBounds(at, bounds, OWNER_NEAR_KM));
+      },
+    };
 
     // Re-lay every label (tags, your land or the selection changed, or the
     // label fonts finished loading) and repaint the tiles already on screen.
@@ -732,7 +861,11 @@ export default function ParcelTilesLayer({
           for (const picks of layer.queryTileFeaturesDebug(point.lng, point.lat, 1).values()) {
             for (const pick of picks) {
               if (pick.layerName !== "parcels") continue;
-              const key = landTagKey(String(pick.feature.props.owner ?? ""));
+              // Public land under a hunt area is still public, never "yours".
+              if (pick.feature.props.pub === 1) continue;
+              const owner = String(pick.feature.props.owner ?? "");
+              if (isPublicOwnerName(owner)) continue;
+              const key = landTagKey(owner);
               if (key) seen.add(key);
             }
           }
@@ -755,50 +888,85 @@ export default function ParcelTilesLayer({
 
     // Search the parcels already loaded around the current view by owner name.
     // The statewide archive has no owner index, so this covers what's on
-    // screen (plus a margin), not the whole state.
+    // screen (plus a margin), not the whole state. Each hit carries a point
+    // inside the matching parcel — it becomes the tag's saved spot — so it
+    // scans the loaded tiles' features directly rather than sampling the view.
     const searchInView = (query: string): ParcelTileOwnerHit[] => {
       const needle = query.trim().toUpperCase();
       if (needle.length < 2) return [];
-      const bounds = map.getBounds();
+      const view = map.getBounds().pad(0.25);
+      const viewBounds: GeoBounds = {
+        south: view.getSouth(),
+        west: view.getWest(),
+        north: view.getNorth(),
+        east: view.getEast(),
+      };
       const center = map.getCenter();
       const hits = new Map<string, ParcelTileOwnerHit>();
-      const latStep = (bounds.getNorth() - bounds.getSouth()) / 4;
-      const lngStep = (bounds.getEast() - bounds.getWest()) / 4;
-      for (let row = 1; row <= 3; row += 1) {
-        for (let col = 1; col <= 3; col += 1) {
-          const lat = bounds.getSouth() + latStep * row;
-          const lng = bounds.getWest() + lngStep * col;
-          const picked = layer.queryTileFeaturesDebug(lng, lat, 256);
-          for (const picks of picked.values()) {
-            for (const pick of picks) {
-              if (pick.layerName !== "parcels") continue;
-              const ownerName = String(pick.feature.props.owner ?? "").trim();
-              if (!ownerName || !ownerName.toUpperCase().includes(needle)) continue;
-              const key = landTagKey(ownerName);
-              const acres = Number(pick.feature.props.acres) || 0;
-              const existing = hits.get(key);
-              if (existing) {
-                existing.acres = Math.max(existing.acres, acres);
-                continue;
+      const scores = new Map<string, number>();
+      const consider = (feature: Feature, at: GeoPoint | undefined) => {
+        const ownerName = String(feature.props.owner ?? "").trim();
+        if (!at || !ownerName || !ownerName.toUpperCase().includes(needle)) return;
+        const key = landTagKey(ownerName);
+        const acres = Number(feature.props.acres) || 0;
+        // Prefer the piece nearest the middle of the screen.
+        const score = distanceKm(at, center);
+        const existing = hits.get(key);
+        if (existing) {
+          existing.acres = Math.max(existing.acres, acres);
+          if (score < (scores.get(key) ?? Infinity)) {
+            existing.lat = at.lat;
+            existing.lng = at.lng;
+            scores.set(key, score);
+          }
+          return;
+        }
+        scores.set(key, score);
+        hits.set(key, {
+          ownerName,
+          acres,
+          isPublic: feature.props.pub === 1,
+          lat: at.lat,
+          lng: at.lng,
+        });
+      };
+
+      const reached = forEachCachedTile(layer, (tile, tileSize, data) => {
+        if (!boundsIntersect(tileBounds(tile), viewBounds)) return;
+        const parcels = data.get("parcels");
+        if (!Array.isArray(parcels)) return;
+        for (const feature of parcels) {
+          if (!feature?.geom) continue;
+          const inside = geomInteriorPoint(feature.geom);
+          consider(feature, inside ? tilePixelToLatLng(tile, tileSize, inside) : undefined);
+        }
+      });
+
+      // Fallback if the tile cache can't be read: a dense grid of exact-point
+      // picks. A tight brush means each sample really is inside its parcel.
+      if (!reached) {
+        const steps = 12;
+        const latStep = (viewBounds.north - viewBounds.south) / steps;
+        const lngStep = (viewBounds.east - viewBounds.west) / steps;
+        for (let row = 0; row < steps; row += 1) {
+          for (let col = 0; col < steps; col += 1) {
+            const at = {
+              lat: viewBounds.south + latStep * (row + 0.5),
+              lng: viewBounds.west + lngStep * (col + 0.5),
+            };
+            for (const picks of layer.queryTileFeaturesDebug(at.lng, at.lat, 1).values()) {
+              for (const pick of picks) {
+                if (pick.layerName === "parcels") consider(pick.feature, at);
               }
-              hits.set(key, {
-                ownerName,
-                acres,
-                isPublic: pick.feature.props.pub === 1,
-                lat,
-                lng,
-              });
             }
           }
         }
       }
-      return [...hits.values()]
-        .sort((a, b) => {
-          const da = (a.lat - center.lat) ** 2 + (a.lng - center.lng) ** 2;
-          const db = (b.lat - center.lat) ** 2 + (b.lng - center.lng) ** 2;
-          return da - db;
-        })
-        .slice(0, 12);
+
+      return [...hits.entries()]
+        .sort(([a], [b]) => (scores.get(a) ?? Infinity) - (scores.get(b) ?? Infinity))
+        .slice(0, 12)
+        .map(([, hit]) => hit);
     };
     searchReadyRef.current?.(searchInView);
 
@@ -813,14 +981,19 @@ export default function ParcelTilesLayer({
       const { lat, lng } = event.latlng;
       const picked = layer.queryTileFeaturesDebug(lng, lat, 8);
 
+      // A parcel with no published acreage is unknown, not tiny: it must not
+      // beat an overlapping parcel whose acreage is known.
       let best: ParcelTileOwnerPick | null = null;
+      let bestRank = Infinity;
       for (const picks of picked.values()) {
         for (const pick of picks) {
           if (pick.layerName !== "parcels") continue;
           const ownerName = String(pick.feature.props.owner ?? "").trim();
           if (!ownerName) continue;
           const acres = Number(pick.feature.props.acres) || 0;
-          if (!best || acres < best.acres) {
+          const rank = parcelAcresRank(acres);
+          if (!best || rank < bestRank) {
+            bestRank = rank;
             best = {
               ownerName,
               acres,
@@ -841,6 +1014,7 @@ export default function ParcelTilesLayer({
       layer.off("load", findMine);
       layer.remove();
       layerRef.current = null;
+      styleRef.current = { ...styleRef.current, near: NEAR_ANYWHERE };
       searchReadyRef.current?.(null);
     };
   }, [enabled, map, hasOfflineParcels]);
