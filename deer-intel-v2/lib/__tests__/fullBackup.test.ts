@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  assembleFullBackupBlob,
   backupGapNote,
+  backupLandTags,
   documentFileIds,
   FULL_BACKUP_FORMAT,
   isFullBackup,
   missingImageIds,
+  type FullBackup,
 } from "@/lib/fullBackup";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 import type { DocumentRecord } from "@/types/document";
@@ -122,5 +125,63 @@ describe("isFullBackup", () => {
 
   it("rejects a malformed files section", () => {
     expect(isFullBackup({ ...base, version: 2, files: "nope" })).toBe(false);
+  });
+});
+
+describe("assembleFullBackupBlob", () => {
+  async function* from<T>(items: T[]): AsyncGenerator<T> {
+    for (const item of items) yield item;
+  }
+
+  it("writes a file that parses back to a valid full backup", async () => {
+    const { blob, imageCount, fileCount } = await assembleFullBackupBlob(
+      {
+        exportedAt: "2026-10-31T00:00:00.000Z",
+        state: emptyState(),
+        landTags: {
+          SMITH: { kind: "permission", ownerName: "Smith", acres: 5, lat: 41, lng: -77, savedAt: "" },
+        },
+      },
+      from([
+        { id: "i1", type: "image/jpeg", dataBase64: "AAAA" },
+        { id: "i2", type: "image/png", dataBase64: "BBBB" },
+      ]),
+      from([{ id: "f1", type: "application/pdf", dataBase64: "CCCC" }]),
+    );
+    const parsed: unknown = JSON.parse(await blob.text());
+
+    expect(imageCount).toBe(2);
+    expect(fileCount).toBe(1);
+    expect(isFullBackup(parsed)).toBe(true);
+    const backup = parsed as FullBackup;
+    expect(backup.format).toBe(FULL_BACKUP_FORMAT);
+    expect(backup.images.map((image) => image.id)).toEqual(["i1", "i2"]);
+    expect(backup.files?.[0].dataBase64).toBe("CCCC");
+    expect(backupLandTags(backup)?.SMITH.ownerName).toBe("Smith");
+  });
+
+  it("handles a backup with no photos or files", async () => {
+    const { blob } = await assembleFullBackupBlob(
+      { exportedAt: "x", state: emptyState() },
+      from([]),
+      from([]),
+    );
+    const parsed = JSON.parse(await blob.text()) as FullBackup;
+    expect(isFullBackup(parsed)).toBe(true);
+    expect(parsed.images).toEqual([]);
+    expect(parsed.landTags).toBeUndefined();
+    expect(backupLandTags(parsed)).toBeUndefined();
+  });
+
+  it("still accepts version 1 backups without files or land tags", () => {
+    const v1 = {
+      format: FULL_BACKUP_FORMAT,
+      version: 1,
+      exportedAt: "",
+      state: emptyState(),
+      images: [],
+    };
+    expect(isFullBackup(v1)).toBe(true);
+    expect(backupLandTags(v1 as FullBackup)).toBeUndefined();
   });
 });

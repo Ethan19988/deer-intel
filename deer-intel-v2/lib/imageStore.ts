@@ -1,10 +1,18 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import {
   deleteCloudImage,
   downloadCloudImage,
   uploadCloudImage,
 } from "@/lib/cloudImages";
+import {
+  addPendingId,
+  parsePendingIds,
+  removePendingId,
+  retryDelayMs,
+} from "@/lib/photoUploadQueue";
+import { isCloudSyncConfigured } from "@/lib/supabaseClient";
 
 // Uploaded photos can be several megabytes each, which would quickly blow past
 // the localStorage quota used for the rest of the app state. Image blobs live in
@@ -76,11 +84,170 @@ function runTransaction<Result>(
   );
 }
 
+// --- Pending cloud uploads ---------------------------------------------------
+// Photo ids saved locally whose cloud backup hasn't succeeded yet (taken
+// offline, signed out, or the upload failed). Persisted so they upload on a
+// later sign-in, reconnect or app focus instead of staying device-only.
+
+const PENDING_UPLOADS_KEY = "deer-intel:pending-photo-uploads";
+const PENDING_CHANGE_EVENT = "deer-intel:pending-photo-uploads-change";
+const EMPTY_PENDING: string[] = [];
+
+let cachedPendingRaw: string | null = null;
+let cachedPending: string[] = EMPTY_PENDING;
+
+function readPendingUploads(): string[] {
+  if (typeof window === "undefined") return EMPTY_PENDING;
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(PENDING_UPLOADS_KEY);
+  } catch {
+    return EMPTY_PENDING;
+  }
+  if (raw === cachedPendingRaw) return cachedPending;
+  cachedPendingRaw = raw;
+  cachedPending = parsePendingIds(raw);
+  return cachedPending;
+}
+
+function writePendingUploads(ids: string[]) {
+  if (typeof window === "undefined") return;
+  try {
+    if (ids.length === 0) window.localStorage.removeItem(PENDING_UPLOADS_KEY);
+    else window.localStorage.setItem(PENDING_UPLOADS_KEY, JSON.stringify(ids));
+  } catch {
+    // Storage full or blocked: the photo is still saved locally, and the
+    // manual "Back Up My Photos" sweep still finds it.
+  }
+  window.dispatchEvent(new Event(PENDING_CHANGE_EVENT));
+}
+
+function markPendingUpload(id: string) {
+  writePendingUploads(addPendingId(readPendingUploads(), id));
+}
+
+function clearPendingUpload(id: string) {
+  const current = readPendingUploads();
+  const next = removePendingId(current, id);
+  if (next !== current) writePendingUploads(next);
+}
+
+// Upload one photo, keeping it queued until the cloud copy is confirmed.
+async function uploadAndTrack(id: string, blob: Blob): Promise<boolean> {
+  const ok = await uploadCloudImage(id, blob);
+  if (ok) clearPendingUpload(id);
+  return ok;
+}
+
+let queueRun: Promise<void> | null = null;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let failedRuns = 0;
+// True while startPhotoUploadQueue is running (signed in); retries stop
+// scheduling once it is torn down.
+let queueActive = false;
+
+/**
+ * Try every queued upload once. Photos whose local copy is gone (deleted)
+ * drop out of the queue. On failure, retries itself with backoff.
+ */
+export function flushPendingPhotoUploads(): Promise<void> {
+  if (queueRun) return queueRun;
+  if (retryTimer) {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+
+  queueRun = (async () => {
+    let failed = 0;
+    for (const id of [...readPendingUploads()]) {
+      const blob = await readLocalImage(id);
+      if (!blob) {
+        clearPendingUpload(id);
+        continue;
+      }
+      if (!(await uploadAndTrack(id, blob))) failed += 1;
+    }
+
+    if (failed > 0 && queueActive) {
+      failedRuns += 1;
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        void flushPendingPhotoUploads();
+      }, retryDelayMs(failedRuns));
+    } else {
+      failedRuns = 0;
+    }
+  })().finally(() => {
+    queueRun = null;
+  });
+
+  return queueRun;
+}
+
+/**
+ * Keep retrying queued uploads while signed in: now, when the connection comes
+ * back, and when the app regains focus. Returns a cleanup function.
+ */
+export function startPhotoUploadQueue(): () => void {
+  if (typeof window === "undefined") return () => undefined;
+
+  const retry = () => {
+    // A fresh trigger (online/focus) gets a fresh backoff.
+    failedRuns = 0;
+    void flushPendingPhotoUploads();
+  };
+  const onVisibility = () => {
+    if (document.visibilityState === "visible") retry();
+  };
+
+  queueActive = true;
+  retry();
+  window.addEventListener("online", retry);
+  window.addEventListener("focus", retry);
+  document.addEventListener("visibilitychange", onVisibility);
+
+  return () => {
+    window.removeEventListener("online", retry);
+    window.removeEventListener("focus", retry);
+    document.removeEventListener("visibilitychange", onVisibility);
+    queueActive = false;
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+  };
+}
+
+function subscribePendingUploads(onChange: () => void) {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === PENDING_UPLOADS_KEY) onChange();
+  };
+  window.addEventListener(PENDING_CHANGE_EVENT, onChange);
+  window.addEventListener("storage", onStorage);
+  return () => {
+    window.removeEventListener(PENDING_CHANGE_EVENT, onChange);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+/** How many photos are still waiting to upload to the cloud backup. */
+export function usePendingPhotoUploadCount(): number {
+  return useSyncExternalStore(
+    subscribePendingUploads,
+    () => readPendingUploads().length,
+    () => 0,
+  );
+}
+
 export function putPhotoImage(id: string, blob: Blob): Promise<boolean> {
   return runTransaction("readwrite", (store) => store.put(blob, id)).then(
     () => {
-      // Back up to the cloud without blocking the local save.
-      void uploadCloudImage(id, blob);
+      // Back up to the cloud without blocking the local save. Queued first so
+      // an offline or signed-out save still uploads later.
+      if (isCloudSyncConfigured()) {
+        markPendingUpload(id);
+        void uploadAndTrack(id, blob);
+      }
       return true;
     },
     () => false,
@@ -89,7 +256,7 @@ export function putPhotoImage(id: string, blob: Blob): Promise<boolean> {
 
 // Read only the local (IndexedDB) copy — no cloud fallback. Used by the backup
 // sweep (to know what actually lives here) and by getPhotoImage.
-function readLocalImage(id: string): Promise<Blob | null> {
+export function readLocalImage(id: string): Promise<Blob | null> {
   return runTransaction<Blob>("readonly", (store) => store.get(id)).then(
     (value) => (value instanceof Blob ? value : null),
   );
@@ -115,34 +282,16 @@ export async function getPhotoImage(id: string): Promise<Blob | null> {
 
 export function deletePhotoImage(id: string): Promise<void> {
   return runTransaction("readwrite", (store) => store.delete(id)).then(() => {
+    clearPendingUpload(id);
     void deleteCloudImage(id);
   });
 }
 
 /** Every image id stored locally on this device. */
-function getAllLocalImageIds(): Promise<string[]> {
+export function getAllLocalImageIds(): Promise<string[]> {
   return runTransaction<IDBValidKey[]>("readonly", (store) =>
     store.getAllKeys(),
   ).then((keys) => (Array.isArray(keys) ? keys.map(String) : []));
-}
-
-/**
- * Every image saved locally on THIS device, as {id, blob} pairs. Used to bundle
- * photos into a downloadable full backup (lib/fullBackup) alongside the records.
- */
-export async function getAllLocalImageEntries(): Promise<
-  { id: string; blob: Blob }[]
-> {
-  const ids = await getAllLocalImageIds();
-  const entries: { id: string; blob: Blob }[] = [];
-
-  for (const id of ids) {
-    const blob = await readLocalImage(id);
-
-    if (blob) entries.push({ id, blob });
-  }
-
-  return entries;
 }
 
 /**
@@ -153,7 +302,12 @@ export async function getAllLocalImageEntries(): Promise<
  */
 export function restoreLocalImage(id: string, blob: Blob): Promise<boolean> {
   return runTransaction("readwrite", (store) => store.put(blob, id)).then(
-    () => true,
+    () => {
+      // Queued so it reaches the cloud backup on the next sign-in even if the
+      // caller's immediate backup can't run (signed out / offline).
+      if (isCloudSyncConfigured()) markPendingUpload(id);
+      return true;
+    },
     () => false,
   );
 }
@@ -177,7 +331,7 @@ export async function backupLocalImages(
     const blob = await readLocalImage(ids[index]);
 
     if (blob) {
-      const ok = await uploadCloudImage(ids[index], blob);
+      const ok = await uploadAndTrack(ids[index], blob);
 
       if (ok) uploaded += 1;
       else failed += 1;

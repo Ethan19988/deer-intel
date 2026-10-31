@@ -21,9 +21,15 @@ import TerrainToolsManager from "@/components/settings/TerrainToolsManager";
 import { ICON_CREDITS } from "@/lib/pinGlyphs";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { saveDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
-import { backupLocalImages } from "@/lib/imageStore";
+import { backupLocalImages, usePendingPhotoUploadCount } from "@/lib/imageStore";
+import {
+  readAllLandTags,
+  replaceAllLandTags,
+  type LandTags,
+} from "@/lib/landTags";
 import {
   backupGapNote,
+  backupLandTags,
   buildFullBackup,
   isFullBackup,
   restoreFullBackupFiles,
@@ -75,6 +81,7 @@ export default function SettingsPage() {
   const { configured, status, user } = useAuth();
   const cloudActive = configured && status === "signed-in";
   const totalRecords = recordCount(state);
+  const pendingPhotoUploads = usePendingPhotoUploadCount();
   const selectedProperty =
     state.properties.find(
       (property) => property.id === state.selectedPropertyId,
@@ -88,6 +95,8 @@ export default function SettingsPage() {
     fileName: string;
     images?: FullBackupImage[];
     files?: FullBackupFile[];
+    // Undefined for records-only exports and older full backups.
+    landTags?: LandTags;
   } | null>(null);
   const [isBackingUpPhotos, setIsBackingUpPhotos] = useState(false);
   const [photoBackupStatus, setPhotoBackupStatus] = useState<string | null>(
@@ -123,8 +132,11 @@ export default function SettingsPage() {
     }
   }
 
-  function downloadJson(payload: string, fileName: string) {
-    const blob = new Blob([payload], { type: "application/json" });
+  function downloadJson(payload: string | Blob, fileName: string) {
+    const blob =
+      typeof payload === "string"
+        ? new Blob([payload], { type: "application/json" })
+        : payload;
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
 
@@ -154,31 +166,29 @@ export default function SettingsPage() {
     setFullExportStatus("Bundling your photos…");
 
     try {
-      const { backup, missingPhotos, missingDocuments } = await buildFullBackup(
-        state,
-        (done, total) => {
-          setFullExportStatus(
-            total === 0
-              ? "Preparing backup…"
-              : `Bundling photos and documents ${done} of ${total}…`,
-          );
-        },
-      );
+      const { blob, imageCount, fileCount, missingPhotos, missingDocuments } =
+        await buildFullBackup(
+          state,
+          (done, total) => {
+            setFullExportStatus(
+              total === 0
+                ? "Preparing backup…"
+                : `Bundling photos and documents ${done} of ${total}…`,
+            );
+          },
+          readAllLandTags(),
+        );
       const gapNote = backupGapNote(missingPhotos, missingDocuments);
-      const fileCount = backup.files?.length ?? 0;
       const today = localDateKey(new Date());
 
-      downloadJson(
-        JSON.stringify(backup),
-        `deer-intel-full-backup-${today}.json`,
-      );
+      downloadJson(blob, `deer-intel-full-backup-${today}.json`);
       recordBackup(totalRecords);
 
       const contents =
-        backup.images.length === 0 && fileCount === 0
+        imageCount === 0 && fileCount === 0
           ? "Backup downloaded. No photos or documents were found, so it holds your records only."
-          : `Backup downloaded — ${totalRecords} records, ${backup.images.length} photo${
-              backup.images.length === 1 ? "" : "s"
+          : `Backup downloaded — ${totalRecords} records, ${imageCount} photo${
+              imageCount === 1 ? "" : "s"
             }${
               fileCount > 0
                 ? ` and ${fileCount} document${fileCount === 1 ? "" : "s"}`
@@ -199,7 +209,7 @@ export default function SettingsPage() {
     fileInputRef.current?.click();
   }
 
-  function handleFileSelected(event: ChangeEvent<HTMLInputElement>) {
+  async function handleFileSelected(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
 
     // Reset the input so selecting the same file again still fires onChange.
@@ -210,59 +220,61 @@ export default function SettingsPage() {
     setImportError(null);
     setImportMessage(null);
 
-    const reader = new FileReader();
-
-    reader.onload = () => {
+    // Read the file once and parse it; the text goes out of scope right after,
+    // so only the parsed backup stays in memory (restore then frees each
+    // photo's base64 as it's written).
+    let parsed: unknown;
+    try {
+      const text = await file.text();
       try {
-        const parsed: unknown = JSON.parse(String(reader.result));
-
-        // A full backup nests the record state and carries inline photos.
-        if (isFullBackup(parsed)) {
-          setPendingImport({
-            state: parsed.state,
-            fileName: file.name,
-            images: parsed.images,
-            files: parsed.files,
-          });
-          return;
-        }
-
-        if (
-          !parsed ||
-          typeof parsed !== "object" ||
-          !Array.isArray((parsed as { properties?: unknown }).properties)
-        ) {
-          setImportError(
-            "That file doesn't look like a Deer Intel backup (no properties list found). Nothing was changed.",
-          );
-          return;
-        }
-
-        setPendingImport({
-          state: parsed as DeerIntelState,
-          fileName: file.name,
-        });
+        parsed = JSON.parse(text);
       } catch {
-        setImportError(
-          "Couldn't read that file as JSON. Nothing was changed.",
-        );
+        setImportError("Couldn't read that file as JSON. Nothing was changed.");
+        return;
       }
-    };
-
-    reader.onerror = () => {
+    } catch {
       setImportError("Couldn't read that file. Nothing was changed.");
-    };
+      return;
+    }
 
-    reader.readAsText(file);
+    // A full backup nests the record state and carries inline photos.
+    if (isFullBackup(parsed)) {
+      setPendingImport({
+        state: parsed.state,
+        fileName: file.name,
+        images: parsed.images,
+        files: parsed.files,
+        landTags: backupLandTags(parsed),
+      });
+      return;
+    }
+
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      !Array.isArray((parsed as { properties?: unknown }).properties)
+    ) {
+      setImportError(
+        "That file doesn't look like a Deer Intel backup (no properties list found). Nothing was changed.",
+      );
+      return;
+    }
+
+    setPendingImport({
+      state: parsed as DeerIntelState,
+      fileName: file.name,
+    });
   }
 
   async function handleConfirmImport() {
     if (!pendingImport) return;
 
-    const { state: importState, fileName, images, files } = pendingImport;
+    const { state: importState, fileName, images, files, landTags } =
+      pendingImport;
 
     setPendingImport(null);
     saveDeerIntelStore(importState);
+    if (landTags !== undefined) replaceAllLandTags(landTags);
 
     const imageCount = images?.length ?? 0;
     const fileCount = files?.length ?? 0;
@@ -649,7 +661,7 @@ export default function SettingsPage() {
             ref={fileInputRef}
             type="file"
             accept="application/json,.json"
-            onChange={handleFileSelected}
+            onChange={(event) => void handleFileSelected(event)}
             style={hiddenInputStyle}
           />
           {fullExportStatus ? (
@@ -680,6 +692,15 @@ export default function SettingsPage() {
               them all to your account — then they&apos;re protected and show on
               every device. Photos you add from now on back up on their own.
             </p>
+            {pendingPhotoUploads > 0 ? (
+              <p style={mutedTextStyle} role="status">
+                <Badge variant="warning">
+                  {pendingPhotoUploads} waiting to upload
+                </Badge>{" "}
+                {pendingPhotoUploads === 1 ? "This photo uploads" : "These upload"}{" "}
+                automatically when you&apos;re online.
+              </p>
+            ) : null}
             <div style={backupActionsStyle}>
               <Button
                 type="button"
