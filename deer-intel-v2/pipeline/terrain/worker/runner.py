@@ -95,11 +95,13 @@ def upsert_set(row: dict) -> None:
     r.raise_for_status()
 
 
-def safe_name(property_id: str) -> str:
-    """A stable, filesystem-safe work name per property, so downloaded LiDAR
-    tiles and derivatives are reused when a read is regenerated."""
+def safe_name(owner_id: str, property_id: str) -> str:
+    """A stable, filesystem-safe work name per user and property, so downloaded
+    LiDAR tiles and derivatives are reused when a read is regenerated, but two
+    users with the same property id never share a work folder."""
+    owner = re.sub(r"[^a-z0-9]+", "", str(owner_id).lower())[:12] or "x"
     slug = re.sub(r"[^a-z0-9]+", "-", property_id.lower()).strip("-")
-    return f"prop-{slug or 'x'}"
+    return f"prop-{owner}-{slug or 'x'}"
 
 
 def run(cmd: list[str]) -> str:
@@ -120,7 +122,7 @@ def stage(job_id: str, label: str) -> None:
 
 
 def process(job: dict) -> None:
-    name = safe_name(job["property_id"])
+    name = safe_name(job["owner_id"], job["property_id"])
     work = os.path.join(PIPELINE_DIR, "work", name)
     os.makedirs(work, exist_ok=True)
     jid = job["id"]

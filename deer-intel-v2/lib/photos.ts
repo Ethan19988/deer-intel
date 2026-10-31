@@ -137,7 +137,12 @@ function photoTime(photo: PhotoRecord) {
   return photoRecordTime(photo);
 }
 
-function dateInputTime(date: string | undefined) {
+/**
+ * Epoch time of a form date ("YYYY-MM-DD") or datetime ("YYYY-MM-DDTHH:MM"),
+ * NaN when unparseable. A bare date is read as LOCAL midnight; Date.parse /
+ * new Date() read it as UTC, which shows the previous day west of Greenwich.
+ */
+export function dateInputTime(date: string | undefined) {
   if (!date) return Number.NaN;
 
   const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);

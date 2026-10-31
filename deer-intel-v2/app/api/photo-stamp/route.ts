@@ -25,7 +25,9 @@ const ALLOWED_MEDIA_TYPES = new Set([
   "image/webp",
   "image/gif",
 ]);
-// A camera-card import can read a few hundred photos in one sitting.
+// A camera-card import can read a few hundred photos in one sitting. This is
+// the per-instance burst limit; the per-user daily quota is DAILY_AI_LIMITS in
+// lib/apiGuard.
 const PHOTO_STAMP_LIMITS = {
   limit: 400,
   windowMs: 60 * 60 * 1000,

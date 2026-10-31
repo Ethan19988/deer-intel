@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { averageWind, sitWindowWinds } from "@/lib/liveWeather";
+import { averageWind, sitWindowHours, sitWindowWinds } from "@/lib/liveWeather";
 
 function hourly(date: string, entries: Array<[number, number, number]>) {
   return {
@@ -66,5 +66,84 @@ describe("sitWindowWinds", () => {
     expect(sitWindowWinds("2024-11-05T06:52", "2024-11-05T17:05", undefined)).toEqual(
       {},
     );
+  });
+});
+
+describe("sitWindowHours (PA legal light)", () => {
+  it("starts the morning at legal light, floored to the hour", () => {
+    // 6:52 sunrise → 6:22 legal light → from 6, through 9.
+    expect(sitWindowHours("2024-11-05T06:52", undefined).morning).toEqual({
+      fromHour: 6,
+      toHour: 9,
+    });
+    // 7:20 sunrise → 6:50 legal light → from 6, not 7.
+    expect(sitWindowHours("2024-11-05T07:20", undefined).morning).toEqual({
+      fromHour: 6,
+      toHour: 9,
+    });
+  });
+
+  it("runs the evening through legal end, floored to the hour", () => {
+    // 17:05 sunset → 17:35 legal end → through 17 (the 18:00 reading is after
+    // legal light).
+    expect(sitWindowHours(undefined, "2024-11-05T17:05").evening).toEqual({
+      fromHour: 14,
+      toHour: 17,
+    });
+    // 16:30 sunset → 17:00 legal end exactly → through 17.
+    expect(sitWindowHours(undefined, "2024-11-05T16:30").evening).toEqual({
+      fromHour: 13,
+      toHour: 17,
+    });
+    // 17:40 sunset → 18:10 legal end → through 18 (18:00 is still legal).
+    expect(sitWindowHours(undefined, "2024-11-05T17:40").evening).toEqual({
+      fromHour: 14,
+      toHour: 18,
+    });
+  });
+
+  it("is empty without sun times", () => {
+    expect(sitWindowHours(undefined, undefined)).toEqual({ morning: null, evening: null });
+  });
+});
+
+describe("sitWindowWinds legal light", () => {
+  it("leaves out a reading after legal light ends", () => {
+    // Sunset 17:05: legal light ends 17:35, so the 18:00 reading (a strong
+    // north wind) is after shooting hours and must not swing the evening wind.
+    const data = hourly("2024-11-05", [
+      [14, 180, 2],
+      [15, 180, 2],
+      [16, 180, 2],
+      [17, 180, 2],
+      [18, 0, 30],
+    ]);
+
+    expect(sitWindowWinds(undefined, "2024-11-05T17:05", data).eveningWind).toMatch(/^S /);
+  });
+
+  it("counts the hour after sunset when it starts inside legal light", () => {
+    // Sunset 17:40: legal light runs to 18:10, so the 18:00 reading is in.
+    const data = hourly("2024-11-05", [
+      [14, 180, 2],
+      [15, 180, 2],
+      [16, 180, 2],
+      [17, 180, 2],
+      [18, 0, 30],
+    ]);
+
+    expect(sitWindowWinds(undefined, "2024-11-05T17:40", data).eveningWind).toMatch(/^N /);
+  });
+
+  it("counts the pre-sunrise legal light hour in the morning wind", () => {
+    // Sunrise 7:20 → legal 6:50, so the 6:00 hour is in the window.
+    const data = hourly("2024-11-05", [
+      [6, 270, 30],
+      [7, 90, 2],
+      [8, 90, 2],
+      [9, 90, 2],
+    ]);
+
+    expect(sitWindowWinds("2024-11-05T07:20", undefined, data).morningWind).toMatch(/^W /);
   });
 });

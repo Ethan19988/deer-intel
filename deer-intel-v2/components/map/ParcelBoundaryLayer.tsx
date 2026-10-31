@@ -1,6 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TileLayer, useMap, useMapEvents } from "react-leaflet";
-import { PARCEL_PROVIDER_CONFIG } from "@/lib/parcelProvider";
+import {
+  PARCEL_PROVIDER_CONFIG,
+  PROPERTY_LINES_NEED_SIGNAL_STATE,
+  PROPERTY_LINES_UNAVAILABLE_STATE,
+  propertyLinesErrorState,
+} from "@/lib/parcelProvider";
 import { isMobileMapDevice } from "@/lib/mapDevice";
 import type { ParcelBoundaryLoadState } from "@/types/parcel";
 
@@ -21,16 +26,15 @@ const PROPERTY_LINES_ZOOM_GATE_STATE: ParcelBoundaryLoadState = {
   message: "Zoom in to view property lines.",
   boundaries: [],
 };
-const PROPERTY_LINES_UNAVAILABLE_STATE: ParcelBoundaryLoadState = {
-  status: "error",
-  message: "Property lines unavailable here",
-  boundaries: [],
-};
+function browserOnline(): boolean {
+  return typeof navigator === "undefined" || navigator.onLine !== false;
+}
 
 type ParcelBoundaryTileOverlayProps = {
   eventHandlers: {
     loading: () => void;
     load: () => void;
+    tileload: () => void;
     tileerror: () => void;
   };
 };
@@ -79,6 +83,8 @@ function ParcelBoundaryLayer({
   );
   const lastStateKeyRef = useRef("");
   const slowLoadTimerRef = useRef<number | null>(null);
+  // Tile results for the current load cycle (reset on each "loading").
+  const tileCountsRef = useRef({ loaded: 0, failed: 0 });
   const zoomGateTimerRef = useRef<number | null>(null);
 
   const clearZoomGateTimer = useCallback(() => {
@@ -176,6 +182,7 @@ function ParcelBoundaryLayer({
     () => ({
       loading() {
         clearSlowLoadTimer();
+        tileCountsRef.current = { loaded: 0, failed: 0 };
         reportState({
           status: "loading",
           message: "Loading property lines...",
@@ -194,15 +201,26 @@ function ParcelBoundaryLayer({
       },
       load() {
         clearSlowLoadTimer();
-        reportState({
-          status: "ready",
-          message: "",
-          boundaries: [],
-        });
+        const { loaded, failed } = tileCountsRef.current;
+        reportState(
+          propertyLinesErrorState(loaded, failed, browserOnline()) ?? {
+            status: "ready",
+            message: "",
+            boundaries: [],
+          },
+        );
+      },
+      tileload() {
+        tileCountsRef.current.loaded += 1;
       },
       tileerror() {
-        clearSlowLoadTimer();
-        reportState(PROPERTY_LINES_UNAVAILABLE_STATE);
+        tileCountsRef.current.failed += 1;
+        // Offline, every tile will fail: say so right away rather than
+        // waiting for the whole load to give up.
+        if (!browserOnline()) {
+          clearSlowLoadTimer();
+          reportState(PROPERTY_LINES_NEED_SIGNAL_STATE);
+        }
       },
     }),
     [clearSlowLoadTimer, reportState],

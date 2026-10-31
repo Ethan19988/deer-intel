@@ -14,7 +14,8 @@ export async function GET() {
 }
 
 // The client trims the context (capped lists, short notes), so a real request
-// is a few KB. These limits stop a script from running up the API bill.
+// is a few KB. These per-instance burst limits stop a runaway loop; the hard
+// per-user daily quota lives in DAILY_AI_LIMITS (lib/apiGuard).
 const AI_SCOUT_LIMITS = {
   limit: 20,
   windowMs: 60 * 60 * 1000,

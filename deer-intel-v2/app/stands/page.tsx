@@ -31,6 +31,7 @@ import {
 export default function StandsPage() {
   const state = useDeerIntelStore();
   const [todayWind, setTodayWind] = useState<string>();
+  const [todayWindSpeed, setTodayWindSpeed] = useState<string>();
   const addForm = useAddFormRequest("add-stand");
   const selectedProperty =
     state.properties.find(
@@ -65,6 +66,7 @@ export default function StandsPage() {
   useEffect(() => {
     if (!selectedProperty) {
       setTodayWind(undefined);
+      setTodayWindSpeed(undefined);
       return;
     }
 
@@ -76,6 +78,7 @@ export default function StandsPage() {
 
     if (!point) {
       setTodayWind(undefined);
+      setTodayWindSpeed(undefined);
       return;
     }
 
@@ -85,6 +88,9 @@ export default function StandsPage() {
       if (!active) return;
       setTodayWind(
         result.status === "ok" ? result.fields.windDirection : undefined,
+      );
+      setTodayWindSpeed(
+        result.status === "ok" ? result.fields.windSpeed : undefined,
       );
     });
 
@@ -201,6 +207,7 @@ export default function StandsPage() {
                     stand={stand}
                     intelligence={intelligence}
                     todayWind={todayWind}
+                    todayWindSpeed={todayWindSpeed}
                     onSaveWinds={saveStandWinds}
                     pins={propertyPins}
                     onDelete={deleteStand}

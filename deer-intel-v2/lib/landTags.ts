@@ -7,7 +7,8 @@ import { useSyncExternalStore } from "react";
 // owner name but no parcel id, so a tag follows the owner name — the same key
 // the map already uses to print one label per owner holding.
 //
-// Kept on this device (like the theme) for now; not part of cloud sync yet.
+// Saved on this device, and carried by cloud sync (lib/cloudSync, merged by
+// owner key) and the full backup (lib/fullBackup) through the helpers below.
 
 export type LandTagKind = "permission" | "neighbor";
 
@@ -61,6 +62,46 @@ function writeTags(tags: LandTags) {
     // Storage full or blocked: the tag just won't stick this session.
   }
   window.dispatchEvent(new Event(CHANGE_EVENT));
+}
+
+/** Every saved tag, keyed by landTagKey(ownerName). */
+export function readAllLandTags(): LandTags {
+  return readTags();
+}
+
+/** Keep only well-formed tags, so a bad backup or cloud row can't break the map. */
+export function sanitizeLandTags(value: unknown): LandTags {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const tags: LandTags = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    const tag = raw as Partial<LandTag> | null;
+    if (
+      !key ||
+      !tag ||
+      typeof tag !== "object" ||
+      (tag.kind !== "permission" && tag.kind !== "neighbor") ||
+      typeof tag.ownerName !== "string" ||
+      typeof tag.lat !== "number" ||
+      typeof tag.lng !== "number"
+    ) {
+      continue;
+    }
+    tags[key] = {
+      kind: tag.kind,
+      ownerName: tag.ownerName,
+      acres: typeof tag.acres === "number" ? tag.acres : 0,
+      lat: tag.lat,
+      lng: tag.lng,
+      savedAt: typeof tag.savedAt === "string" ? tag.savedAt : "",
+    };
+  }
+  return tags;
+}
+
+/** Replace every saved tag at once (cloud pull, merge, or backup restore). */
+export function replaceAllLandTags(tags: LandTags) {
+  if (typeof window === "undefined") return;
+  writeTags(sanitizeLandTags(tags));
 }
 
 /** Tag a parcel owner, change its tag, or clear it (kind = null). */

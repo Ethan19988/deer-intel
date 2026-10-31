@@ -28,6 +28,8 @@ type StandCardProps = {
   intelligence?: StandIntelligenceSummary;
   /** Current wind direction (compass point) for a live "wind today" check. */
   todayWind?: string;
+  /** Current wind speed ("2 mph"): under 3 mph the fit reads "Light & variable". */
+  todayWindSpeed?: string;
   /** When given, the card offers "Set winds" with the tap-to-set compass. */
   onSaveWinds?: (standId: string, winds: { bestWinds: string; avoidWinds: string }) => void;
   /** This property's map pins: puts the stand's ground behind the wind picker. */
@@ -48,6 +50,7 @@ export default function StandCard({
   stand,
   intelligence,
   todayWind,
+  todayWindSpeed,
   onSaveWinds,
   pins = [],
   onDelete,
@@ -70,15 +73,23 @@ export default function StandCard({
   }
 
   // A link to /stands#stand-<id> (e.g. from Stand check's "No wind notes")
-  // opens this stand's wind picker directly.
+  // opens this stand's wind picker directly. Runs once on mount, and clears the
+  // hash once it's used: saving winds changes the stand, and re-checking a
+  // still-present hash then would pop the picker right back open.
+  const canSaveWinds = Boolean(onSaveWinds);
   useEffect(() => {
-    if (!onSaveWinds || typeof window === "undefined") return;
+    if (!canSaveWinds || typeof window === "undefined") return;
     if (window.location.hash !== `#stand-${stand.id}`) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     openWinds();
-    // openWinds reads the same stand fields listed here.
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${window.location.search}`,
+    );
+    // Mount-only on purpose (see above); openWinds reads the stand as it is now.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onSaveWinds, stand.id, stand.bestWinds, stand.avoidWinds]);
+  }, []);
 
   function saveWinds() {
     if (!editingMarks || !onSaveWinds) return;
@@ -86,7 +97,7 @@ export default function StandCard({
     setEditingMarks(null);
   }
 
-  const windCheck = getStandWindCheck(stand, todayWind);
+  const windCheck = getStandWindCheck(stand, todayWind, todayWindSpeed);
   const windVariant =
     windCheck.status in WIND_BADGE_VARIANT
       ? WIND_BADGE_VARIANT[windCheck.status as keyof typeof WIND_BADGE_VARIANT]

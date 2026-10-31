@@ -1,3 +1,4 @@
+import { COMPASS_16, isCompassPoint, parseCompassPoints } from "@/lib/compass";
 import type { Stand } from "@/types/stand";
 
 // Whether today's wind favors sitting a stand: compare the current wind
@@ -10,35 +11,37 @@ export type StandWindStatus = "good" | "avoid" | "marginal" | "unknown";
 export type StandWindCheck = {
   status: StandWindStatus;
   label: string;
+  /** Wind under CALM_WIND_MPH: graded marginal as "Light & variable". */
+  calm?: boolean;
 };
 
-const COMPASS_16 = [
-  "N",
-  "NNE",
-  "NE",
-  "ENE",
-  "E",
-  "ESE",
-  "SE",
-  "SSE",
-  "S",
-  "SSW",
-  "SW",
-  "WSW",
-  "W",
-  "WNW",
-  "NW",
-  "NNW",
-];
-
-const COMPASS_SET = new Set(COMPASS_16);
-
 /** Pull the compass points out of a free-text wind note like "NW, N or W". */
-export function parseWindDirections(text: string): string[] {
-  // Whole tokens only, so the "N" in a word like "and" isn't read as north.
-  return (text.toUpperCase().match(/\b[NSEW]{1,3}\b/g) ?? []).filter((token) =>
-    COMPASS_SET.has(token),
-  );
+export const parseWindDirections = parseCompassPoints;
+
+// Below this the wind has no real direction: air drifts and swirls with the
+// thermals, so a stand's best / avoid winds don't predict where scent goes.
+export const CALM_WIND_MPH = 3;
+const KMH_PER_MPH = 1.609344;
+
+/**
+ * Wind speed in mph from a number (already mph) or a label like "8 mph",
+ * "12 km/h" or "SW 2 mph". Null when there's no number to read.
+ */
+export function windSpeedMph(speed: string | number | undefined | null): number | null {
+  if (typeof speed === "number") return Number.isFinite(speed) ? speed : null;
+  if (!speed) return null;
+
+  const match = /(\d+(?:\.\d+)?)\s*(km\/?h|kph|kmh)?/i.exec(speed);
+  if (!match) return null;
+
+  const value = Number(match[1]);
+  return match[2] ? value / KMH_PER_MPH : value;
+}
+
+/** True when a known wind speed is too light to carry scent one way. */
+export function isCalmWind(speed: string | number | undefined | null): boolean {
+  const mph = windSpeedMph(speed);
+  return mph !== null && mph < CALM_WIND_MPH;
 }
 
 function circularDistance(a: number, b: number): number {
@@ -60,13 +63,20 @@ function matchesAny(current: string, directions: string[]): boolean {
   return directions.some((direction) => isCloseDirection(current, direction));
 }
 
+/**
+ * Grade a stand on a wind. `windSpeed` is optional (a number in mph, or a
+ * label like "2 mph" / "4 km/h"); when it's under CALM_WIND_MPH the wind has no
+ * dependable direction, so the stand reads marginal "Light & variable" rather
+ * than a good or wrong wind it can't really have.
+ */
 export function getStandWindCheck(
   stand: Stand,
   currentWindDirection: string | undefined,
+  windSpeed?: string | number | null,
 ): StandWindCheck {
-  const current = (currentWindDirection ?? "").toUpperCase();
+  const current = (currentWindDirection ?? "").trim().toUpperCase();
 
-  if (!COMPASS_SET.has(current)) {
+  if (!isCompassPoint(current)) {
     return { status: "unknown", label: "Wind unknown" };
   }
 
@@ -75,6 +85,10 @@ export function getStandWindCheck(
 
   if (best.length === 0 && avoid.length === 0) {
     return { status: "unknown", label: "No wind notes" };
+  }
+
+  if (isCalmWind(windSpeed)) {
+    return { status: "marginal", label: "Light & variable", calm: true };
   }
 
   // A wrong wind is a hard no, so it wins over a "good" match.

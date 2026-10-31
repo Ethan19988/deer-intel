@@ -36,6 +36,7 @@ import { processImageFile } from "@/lib/imageProcessing";
 import { deletePhotoImage, putPhotoImage } from "@/lib/imageStore";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { describeMoonPhase } from "@/lib/moonPhase";
+import { dateInputTime } from "@/lib/photos";
 import { buildPhotoWeatherSnapshot } from "@/lib/photoWeather";
 import { pickCaptureDateTime } from "@/lib/photoCaptureTime";
 import { readPhotoDateTimeInput } from "@/lib/photoExif";
@@ -920,11 +921,10 @@ export default function CameraImportPage() {
 function moonLabelForDate(photoDate: string): string {
   if (!photoDate) return "";
 
-  const parsed = new Date(photoDate);
+  // Local midnight for a bare "YYYY-MM-DD" (new Date() would read it as UTC).
+  const time = dateInputTime(photoDate);
 
-  return Number.isNaN(parsed.getTime())
-    ? ""
-    : describeMoonPhase(parsed.getTime());
+  return Number.isNaN(time) ? "" : describeMoonPhase(time);
 }
 
 // Resize and persist one imported file's image so the saved Photo Record shows

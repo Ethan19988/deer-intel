@@ -17,6 +17,7 @@ declare module "leaflet" {
     getWest(): number;
     getNorth(): number;
     getEast(): number;
+    pad(bufferRatio: number): LatLngBounds;
   }
 
   export interface Coords {

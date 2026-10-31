@@ -1,32 +1,34 @@
 import type { CSSProperties } from "react";
 import type { Stand } from "@/types/stand";
+import { compassToDegrees } from "@/lib/compass";
 import {
   getStandWindCheck,
   parseWindDirections,
   type StandWindStatus,
 } from "@/lib/standWind";
 
-// A compass dial for the Today's Brief: an arrow showing where today's wind is
-// blowing FROM, with a dot per stand at its best-wind bearing coloured by
-// whether that wind favours the sit. Reuses the same getStandWindCheck the rest
-// of the app trusts, so the dial and the tagline never disagree.
+// A compass dial for the Today page: an arrow showing where the planned sit's
+// forecast wind blows FROM (the same wind the Today verdict grades stands on,
+// not the current reading), with a dot per stand at its best-wind bearing
+// coloured by whether that sit wind favours it. Uses the same
+// getStandWindCheck the verdict and Stand check use, so the dial and the
+// headline never disagree. The current wind, when given and different, shows
+// as a small marker on the rim for context only.
 
 type WindCompassProps = {
-  /** Current wind direction as a 16-point compass label, e.g. "NW". */
+  /** Sit wind as a 16-point compass label, e.g. "NW" (verdict.wind). */
   wind?: string;
-  /** Current wind speed with its unit, e.g. "8 mph". */
+  /** Sit wind speed with its unit, e.g. "8 mph" (verdict.windSpeed). */
   windSpeed?: string;
+  /** What the wind is for, e.g. "Tonight's sit wind". */
+  label?: string;
+  /** Current wind direction, drawn as a rim marker only (not graded). */
+  currentWind?: string;
   stands: Stand[];
 };
 
-const COMPASS_16 = [
-  "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-  "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
-];
-
 function bearingOf(direction: string): number | null {
-  const index = COMPASS_16.indexOf(direction.toUpperCase());
-  return index < 0 ? null : index * 22.5;
+  return compassToDegrees(direction);
 }
 
 const CENTER = 60;
@@ -51,25 +53,32 @@ function statusColor(status: StandWindStatus): string {
 export default function WindCompass({
   wind,
   windSpeed,
+  label = "Sit wind",
+  currentWind,
   stands,
 }: WindCompassProps) {
   const windBearing = wind ? bearingOf(wind) : null;
   const hasWind = Boolean(wind) && windBearing !== null;
+  const currentBearing =
+    currentWind && currentWind.toUpperCase() !== wind?.toUpperCase()
+      ? bearingOf(currentWind)
+      : null;
 
   const checks = stands.map((stand) => ({
     stand,
-    check: getStandWindCheck(stand, wind),
+    check: getStandWindCheck(stand, wind, windSpeed),
     bearing: bearingOf(parseWindDirections(stand.bestWinds)[0] ?? ""),
   }));
   const goodCount = checks.filter((entry) => entry.check.status === "good").length;
   const bustedCount = checks.filter((entry) => entry.check.status === "avoid").length;
+  const isCalm = checks.some((entry) => entry.check.calm);
 
   const speedLabel = windSpeed ? windSpeed.replace(/\s*mph/i, "") : "";
 
   return (
     <section style={cardStyle}>
       <div style={topRowStyle}>
-        <p style={eyebrowStyle}>Wind</p>
+        <p style={eyebrowStyle}>{label}</p>
         <span style={readStyle}>
           {hasWind ? wind : "—"}
           {hasWind && speedLabel ? (
@@ -128,6 +137,16 @@ export default function WindCompass({
             </g>
           ) : null}
 
+          {/* current wind, for context only: a small rim tick */}
+          {currentBearing !== null ? (
+            <g transform={`rotate(${currentBearing} ${CENTER} ${CENTER})`}>
+              <path
+                d={`M ${CENTER} ${CENTER - RING + 1} L ${CENTER - 4} ${CENTER - RING - 6} L ${CENTER + 4} ${CENTER - RING - 6} Z`}
+                fill="var(--text-muted)"
+              />
+            </g>
+          ) : null}
+
           {/* per-stand markers at their best-wind bearing */}
           {checks.map((entry, index) => {
             if (entry.bearing === null) return null;
@@ -152,6 +171,11 @@ export default function WindCompass({
       <div style={legendStyle}>
         {stands.length === 0 ? (
           <span style={legendItemStyle}>Add stands to read the wind</span>
+        ) : isCalm ? (
+          <span style={legendItemStyle}>
+            <span style={{ ...dotStyle, background: "var(--warning-text)" }} />
+            Light &amp; variable
+          </span>
         ) : (
           <>
             <span style={legendItemStyle}>
@@ -166,6 +190,12 @@ export default function WindCompass({
             ) : null}
           </>
         )}
+        {currentBearing !== null && currentWind ? (
+          <span style={legendItemStyle}>
+            <span style={{ ...dotStyle, background: "var(--text-muted)" }} />
+            Now {currentWind.toUpperCase()}
+          </span>
+        ) : null}
       </div>
     </section>
   );

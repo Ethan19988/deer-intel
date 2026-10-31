@@ -100,3 +100,158 @@ update storage.buckets
    set file_size_limit = 10485760,
        allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'image/heic']
  where id = 'photo-images';
+
+-- ── 5. Parties: members may only rename themselves ──────────────────────────
+-- The update policy only checked user_id, so a member could change their own
+-- row's party_id (walking into any party without its invite code) or role
+-- (making themselves owner). Limit updates to the display name column.
+revoke update on public.party_members from authenticated;
+grant update (display_name) on public.party_members to authenticated;
+
+-- ── 6. Paid AI routes: a lasting per-user daily counter ─────────────────────
+-- The server's rate limit lived in each instance's memory, so it reset on
+-- every cold start and multiplied across instances. The API routes call
+-- bump_ai_usage() with the caller's own session and refuse once the day's
+-- count passes their limit. Users can read their own counts, nothing else.
+create table if not exists public.ai_usage (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  day date not null default (now() at time zone 'utc')::date,
+  route text not null,
+  count integer not null default 0,
+  primary key (user_id, day, route)
+);
+
+alter table public.ai_usage enable row level security;
+
+drop policy if exists "Users read their own AI usage" on public.ai_usage;
+create policy "Users read their own AI usage"
+  on public.ai_usage for select to authenticated
+  using ((select auth.uid()) = user_id);
+
+create or replace function public.bump_ai_usage(p_route text)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user uuid := (select auth.uid());
+  v_count integer;
+begin
+  if v_user is null then
+    raise exception 'not signed in';
+  end if;
+  if p_route is null or length(p_route) > 40 then
+    raise exception 'bad route';
+  end if;
+
+  insert into public.ai_usage as u (user_id, day, route, count)
+  values (v_user, (now() at time zone 'utc')::date, p_route, 1)
+  on conflict (user_id, day, route)
+  do update set count = u.count + 1
+  returning u.count into v_count;
+
+  return v_count;
+end;
+$$;
+
+revoke execute on function public.bump_ai_usage(text) from public, anon;
+grant execute on function public.bump_ai_usage(text) to authenticated;
+
+-- ── 7. Terrain jobs: users can only queue reasonable jobs ───────────────────
+-- Users could insert jobs with any status, any area size and no limit; each
+-- job downloads LiDAR on the worker. New jobs always start queued, cover at
+-- most about 0.25° x 0.25° (roughly 13 x 17 miles in PA), and each user gets at
+-- most 2 active jobs and 20 new jobs a day.
+create or replace function public.terrain_job_guard()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  new.status := 'queued';
+  new.worker_id := null;
+  new.started_at := null;
+  new.finished_at := null;
+  new.error := null;
+  new.stage := null;
+
+  if array_length(new.bbox, 1) is distinct from 4
+     or new.bbox[3] - new.bbox[1] <= 0 or new.bbox[3] - new.bbox[1] > 0.25
+     or new.bbox[4] - new.bbox[2] <= 0 or new.bbox[4] - new.bbox[2] > 0.25 then
+    raise exception 'Hunt area is too large for a terrain read (limit about 13 x 17 miles).';
+  end if;
+
+  if (select count(*) from public.terrain_jobs
+       where owner_id = new.owner_id and status in ('queued', 'running')) >= 2 then
+    raise exception 'You already have 2 terrain reads in progress. Wait for one to finish.';
+  end if;
+
+  if (select count(*) from public.terrain_jobs
+       where owner_id = new.owner_id and created_at > now() - interval '1 day') >= 20 then
+    raise exception 'Daily terrain read limit reached. Try again tomorrow.';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke execute on function public.terrain_job_guard() from public, anon, authenticated;
+
+drop trigger if exists terrain_job_guard on public.terrain_jobs;
+create trigger terrain_job_guard
+  before insert on public.terrain_jobs
+  for each row execute function public.terrain_job_guard();
+
+-- ── 8. Shared sightings: count only established accounts ────────────────────
+-- A handful of throwaway accounts could meet the old 3-contributor floor and
+-- then expose one real hunter's pattern by comparing totals. Contributors now
+-- count only with a confirmed email and an account at least 14 days old, and
+-- a region needs 5 of them.
+create or replace function public.regional_movement(p_region text, p_since date)
+returns table (hour smallint, sightings integer, bucks integer, contributors integer)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  min_contributors constant integer := 5;
+  min_sightings constant integer := 30;
+  n_contributors integer;
+  n_sightings integer;
+begin
+  if (select auth.uid()) is null then
+    return;
+  end if;
+
+  select count(distinct s.user_id), count(*)
+    into n_contributors, n_sightings
+    from public.movement_sightings s
+    join auth.users u on u.id = s.user_id
+   where s.region = p_region and s.sighting_date >= p_since
+     and u.email_confirmed_at is not null
+     and u.created_at < now() - interval '14 days';
+
+  if n_contributors < min_contributors or n_sightings < min_sightings then
+    return;
+  end if;
+
+  return query
+    select s.hour,
+           count(*)::integer,
+           (count(*) filter (where s.is_buck))::integer,
+           n_contributors
+      from public.movement_sightings s
+      join auth.users u on u.id = s.user_id
+     where s.region = p_region and s.sighting_date >= p_since
+       and u.email_confirmed_at is not null
+       and u.created_at < now() - interval '14 days'
+     group by s.hour
+     order by s.hour;
+end;
+$$;
+
+revoke execute on function public.regional_movement(text, date) from public, anon;
+grant execute on function public.regional_movement(text, date) to authenticated;

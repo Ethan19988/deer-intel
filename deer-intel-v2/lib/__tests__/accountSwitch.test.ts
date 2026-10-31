@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectAccountSwitch } from "@/lib/cloudSync";
+import { detectAccountSwitch, syncMetaForUser } from "@/lib/cloudSync";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 import type { Stand } from "@/types/stand";
 
@@ -72,5 +72,22 @@ describe("detectAccountSwitch", () => {
         "b",
       ),
     ).toEqual({ previousUserId: "a", unsyncedEdits: true });
+  });
+});
+
+describe("syncMetaForUser", () => {
+  const meta = { updatedAt: "t1", userId: "a", base: { stands: { s1: "h" } } };
+
+  it("reuses the kept meta (and merge base) when the same account signs back in", () => {
+    expect(syncMetaForUser(meta, "a")).toBe(meta);
+  });
+
+  it("discards it for a different account", () => {
+    expect(syncMetaForUser(meta, "b")).toBeNull();
+  });
+
+  it("discards meta with no owner and handles none", () => {
+    expect(syncMetaForUser({ updatedAt: "t1", base: {} }, "a")).toBeNull();
+    expect(syncMetaForUser(null, "a")).toBeNull();
   });
 });

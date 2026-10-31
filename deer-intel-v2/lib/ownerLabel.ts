@@ -25,3 +25,64 @@ export function ownerDisplayName(owner: string): string {
   name = name.replace(/[\s,&]+(ETAL|ET AL|ET UX|ETUX|ET VIR|ETVIR)\.?$/, "");
   return name.replace(/[\s,&]+$/, "") || owner.trim().toUpperCase();
 }
+
+// Government / public land, by name. Mirrors the tile build's
+// PUBLIC_OWNER_PATTERN (scripts/fetch-parcels-geojson.mjs), which sets the
+// tiles' `pub` flag, so a parcel whose flag is missing still reads as public.
+const PUBLIC_OWNER_PATTERN =
+  /\b(COMMONWEALTH|STATE GAME LAND|GAME COMMISSION|DCNR|BUREAU OF FOREST|STATE FOREST|STATE PARK|UNITED STATES|U ?S ?A\b|FEDERAL|NATIONAL PARK|FOREST SERVICE|FISH (AND|&) BOAT|COUNTY OF|TOWNSHIP OF|BOROUGH OF|MUNICIPAL|SCHOOL DISTRICT|AUTHORITY|DEPARTMENT OF)/i;
+
+export function isPublicOwnerName(owner: string): boolean {
+  return PUBLIC_OWNER_PATTERN.test(owner);
+}
+
+// Owner names reduced to comparable words: upper case, punctuation dropped,
+// legal suffixes ("ETAL", "ET UX") removed.
+function ownerWords(name: string): string[] {
+  const words = name
+    .toUpperCase()
+    .replace(/&/g, " ")
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+  const out: string[] = [];
+  for (let i = 0; i < words.length; i += 1) {
+    const word = words[i];
+    const next = words[i + 1];
+    if (word === "ETAL" || word === "ETUX" || word === "ETVIR") continue;
+    if (word === "ET" && (next === "AL" || next === "UX" || next === "VIR")) {
+      i += 1;
+      continue;
+    }
+    out.push(word);
+  }
+  return out;
+}
+
+/**
+ * Whether two owner names describe the same owner record. Tolerant of spacing,
+ * punctuation, legal suffixes, and one name being a shortened form of the
+ * other (a co-owner the other source left off, or a truncated field).
+ */
+export function ownersMatch(a: string, b: string): boolean {
+  const wa = ownerWords(a);
+  const wb = ownerWords(b);
+  if (!wa.length || !wb.length) return wa.length === wb.length;
+  // Same letters, different spacing/punctuation ("MC DONALD" / "MCDONALD").
+  if (wa.join("") === wb.join("")) return true;
+  const [small, large] = wa.length <= wb.length ? [wa, wb] : [wb, wa];
+  // One is the other's leading words, the last possibly cut short by a
+  // fixed-width field ("SMITH JOHN R & MARY L" / "SMITH JOHN R & MA").
+  // A lone word must match whole, or "SMITH" would match "SMITHERS FARM".
+  const leading = small.every((word, i) =>
+    i < small.length - 1 || small.length === 1
+      ? word === large[i]
+      : Boolean(large[i]?.startsWith(word)),
+  );
+  if (leading) return true;
+  // Or all of one's words appear in the other (a co-owner listed first or
+  // left off: "SMITH MARY" / "SMITH JOHN & MARY").
+  const pool = new Set(large);
+  return small.every((word) => pool.has(word));
+}

@@ -7,6 +7,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import {
+  dateInputTime,
   formatPhotoDateTime,
   getPhotoBuckNames,
   getPhotoDeerProfileIds,
@@ -579,10 +580,10 @@ function PhotoViewer({
 }
 
 function shortDate(value: string | undefined): string {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  // dateInputTime reads a bare "YYYY-MM-DD" as local midnight, not UTC.
+  const time = dateInputTime(value);
+  if (Number.isNaN(time)) return "";
+  return new Date(time).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function PhotoDetail({ label, value }: { label: string; value: string }) {
