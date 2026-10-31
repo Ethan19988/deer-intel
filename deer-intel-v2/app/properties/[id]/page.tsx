@@ -32,6 +32,8 @@ import RutRibbon from "@/components/season/RutRibbon";
 import { usePropertyToday } from "@/lib/usePropertyToday";
 import Tabs from "@/components/ui/Tabs";
 import PropertyPatternReport from "@/components/properties/PropertyPatternReport";
+import PropertyInsightsTab from "@/components/insights/PropertyInsightsTab";
+import SeasonReportPanel from "@/components/insights/SeasonReportPanel";
 import { buildPropertyPatternReport } from "@/lib/propertyPatterns";
 import {
   activeCameraCount,
@@ -70,11 +72,11 @@ const INTELLIGENCE_MODULES: DashboardModule[] = [
     badge: "Available",
   },
   {
-    title: "Analytics",
-    description: "Compare pressure, sightings, camera activity, and stand success.",
+    title: "Season Report",
+    description: "Stand success, best winds and times, tracked bucks, and what to change next year.",
     icon: "analytics",
-    href: "#intelligence",
-    badge: "Coming Soon",
+    href: "/report",
+    badge: "Available",
   },
 ];
 
@@ -113,10 +115,11 @@ export default function PropertyWorkspacePage() {
   );
   // Tonight on this ground: same forecast, verdict and hit list as Today.
   const today = usePropertyToday(params.id);
-  // ?tab=plan opens the Plan tab directly.
-  const [activeTab, setActiveTab] = useState(() =>
-    searchParams.get("tab") === "plan" ? "plan" : "overview",
-  );
+  // ?tab=plan / insights / report opens that tab directly.
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = searchParams.get("tab");
+    return tab === "plan" || tab === "insights" || tab === "report" ? tab : "overview";
+  });
 
   useEffect(() => {
     const hash =
@@ -127,6 +130,9 @@ export default function PropertyWorkspacePage() {
       "property-timeline": "plan",
       "hunt-planner": "plan",
       intelligence: "plan",
+      "stand-success": "insights",
+      "sighting-heat": "insights",
+      "season-report": "report",
       map: "overview",
       "recent-activity": "overview",
       overview: "overview",
@@ -420,6 +426,24 @@ export default function PropertyWorkspacePage() {
           </Card>
         </CollapsibleSection>
       </div>
+              </div>
+            ),
+          },
+          {
+            id: "insights",
+            label: "Insights",
+            content: (
+              <div style={tabPanelStyle}>
+                <PropertyInsightsTab propertyId={propertyId} />
+              </div>
+            ),
+          },
+          {
+            id: "report",
+            label: "Report",
+            content: (
+              <div style={tabPanelStyle} id="season-report">
+                <SeasonReportPanel propertyId={propertyId} />
               </div>
             ),
           },
