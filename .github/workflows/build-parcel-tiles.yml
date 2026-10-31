@@ -45,11 +45,41 @@ jobs:
           sudo make -C /tmp/tippecanoe install
           tippecanoe --version
 
+      # Owner history: last build's per-county owner snapshots live in the same
+      # R2 bucket under parcel-history/. The build compares against them to
+      # mark parcels that changed hands, then writes fresh snapshots that are
+      # uploaded only once the tiles publish. None yet (first run) = no marks.
+      - name: Fetch last build's owner snapshots
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: deer-intel-tiles
+        run: |
+          set -uo pipefail
+          mkdir -p "$RUNNER_TEMP/parcel-history"
+          # HISTORY_OK=0 means the download failed (possibly partway), so the
+          # local copy is incomplete: tiles still publish, but the snapshot
+          # upload is skipped so a partial set can't overwrite good history.
+          if aws s3 sync "s3://${R2_BUCKET}/parcel-history/" "$RUNNER_TEMP/parcel-history/" \
+              --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" --only-show-errors; then
+            echo "HISTORY_OK=1" >> "$GITHUB_ENV"
+          else
+            echo "HISTORY_OK=0" >> "$GITHUB_ENV"
+            echo "::warning title=Owner history unavailable::Couldn't read parcel-history/ from R2; this build marks no owner changes and won't upload snapshots."
+          fi
+          echo "Snapshots: $(ls "$RUNNER_TEMP/parcel-history" | wc -l)"
+
       - name: Build parcel tiles
         working-directory: deer-intel-v2
         env:
           # No proxy on GitHub runners; fetch the county services directly.
           NODE_USE_ENV_PROXY: "0"
+          PARCEL_HISTORY_IN: ${{ runner.temp }}/parcel-history
+          PARCEL_HISTORY_OUT: ${{ runner.temp }}/parcel-history-next
         run: bash scripts/build-parcel-tiles.sh
 
       - name: Publish tiles to R2 (live) and the release (backup)
@@ -89,6 +119,22 @@ jobs:
           aws s3 cp "$file" "s3://${R2_BUCKET}/pa-parcels.pmtiles" \
             --endpoint-url "$endpoint" \
             --content-type application/octet-stream
+
+          # Owner snapshots for next month's comparison — only now that the
+          # tiles they describe are live. A county skipped this run kept its
+          # previous snapshot (build-parcel-tiles.sh copies it forward).
+          # Non-fatal: the tiles are already live; a missed upload only means
+          # next month compares against an older snapshot.
+          # Skipped when last build's snapshots couldn't be downloaded
+          # (HISTORY_OK=0): this run's snapshots were built without them.
+          if [ "${HISTORY_OK:-0}" = "1" ]; then
+            aws s3 cp "$RUNNER_TEMP/parcel-history-next/" "s3://${R2_BUCKET}/parcel-history/" \
+              --recursive --endpoint-url "$endpoint" \
+              --content-type application/gzip --only-show-errors \
+              || echo "::warning title=Owner history not saved::Couldn't upload parcel-history/ snapshots to R2."
+          else
+            echo "::warning title=Owner history not saved::Skipped the snapshot upload because last build's snapshots couldn't be downloaded."
+          fi
 
           # Backup: keep a versioned copy on the GitHub Release.
           gh release upload parcel-tiles "$file" --clobber --repo "${{ github.repository }}"

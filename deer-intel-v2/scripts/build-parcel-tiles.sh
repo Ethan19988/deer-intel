@@ -9,6 +9,12 @@
 #   2. tippecanoe packs them into one PMTiles archive, keyed by the `parcels`
 #      layer, zoom 12–15 (overzoomed past 15 at render time).
 #
+# Owner history: set PARCEL_HISTORY_IN to a folder of last build's per-county
+# owner snapshots (<county>.json.gz) and parcels that changed hands since are
+# marked in the tiles (`prev`, `chg`). This build's snapshots are written to
+# PARCEL_HISTORY_OUT (default $WORK/history-next) for the next build to read.
+# With no snapshots (the first build) nothing is marked.
+#
 # Requirements: node, tippecanoe (https://github.com/felt/tippecanoe), and
 # network access to the county services. Behind the agent proxy, run the fetch
 # step with NODE_USE_ENV_PROXY=1.
@@ -28,7 +34,9 @@ OUT="$ROOT/public/data/pa-parcels.pmtiles"
 # out of sync, so counties added to the fetcher never reached the archive.
 COUNTIES="${COUNTIES:-$(node "$HERE/fetch-parcels-geojson.mjs" --list)}"
 
-mkdir -p "$WORK"
+HISTORY_IN="${PARCEL_HISTORY_IN:-}"
+HISTORY_OUT="${PARCEL_HISTORY_OUT:-$WORK/history-next}"
+mkdir -p "$WORK" "$HISTORY_OUT"
 
 inputs=()
 labelInputs=()
@@ -44,6 +52,7 @@ for county in $COUNTIES; do
   errlog="$WORK/$county.err"
   for attempt in 1 2 3; do
     if NODE_USE_ENV_PROXY="${NODE_USE_ENV_PROXY:-1}" \
+        PARCEL_HISTORY_IN="$HISTORY_IN" PARCEL_HISTORY_OUT="$HISTORY_OUT" \
         node "$HERE/fetch-parcels-geojson.mjs" "$county" "$ndjson" "$labels" \
         2> >(tee "$errlog" >&2); then
       ok=1
@@ -62,6 +71,11 @@ for county in $COUNTIES; do
     reason="$(grep -m1 'FAILED:' "$errlog" 2>/dev/null || tail -n1 "$errlog" 2>/dev/null)"
     echo "::warning title=Parcel county skipped::$county excluded from tiles after 3 attempts: ${reason:-unknown error}"
     failed+=("$county")
+    # Keep the skipped county's last snapshot so its history isn't lost (its
+    # parcels aren't in this archive, so there's nothing to compare against).
+    if [ -n "$HISTORY_IN" ] && [ -s "$HISTORY_IN/$county.json.gz" ]; then
+      cp "$HISTORY_IN/$county.json.gz" "$HISTORY_OUT/$county.json.gz"
+    fi
   fi
 done
 

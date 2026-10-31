@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import {
   formatOfflineSize,
+  offlineQueryTrimNote,
   offlineVectorTrimNote,
   type OfflineDownloadProgress,
   type OfflinePackPlan,
@@ -47,6 +48,9 @@ export default function OfflineDownloadStatus({
         </p>
         {offlineVectorTrimNote(status.plan) ? (
           <p style={noticeBodyStyle}>{offlineVectorTrimNote(status.plan)}</p>
+        ) : null}
+        {offlineQueryTrimNote(status.plan) ? (
+          <p style={noticeBodyStyle}>{offlineQueryTrimNote(status.plan)}</p>
         ) : null}
         <div style={noticeButtonRowStyle}>
           <button type="button" style={confirmButtonStyle} onClick={onConfirm}>

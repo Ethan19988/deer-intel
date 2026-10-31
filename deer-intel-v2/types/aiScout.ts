@@ -109,3 +109,12 @@ export type AiScoutStatusResponse = {
 export type AiScoutErrorResponse = {
   error: string;
 };
+
+/** A report still streaming in: only the fields that have started to arrive. */
+export type AiScoutPartialReport = Partial<AiScoutReport>;
+
+/** One NDJSON line from the streaming AI Scout route (see lib/aiScoutStream). */
+export type AiScoutStreamEvent =
+  | { type: "delta"; text: string }
+  | { type: "done"; report: AiScoutReport }
+  | { type: "error"; error: string };

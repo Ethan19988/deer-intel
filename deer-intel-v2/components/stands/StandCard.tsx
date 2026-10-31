@@ -15,6 +15,7 @@ import {
   type WindMarks,
 } from "@/lib/windPicker";
 import StandIntelligencePanel from "@/components/stands/StandIntelligencePanel";
+import { StandSuccessLine } from "@/components/insights/StandSuccess";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
@@ -130,6 +131,12 @@ export default function StandCard({
         </div>
       </div>
 
+      <StandSuccessLine
+        standId={stand.id}
+        standName={stand.name}
+        propertyId={stand.propertyId}
+      />
+
       {likelyDuplicate && onDelete ? (
         <div style={duplicateStyle} role="note">
           <p style={duplicateTextStyle}>
@@ -228,12 +235,13 @@ export default function StandCard({
         <div style={intelligenceWrapStyle}>
           <CollapsibleSection
             title="Stand Intelligence"
-            description="Wind, pressure, hunts, and related camera activity"
+            description="Success rates, wind, pressure, hunts, and related camera activity"
             variant="bare"
           >
             <StandIntelligencePanel
               propertyId={stand.propertyId}
               summary={intelligence}
+              stand={{ id: stand.id, name: stand.name }}
             />
           </CollapsibleSection>
         </div>

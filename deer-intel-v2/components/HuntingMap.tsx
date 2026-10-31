@@ -87,12 +87,14 @@ import ParcelTilesLayer, {
   type ParcelTileOwnerHit,
   type ParcelTileOwnerPick,
 } from "@/components/map/ParcelTilesLayer";
-import { ownerAcresText, ownersMatch } from "@/lib/ownerLabel";
+import { ownerAcresText, ownersMatch, previousOwnerText } from "@/lib/ownerLabel";
 import { landTagKey, setLandTag, useLandTags, type LandTagKind } from "@/lib/landTags";
 import MapSearchBar from "@/components/map/MapSearchBar";
 import GoldenHourFrame from "@/components/map/GoldenHourFrame";
 import WindFlowOverlay from "@/components/map/WindFlowOverlay";
 import TrailsLayer from "@/components/map/TrailsLayer";
+import { TRAILS_OFFLINE_SOURCE } from "@/lib/trailQuery";
+import { CONTOUR_LABELS_OFFLINE_SOURCE } from "@/lib/contourQuery";
 import MapSearchResultMarker from "@/components/map/MapSearchResultMarker";
 import OfflineDownloadStatus from "@/components/map/OfflineDownloadStatus";
 import OfflineMapsPanel, {
@@ -153,6 +155,7 @@ import {
   deleteOfflinePack,
   downloadOfflinePack,
   offlineMapsSupported,
+  offlineQueryTrimNote,
   offlineVectorTrimNote,
   planOfflinePack,
   useOfflineMapPacks,
@@ -1608,11 +1611,15 @@ export default function HuntingMap() {
             pixelSize: 512,
           },
         },
+        // The elevation numbers are a live query, saved per tile alongside.
+        CONTOUR_LABELS_OFFLINE_SOURCE,
       );
     }
+    // Trails are a live query too; saved when the layer is on.
+    const queries: OfflineTileSource[] = showTrails ? [TRAILS_OFFLINE_SOURCE] : [];
 
-    return [base, ...overlays, water, ...terrain, PARCEL_OFFLINE_SOURCE];
-  }, [baseTileUrl, selectedMapLayer, showSlope, showContours]);
+    return [base, ...overlays, water, ...terrain, ...queries, PARCEL_OFFLINE_SOURCE];
+  }, [baseTileUrl, selectedMapLayer, showSlope, showContours, showTrails]);
   const canBrowseImagery =
     Boolean(selectedMapLayer.isWayback) && waybackReleases.length > 1;
   // The year stepper stays hidden until asked for ("Browse older imagery" in
@@ -3372,7 +3379,9 @@ export default function HuntingMap() {
       maxZoom: plan.maxZoom,
       targetLabel,
       propertyName: selectedProperty?.name ?? "Map",
-      parcelNote: offlineVectorTrimNote(plan) || undefined,
+      parcelNote:
+        [offlineVectorTrimNote(plan), offlineQueryTrimNote(plan)].filter(Boolean).join(" ") ||
+        undefined,
     };
     setOfflineStatus({ phase: "preview", plan, targetLabel });
   }
@@ -5099,6 +5108,13 @@ export default function HuntingMap() {
                 ownerAcresText(tileOwnerPick.acres) || "acres not listed"
               }`}
               lines={countyRecordLines(tileOwnerDetail, tileOwnerPick.ownerName)}
+              previousOwner={
+                previousOwnerText(
+                  tileOwnerPick.previousOwner,
+                  tileOwnerPick.changedMonth,
+                  tileOwnerPick.ownerName,
+                ) || null
+              }
               tag={landTags[landTagKey(tileOwnerPick.ownerName)]?.kind ?? null}
               onTag={
                 tileOwnerAt

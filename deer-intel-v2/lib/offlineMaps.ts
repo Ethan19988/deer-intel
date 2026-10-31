@@ -44,10 +44,23 @@ export type OfflineMapBounds = {
 // - "pmtiles": a PMTiles vector archive (the parcel layer). Decoded tiles are
 //   cached under offlinePmtilesTileKey, so the map can draw them offline with
 //   no header/directory range reads at all.
+// - "query": a live feature query the map normally runs per view (trails,
+//   contour elevation labels). A pack saves the query's answer for each XYZ
+//   tile of its one native zoom as JSON, under offlineQueryTileKey; `url` is a
+//   stable id for the source (not fetched), `query` says which loader runs.
+export type OfflineQueryKind = "trails" | "contour-labels";
+
 export type OfflineTileSource = {
   url: string;
   maxNativeZoom: number;
-  kind?: "xyz" | "wms" | "pmtiles";
+  kind?: "xyz" | "wms" | "pmtiles" | "query";
+  /** "query" sources only: which live query this saves. */
+  query?: OfflineQueryKind;
+  /**
+   * "query" sources only: the most tiles a pack may save for it (each is a
+   * live service call). A bigger area leaves the layer out and says so.
+   */
+  maxTiles?: number;
   minNativeZoom?: number;
   /** The server 404s tiles it has no data for; save those as empty tiles. */
   sparse?: boolean;
@@ -106,6 +119,8 @@ export type OfflinePackPlan = {
    */
   vectorMaxZoom?: number;
   vectorTrimmed?: boolean;
+  /** Query layers (trails, contour labels) left out because the area is too big. */
+  skippedQueries?: OfflineQueryKind[];
 };
 
 function offlineCachesSupported(): boolean {
@@ -194,6 +209,16 @@ export function offlinePmtilesTileKey(
   return url.href;
 }
 
+// Stable cache key for one saved query tile (trails, contour labels).
+export function offlineQueryTileKey(
+  sourceUrl: string,
+  zoom: number,
+  x: number,
+  y: number,
+): string {
+  return offlinePmtilesTileKey(sourceUrl, zoom, x, y);
+}
+
 // The GetMap request for one XYZ tile, in the same parameter shape Leaflet's
 // WMS layer sends (EPSG:3857, x/y axis order for both 1.1.1 and 1.3.0).
 function wmsTileRequestUrl(
@@ -255,6 +280,9 @@ function packTileKey(
   if (source.kind === "pmtiles") {
     return offlinePmtilesTileKey(source.url, zoom, x, y);
   }
+  if (source.kind === "query") {
+    return offlineQueryTileKey(source.url, zoom, x, y);
+  }
   if (source.kind === "wms") {
     return offlineWmsTileKey(source.url, source.wms?.layers ?? "", zoom, x, y);
   }
@@ -268,6 +296,12 @@ function sourceZoomRange(
   maxZoom: number,
 ): { from: number; to: number } | null {
   const shallowest = source.minNativeZoom ?? 0;
+  // Query layers save their one native zoom whatever the pack's zoom range
+  // (the map reads those tiles at any display zoom); their own tile cap, not
+  // the pack depth, bounds them.
+  if (source.kind === "query") {
+    return { from: shallowest, to: source.maxNativeZoom };
+  }
   const vectorThrough =
     source.kind === "pmtiles" && typeof source.throughZoom === "number"
       ? source.throughZoom
@@ -331,14 +365,42 @@ function enumeratePackTileUrls(
   return [...enumeratePackTiles(sources, bounds, minZoom, maxZoom).keys()];
 }
 
+// Each saved query tile is a live service call (Overpass is a shared community
+// server), so a pack saves a query layer only for areas up to its source's
+// maxTiles (this when unset). Bigger areas leave that layer out and say so.
+export const MAX_QUERY_TILES_PER_SOURCE = 160;
+
+function queryTileCap(source: OfflineTileSource): number {
+  return Math.min(source.maxTiles ?? MAX_QUERY_TILES_PER_SOURCE, MAX_QUERY_TILES_PER_SOURCE);
+}
+
+/** Query sources whose tiles over `bounds` would pass the per-source cap. */
+function dropOversizedQueries(
+  sources: OfflineTileSource[],
+  bounds: OfflineMapBounds,
+): { sources: OfflineTileSource[]; skipped: OfflineQueryKind[] } {
+  const skipped: OfflineQueryKind[] = [];
+  const kept = sources.filter((source) => {
+    if (source.kind !== "query") return true;
+    const from = source.minNativeZoom ?? source.maxNativeZoom;
+    const count = countTilesInBounds(bounds, from, source.maxNativeZoom, source.maxNativeZoom);
+    if (count <= queryTileCap(source)) return true;
+    if (source.query) skipped.push(source.query);
+    return false;
+  });
+  return { sources: kept, skipped };
+}
+
 // Plan a pack for the given bounds, trimming the deepest zoom until the tile
 // count fits under the cap so downloads stay bounded.
 export function planOfflinePack(
-  sources: OfflineTileSource[],
+  requestedSources: OfflineTileSource[],
   bounds: OfflineMapBounds,
   minZoom: number,
   requestedMaxZoom: number,
 ): OfflinePackPlan {
+  const queries = dropOversizedQueries(requestedSources, bounds);
+  const sources = queries.sources;
   // Depth follows the raster tile sources (the imagery); WMS and vector
   // layers just come along for whatever range that gives.
   const deepestNative = sources.reduce(
@@ -385,7 +447,20 @@ export function planOfflinePack(
     clamped,
     vectorMaxZoom: vector.reached,
     vectorTrimmed: vector.trimmed,
+    ...(queries.skipped.length ? { skippedQueries: queries.skipped } : {}),
   };
+}
+
+/**
+ * A note for query layers (trails, contour labels) the pack leaves out because
+ * the area is too big, or "" when everything requested is saved.
+ */
+export function offlineQueryTrimNote(plan: OfflinePackPlan): string {
+  const skipped = plan.skippedQueries ?? [];
+  if (skipped.length === 0) return "";
+  const names = skipped.map((kind) => (kind === "trails" ? "trails" : "contour elevation numbers"));
+  const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
+  return `${list[0].toUpperCase()}${list.slice(1)} aren't included — this area is too big. Save a smaller area to take them offline.`;
 }
 
 /**
@@ -493,12 +568,47 @@ async function openPmtilesArchive(url: string): Promise<PmtilesArchive> {
   return new PMTiles(url);
 }
 
+/** The lat/lng box of one XYZ tile. */
+export function xyzTileBounds(zoom: number, x: number, y: number): OfflineMapBounds {
+  const n = 2 ** zoom;
+  const lng = (tx: number) => (tx / n) * 360 - 180;
+  const lat = (ty: number) =>
+    (Math.atan(Math.sinh(Math.PI * (1 - (2 * ty) / n))) * 180) / Math.PI;
+  return { north: lat(y), south: lat(y + 1), west: lng(x), east: lng(x + 1) };
+}
+
+// Loaded on demand: only a download that saves a query layer needs them.
+async function loadQueryTile(
+  source: OfflineTileSource,
+  bounds: OfflineMapBounds,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  if (source.query === "trails") {
+    const { loadTrailsForBounds } = await import("@/lib/trailQuery");
+    return loadTrailsForBounds(bounds, signal);
+  }
+  if (source.query === "contour-labels") {
+    const { loadContourSegmentsForBounds } = await import("@/lib/contourQuery");
+    return loadContourSegmentsForBounds(bounds, signal);
+  }
+  throw new Error(`Unknown offline query: ${String(source.query)}`);
+}
+
 async function loadPackTile(
   tile: PackTile,
   archives: Map<string, Promise<PmtilesArchive>>,
   signal?: AbortSignal,
 ): Promise<TileBody> {
   const { source, zoom, x, y } = tile;
+
+  if (source.kind === "query") {
+    const body = await loadQueryTile(source, xyzTileBounds(zoom, x, y), signal);
+    const bytes = new TextEncoder().encode(JSON.stringify(body));
+    // Copied into a plain ArrayBuffer (TileBody's type, and Response's).
+    const buffer = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(buffer).set(bytes);
+    return { buffer, contentType: "application/json" };
+  }
 
   if (source.kind === "pmtiles") {
     let archive = archives.get(source.url);
@@ -768,6 +878,62 @@ export async function matchOfflineVectorTile(
     return response ? await response.arrayBuffer() : null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Saved answers for a query layer over `bounds`: one parsed JSON body per
+ * saved tile of the source's native zoom, and whether every tile in the box
+ * was saved (`complete`) — so a layer can skip the network entirely when it
+ * has the whole view. Cheap no-op when no pack holds this source near here.
+ */
+export async function matchOfflineQueryTiles(
+  source: OfflineTileSource,
+  bounds: OfflineMapBounds,
+): Promise<{ tiles: unknown[]; complete: boolean }> {
+  const none = { tiles: [] as unknown[], complete: false };
+  if (!offlineTilesAvailable() || source.kind !== "query") return none;
+  const packs = getPacksSnapshot().filter(
+    (pack) =>
+      pack.sources.some((s) => s.kind === "query" && s.url === source.url) &&
+      pack.bounds.west <= bounds.east &&
+      bounds.west <= pack.bounds.east &&
+      pack.bounds.south <= bounds.north &&
+      bounds.south <= pack.bounds.north,
+  );
+  if (packs.length === 0) return none;
+
+  const zoom = source.maxNativeZoom;
+  const { xMin, xMax, yMin, yMax } = tileRangeForZoom(bounds, zoom);
+  // A zoomed-out view would cover far more tiles than any pack saves.
+  if ((xMax - xMin + 1) * (yMax - yMin + 1) > queryTileCap(source)) return none;
+
+  try {
+    const cache = await openOfflineTileCache();
+    const tiles: unknown[] = [];
+    let complete = true;
+    const lookups: Promise<void>[] = [];
+    for (let x = xMin; x <= xMax; x += 1) {
+      for (let y = yMin; y <= yMax; y += 1) {
+        lookups.push(
+          cache.match(offlineQueryTileKey(source.url, zoom, x, y)).then(async (response) => {
+            if (!response) {
+              complete = false;
+              return;
+            }
+            try {
+              tiles.push(await response.json());
+            } catch {
+              complete = false;
+            }
+          }),
+        );
+      }
+    }
+    await Promise.all(lookups);
+    return { tiles, complete };
+  } catch {
+    return none;
   }
 }
 

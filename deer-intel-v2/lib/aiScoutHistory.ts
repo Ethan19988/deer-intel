@@ -14,6 +14,11 @@ export type SavedAiScoutReport = {
   savedAt: number;
   conditions: AiScoutConditions;
   report: AiScoutReport;
+  /**
+   * Fingerprint of the exact payload the report answered (lib/aiScoutReuse),
+   * so an unchanged ask can reuse it. Missing on reports saved before this.
+   */
+  contextHash?: string;
 };
 
 export function savedAiScoutKey(propertyId: string): string {
@@ -38,6 +43,11 @@ export function parseSavedAiScoutReport(
       !Array.isArray(parsed.report.risks)
     ) {
       return null;
+    }
+    if (parsed.contextHash !== undefined && typeof parsed.contextHash !== "string") {
+      const { contextHash: _dropped, ...rest } = parsed;
+      void _dropped;
+      return rest as SavedAiScoutReport;
     }
     return parsed as SavedAiScoutReport;
   } catch {

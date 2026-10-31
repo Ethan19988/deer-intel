@@ -39,7 +39,10 @@ import {
 // and rendered client-side. Unlike the baked-JSON overlay (which loads every
 // parcel into memory), the map only fetches the tiles in view, so this scales
 // to the whole state. The tiles carry only what the overlay renders in their
-// `parcels` layer: { owner, acres, pub }.
+// `parcels` layer: { owner, acres, pub }, plus { prev, chg } on parcels that
+// changed hands in the last year of monthly builds (previous owner, and the
+// YYYY-MM the build saw it — scripts/parcel-owner-history.mjs). The label
+// points carry `chg` too, for a holding with a recently sold parcel.
 //
 // The ~342 MB archive is hosted on Cloudflare R2 (public bucket with CORS +
 // range support), which the browser range-fetches directly — Vercel can't
@@ -212,18 +215,46 @@ function isMineFeature(feature: Feature, state: LabelStyleState): boolean {
   return Boolean(key) && state.mine.has(key) && state.near(feature, key, "mine");
 }
 
-type LabelRole = LandTagKind | "mine" | "public" | "selected" | "plain";
+type LabelRole = LandTagKind | "mine" | "public" | "changed" | "selected" | "plain";
+
+// Land that changed hands recently: a muted violet, the one hue the map uses
+// for nothing else (orange is yours, olive/green permission and public land,
+// grey neighbors). Canvas can't read CSS variables, so the theme can override
+// it with `--map-parcel-changed` (read once the page is up, like the fonts).
+export const parcelChangeColors = {
+  line: "#b38cff",
+  label: "#d2bfff",
+};
 
 // Name colour and the small tag line under the acres, per role. Untagged
-// owners stay white so the colours only ever mean "this is about you".
+// owners stay white so the colours only ever mean "this is about you" — or,
+// in violet, "this ground has a new owner".
 const ROLE_STYLE: Record<LabelRole, { color: string; tag: string }> = {
   mine: { color: "#ff7a2e", tag: "YOUR PROPERTY" },
   permission: { color: "#b9c79a", tag: "PERMISSION" },
   neighbor: { color: "#c9ccc2", tag: "NEIGHBOR" },
   public: { color: "#9cc47f", tag: "PUBLIC" },
+  changed: { color: parcelChangeColors.label, tag: "NEW OWNER" },
   selected: { color: "#ffffff", tag: "" },
   plain: { color: "#ffffff", tag: "" },
 };
+
+/** Whether the tiles mark this parcel (or holding) as recently sold. */
+function hasOwnerChange(feature: Feature): boolean {
+  const chg = feature.props.chg;
+  return typeof chg === "string" && chg.length > 0;
+}
+
+/**
+ * Name colour and tag line for a role. The tag stays short ("NEW OWNER", the
+ * month is on the owner card) so it doesn't widen the label's collision box
+ * and crowd out a neighbor's name on a phone. The colour is read live so a
+ * theme override (parcelChangeColors) applies.
+ */
+function roleStyle(role: LabelRole): { color: string; tag: string } {
+  if (role === "changed") return { ...ROLE_STYLE.changed, color: parcelChangeColors.label };
+  return ROLE_STYLE[role];
+}
 
 // Tactical label type: owner names in the app's display face (Bebas Neue —
 // narrow caps, so long names take less room), acres and tags in Geist Mono.
@@ -247,6 +278,8 @@ function roleOf(feature: Feature, state: LabelStyleState): LabelRole {
   const tag = tagOfFeature(feature, state);
   if (tag) return tag;
   if (feature.props.pub === 1) return "public";
+  // Below every role that's about you or public land, so those colours win.
+  if (hasOwnerChange(feature)) return "changed";
   return "plain";
 }
 
@@ -278,7 +311,7 @@ class HoldingLabelSymbolizer {
     if (!anchor) return undefined;
 
     const role = roleOf(feature, this.getState());
-    const { color, tag } = ROLE_STYLE[role];
+    const { color, tag } = roleStyle(role);
     const namePx = role === "selected" ? NAME_SELECTED_PX : NAME_PX;
     const acresText = ownerAcresText(Number(feature.props.acres) || 0).toUpperCase();
 
@@ -445,6 +478,10 @@ export type ParcelTileOwnerPick = {
   ownerName: string;
   acres: number;
   isPublic: boolean;
+  /** Previous owner, when the tiles saw this parcel change hands. */
+  previousOwner?: string;
+  /** YYYY-MM of the build that saw the change. */
+  changedMonth?: string;
 };
 
 type ParcelTilesLayerProps = {
@@ -558,6 +595,12 @@ async function loadLabelFonts(): Promise<boolean> {
   const mono = css.getPropertyValue("--font-geist-mono").trim();
   if (display) labelFonts.display = display;
   if (mono) labelFonts.mono = mono;
+  // Optional theme token for recently sold land (see parcelChangeColors).
+  const changed = css.getPropertyValue("--map-parcel-changed").trim();
+  if (changed) {
+    parcelChangeColors.line = changed;
+    parcelChangeColors.label = changed;
+  }
   try {
     await Promise.all([
       document.fonts.load(`400 17px ${labelFonts.display}`, "MOORE HILL"),
@@ -697,6 +740,22 @@ export default function ParcelTilesLayer({
             opacity: 0.95,
           }),
         },
+        // Land that changed hands in the last year: a violet line over the
+        // plain one. Public land and anything that's about you keep their own
+        // colours, so this only marks otherwise-plain private ground.
+        {
+          dataLayer: "parcels",
+          symbolizer: new LineSymbolizer({
+            color: () => parcelChangeColors.line,
+            width: 2.2,
+            opacity: 0.95,
+          }),
+          filter: (_z, f) =>
+            hasOwnerChange(f) &&
+            f.props.pub !== 1 &&
+            !tagOf(f) &&
+            !isMineFeature(f, styleRef.current),
+        },
         // Tagged land and the parcel you tapped sit on top of the plain lines.
         {
           dataLayer: "parcels",
@@ -732,15 +791,16 @@ export default function ParcelTilesLayer({
       // parcel whose card is open are laid out first and always win over a
       // neighbor's name.
       labelRules: [
-        // 1. Priority owners at their holding point, from z14 even when the
-        //    baked fit zoom (`mz`) is later — it's your ground, show it.
+        // 1. Priority owners at their holding point, from z13 even when the
+        //    baked fit zoom (`mz`) is later — it's your ground, show it. (Was
+        //    z14; these are a handful of names, so a zoom sooner can't clutter.)
         {
           dataLayer: "parcel_labels",
           minzoom: PARCEL_TILES_MIN_ZOOM,
           filter: (z, f) =>
             hasOwnerName(f) &&
             isPriorityOwner(f, styleRef.current) &&
-            z >= Math.min(Number(f.props.mz) || PARCEL_TILES_MIN_ZOOM, 14),
+            z >= Math.min(Number(f.props.mz) || PARCEL_TILES_MIN_ZOOM, 13),
           symbolizer: new HoldingLabelSymbolizer(
             () => styleRef.current,
           ) as unknown as LabelSymbolizer,
@@ -1014,10 +1074,13 @@ export default function ParcelTilesLayer({
           const rank = parcelAcresRank(acres);
           if (!best || rank < bestRank) {
             bestRank = rank;
+            const prev = String(pick.feature.props.prev ?? "").trim();
+            const chg = String(pick.feature.props.chg ?? "").trim();
             best = {
               ownerName,
               acres,
               isPublic: pick.feature.props.pub === 1,
+              ...(prev ? { previousOwner: prev, changedMonth: chg } : {}),
             };
           }
         }

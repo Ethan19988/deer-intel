@@ -775,7 +775,11 @@ function StandWorkspace({
           description="Simple guidance from wind notes, hunt pressure, observations, and related camera activity."
           defaultOpen
         >
-          <StandIntelligencePanel propertyId={propertyId} summary={intelligence} />
+          <StandIntelligencePanel
+            propertyId={propertyId}
+            summary={intelligence}
+            stand={{ id: stand.id, name: stand.name }}
+          />
         </AssetPanel>
 
         <AssetPanel

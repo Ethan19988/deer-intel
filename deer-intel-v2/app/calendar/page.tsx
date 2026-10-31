@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import PageShell from "@/components/ui/PageShell";
+import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import { CalendarIcon } from "@/components/ui/FieldIcons";
@@ -104,35 +105,27 @@ export default function CalendarPage() {
 
   return (
     <PageShell maxWidth="920px">
-      <div style={headerStyle}>
-        <div style={headerTitleWrapStyle}>
-          <span style={headerIconStyle} aria-hidden="true">
-            <CalendarIcon size={22} />
-          </span>
-          <div>
-            <h1 style={titleStyle}>Calendar</h1>
-            <p style={subtitleStyle}>
-              Everything you&rsquo;ve marked, by the day — hunts, camera checks,
-              sightings, map marks, and walks. It builds the story of your
-              ground season over season.
-            </p>
-          </div>
-        </div>
-
-        <select
-          aria-label="Property"
-          value={propertyId}
-          onChange={(event) => setPropertyId(event.target.value)}
-          style={selectStyle}
-        >
-          <option value="all">All properties</option>
-          {state.properties.map((property) => (
-            <option key={property.id} value={property.id}>
-              {property.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <PageHeader
+        eyebrow="Season record"
+        title="Calendar"
+        icon={<CalendarIcon size={22} />}
+        description="Everything you've marked, by the day — hunts, camera checks, sightings, map marks, and walks. It builds the story of your ground season over season."
+        action={
+          <select
+            aria-label="Property"
+            value={propertyId}
+            onChange={(event) => setPropertyId(event.target.value)}
+            style={selectStyle}
+          >
+            <option value="all">All properties</option>
+            {state.properties.map((property) => (
+              <option key={property.id} value={property.id}>
+                {property.name}
+              </option>
+            ))}
+          </select>
+        }
+      />
 
       <Card as="section" style={calendarCardStyle}>
         <div style={navRowStyle}>
@@ -258,44 +251,8 @@ function formatSelectedLabel(
   return selected === todayKey ? `Today — ${label}` : label;
 }
 
-const headerStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: "1rem",
-  marginBottom: "1rem",
-};
-
-const headerTitleWrapStyle: CSSProperties = {
-  display: "flex",
-  gap: "0.7rem",
-  flex: 1,
-  minWidth: "260px",
-};
-
-const headerIconStyle: CSSProperties = {
-  flex: "none",
-  color: "var(--accent-text)",
-  marginTop: "0.15rem",
-};
-
-const titleStyle: CSSProperties = {
-  margin: 0,
-  fontSize: "1.5rem",
-  fontWeight: 800,
-  color: "var(--text)",
-};
-
-const subtitleStyle: CSSProperties = {
-  margin: "0.25rem 0 0",
-  color: "var(--text-muted)",
-  fontSize: "0.9rem",
-  lineHeight: 1.45,
-};
-
 const selectStyle: CSSProperties = {
-  flex: "none",
+  maxWidth: "100%",
   minHeight: "40px",
   padding: "0.4rem 0.7rem",
   borderRadius: "var(--radius-sm)",
@@ -307,6 +264,7 @@ const selectStyle: CSSProperties = {
 };
 
 const calendarCardStyle: CSSProperties = {
+  marginTop: "1rem",
   display: "grid",
   gap: "0.9rem",
 };

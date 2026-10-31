@@ -1,4 +1,9 @@
-import type { AiScoutReport, AiScoutRequestContext } from "@/types/aiScout";
+import { normalizeAiScoutReport, scoutEventsFromAnthropicSse } from "@/lib/aiScoutStream";
+import type {
+  AiScoutReport,
+  AiScoutRequestContext,
+  AiScoutStreamEvent,
+} from "@/types/aiScout";
 
 // Server-only module: reads process.env.ANTHROPIC_API_KEY directly, so this
 // must only ever be imported from a Route Handler (app/api/**/route.ts) or
@@ -104,9 +109,16 @@ export class AiScoutError extends Error {
   }
 }
 
-export async function generateAiScoutReport(
+/**
+ * Start the Messages API call. Resolves with an OK response (JSON, or an SSE
+ * body when `stream` is true); every pre-answer failure throws AiScoutError
+ * with a friendly message and status, so the route can still answer with a
+ * plain JSON error before any streaming starts.
+ */
+async function startAnthropicCall(
   context: AiScoutRequestContext,
-): Promise<AiScoutReport> {
+  options: { stream: boolean; signal?: AbortSignal },
+): Promise<Response> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
@@ -123,6 +135,11 @@ export async function generateAiScoutReport(
   const userMessage = `Here is the saved Deer Intel data for this property, as JSON:\n\n${JSON.stringify(
     context,
   )}\n\nUsing only this data, recommend which stand to hunt and why, then call ${REPORT_TOOL_NAME} with your answer.`;
+
+  // Fail with a clear message before the platform's own function timeout.
+  // The timeout also covers reading a streamed body.
+  const timeout = AbortSignal.timeout(50_000);
+  const signal = options.signal ? AbortSignal.any([timeout, options.signal]) : timeout;
 
   let response: Response;
 
@@ -141,9 +158,9 @@ export async function generateAiScoutReport(
         messages: [{ role: "user", content: userMessage }],
         tools: [REPORT_TOOL],
         tool_choice: { type: "tool", name: REPORT_TOOL_NAME },
+        ...(options.stream ? { stream: true } : {}),
       }),
-      // Fail with a clear message before the platform's own function timeout.
-      signal: AbortSignal.timeout(50_000),
+      signal,
     });
   } catch {
     throw new AiScoutError(
@@ -192,6 +209,14 @@ export async function generateAiScoutReport(
     );
   }
 
+  return response;
+}
+
+export async function generateAiScoutReport(
+  context: AiScoutRequestContext,
+): Promise<AiScoutReport> {
+  const response = await startAnthropicCall(context, { stream: false });
+
   const payload = (await response.json()) as {
     content?: Array<
       | { type: "tool_use"; name: string; input: unknown }
@@ -204,35 +229,85 @@ export async function generateAiScoutReport(
       block.type === "tool_use" && block.name === REPORT_TOOL_NAME,
   );
 
-  if (!toolUseBlock) {
+  const report = toolUseBlock ? normalizeAiScoutReport(toolUseBlock.input) : null;
+
+  if (!report) {
     throw new AiScoutError("AI Scout returned an unexpected response format.", 502);
   }
 
-  return normalizeReport(toolUseBlock.input);
+  return report;
 }
 
-function normalizeReport(rawInput: unknown): AiScoutReport {
-  const input = rawInput as Partial<AiScoutReport> | null | undefined;
+/**
+ * Streaming variant. Awaits the upstream response first (so auth / model /
+ * busy errors still throw AiScoutError before anything is sent), then returns
+ * an NDJSON byte stream of AiScoutStreamEvent lines: deltas of the tool-input
+ * JSON as the model writes it, then one validated `done` or an `error`.
+ */
+export async function streamAiScoutReport(
+  context: AiScoutRequestContext,
+): Promise<ReadableStream<Uint8Array>> {
+  const upstreamAbort = new AbortController();
+  const response = await startAnthropicCall(context, {
+    stream: true,
+    signal: upstreamAbort.signal,
+  });
 
-  if (!input || typeof input !== "object") {
+  if (!response.body) {
     throw new AiScoutError("AI Scout returned an unexpected response format.", 502);
   }
 
-  return {
-    headline: typeof input.headline === "string" ? input.headline : "No headline provided.",
-    recommendedStandName:
-      typeof input.recommendedStandName === "string" ? input.recommendedStandName : "Not specified",
-    recommendedStandReasoning:
-      typeof input.recommendedStandReasoning === "string" ? input.recommendedStandReasoning : "",
-    keyFactors: Array.isArray(input.keyFactors)
-      ? input.keyFactors.filter((factor): factor is string => typeof factor === "string")
-      : [],
-    risks: Array.isArray(input.risks)
-      ? input.risks.filter((risk): risk is string => typeof risk === "string")
-      : [],
-    confidence:
-      input.confidence === "low" || input.confidence === "medium" || input.confidence === "high"
-        ? input.confidence
-        : "low",
-  };
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+
+  // The finally runs however iteration stops (end, error, or an early
+  // return() when the report finished or the client went away), so the
+  // upstream body is always closed.
+  async function* decoded(): AsyncGenerator<string> {
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        yield decoder.decode(value, { stream: true });
+      }
+      const tail = decoder.decode();
+      if (tail) yield tail;
+    } finally {
+      reader.cancel().catch(() => undefined);
+    }
+  }
+
+  const events = scoutEventsFromAnthropicSse(decoded());
+  const line = (event: AiScoutStreamEvent) => encoder.encode(`${JSON.stringify(event)}\n`);
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const next = await events.next();
+        if (next.done) {
+          controller.close();
+          return;
+        }
+        controller.enqueue(line(next.value));
+      } catch (error) {
+        console.error("AI Scout stream failed mid-answer:", error);
+        controller.enqueue(
+          line({
+            type: "error",
+            error:
+              error instanceof Error && error.name === "TimeoutError"
+                ? "AI Scout took too long to finish. Try again."
+                : "The connection to the AI service dropped partway through. Try again.",
+          }),
+        );
+        controller.close();
+      }
+    },
+    cancel() {
+      // The hunter left the page: stop paying for tokens nobody will read.
+      upstreamAbort.abort();
+      reader.cancel().catch(() => undefined);
+    },
+  });
 }

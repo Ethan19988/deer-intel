@@ -21,6 +21,8 @@ type ParcelOwnerInfoCardProps = {
   onTag?: (kind: LandTagKind | null) => void;
   /** e.g. "0.6 mi from Moore Hill Area"; omit when there's no property point. */
   distanceLabel?: string | null;
+  /** "SMITH JOHN (changed Nov 2026)" when the land changed hands recently. */
+  previousOwner?: string | null;
 };
 
 export default function ParcelOwnerInfoCard({
@@ -31,6 +33,7 @@ export default function ParcelOwnerInfoCard({
   tag = null,
   onTag,
   distanceLabel,
+  previousOwner,
 }: ParcelOwnerInfoCardProps) {
   const [copied, setCopied] = useState(false);
   const [showDistance, setShowDistance] = useState(false);
@@ -39,6 +42,7 @@ export default function ParcelOwnerInfoCard({
     const text = [
       ownerName,
       summary,
+      ...(previousOwner ? [`Previously: ${previousOwner}`] : []),
       ...lines
         .filter((line) => line.value && line.value !== "Not listed")
         .map((line) => `${line.label}: ${line.value}`),
@@ -67,6 +71,11 @@ export default function ParcelOwnerInfoCard({
           {tag ? (
             <p style={{ ...tagLineStyle, color: tag === "permission" ? "#a9b88a" : "#c9ccc2" }}>
               {tag === "permission" ? "■ Permission to hunt" : "■ Neighbor you noted"}
+            </p>
+          ) : null}
+          {previousOwner ? (
+            <p style={previousOwnerStyle}>
+              <span style={previousLabelStyle}>Previously:</span> {previousOwner}
             </p>
           ) : null}
         </div>
@@ -192,6 +201,20 @@ const tagLineStyle: CSSProperties = {
   ...monoStyle,
   margin: "0.3rem 0 0",
   fontSize: "0.68rem",
+};
+
+// Matches the map's violet "changed" parcel outline (ParcelTilesLayer).
+const previousOwnerStyle: CSSProperties = {
+  margin: "0.35rem 0 0",
+  color: "var(--map-parcel-changed, #d2bfff)",
+  fontSize: "0.85rem",
+  lineHeight: 1.3,
+  overflowWrap: "anywhere",
+};
+
+const previousLabelStyle: CSSProperties = {
+  ...monoStyle,
+  fontSize: "0.66rem",
 };
 
 const closeButtonStyle: CSSProperties = {

@@ -8,6 +8,7 @@ import {
   type CSSProperties,
 } from "react";
 import PageShell from "@/components/ui/PageShell";
+import PageHeader from "@/components/ui/PageHeader";
 import {
   createDeerIntelId,
   updateDeerIntelStore,
@@ -103,6 +104,12 @@ export default function DocumentImportPage() {
         Back to Settings
       </Link>
 
+      <PageHeader
+        eyebrow={activeProperty?.name ?? "Documents"}
+        title="Add documents"
+        description="Leases, maps, permits, and notes — saved on this device with this property."
+      />
+
       {/* The whole tile is the tap target so it's obvious where to press. */}
       <input
         ref={inputRef}
@@ -156,6 +163,7 @@ const dropZoneStyle: CSSProperties = {
   justifyItems: "center",
   gap: "0.5rem",
   width: "100%",
+  marginTop: "1rem",
   padding: "2rem 1.4rem",
   border: "2px dashed var(--accent)",
   borderRadius: "var(--radius-sm)",

@@ -2,19 +2,31 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
+import { StandSuccessPanel } from "@/components/insights/StandSuccess";
 import type { StandIntelligenceSummary } from "@/lib/standIntelligence";
 
 type StandIntelligencePanelProps = {
   propertyId: string;
   summary: StandIntelligenceSummary;
+  /** When given, the panel adds the stand's success rates (sits, deer/sit, best wind/time). */
+  stand?: { id: string; name: string };
 };
 
 export default function StandIntelligencePanel({
   propertyId,
   summary,
+  stand,
 }: StandIntelligencePanelProps) {
   return (
     <div style={panelStyle}>
+      {stand ? (
+        <StandSuccessPanel
+          standId={stand.id}
+          standName={stand.name}
+          propertyId={propertyId}
+        />
+      ) : null}
+
       <div style={recommendationListStyle}>
         {summary.recommendations.map((recommendation) => (
           <div

@@ -11,6 +11,7 @@ import {
   PlusIcon,
   StandIcon,
   TargetIcon,
+  TrophyIcon,
   UsersIcon,
 } from "@/components/ui/FieldIcons";
 
@@ -39,6 +40,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/ai", label: "AI Scout", icon: (s) => <TargetIcon size={s} /> },
       { href: "/hunt-log", label: "Hunt Log", icon: (s) => <ClipboardIcon size={s} /> },
       { href: "/calendar", label: "Calendar", icon: (s) => <CalendarIcon size={s} /> },
+      { href: "/report", label: "Season Report", icon: (s) => <TrophyIcon size={s} /> },
       { href: "/party", label: "Party", icon: (s) => <UsersIcon size={s} /> },
     ],
   },
