@@ -75,6 +75,26 @@ function wedgePath(center: number): string {
   ].join(" ");
 }
 
+// Arrow inside a wedge showing the wind's travel: it comes in from that side
+// and blows toward the stand at the center.
+const ARROW_TAIL = 72;
+const ARROW_TIP = 51;
+const ARROW_HEAD = 6;
+
+function windArrowPath(center: number): string {
+  const tail = polar(ARROW_TAIL, center);
+  const tip = polar(ARROW_TIP, center);
+  const back = polar(ARROW_TIP + ARROW_HEAD + 1, center);
+  // Perpendicular offset for the two barbs of the head.
+  const radians = (center * Math.PI) / 180;
+  const px = Math.cos(radians) * ARROW_HEAD;
+  const py = Math.sin(radians) * ARROW_HEAD;
+  return [
+    `M ${tail.x} ${tail.y} L ${tip.x} ${tip.y}`,
+    `M ${back.x + px} ${back.y + py} L ${tip.x} ${tip.y} L ${back.x - px} ${back.y - py}`,
+  ].join(" ");
+}
+
 // Tap a direction to cycle it: good wind (green) → avoid (red) → not set.
 // A wind is named for where it comes FROM, so "NW" means the wind blows from
 // the northwest toward the southeast.
@@ -109,7 +129,7 @@ export default function WindPicker({ marks, onChange, currentWind, backdrop }: W
         {WIND_POINTS.map((point, index) => {
           const center = index * 45;
           const mark = marks[point];
-          const label = polar((R_IN + R_OUT) / 2 + 6, center);
+          const label = polar((R_IN + R_OUT) / 2 + 12, center);
           return (
             <g
               key={point}
@@ -140,6 +160,15 @@ export default function WindPicker({ marks, onChange, currentWind, backdrop }: W
               >
                 {point}
               </text>
+              <path
+                d={windArrowPath(center)}
+                fill="none"
+                stroke={onMap ? "#fff" : INK[mark]}
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={onMap ? mapArrowStyle : noPointerStyle}
+              />
               {GLYPH[mark] ? (
                 <text
                   x={label.x}
@@ -204,8 +233,10 @@ export default function WindPicker({ marks, onChange, currentWind, backdrop }: W
         </span>
       </p>
       <p style={hintStyle}>
-        Tap once for a good wind, twice for one to avoid, three times to clear.
-        Each also covers its neighbors (NW counts NNW and WNW).
+        Arrows show the wind blowing in from that side toward your stand; your
+        scent drifts out the opposite side. Tap once for a good wind, twice for
+        one to avoid, three times to clear. Each also covers its neighbors (NW
+        counts NNW and WNW).
       </p>
     </div>
   );
@@ -229,6 +260,12 @@ const mapTextStyle: CSSProperties = {
   paintOrder: "stroke",
   stroke: "rgba(0, 0, 0, 0.7)",
   strokeWidth: 3,
+};
+
+// Dark halo so the white arrow reads over satellite imagery.
+const mapArrowStyle: CSSProperties = {
+  pointerEvents: "none",
+  filter: "drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.9))",
 };
 
 const svgStyle: CSSProperties = {
