@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { AiScoutError, generateAiScoutReport, isAiScoutConfigured } from "@/lib/aiScout";
+import {
+  AiScoutError,
+  generateAiScoutReport,
+  isAiScoutConfigured,
+  streamAiScoutReport,
+} from "@/lib/aiScout";
+import { AI_SCOUT_STREAM_CONTENT_TYPE } from "@/lib/aiScoutStream";
 import { guardPaidRoute } from "@/lib/apiGuard";
 import type { AiScoutRequestContext } from "@/types/aiScout";
 
@@ -8,6 +14,13 @@ import type { AiScoutRequestContext } from "@/types/aiScout";
 //   GET  -> cheap "is this even configured" check the UI uses to decide
 //           whether to show the "Ask AI Scout" button at all.
 //   POST -> the actual LLM call, made only when the hunter clicks the button.
+//           Streams NDJSON (lib/aiScoutStream) when the request's Accept
+//           header asks for application/x-ndjson; plain JSON otherwise.
+//
+// The guard (sign-in, burst limit, daily quota) always runs before anything
+// is sent upstream, and errors that happen before the model starts answering
+// are still plain JSON with a real status code — only mid-answer failures
+// arrive as an in-stream `error` line.
 
 export async function GET() {
   return NextResponse.json({ configured: isAiScoutConfigured() });
@@ -35,7 +48,24 @@ export async function POST(request: Request) {
     );
   }
 
+  const wantsStream = (request.headers.get("accept") ?? "").includes(
+    AI_SCOUT_STREAM_CONTENT_TYPE,
+  );
+
   try {
+    if (wantsStream) {
+      const stream = await streamAiScoutReport(context as AiScoutRequestContext);
+
+      return new Response(stream, {
+        headers: {
+          "content-type": `${AI_SCOUT_STREAM_CONTENT_TYPE}; charset=utf-8`,
+          "cache-control": "no-store, no-transform",
+          // Ask proxies (nginx-style) not to buffer the stream.
+          "x-accel-buffering": "no",
+        },
+      });
+    }
+
     const report = await generateAiScoutReport(context as AiScoutRequestContext);
 
     return NextResponse.json(report);
