@@ -31,6 +31,9 @@ const LAND_KEY: Array<{ label: string; color: string; fill?: boolean }> = [
   { label: "Permission", color: "#a9b88a", fill: true },
   { label: "Public land", color: "#5f8c46", fill: true },
   { label: "Neighbor", color: "#c9ccc2" },
+  // Matches parcelChangeColors in ParcelTilesLayer (owner changed in the last
+  // year of monthly parcel builds).
+  { label: "Changed", color: "var(--map-parcel-changed, #b38cff)" },
   { label: "Other private", color: "rgba(255, 255, 255, 0.7)" },
 ];
 

@@ -86,3 +86,29 @@ export function ownersMatch(a: string, b: string): boolean {
   const pool = new Set(large);
   return small.every((word) => pool.has(word));
 }
+
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * The month a parcel changed hands as printed on the map and owner card:
+ * the tiles' `chg` ("2026-11") → "Nov 2026". Empty for anything malformed.
+ */
+export function ownerChangeMonthText(chg: unknown): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(typeof chg === "string" ? chg.trim() : "");
+  if (!m) return "";
+  const month = Number(m[2]);
+  if (month < 1 || month > 12) return "";
+  return `${MONTH_ABBR[month - 1]} ${m[1]}`;
+}
+
+/**
+ * The "Previously: …" line for an owner card, or "" when the parcel hasn't
+ * changed hands (or the previous owner is the same name, reformatted).
+ */
+export function previousOwnerText(prev: unknown, chg: unknown, currentOwner = ""): string {
+  const name = typeof prev === "string" ? prev.trim() : "";
+  if (!name) return "";
+  if (currentOwner && ownerWords(name).join("") === ownerWords(currentOwner).join("")) return "";
+  const month = ownerChangeMonthText(chg);
+  return month ? `${name} (changed ${month})` : name;
+}

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   isPublicOwnerName,
   ownerAcresText,
+  ownerChangeMonthText,
   ownerDisplayName,
   ownersMatch,
+  previousOwnerText,
 } from "@/lib/ownerLabel";
 
 describe("ownerDisplayName", () => {
@@ -56,5 +58,23 @@ describe("ownersMatch", () => {
     expect(ownersMatch("SMITH JOHN R", "KESSLER FARMS LLC")).toBe(false);
     expect(ownersMatch("SMITH JOHN", "SMITH ROBERT")).toBe(false);
     expect(ownersMatch("SMITH", "SMITHERS FARM")).toBe(false);
+  });
+});
+
+describe("owner change text", () => {
+  it("formats the build month", () => {
+    expect(ownerChangeMonthText("2026-11")).toBe("Nov 2026");
+    expect(ownerChangeMonthText("2026-13")).toBe("");
+    expect(ownerChangeMonthText(undefined)).toBe("");
+  });
+
+  it("builds the owner card's previous-owner line", () => {
+    expect(previousOwnerText("SMITH JOHN", "2026-11", "JONES AMY")).toBe(
+      "SMITH JOHN (changed Nov 2026)",
+    );
+    expect(previousOwnerText("SMITH JOHN", "", "JONES AMY")).toBe("SMITH JOHN");
+    expect(previousOwnerText("", "2026-11")).toBe("");
+    // Same owner, reformatted — not a change worth showing.
+    expect(previousOwnerText("SMITH, JOHN ETAL", "2026-11", "SMITH JOHN")).toBe("");
   });
 });

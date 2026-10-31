@@ -14,10 +14,24 @@
 //
 // Requires network access to the county services (run with NODE_USE_ENV_PROXY=1
 // behind the agent proxy).
+//
+// Owner history (optional): with PARCEL_HISTORY_IN set to a folder holding last
+// build's <county>.json.gz owner snapshots, parcels whose owner changed are
+// stamped with `prev` + `chg` (see parcel-owner-history.mjs), and this build's
+// snapshot is written to PARCEL_HISTORY_OUT/<county>.json.gz. PARCEL_BUILD_MONTH
+// (YYYY-MM) overrides the build month, for tests.
 
-import { createWriteStream } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { createReadStream, createWriteStream } from "node:fs";
+import { mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createInterface } from "node:readline";
+import {
+  buildMonthOf,
+  createOwnerHistory,
+  readSnapshotFile,
+  writeSnapshotFile,
+} from "./parcel-owner-history.mjs";
+import { LABEL_MAX_Z, labelMinZoom } from "./parcel-label-fit.mjs";
 
 const PAGE_SIZE = 1000;
 
@@ -426,16 +440,8 @@ async function fetchJson(url) {
 // ---------------------------------------------------------------------------
 
 const HOLDING_CLUSTER_M = 2000;
-const LABEL_MIN_Z = 12;
-const LABEL_MAX_Z = 17;
-// Matches the renderer: 13px caps name, up to 3 wrapped lines, 11px acreage
-// caption beneath. Caps at 13px average ~0.62em, plus the 0.4px tracking.
-const NAME_PX = 13;
-const NAME_EM = 0.62;
-const NAME_TRACKING_PX = 0.4;
-const NAME_LINE_PX = NAME_PX * 1.18;
-const ACRES_LINE_PX = 11 * 1.3;
-const MAX_LINES = 3;
+// Label fit (the baked `mz`) lives in parcel-label-fit.mjs, measured with
+// the map's Bebas Neue label metrics.
 
 function ringArea(ring) {
   let a2 = 0;
@@ -497,7 +503,7 @@ function interiorPoint(ring) {
   return best || [cx, cy];
 }
 
-function summarizeParcel(geom, owner, acres) {
+function summarizeParcel(geom, owner, acres, pin) {
   const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
   let bestRing = null;
   let bestArea = -1;
@@ -527,6 +533,7 @@ function summarizeParcel(geom, owner, acres) {
   const mPerDegLng = 111320 * Math.cos((lat * Math.PI) / 180);
   return {
     owner,
+    pin,
     acres: acres || 0,
     lng,
     lat,
@@ -536,28 +543,13 @@ function summarizeParcel(geom, owner, acres) {
   };
 }
 
-// The zoom at which this holding's name first fits inside its own parcel. Baked
-// so the renderer needs no polygon to decide — it just compares zoom.
-function labelMinZoom(name, acresText, wM, hM, lat) {
-  const perChar = NAME_PX * NAME_EM + NAME_TRACKING_PX;
-  const full = name.length * perChar;
-  for (let z = LABEL_MIN_Z; z <= LABEL_MAX_Z; z++) {
-    const mpp =
-      (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, z);
-    const wPx = wM / mpp;
-    const hPx = hM / mpp;
-    // Allow wrapping onto up to MAX_LINES; each line must fit the width.
-    const lines = Math.min(MAX_LINES, Math.max(1, Math.ceil(full / (wPx * 0.92))));
-    const lineW = full / lines;
-    const blockH = lines * NAME_LINE_PX + (acresText ? ACRES_LINE_PX : 0);
-    if (lineW <= wPx * 0.98 && blockH <= hPx * 0.98) return z;
-  }
-  return LABEL_MAX_Z + 1; // never fits within our zoom range
-}
 
 // Group same-owner parcels into holdings by proximity, then emit one point per
 // holding at the biggest parcel's interior anchor.
-function buildHoldingLabels(summaries) {
+// `changedOf(pin)` is the YYYY-MM a parcel changed hands, or "" — a holding
+// with any recently sold parcel carries the newest such month as `chg`, so its
+// name can be tinted without the map needing the parcel polygons.
+function buildHoldingLabels(summaries, changedOf = () => "") {
   const byOwner = new Map();
   for (const s of summaries) {
     let list = byOwner.get(s.owner);
@@ -629,9 +621,12 @@ function buildHoldingLabels(summaries) {
     for (const group of clusters.values()) {
       let rep = group[0];
       let acres = 0;
+      let chg = "";
       for (const s of group) {
         acres += s.acres || 0;
         if (s.area > rep.area) rep = s;
+        const c = changedOf(s.pin);
+        if (c && c > chg) chg = c;
       }
       const acresText = acres > 0;
       const mz = labelMinZoom(owner, acresText, rep.wM, rep.hM, rep.lat);
@@ -644,6 +639,7 @@ function buildHoldingLabels(summaries) {
           acres: Math.round(acres * 100) / 100,
           pub: PUBLIC_OWNER_PATTERN.test(owner) ? 1 : 0,
           mz,
+          ...(chg ? { chg } : {}),
         },
       });
     }
@@ -656,7 +652,18 @@ async function fetchCounty(slug, outPath, labelPath) {
   if (!cfg) throw new Error(`unknown county: ${slug}`);
 
   await mkdir(dirname(outPath), { recursive: true });
-  const out = createWriteStream(outPath);
+  // Parcels stream to a raw file first, each carrying its parcel id, and are
+  // stamped with owner history in a second pass once the whole county has
+  // been seen (a change only counts once every parcel has been compared).
+  const rawPath = `${outPath}.raw`;
+  const out = createWriteStream(rawPath);
+  const historyIn = process.env.PARCEL_HISTORY_IN;
+  const historyOut = process.env.PARCEL_HISTORY_OUT;
+  const buildMonth = process.env.PARCEL_BUILD_MONTH || buildMonthOf();
+  const history = createOwnerHistory(
+    readSnapshotFile(historyIn ? join(historyIn, `${slug}.json.gz`) : ""),
+    buildMonth,
+  );
 
   // One record per parcel, kept to feed the holding pass once the county has
   // streamed. Deliberately not the geometry — a big county is 300k parcels, so
@@ -689,6 +696,8 @@ async function fetchCounty(slug, outPath, labelPath) {
       const p = feature.properties || {};
       const owner = cfg.owner(p);
       if (!owner) continue;
+      const pin = cfg.pin ? cfg.pin(p) : "";
+      history.observe(pin, owner);
       out.write(
         `${JSON.stringify({
           type: "Feature",
@@ -701,11 +710,13 @@ async function fetchCounty(slug, outPath, labelPath) {
             acres: cfg.acres(p),
             pub: PUBLIC_OWNER_PATTERN.test(owner) ? 1 : 0,
           },
+          // Build-only: stripped in the stamping pass, never reaches the tiles.
+          _pin: pin,
         })}\n`,
       );
       total += 1;
 
-      const summary = summarizeParcel(geom, owner, cfg.acres(p));
+      const summary = summarizeParcel(geom, owner, cfg.acres(p), pin);
       if (summary) parcelSummaries.push(summary);
     }
 
@@ -721,10 +732,22 @@ async function fetchCounty(slug, outPath, labelPath) {
   }
 
   await new Promise((resolve) => out.end(resolve));
-  process.stderr.write(`${slug}: wrote ${total} features -> ${outPath}\n`);
+
+  const stamped = await stampOwnerHistory(rawPath, outPath, history);
+  await rm(rawPath, { force: true });
+  const { compared, changed, massChange } = history.stats();
+  process.stderr.write(
+    `${slug}: wrote ${total} features -> ${outPath}` +
+      ` (owner history: ${compared} compared, ${changed} changed, ${stamped} marked` +
+      `${massChange ? "; mass change ignored as a data reformat" : ""})\n`,
+  );
+  if (historyOut) writeSnapshotFile(join(historyOut, `${slug}.json.gz`), history.finish());
 
   if (labelPath) {
-    const labels = buildHoldingLabels(parcelSummaries);
+    const labels = buildHoldingLabels(
+      parcelSummaries,
+      (pin) => history.stampFor(pin).chg ?? "",
+    );
     const labelOut = createWriteStream(labelPath);
     for (const f of labels) labelOut.write(`${JSON.stringify(f)}\n`);
     await new Promise((resolve) => labelOut.end(resolve));
@@ -734,6 +757,27 @@ async function fetchCounty(slug, outPath, labelPath) {
   }
 
   return total;
+}
+
+// Second pass over a county's raw parcels: drop the build-only parcel id and
+// add `prev`/`chg` to parcels that changed hands. Returns how many were marked.
+async function stampOwnerHistory(rawPath, outPath, history) {
+  const out = createWriteStream(outPath);
+  const lines = createInterface({ input: createReadStream(rawPath), crlfDelay: Infinity });
+  let marked = 0;
+  for await (const line of lines) {
+    if (!line) continue;
+    const feature = JSON.parse(line);
+    const { _pin: pin, ...rest } = feature;
+    const stamp = history.stampFor(pin);
+    if (stamp.chg) marked += 1;
+    const props = stamp.chg ? { ...rest.properties, ...stamp } : rest.properties;
+    if (!out.write(`${JSON.stringify({ ...rest, properties: props })}\n`)) {
+      await new Promise((resolve) => out.once("drain", resolve));
+    }
+  }
+  await new Promise((resolve) => out.end(resolve));
+  return marked;
 }
 
 async function main() {

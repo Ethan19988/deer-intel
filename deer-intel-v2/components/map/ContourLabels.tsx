@@ -7,36 +7,21 @@
 // white from the raster layers, and the *numbers* come from the queryable
 // index-contour features — crisp bold text we fully control (size, weight,
 // outline), and always readable.
+//
+// Offline-first: when a saved map pack holds this view's contour tiles, the
+// numbers come straight from the device and no query is made.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Marker, useMap, useMapEvents } from "react-leaflet";
 import { divIcon } from "leaflet";
-
-const SERVICE =
-  "https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer";
-// "Normal Index Contours" (large-scale, active at zoom 16+): the index lines
-// carry the elevations, ~100-ft apart on a 20-ft base. Field name is lowercase
-// here (the 100-ft/50-ft group layers use uppercase), so read it case-tolerantly.
-const LAYERS = [25];
-// Keep the elevation numbers sparse so they don't crowd the map: fewer labels
-// overall, spread on a coarser grid, and each distinct elevation capped so a
-// single winding contour can't stamp its number across the whole view.
-const MAX_LABELS = 24;
-const LABEL_GRID = 6;
-const MAX_PER_ELEV = 3;
-
-function readElevation(attrs: Record<string, unknown> | undefined): number | null {
-  if (!attrs) return null;
-  for (const key of Object.keys(attrs)) {
-    if (key.toLowerCase() === "contourelevation") {
-      const v = attrs[key];
-      if (typeof v === "number" && Number.isFinite(v)) return v;
-    }
-  }
-  return null;
-}
-
-type ContourLabel = { id: string; lat: number; lng: number; text: string };
+import {
+  CONTOUR_LABELS_OFFLINE_SOURCE,
+  fetchContourSegments,
+  pickContourLabels,
+  segmentsFromSavedTiles,
+  type ContourLabel,
+} from "@/lib/contourQuery";
+import { matchOfflineQueryTiles } from "@/lib/offlineMaps";
 
 export default function ContourLabels({ minZoom }: { minZoom: number }) {
   const map = useMap();
@@ -50,60 +35,29 @@ export default function ContourLabels({ minZoom }: { minZoom: number }) {
       return;
     }
     const b = map.getBounds();
-    const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
-    // Generalize the geometry hard — we only need points to place labels on.
-    const offset = (b.getEast() - b.getWest()) / 120;
+    const view = {
+      south: b.getSouth(),
+      west: b.getWest(),
+      north: b.getNorth(),
+      east: b.getEast(),
+    };
     const mine = ++reqId.current;
     try {
-      const segments: { elev: number; pts: [number, number][] }[] = [];
-      await Promise.all(
-        LAYERS.map(async (layer) => {
-          const url =
-            `${SERVICE}/${layer}/query?where=1%3D1` +
-            `&geometry=${encodeURIComponent(bbox)}` +
-            `&geometryType=esriGeometryEnvelope&inSR=4326` +
-            `&spatialRel=esriSpatialRelIntersects&outFields=contourelevation` +
-            `&returnGeometry=true&maxAllowableOffset=${offset}` +
-            `&outSR=4326&f=json&resultRecordCount=250`;
-          const res = await fetch(url);
-          const json = await res.json();
-          for (const f of json.features ?? []) {
-            const elev = readElevation(f.attributes);
-            const paths = f.geometry?.paths;
-            if (elev == null || !Array.isArray(paths)) continue;
-            for (const path of paths) segments.push({ elev, pts: path });
-          }
-        }),
-      );
-      if (mine !== reqId.current) return; // a newer request superseded this one
-
-      // Thin the labels onto a ~9x9 grid of the view so they spread evenly and
-      // never pile up (grid in degrees; close enough to even pixel spacing).
-      const cellLat = (b.getNorth() - b.getSouth()) / LABEL_GRID;
-      const cellLng = (b.getEast() - b.getWest()) / LABEL_GRID;
-      const seen = new Set<string>();
-      const elevCount = new Map<number, number>();
-      const next: ContourLabel[] = [];
-      for (const seg of segments) {
-        for (const [lng, lat] of seg.pts) {
-          if (
-            lat < b.getSouth() ||
-            lat > b.getNorth() ||
-            lng < b.getWest() ||
-            lng > b.getEast()
-          )
-            continue;
-          const key = `${Math.round(lat / cellLat)}_${Math.round(lng / cellLng)}`;
-          if (seen.has(key)) continue;
-          if ((elevCount.get(seg.elev) ?? 0) >= MAX_PER_ELEV) continue;
-          seen.add(key);
-          elevCount.set(seg.elev, (elevCount.get(seg.elev) ?? 0) + 1);
-          next.push({ id: `${seg.elev}-${key}`, lat, lng, text: `${seg.elev}` });
-          if (next.length >= MAX_LABELS) break;
+      const saved = await matchOfflineQueryTiles(CONTOUR_LABELS_OFFLINE_SOURCE, view);
+      if (mine !== reqId.current) return;
+      let segments = segmentsFromSavedTiles(saved.tiles);
+      if (!saved.complete) {
+        try {
+          // Generalize the geometry hard — we only need points to place labels on.
+          const offset = (view.east - view.west) / 120;
+          segments = await fetchContourSegments(view, offset);
+        } catch (error) {
+          // No signal: a partly saved view still shows what it has.
+          if (segments.length === 0) throw error;
         }
-        if (next.length >= MAX_LABELS) break;
+        if (mine !== reqId.current) return; // a newer request superseded this one
       }
-      setLabels(next);
+      setLabels(pickContourLabels(segments, view));
     } catch {
       // Network/parse failure: keep whatever is shown, never break the map.
     }
