@@ -237,6 +237,7 @@ export type SseMessage = { event: string; data: string };
 /** Incremental Server-Sent Events parser. Feed decoded text; get whole messages. */
 export function createSseParser() {
   let buffer = "";
+  let pendingCr = "";
 
   function parseBlock(block: string): SseMessage | null {
     let event = "message";
@@ -255,7 +256,15 @@ export function createSseParser() {
 
   return {
     feed(chunk: string): SseMessage[] {
-      buffer += chunk.replace(/\r\n?/g, "\n");
+      // A CRLF can be split across chunks: hold a trailing "\r" back until
+      // the next chunk shows whether a "\n" follows it.
+      let text = pendingCr + chunk;
+      pendingCr = "";
+      if (text.endsWith("\r")) {
+        pendingCr = "\r";
+        text = text.slice(0, -1);
+      }
+      buffer += text.replace(/\r\n?/g, "\n");
       const messages: SseMessage[] = [];
       let boundary = buffer.indexOf("\n\n");
       while (boundary !== -1) {
@@ -270,6 +279,7 @@ export function createSseParser() {
     flush(): SseMessage[] {
       const rest = buffer.trim();
       buffer = "";
+      pendingCr = "";
       const message = rest ? parseBlock(rest) : null;
       return message ? [message] : [];
     },
@@ -396,7 +406,12 @@ export function createLineSplitter() {
 
 export function parseScoutStreamLine(line: string): AiScoutStreamEvent | null {
   try {
-    const value = JSON.parse(line) as Partial<AiScoutStreamEvent> | null;
+    const value = JSON.parse(line) as {
+      type?: unknown;
+      text?: unknown;
+      error?: unknown;
+      report?: unknown;
+    } | null;
     if (!value || typeof value !== "object") return null;
     if (value.type === "delta" && typeof value.text === "string") {
       return { type: "delta", text: value.text };
@@ -436,7 +451,9 @@ export function applyScoutStreamEvent(
 ): ScoutStreamState {
   if (event.type === "delta") {
     const raw = state.raw + event.text;
-    return { ...state, raw, partial: toPartialReport(parsePartialJson(raw)) };
+    const parsed = parsePartialJson(raw);
+    // An unrecoverable prefix keeps the last good partial rather than blanking it.
+    return { ...state, raw, partial: parsed === undefined ? state.partial : toPartialReport(parsed) };
   }
   if (event.type === "done") {
     return { ...state, report: event.report, partial: event.report };

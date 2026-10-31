@@ -11,7 +11,11 @@ import {
   EMPTY_AI_SCOUT_CONDITIONS,
   buildAiScoutRequestContext,
 } from "@/lib/aiScoutContext";
-import { checkAiScoutConfigured, requestAiScoutReport } from "@/lib/aiScoutClient";
+import {
+  AiScoutStreamError,
+  checkAiScoutConfigured,
+  requestAiScoutReport,
+} from "@/lib/aiScoutClient";
 import {
   formatSavedAgo,
   readSavedAiScoutReport,
@@ -19,6 +23,12 @@ import {
   type SavedAiScoutReport,
 } from "@/lib/aiScoutHistory";
 import { useAiScoutEnabled } from "@/lib/aiScoutPreferences";
+import {
+  findReusableAiScoutReport,
+  formatSavedTime,
+  hashAiScoutContext,
+} from "@/lib/aiScoutReuse";
+import { hasPartialContent } from "@/lib/aiScoutStream";
 import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
@@ -37,7 +47,11 @@ import {
   useTerrainSet,
 } from "@/lib/useTerrainSet";
 import { useMoonPhase } from "@/lib/useMoonPhase";
-import type { AiScoutConditions, AiScoutReport } from "@/types/aiScout";
+import type {
+  AiScoutConditions,
+  AiScoutPartialReport,
+  AiScoutReport,
+} from "@/types/aiScout";
 
 export default function AIPage() {
   const state = useDeerIntelStore();
@@ -101,6 +115,11 @@ export default function AIPage() {
   const [aiScoutStatus, setAiScoutStatus] = useState<"idle" | "loading" | "error">("idle");
   const [aiScoutError, setAiScoutError] = useState<string>("");
   const [aiScoutReport, setAiScoutReport] = useState<AiScoutReport | null>(null);
+  // The answer as it streams in (and what had arrived if it failed partway).
+  const [streamingReport, setStreamingReport] = useState<AiScoutPartialReport | null>(null);
+  // Set when the last ask was answered from this device because nothing in
+  // the payload changed: "Saved from 9:42 AM — nothing has changed".
+  const [reusedLabel, setReusedLabel] = useState<string>("");
   // The last report saved on this device for this property, shown until a
   // fresh one comes back (and kept on screen if the fresh call fails).
   const [savedScout, setSavedScout] = useState<
@@ -180,6 +199,8 @@ export default function AIPage() {
   if (selectedPropertyId !== lastScoutPropertyId) {
     setLastScoutPropertyId(selectedPropertyId);
     setAiScoutReport(null);
+    setStreamingReport(null);
+    setReusedLabel("");
     setSavedScout(null);
     setAiScoutStatus("idle");
     setAiScoutError("");
@@ -189,51 +210,88 @@ export default function AIPage() {
 
   function updateCondition(field: keyof AiScoutConditions, value: string) {
     setConditions((current) => ({ ...current, [field]: value }));
+    // The conditions changed, so "nothing has changed" no longer holds.
+    setReusedLabel("");
   }
 
-  async function askAiScout() {
+  async function askAiScout(options: { force?: boolean } = {}) {
     if (!selectedProperty) return;
+
+    // Blank moon falls back to today's detected phase, so AI Scout always
+    // has the lunar timing to reason about.
+    const usedConditions: AiScoutConditions = {
+      ...conditions,
+      moonPhase: conditions.moonPhase || moon?.phase || "",
+      notes: [
+        conditions.notes.trim(),
+        liveExtras.sky ? `Sky: ${liveExtras.sky}.` : "",
+        liveExtras.pressure ? `Barometric ${liveExtras.pressure}.` : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+    };
+    const context = buildAiScoutRequestContext({
+      property: selectedProperty,
+      stands: propertyStands,
+      cameras: propertyCameras,
+      cameraChecks: propertyCameraChecks,
+      hunts: propertyHunts,
+      photoRecords: propertyPhotoRecords,
+      deerProfiles: propertyDeerProfiles,
+      conditions: usedConditions,
+      scoutPicks,
+    });
+    const contextHash = hashAiScoutContext(context);
+    const now = Date.now();
+
+    // Same data, same conditions, asked recently: show that answer again
+    // instead of spending a call from the daily quota.
+    if (!options.force) {
+      const reusable = findReusableAiScoutReport(
+        readSavedAiScoutReport(selectedProperty.id),
+        contextHash,
+        now,
+      );
+      if (reusable) {
+        setAiScoutReport(null);
+        setStreamingReport(null);
+        setSavedScout({ entry: reusable, agoLabel: formatSavedAgo(reusable.savedAt, now) });
+        setReusedLabel(formatSavedTime(reusable.savedAt, now));
+        setAiScoutStatus("idle");
+        setAiScoutError("");
+        return;
+      }
+    }
 
     setAiScoutStatus("loading");
     setAiScoutError("");
+    setReusedLabel("");
+    setStreamingReport(null);
 
     try {
-      // Blank moon falls back to today's detected phase, so AI Scout always
-      // has the lunar timing to reason about.
-      const usedConditions: AiScoutConditions = {
-        ...conditions,
-        moonPhase: conditions.moonPhase || moon?.phase || "",
-        notes: [
-          conditions.notes.trim(),
-          liveExtras.sky ? `Sky: ${liveExtras.sky}.` : "",
-          liveExtras.pressure ? `Barometric ${liveExtras.pressure}.` : "",
-        ]
-          .filter(Boolean)
-          .join(" "),
-      };
-      const context = buildAiScoutRequestContext({
-        property: selectedProperty,
-        stands: propertyStands,
-        cameras: propertyCameras,
-        cameraChecks: propertyCameraChecks,
-        hunts: propertyHunts,
-        photoRecords: propertyPhotoRecords,
-        deerProfiles: propertyDeerProfiles,
-        conditions: usedConditions,
-        scoutPicks,
+      const report = await requestAiScoutReport(context, {
+        onPartial: (partial) => setStreamingReport(partial),
       });
-      const report = await requestAiScoutReport(context);
 
       setAiScoutReport(report);
+      setStreamingReport(null);
       setAiScoutStatus("idle");
-      // Keep it on this device (latest per property) for no-signal reopen.
+      // Keep it on this device (latest per property) for no-signal reopen,
+      // with the payload fingerprint so an unchanged re-ask can reuse it.
       writeSavedAiScoutReport({
         propertyId: selectedProperty.id,
         savedAt: Date.now(),
         conditions: usedConditions,
         report,
+        contextHash,
       });
     } catch (error) {
+      // Keep whatever streamed in on screen above the error line.
+      setStreamingReport(
+        error instanceof AiScoutStreamError && hasPartialContent(error.partial)
+          ? error.partial
+          : null,
+      );
       setAiScoutStatus("error");
       setAiScoutError(error instanceof Error ? error.message : "AI Scout request failed.");
     }
@@ -251,9 +309,16 @@ export default function AIPage() {
     { label: "Moon", value: conditions.moonPhase || moon?.phase || "" },
   ];
   const extrasLine = [liveExtras.sky, liveExtras.pressure].filter(Boolean).join(" · ");
-  // A fresh report wins; otherwise show the one saved on this device.
-  const shownSaved = aiScoutReport ? null : savedScout;
-  const shownReport = aiScoutReport ?? shownSaved?.entry.report ?? null;
+  // A fresh report wins, then one streaming in (or cut off partway), then the
+  // one saved on this device.
+  const isStreaming = aiScoutStatus === "loading";
+  const shownPartial =
+    !aiScoutReport && (isStreaming || hasPartialContent(streamingReport))
+      ? (streamingReport ?? {})
+      : null;
+  const shownSaved = aiScoutReport || shownPartial ? null : savedScout;
+  const shownReport: AiScoutPartialReport | null =
+    aiScoutReport ?? shownPartial ?? shownSaved?.entry.report ?? null;
   const savedConditionsLine = shownSaved
     ? [
         shownSaved.entry.conditions.windDirection,
@@ -399,13 +464,15 @@ export default function AIPage() {
                 type="button"
                 variant="primary"
                 fullWidth
-                onClick={askAiScout}
+                onClick={() => void askAiScout()}
                 disabled={aiScoutStatus === "loading"}
                 style={askButtonStyle}
               >
                 {aiScoutStatus === "loading"
-                  ? "Asking AI Scout…"
-                  : shownSaved
+                  ? streamingReport && hasPartialContent(streamingReport)
+                    ? "AI Scout is writing…"
+                    : "Asking AI Scout…"
+                  : shownSaved || aiScoutReport
                     ? "Ask again"
                     : "Ask AI Scout"}
               </Button>
@@ -414,13 +481,32 @@ export default function AIPage() {
                 {selectedProperty.name}, then writes where to sit, why, and what could go wrong.
               </p>
 
-              {aiScoutStatus === "error" ? (
+              {aiScoutStatus === "error" && !shownPartial ? (
                 <p style={aiScoutErrorStyle}>{aiScoutError}</p>
               ) : null}
 
+              {reusedLabel && shownSaved ? (
+                <div style={reusedStyle} role="status">
+                  <span style={{ ...monoLabelStyle, color: "var(--text)" }}>
+                    Saved from {reusedLabel} — nothing has changed
+                  </span>
+                  <button
+                    type="button"
+                    style={editButtonStyle}
+                    onClick={() => void askAiScout({ force: true })}
+                  >
+                    Ask again anyway
+                  </button>
+                </div>
+              ) : null}
+
               {shownReport ? (
-                <article style={reportStyle} aria-label="AI Scout recommendation">
-                  {shownSaved ? (
+                <article
+                  style={reportStyle}
+                  aria-label="AI Scout recommendation"
+                  aria-busy={isStreaming && Boolean(shownPartial)}
+                >
+                  {shownSaved && !reusedLabel ? (
                     <p style={{ ...monoLabelStyle, margin: 0 }}>
                       From {shownSaved.agoLabel}
                       {savedConditionsLine ? ` · ${savedConditionsLine}` : ""} · saved on this device
@@ -428,27 +514,36 @@ export default function AIPage() {
                   ) : null}
                   <div style={reportHeadStyle}>
                     <span style={monoLabelStyle}>Recommended stand</span>
-                    <span
-                      style={{
-                        ...monoLabelStyle,
-                        color: confidenceColor(shownReport.confidence),
-                      }}
-                    >
-                      {shownReport.confidence} confidence
-                    </span>
+                    {shownReport.confidence ? (
+                      <span
+                        style={{
+                          ...monoLabelStyle,
+                          color: confidenceColor(shownReport.confidence),
+                        }}
+                      >
+                        {shownReport.confidence} confidence
+                      </span>
+                    ) : shownPartial ? (
+                      <span style={monoLabelStyle}>{isStreaming ? "Writing…" : "Incomplete"}</span>
+                    ) : null}
                   </div>
-                  <h2 style={standNameStyle}>{shownReport.recommendedStandName}</h2>
+                  <h2 style={standNameStyle}>
+                    {shownReport.recommendedStandName || (shownPartial ? "…" : "")}
+                  </h2>
                   {shownReport.headline ? (
                     <p style={headlineStyle}>{shownReport.headline}</p>
                   ) : null}
-                  <p style={reasoningStyle}>{shownReport.recommendedStandReasoning}</p>
+                  {shownReport.recommendedStandReasoning ? (
+                    <p style={reasoningStyle}>{shownReport.recommendedStandReasoning}</p>
+                  ) : null}
 
-                  {shownReport.keyFactors.length > 0 ? (
+                  {shownReport.keyFactors && shownReport.keyFactors.some(Boolean) ? (
                     <>
                       <h3 style={listTitleStyle}>Key factors</h3>
                       <ol style={numberedListStyle}>
-                        {shownReport.keyFactors.map((factor, index) => (
-                          <li key={factor} style={numberedItemStyle}>
+                        {shownReport.keyFactors.filter(Boolean).map((factor, index) => (
+                          // Index keys: a streaming factor's text grows in place.
+                          <li key={index} style={numberedItemStyle}>
                             <span style={{ ...monoLabelStyle, color: "var(--accent-text)" }}>
                               {String(index + 1).padStart(2, "0")}
                             </span>
@@ -459,18 +554,24 @@ export default function AIPage() {
                     </>
                   ) : null}
 
-                  {shownReport.risks.length > 0 ? (
+                  {shownReport.risks && shownReport.risks.some(Boolean) ? (
                     <>
                       <h3 style={listTitleStyle}>Worth knowing</h3>
                       <ul style={numberedListStyle}>
-                        {shownReport.risks.map((risk) => (
-                          <li key={risk} style={numberedItemStyle}>
+                        {shownReport.risks.filter(Boolean).map((risk, index) => (
+                          <li key={index} style={numberedItemStyle}>
                             <span style={{ ...monoLabelStyle, color: "var(--accent-2)" }}>!</span>
                             <span>{risk}</span>
                           </li>
                         ))}
                       </ul>
                     </>
+                  ) : null}
+
+                  {shownPartial && aiScoutStatus === "error" ? (
+                    <p style={aiScoutErrorStyle} role="alert">
+                      {aiScoutError} What arrived is shown above.
+                    </p>
                   ) : null}
                 </article>
               ) : null}
@@ -573,6 +674,19 @@ const editButtonStyle: CSSProperties = {
   background: "transparent",
   color: "var(--text)",
   cursor: "pointer",
+};
+
+const reusedStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.5rem 0.75rem",
+  minHeight: "44px",
+  padding: "0 0.75rem",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--surface-2)",
 };
 
 const askButtonStyle: CSSProperties = {
