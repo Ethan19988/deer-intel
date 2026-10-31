@@ -148,16 +148,24 @@ export default function MapSearchBar({
     };
   }, [query, showSuggestions]);
 
-  // Owner matches come straight from the loaded parcel tiles, so they're
-  // instant and need no debounce.
+  // Owner matches come straight from the loaded parcel tiles (no network), but
+  // each search scans every loaded parcel, so it runs once typing pauses
+  // (~250 ms) rather than on every keystroke.
+  const [ownerQuery, setOwnerQuery] = useState("");
+  useEffect(() => {
+    const handle = window.setTimeout(() => setOwnerQuery(query.trim()), 250);
+    return () => window.clearTimeout(handle);
+  }, [query]);
+
+  // Keyed on the debounced query only, so a keystroke doesn't re-run it.
   const ownerHits = useMemo(() => {
-    if (!ownerSearch || !showSuggestions || query.trim().length < 2) return [];
+    if (!ownerSearch || !showSuggestions || ownerQuery.length < 2) return [];
     try {
-      return ownerSearch(query.trim());
+      return ownerSearch(ownerQuery);
     } catch {
       return [];
     }
-  }, [ownerSearch, showSuggestions, query]);
+  }, [ownerSearch, showSuggestions, ownerQuery]);
 
   function handleSelectOwner(hit: ParcelTileOwnerHit) {
     setShowSuggestions(false);

@@ -199,6 +199,17 @@ export function detectAccountSwitch(
   return { previousUserId, unsyncedEdits };
 }
 
+/**
+ * The sync meta only when it belongs to `userId`. Sign-out keeps the meta (and
+ * with it the merge base) so the same account signing back in still knows
+ * what this device deleted; any other account must start without it, or its
+ * merge would treat the previous account's records as tombstones. Meta with no
+ * userId (very old builds) is never reused.
+ */
+export function syncMetaForUser(meta: SyncMeta | null, userId: string): SyncMeta | null {
+  return meta && meta.userId && meta.userId === userId ? meta : null;
+}
+
 export function clearSyncMeta(): void {
   if (typeof window === "undefined") return;
 
@@ -437,15 +448,20 @@ export function mergeSyncedStates(
 
   // Land tags are keyed by owner; fingerprints are of the tag itself (as in
   // buildSyncBase), and the newer savedAt wins when both sides changed one.
-  const wrap = (tags: LandTags | undefined) =>
-    landTagEntries(tags).map(([key, tag]) => ({ key, tag }));
-  merged.landTags = Object.fromEntries(
-    mergeRecordsById(wrap(local.landTags), wrap(remote.landTags), base?.landTags, {
-      getId: (entry) => entry.key,
-      getHash: (entry) => hashRecord(entry.tag),
-      getTime: (entry) => Date.parse(entry.tag?.savedAt ?? ""),
-    }).map((entry): [string, LandTag] => [entry.key, entry.tag]),
-  );
+  // A row with no landTags field at all was written by an older build that
+  // didn't sync tags: that isn't "every tag deleted remotely", so local tags
+  // are kept as they are.
+  if (remote.landTags !== undefined) {
+    const wrap = (tags: LandTags | undefined) =>
+      landTagEntries(tags).map(([key, tag]) => ({ key, tag }));
+    merged.landTags = Object.fromEntries(
+      mergeRecordsById(wrap(local.landTags), wrap(remote.landTags), base?.landTags, {
+        getId: (entry) => entry.key,
+        getHash: (entry) => hashRecord(entry.tag),
+        getTime: (entry) => Date.parse(entry.tag?.savedAt ?? ""),
+      }).map((entry): [string, LandTag] => [entry.key, entry.tag]),
+    );
+  }
 
   const ids = new Set(merged.properties.map((property) => property.id));
   merged.selectedPropertyId = ids.has(local.selectedPropertyId)

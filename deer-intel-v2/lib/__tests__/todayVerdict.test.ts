@@ -143,6 +143,22 @@ describe("verdict sit wind", () => {
     expect(verdict.check.rows[0].wind.status).toBe("good");
   });
 
+  it("shows no speed when the sit wind has only a direction", () => {
+    const noSpeed: LiveForecast = {
+      ...forecast,
+      days: [{ ...forecast.days[0], eveningWind: "SW" }, forecast.days[1]],
+    };
+    const verdict = buildTodayVerdict({
+      ...base,
+      forecast: noSpeed,
+      now: at(14),
+      stands: [stand("Ridge", "SW")],
+    });
+
+    expect(verdict.wind).toBe("SW");
+    expect(verdict.windSpeed).toBeUndefined();
+  });
+
   it("calls a sub-3 mph sit light & variable with no wind pick", () => {
     // Morning sit wind is "S 3 mph" in the fixture; make it 2 mph.
     const calmForecast: LiveForecast = {

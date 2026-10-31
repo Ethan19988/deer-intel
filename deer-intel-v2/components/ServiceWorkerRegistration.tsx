@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   OFFLINE_DOWNLOAD_CHANGE_EVENT,
   isOfflineDownloadRunning,
@@ -11,13 +11,18 @@ import {
 // the cached one. Kept as a tiny client component so it can live in the root
 // layout without making the layout itself a client component.
 //
-// A new version never reloads the page on its own: a reload in the middle of an
-// offline-map download kills it, and one mid-drawing loses the outline. Instead
-// a small "Update ready" prompt appears and the hunter taps it when it suits
-// them — and even that waits while a download is running.
+// A new version never takes over or reloads on its own: it waits (so this tab
+// keeps the cached chunks of the build it's running), a reload in the middle of
+// an offline-map download would kill it, and one mid-drawing loses the outline.
+// Instead a small "Update ready" prompt appears and the hunter taps it when it
+// suits them — and even that waits while a download is running. The tap tells
+// the waiting worker to activate, then reloads once it controls the page.
 export default function ServiceWorkerRegistration() {
   const [updateReady, setUpdateReady] = useState(false);
   const [downloadRunning, setDownloadRunning] = useState(false);
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+  // Set when the hunter tapped refresh, so the next controller change reloads.
+  const reloadOnChangeRef = useRef(false);
 
   useEffect(() => {
     if (
@@ -27,11 +32,36 @@ export default function ServiceWorkerRegistration() {
       return;
     }
 
+    // A new worker finished installing while an older one controls this page:
+    // it now waits for the hunter's tap. (On the very first install there is
+    // no controller; that worker activates itself and needs no prompt.)
+    const watchForWaiting = (registration: ServiceWorkerRegistration) => {
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        setUpdateReady(true);
+      }
+      registration.addEventListener("updatefound", () => {
+        const installing = registration.installing;
+        if (!installing) return;
+        installing.addEventListener("statechange", () => {
+          if (installing.state === "installed" && navigator.serviceWorker.controller) {
+            setUpdateReady(true);
+          }
+        });
+      });
+    };
+
     // If a worker was already controlling this page, a controller change means
-    // a newer version just activated. (Skipped on the very first install, where
-    // there was no controller and the page is already the fresh bundle.)
+    // a newer version just activated: reload if this tab asked for it,
+    // otherwise (another tab tapped refresh) offer the refresh here too.
+    // Skipped on the very first install, where there was no controller and the
+    // page is already the fresh bundle.
     const hadController = Boolean(navigator.serviceWorker.controller);
     const onControllerChange = () => {
+      if (reloadOnChangeRef.current) {
+        reloadOnChangeRef.current = false;
+        window.location.reload();
+        return;
+      }
       if (hadController) setUpdateReady(true);
     };
     navigator.serviceWorker.addEventListener(
@@ -47,6 +77,8 @@ export default function ServiceWorkerRegistration() {
       navigator.serviceWorker
         .register("/sw.js")
         .then((registration) => {
+          registrationRef.current = registration;
+          watchForWaiting(registration);
           // Check for a newer worker now and whenever the tab regains focus, so
           // fresh deploys roll out without a manual cache clear.
           checkForUpdate(registration);
@@ -90,7 +122,20 @@ export default function ServiceWorkerRegistration() {
       setDownloadRunning(true);
       return;
     }
-    window.location.reload();
+    const waiting = registrationRef.current?.waiting;
+    if (!waiting) {
+      // Already active (another tab activated it): just load the new build.
+      window.location.reload();
+      return;
+    }
+    // Activate the waiting worker; controllerchange then reloads the page.
+    reloadOnChangeRef.current = true;
+    waiting.postMessage({ type: "SKIP_WAITING" });
+    // If activation never lands (worker became redundant), reload anyway
+    // rather than leave the tap doing nothing.
+    window.setTimeout(() => {
+      if (reloadOnChangeRef.current) window.location.reload();
+    }, 4000);
   };
 
   return (

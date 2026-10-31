@@ -1,8 +1,11 @@
 // Serves /sw.js with a per-deploy cache name baked in, so every deploy produces
 // a byte-different service worker. The browser's update check then detects the
-// new worker, its skipWaiting + clients.claim activate it immediately, and
-// ServiceWorkerRegistration shows an "Update ready — tap to refresh" prompt
-// (never an automatic reload, which would kill an offline-map download).
+// new worker, which installs and WAITS: activating it would delete the previous
+// build's cache while open tabs still run that build (chunk-load errors
+// offline). ServiceWorkerRegistration shows an "Update ready — tap to refresh"
+// prompt (never an automatic reload, which would kill an offline-map download);
+// the tap posts SKIP_WAITING to the waiting worker and reloads once it takes
+// over. The very first install (no active worker yet) activates immediately.
 //
 // This replaces the old static public/sw.js, whose version was hand-bumped:
 // deploys that forgot to bump it produced an identical /sw.js, so returning
@@ -84,9 +87,19 @@ self.addEventListener("install", (event) => {
         PRECACHE.map((path) => cache.add(path).catch(() => undefined)),
       );
       await warmBuildAssets(cache).catch(() => undefined);
-      await self.skipWaiting();
+      // First install: nothing is running an older build, so take over now
+      // and the app works offline from this visit on. An update instead waits
+      // for the page to ask (SKIP_WAITING below), so an open tab never loses
+      // the cached chunks of the build it is running.
+      if (!self.registration.active) await self.skipWaiting();
     })(),
   );
+});
+
+// The "Update ready — tap to refresh" prompt asks the waiting worker to take
+// over; the page reloads on the resulting controllerchange.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -98,6 +111,9 @@ self.addEventListener("activate", (event) => {
           .filter((key) => key.startsWith("deer-intel-app-") && key !== CACHE)
           .map((key) => caches.delete(key)),
       );
+      // Safe: this only runs on the first install (no page is controlled yet)
+      // or after the hunter tapped refresh, which reloads that page. Any other
+      // open tab sees the controller change and shows the refresh prompt.
       await self.clients.claim();
     })(),
   );

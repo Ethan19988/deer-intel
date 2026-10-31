@@ -194,10 +194,11 @@ function periodWind(
   const tomorrow = forecast.days[1];
   const fromText = (text: string | undefined) => {
     const wind = text ? (parseWindCompass(text) ?? undefined) : undefined;
-    // "SW 7 mph" → "7 mph": the point is carried separately.
-    return wind
-      ? { wind, speed: text?.replace(/^\s*[NSEW]{1,3}\s+/i, "") || undefined }
-      : null;
+    if (!wind) return null;
+    // "SW 7 mph" → "7 mph": the point is carried separately. A bare "SW" has
+    // no speed at all, so none is shown (not the direction again).
+    const rest = (text ?? "").replace(/^\s*[NSEW]{1,3}(?:\s+|$)/i, "").trim();
+    return { wind, speed: /\d/.test(rest) ? rest : undefined };
   };
   const current = {
     wind: forecast.current.windDirection || undefined,

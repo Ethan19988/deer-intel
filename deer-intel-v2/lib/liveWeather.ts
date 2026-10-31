@@ -973,7 +973,8 @@ function localMinutes(iso: string): number | null {
  * The hourly windows the morning and evening sit winds are averaged over,
  * covering PA legal light: the morning runs from legal start (sunrise − 30 min,
  * floored to its hour) for SIT_WINDOW_HOURS; the evening from sunset −
- * SIT_WINDOW_HOURS through legal end (sunset + 30 min, rounded up to the hour).
+ * SIT_WINDOW_HOURS through legal end (sunset + 30 min, floored to its hour, so
+ * no reading after legal light ends is included).
  * Hours are local and inclusive, matching averageWind.
  */
 export function sitWindowHours(
@@ -1002,7 +1003,9 @@ export function sitWindowHours(
       fromHour: Math.max(0, sunsetHour - SIT_WINDOW_HOURS),
       toHour: Math.min(
         23,
-        Math.ceil((sunset + PA_LEGAL_LIGHT_MINUTES.afterSunset) / 60),
+        // Floored: an hourly reading at HH:00 past legal end is after shooting
+        // light, so the window stops at the last hour that starts inside it.
+        Math.floor((sunset + PA_LEGAL_LIGHT_MINUTES.afterSunset) / 60),
       ),
     };
   }

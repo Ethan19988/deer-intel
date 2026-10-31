@@ -25,7 +25,6 @@ import {
 } from "@/lib/supabaseClient";
 import {
   buildSyncBase,
-  clearSyncMeta,
   decideReconcile,
   detectAccountSwitch,
   hasMeaningfulData,
@@ -37,6 +36,7 @@ import {
   saveWithMerge,
   serializeState,
   splitLandTags,
+  syncMetaForUser,
   withLandTags,
   writeDeviceOwner,
   writeSyncMeta,
@@ -130,6 +130,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Cloud saves run one at a time so each sees the version the previous one
   // left behind.
   const saveChainRef = useRef<Promise<unknown>>(Promise.resolve());
+  // Run `task` after every cloud save/refresh already queued, so a pull never
+  // overlaps a save (and can't apply a row older than one just pushed).
+  // `task` must not await anything that is itself queued here.
+  const runExclusive = useCallback(<T,>(task: () => Promise<T>): Promise<T> => {
+    const result = saveChainRef.current.then(task, task);
+    saveChainRef.current = result.catch(() => undefined);
+    return result;
+  }, []);
 
   // What this device would upload right now: records plus land tags.
   const currentSynced = useCallback(
@@ -164,7 +172,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       alsoBase?: SyncedState,
     ) => {
       const snapshot = serializeState(uploaded);
-      const syncedAt = serverTime || readSyncMeta()?.updatedAt || "";
+      const syncedAt =
+        serverTime || syncMetaForUser(readSyncMeta(), userId)?.updatedAt || "";
       lastSyncedSnapshotRef.current = snapshot;
       writeSyncMeta({
         updatedAt: syncedAt,
@@ -219,11 +228,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { merged: outcome.merged };
       };
 
-      const result = saveChainRef.current.then(run, run);
-      saveChainRef.current = result.catch(() => undefined);
-      return result;
+      return runExclusive(run);
     },
-    [currentSynced, applySyncedState, recordSynced],
+    [currentSynced, applySyncedState, recordSynced, runExclusive],
   );
 
   // Remember (across reloads) that this device holds edits the cloud lacks.
@@ -256,23 +263,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const remote = await pullRemoteState(activeUser.id);
-        let localMeta = readSyncMeta();
+        // Sign-out keeps the sync meta (and its merge base) so this same
+        // account signing back in still honors deletions made on this device.
+        // It is only reused for the account it belongs to.
+        const storedMeta = readSyncMeta();
+        let localMeta = syncMetaForUser(storedMeta, activeUser.id);
         const owner = readDeviceOwner();
 
-        // Signing out clears sync meta; if this same account signed out with
-        // edits its cloud never got, still treat them as unsaved so they are
-        // merged in rather than replaced by the cloud copy.
-        if (!localMeta && owner?.userId === activeUser.id && owner.unsyncedEdits) {
-          localMeta = { updatedAt: "", pendingLocalEdits: true, userId: activeUser.id };
+        // If this same account signed out with edits its cloud never got,
+        // treat them as unsaved so they are merged in rather than replaced by
+        // the cloud copy.
+        if (owner?.userId === activeUser.id && owner.unsyncedEdits) {
+          localMeta = localMeta
+            ? { ...localMeta, pendingLocalEdits: true }
+            : { updatedAt: "", pendingLocalEdits: true, userId: activeUser.id };
         }
 
         // This device holds another account's data: don't push it into this
         // account or pull over it. Leave the baseline unset (which gates the
-        // push effect and focus refresh) until the hunter chooses.
+        // push effect and focus refresh) until the hunter chooses. Uses the
+        // stored meta as-is: its userId says whose data this is.
         const switched = detectAccountSwitch(
           currentState,
           owner,
-          localMeta,
+          storedMeta,
           activeUser.id,
         );
 
@@ -455,36 +469,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const remote = await pullRemoteState(user.id);
-      if (!remote) return;
+      // Queued behind any save in flight, so the pull sees that save's row
+      // and nothing can record a newer version while this one is applied.
+      const userId = user.id;
+      const outcome = await runExclusive(async (): Promise<"none" | "applied" | "save"> => {
+        // The user signed out (or switched) while this waited in the queue.
+        if (reconciledUserIdRef.current !== userId) return "none";
+        if (lastSyncedSnapshotRef.current === null) return "none";
 
-      // The server stamps updated_at on every save, so a different value
-      // means another device saved since this one last synced.
-      const localMeta = readSyncMeta();
-      if (
-        localMeta &&
-        localMeta.userId === user.id &&
-        remote.updatedAt === localMeta.updatedAt
-      ) {
-        return;
+        const remote = await pullRemoteState(userId);
+        if (!remote) return "none";
+
+        // The server stamps updated_at on every save, so a different value
+        // means another device saved since this one last synced.
+        const localMeta = syncMetaForUser(readSyncMeta(), userId);
+        if (localMeta && remote.updatedAt === localMeta.updatedAt) return "none";
+
+        // An edit may have landed while queued or while the pull was in
+        // flight. Save it instead (after this task) — the save merges with the
+        // newer cloud copy rather than overwriting it.
+        if (hasUnpushedEdits()) return "save";
+
+        const applied = applySyncedState(remote.state);
+        recordSynced(applied, userId, remote.updatedAt, remote.state);
+        return "applied";
+      });
+
+      if (outcome === "save") {
+        await saveToCloud(userId);
+      } else if (outcome === "applied") {
+        setSyncStatus("synced");
+        setSyncMessage("Loaded newer data from the cloud.");
       }
-
-      // An edit may have landed while the pull was in flight. Save it now —
-      // the save merges with the newer cloud copy rather than overwriting it.
-      if (hasUnpushedEdits()) {
-        await saveToCloud(user.id);
-        return;
-      }
-
-      const applied = applySyncedState(remote.state);
-      recordSynced(applied, user.id, remote.updatedAt, remote.state);
-      setSyncStatus("synced");
-      setSyncMessage("Loaded newer data from the cloud.");
     } catch (error) {
       setSyncStatus("error");
       setSyncMessage(`Cloud refresh failed: ${errorMessage(error)}`);
     }
-  }, [user, applySyncedState, recordSynced, hasUnpushedEdits, saveToCloud]);
+  }, [user, applySyncedState, recordSynced, hasUnpushedEdits, saveToCloud, runExclusive]);
 
   useEffect(() => {
     if (!user) return;
@@ -635,9 +656,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (supabase) await supabase.auth.signOut();
 
-    // Keep local data on this device; just forget the sync bookkeeping so the
-    // next sign-in reconciles cleanly.
-    clearSyncMeta();
+    // Keep local data and the sync meta on this device. The meta (merge base
+    // included) is tagged with this user's id, so if the same account signs
+    // back in its merge still honors deletions made here; reconcile ignores it
+    // for any other account (syncMetaForUser) and the next sync replaces it.
     reconciledUserIdRef.current = null;
     lastSyncedSnapshotRef.current = null;
     setAccountSwitch(null);

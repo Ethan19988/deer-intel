@@ -787,26 +787,31 @@ export default function ParcelTilesLayer({
     // phone. Features the cache can't place stay unrestricted.
     const featurePos = new WeakMap<Feature, GeoPoint>();
     const indexedTiles = new WeakSet<object>();
-    // A miss is only re-scanned once the tile cache has changed, so a
-    // feature the cache can't place doesn't cost a scan on every paint.
-    let scannedSignature = -1;
-    const cacheSignature = () => {
-      let total = 0;
+    // A miss only triggers an index pass when the cache holds a tile not yet
+    // indexed. The protomaps tile cache is capped (LRU), so its size stops
+    // changing once full; new tiles are spotted by their data object instead.
+    // The check is one pass over the cache's entries (a few dozen), so a
+    // feature the cache can't place stays cheap on every paint.
+    const hasUnindexedTile = () => {
       const views = (layer as unknown as { views?: unknown }).views;
-      if (views instanceof Map) {
-        for (const view of views.values()) {
-          const cache = (view as { tileCache?: TileCacheLike } | null)?.tileCache?.cache;
-          if (cache instanceof Map) total += cache.size;
+      if (!(views instanceof Map)) return false;
+      for (const view of views.values()) {
+        const cache = (view as { tileCache?: TileCacheLike } | null)?.tileCache?.cache;
+        if (!(cache instanceof Map)) continue;
+        for (const [key, entry] of cache.entries()) {
+          const data = (entry as CachedTileLike | null)?.data;
+          // Same entries forEachCachedTile visits, so a skipped one can't
+          // keep forcing index passes.
+          if (typeof key !== "string" || !(data instanceof Map) || !parseTileKey(key)) continue;
+          if (!indexedTiles.has(data)) return true;
         }
       }
-      return total;
+      return false;
     };
     const positionOf = (feature: Feature): GeoPoint | undefined => {
       const known = featurePos.get(feature);
       if (known) return known;
-      const signature = cacheSignature();
-      if (signature === scannedSignature) return undefined;
-      scannedSignature = signature;
+      if (!hasUnindexedTile()) return undefined;
       forEachCachedTile(layer, (tile, tileSize, data) => {
         if (indexedTiles.has(data)) return;
         indexedTiles.add(data);
@@ -886,6 +891,22 @@ export default function ParcelTilesLayer({
       if (changed) refresh();
     });
 
+    // A feature's interior point never changes (features are immutable once
+    // decoded), so it is computed once per feature rather than on every search.
+    // null = no interior point.
+    const interiorPos = new WeakMap<Feature, GeoPoint | null>();
+    const interiorPointOf = (
+      feature: Feature,
+      tile: TileCoord,
+      tileSize: number,
+    ): GeoPoint | undefined => {
+      const cached = interiorPos.get(feature);
+      if (cached !== undefined) return cached ?? undefined;
+      const inside = geomInteriorPoint(feature.geom);
+      const at = inside ? tilePixelToLatLng(tile, tileSize, inside) : null;
+      interiorPos.set(feature, at);
+      return at ?? undefined;
+    };
     // Search the parcels already loaded around the current view by owner name.
     // The statewide archive has no owner index, so this covers what's on
     // screen (plus a margin), not the whole state. Each hit carries a point
@@ -937,8 +958,7 @@ export default function ParcelTilesLayer({
         if (!Array.isArray(parcels)) return;
         for (const feature of parcels) {
           if (!feature?.geom) continue;
-          const inside = geomInteriorPoint(feature.geom);
-          consider(feature, inside ? tilePixelToLatLng(tile, tileSize, inside) : undefined);
+          consider(feature, interiorPointOf(feature, tile, tileSize));
         }
       });
 

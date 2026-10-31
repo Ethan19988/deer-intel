@@ -184,6 +184,29 @@ describe("mergeSyncedStates", () => {
     expect(Object.keys(merged.landTags ?? {})).toEqual(["SMITH"]);
   });
 
+  it("keeps base-matching local land tags when an older build wrote the remote row", () => {
+    const tags = { SMITH: tag("Smith", "2026-01-01T00:00:00Z") };
+    // The base knows SMITH, local is unchanged, and the remote row has no
+    // landTags field at all: that is not a remote delete.
+    const base = buildSyncBase(withLandTags(emptyState(), tags));
+    const local = withLandTags(emptyState(), tags);
+    const remote = emptyState();
+    expect("landTags" in remote).toBe(false);
+    const merged = mergeSyncedStates(local, remote, base);
+    expect(merged.landTags).toEqual(tags);
+  });
+
+  it("still honors a remote land tag delete when the remote row has landTags", () => {
+    const tags = { SMITH: tag("Smith", "2026-01-01T00:00:00Z") };
+    const base = buildSyncBase(withLandTags(emptyState(), tags));
+    const merged = mergeSyncedStates(
+      withLandTags(emptyState(), tags),
+      withLandTags(emptyState(), {}),
+      base,
+    );
+    expect(merged.landTags).toEqual({});
+  });
+
   it("keeps a valid selected property", () => {
     const property = { id: "p2", name: "B", county: "", acres: "", notes: "" };
     const local = { ...emptyState(), selectedPropertyId: "gone" };
