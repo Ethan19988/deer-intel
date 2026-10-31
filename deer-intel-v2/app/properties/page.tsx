@@ -13,6 +13,7 @@ import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import { MapPinIcon } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
+import PageHeader from "@/components/ui/PageHeader";
 import Tabs from "@/components/ui/Tabs";
 import {
   createDeerIntelId,
@@ -283,19 +284,15 @@ export default function PropertiesPage() {
 
   return (
     <PageShell maxWidth="980px">
-      <header className="di-section-hero" style={headerStyle}>
-        <div style={headerRowStyle}>
-          <div style={headerLeadStyle}>
-            <span style={headerIconStyle} aria-hidden="true">
-              <MapPinIcon size={24} />
-            </span>
-            <div style={headerTitleWrapStyle}>
-              <p style={eyebrowStyle}>Properties</p>
-              <h1 style={titleStyle}>Properties</h1>
-            </div>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Your ground"
+        title="Properties"
+        meta={
+          properties.length > 0
+            ? `${properties.length} ${properties.length === 1 ? "property" : "properties"} · ${stands.length} stands · ${cameras.length} cameras`
+            : undefined
+        }
+      />
 
       <Tabs
         items={[
@@ -325,65 +322,6 @@ export default function PropertiesPage() {
     </PageShell>
   );
 }
-
-const headerStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.55rem",
-  marginBottom: "1.5rem",
-};
-
-const headerRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "1rem",
-  flexWrap: "wrap",
-};
-
-const headerLeadStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.85rem",
-  minWidth: 0,
-};
-
-const headerIconStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "3rem",
-  height: "3rem",
-  flex: "none",
-  borderRadius: "14px",
-  background: "rgba(243, 237, 217, 0.15)",
-  border: "1px solid rgba(243, 237, 217, 0.35)",
-  color: "#f6efd6",
-};
-
-const headerTitleWrapStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.25rem",
-  minWidth: 0,
-};
-
-
-
-const eyebrowStyle: CSSProperties = {
-  margin: 0,
-  color: "rgba(243, 237, 217, 0.82)",
-  fontSize: "0.78rem",
-  fontWeight: 800,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-};
-
-const titleStyle: CSSProperties = {
-  margin: 0,
-  color: "#f6f0dc",
-  fontSize: "2rem",
-  lineHeight: 1.1,
-  textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
-};
 
 const addCardStyle: CSSProperties = {
   padding: "1.25rem",

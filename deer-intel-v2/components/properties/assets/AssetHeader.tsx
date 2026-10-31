@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import Badge from "@/components/ui/Badge";
+import PageHeader from "@/components/ui/PageHeader";
 
 type AssetHeaderProps = {
   assetType: string;
@@ -12,6 +12,9 @@ type AssetHeaderProps = {
   icon?: ReactNode;
 };
 
+// An asset page (camera site, stand) uses the same flat tactical header as
+// every other screen: asset type as the eyebrow, the name as the title, the
+// property and status as mono meta, then the key facts in a bordered strip.
 export default function AssetHeader({
   assetType,
   name,
@@ -21,88 +24,32 @@ export default function AssetHeader({
   children,
   icon,
 }: AssetHeaderProps) {
-  return (
-    <section
-      id="asset-overview"
-      className="di-section-hero"
-      style={cardStyle}
-    >
-      <div style={badgeRowStyle}>
-        <Badge variant="success">{assetType}</Badge>
-        <Badge>{propertyName}</Badge>
-        {status ? <Badge>{status}</Badge> : null}
-      </div>
+  const meta = [propertyName, status].filter(Boolean).join(" · ");
 
-      <div style={titleRowStyle}>
-        {icon ? (
-          <span style={iconBadgeStyle} aria-hidden="true">
-            {icon}
-          </span>
-        ) : null}
-        <h1 style={titleStyle}>{name}</h1>
-      </div>
-      <p style={descriptionStyle}>{description}</p>
+  return (
+    <section id="asset-overview" style={wrapStyle}>
+      <PageHeader
+        eyebrow={assetType}
+        title={name}
+        icon={icon}
+        meta={meta || undefined}
+        description={description}
+      />
 
       {children ? <div style={detailsStyle}>{children}</div> : null}
     </section>
   );
 }
 
-// Layout/spacing only — the golden-hour band comes from .di-section-hero.
-const cardStyle: CSSProperties = {
+const wrapStyle: CSSProperties = {
   marginTop: "1rem",
 };
 
-const badgeRowStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "0.5rem",
-};
-
-const titleRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.9rem",
-  marginTop: "1rem",
-};
-
-const iconBadgeStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "3.25rem",
-  height: "3.25rem",
-  flex: "none",
-  borderRadius: "16px",
-  background: "rgba(243, 237, 217, 0.15)",
-  border: "1px solid rgba(243, 237, 217, 0.35)",
-  color: "#f6efd6",
-};
-
-const titleStyle: CSSProperties = {
-  margin: 0,
-  color: "#f6f0dc",
-  fontSize: "2.5rem",
-  lineHeight: 1.05,
-  fontWeight: 850,
-  textShadow: "0 2px 18px rgba(12, 18, 8, 0.5)",
-};
-
-const descriptionStyle: CSSProperties = {
-  maxWidth: "760px",
-  margin: "0.9rem 0 0",
-  color: "rgba(243, 237, 217, 0.9)",
-  fontSize: "1.05rem",
-  lineHeight: 1.6,
-};
-
-// The facts (AssetFact) are shared with body panels and use dark tokens, so the
-// details sit in a solid light panel on the band rather than directly on it.
 const detailsStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 100%), 1fr))",
   gap: "1rem",
-  marginTop: "1.25rem",
+  marginTop: "1rem",
   padding: "1rem 1.15rem",
   borderRadius: "var(--radius-sm)",
   border: "1px solid var(--border)",
