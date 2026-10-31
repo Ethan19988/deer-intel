@@ -261,14 +261,21 @@ export async function streamAiScoutReport(
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
 
+  // The finally runs however iteration stops (end, error, or an early
+  // return() when the report finished or the client went away), so the
+  // upstream body is always closed.
   async function* decoded(): AsyncGenerator<string> {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      yield decoder.decode(value, { stream: true });
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        yield decoder.decode(value, { stream: true });
+      }
+      const tail = decoder.decode();
+      if (tail) yield tail;
+    } finally {
+      reader.cancel().catch(() => undefined);
     }
-    const tail = decoder.decode();
-    if (tail) yield tail;
   }
 
   const events = scoutEventsFromAnthropicSse(decoded());

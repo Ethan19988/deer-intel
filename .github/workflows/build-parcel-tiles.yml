@@ -61,9 +61,15 @@ jobs:
         run: |
           set -uo pipefail
           mkdir -p "$RUNNER_TEMP/parcel-history"
-          if ! aws s3 sync "s3://${R2_BUCKET}/parcel-history/" "$RUNNER_TEMP/parcel-history/" \
+          # HISTORY_OK=0 means the download failed (possibly partway), so the
+          # local copy is incomplete: tiles still publish, but the snapshot
+          # upload is skipped so a partial set can't overwrite good history.
+          if aws s3 sync "s3://${R2_BUCKET}/parcel-history/" "$RUNNER_TEMP/parcel-history/" \
               --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" --only-show-errors; then
-            echo "::warning title=Owner history unavailable::Couldn't read parcel-history/ from R2; this build marks no owner changes."
+            echo "HISTORY_OK=1" >> "$GITHUB_ENV"
+          else
+            echo "HISTORY_OK=0" >> "$GITHUB_ENV"
+            echo "::warning title=Owner history unavailable::Couldn't read parcel-history/ from R2; this build marks no owner changes and won't upload snapshots."
           fi
           echo "Snapshots: $(ls "$RUNNER_TEMP/parcel-history" | wc -l)"
 
@@ -119,10 +125,16 @@ jobs:
           # previous snapshot (build-parcel-tiles.sh copies it forward).
           # Non-fatal: the tiles are already live; a missed upload only means
           # next month compares against an older snapshot.
-          aws s3 cp "$RUNNER_TEMP/parcel-history-next/" "s3://${R2_BUCKET}/parcel-history/" \
-            --recursive --endpoint-url "$endpoint" \
-            --content-type application/gzip --only-show-errors \
-            || echo "::warning title=Owner history not saved::Couldn't upload parcel-history/ snapshots to R2."
+          # Skipped when last build's snapshots couldn't be downloaded
+          # (HISTORY_OK=0): this run's snapshots were built without them.
+          if [ "${HISTORY_OK:-0}" = "1" ]; then
+            aws s3 cp "$RUNNER_TEMP/parcel-history-next/" "s3://${R2_BUCKET}/parcel-history/" \
+              --recursive --endpoint-url "$endpoint" \
+              --content-type application/gzip --only-show-errors \
+              || echo "::warning title=Owner history not saved::Couldn't upload parcel-history/ snapshots to R2."
+          else
+            echo "::warning title=Owner history not saved::Skipped the snapshot upload because last build's snapshots couldn't be downloaded."
+          fi
 
           # Backup: keep a versioned copy on the GitHub Release.
           gh release upload parcel-tiles "$file" --clobber --repo "${{ github.repository }}"

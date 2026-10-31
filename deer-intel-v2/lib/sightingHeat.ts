@@ -4,12 +4,12 @@
 //  - trail-camera photos, placed at the camera site, one hit per deer photo;
 //  - camera checks (card-swap tallies) for cameras that have no individual
 //    photos logged, so the same deer are never counted twice.
-// Filterable by time of day and rut phase. Photos carry a real capture time, so
-// they can be split morning / evening / night; checks only carry the swap date,
-// so they're left out whenever a time-of-day filter is on.
+// Filterable by time of day and rut phase. Timed photos can be split morning /
+// evening / night; date-only photos and checks (swap date only) count under
+// "any time" and are left out whenever a time-of-day filter is on.
 
 import { findStandLocation } from "@/lib/accessScent";
-import { isBuckRecord, isTimedDeerPhoto } from "@/lib/hourlyActivity";
+import { isBuckRecord, isDeerPhotoRecord, isTimedDeerPhoto } from "@/lib/hourlyActivity";
 import { photoRecordTime } from "@/lib/photos";
 import type { RutPhase } from "@/lib/seasonCalendar";
 import {
@@ -168,7 +168,9 @@ export function buildSightingHeat(
 
     if (photos.length > 0) {
       for (const photo of photos) {
-        if (!isTimedDeerPhoto(photo)) continue;
+        // A time-of-day filter needs a real capture time; "any time" also
+        // counts date-only deer photos (the season report's rule).
+        if (filters.time !== "all" ? !isTimedDeerPhoto(photo) : !isDeerPhotoRecord(photo)) continue;
         const time = photoRecordTime(photo);
         if (!time) continue;
         const dateKey = dateKeyOf(time);

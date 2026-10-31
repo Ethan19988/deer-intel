@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
@@ -14,6 +14,7 @@ import {
 import {
   AiScoutStreamError,
   checkAiScoutConfigured,
+  isAbortError,
   requestAiScoutReport,
 } from "@/lib/aiScoutClient";
 import {
@@ -208,6 +209,25 @@ export default function AIPage() {
     setLiveExtras({ source: "none", sky: "", pressure: "" });
   }
 
+  // The in-flight ask: its controller (aborted when the property changes, a
+  // new ask starts, or the page unmounts) and an id so a stale request's
+  // partials, result or error never land on screen.
+  const scoutAbortRef = useRef<AbortController | null>(null);
+  const scoutRequestIdRef = useRef(0);
+
+  function cancelScoutRequest() {
+    scoutRequestIdRef.current += 1;
+    scoutAbortRef.current?.abort();
+    scoutAbortRef.current = null;
+  }
+
+  // Cleanup runs when the property changes and on unmount. cancelScoutRequest
+  // only touches refs, so it doesn't need to be a dependency.
+  useEffect(() => {
+    return () => cancelScoutRequest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyId]);
+
   function updateCondition(field: keyof AiScoutConditions, value: string) {
     setConditions((current) => ({ ...current, [field]: value }));
     // The conditions changed, so "nothing has changed" no longer holds.
@@ -216,6 +236,8 @@ export default function AIPage() {
 
   async function askAiScout(options: { force?: boolean } = {}) {
     if (!selectedProperty) return;
+    // A new ask (or a reused answer) replaces whatever was still in flight.
+    cancelScoutRequest();
 
     // Blank moon falls back to today's detected phase, so AI Scout always
     // has the lunar timing to reason about.
@@ -268,10 +290,21 @@ export default function AIPage() {
     setReusedLabel("");
     setStreamingReport(null);
 
+    const controller = new AbortController();
+    scoutAbortRef.current = controller;
+    const requestId = scoutRequestIdRef.current;
+    const isCurrent = () =>
+      scoutRequestIdRef.current === requestId && !controller.signal.aborted;
+
     try {
       const report = await requestAiScoutReport(context, {
-        onPartial: (partial) => setStreamingReport(partial),
+        signal: controller.signal,
+        onPartial: (partial) => {
+          if (isCurrent()) setStreamingReport(partial);
+        },
       });
+      if (!isCurrent()) return;
+      scoutAbortRef.current = null;
 
       setAiScoutReport(report);
       setStreamingReport(null);
@@ -286,6 +319,9 @@ export default function AIPage() {
         contextHash,
       });
     } catch (error) {
+      // A superseded or intentionally aborted ask shows nothing.
+      if (!isCurrent() || isAbortError(error)) return;
+      scoutAbortRef.current = null;
       // Keep whatever streamed in on screen above the error line.
       setStreamingReport(
         error instanceof AiScoutStreamError && hasPartialContent(error.partial)

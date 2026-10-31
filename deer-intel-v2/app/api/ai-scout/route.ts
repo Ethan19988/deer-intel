@@ -22,6 +22,11 @@ import type { AiScoutRequestContext } from "@/types/aiScout";
 // are still plain JSON with a real status code — only mid-answer failures
 // arrive as an in-stream `error` line.
 
+// Node runtime (the guard and model client use Node APIs), and room for a
+// long streamed answer before the platform cuts the function off.
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 export async function GET() {
   return NextResponse.json({ configured: isAiScoutConfigured() });
 }

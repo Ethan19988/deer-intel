@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   availableSeasons,
   buildSeasonReport,
+  defaultSeasonYear,
   inSeason,
   seasonWindow,
   seasonYearFor,
@@ -113,6 +114,29 @@ describe("season window", () => {
       new Date(2025, 10, 1),
     );
     expect(years).toEqual([2025, 2023]);
+  });
+
+  it("doesn't offer a season whose only record is outside its Sep–Jan window", () => {
+    const years = availableSeasons(
+      { hunts: [hunt({ date: "2024-06-15" }), hunt({ date: "2023-11-01" })], cameraChecks: [], photos: [] },
+      new Date(2025, 10, 1),
+    );
+    expect(years).toEqual([2025, 2023]);
+  });
+
+  it("opens on the newest season with data, else the current one", () => {
+    const now = new Date(2026, 2, 10); // March 2026 → current season 2026
+    expect(
+      defaultSeasonYear(
+        { hunts: [hunt({ date: "2025-11-01" }), hunt({ date: "2023-10-01" })], cameraChecks: [], photos: [] },
+        now,
+      ),
+    ).toBe(2025);
+    // An off-season sit doesn't count as data.
+    expect(
+      defaultSeasonYear({ hunts: [hunt({ date: "2026-03-01" })], cameraChecks: [], photos: [] }, now),
+    ).toBe(2026);
+    expect(defaultSeasonYear({ hunts: [], cameraChecks: [], photos: [] }, now)).toBe(2026);
   });
 });
 

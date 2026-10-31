@@ -13,7 +13,42 @@ export type HeatRaster = {
 };
 
 const CANVAS_WIDTH = 420;
+const CANVAS_MAX_HEIGHT = 1400;
+const CANVAS_MIN_SIDE = 60;
 const M_PER_DEG_LAT = 110_540;
+
+export type HeatCanvasSize = {
+  width: number;
+  height: number;
+  /** Pixels per metre, the same along x and y. */
+  pxPerM: number;
+  /** Metres to add on each side (east+west / north+south) so a very thin
+   * extent still gets a canvas CANVAS_MIN_SIDE px across at the same scale. */
+  padXM: number;
+  padYM: number;
+};
+
+/**
+ * Canvas size for an extent in metres, at one scale on both axes so blobs stay
+ * round: the scale comes from whichever dimension hits its limit first (width
+ * 420 px, height 1400 px). A side that would come out thinner than the minimum
+ * is widened by padding the extent, not by stretching the scale.
+ */
+export function heatCanvasSize(widthM: number, heightM: number): HeatCanvasSize {
+  const w = Math.max(1, widthM);
+  const h = Math.max(1, heightM);
+  const pxPerM = Math.min(CANVAS_WIDTH / w, CANVAS_MAX_HEIGHT / h);
+  const minM = CANVAS_MIN_SIDE / pxPerM;
+  const padXM = w < minM ? (minM - w) / 2 : 0;
+  const padYM = h < minM ? (minM - h) / 2 : 0;
+  return {
+    width: Math.max(1, Math.round((w + 2 * padXM) * pxPerM)),
+    height: Math.max(1, Math.round((h + 2 * padYM) * pxPerM)),
+    pxPerM,
+    padXM,
+    padYM,
+  };
+}
 
 const RAMP: Array<[number, number, number]> = [
   [242, 193, 78],
@@ -56,11 +91,12 @@ export function renderSightingHeat(spots: HeatSpot[]): HeatRaster | null {
   west -= padM / mPerDegLng;
   east += padM / mPerDegLng;
 
-  const widthM = Math.max(1, (east - west) * mPerDegLng);
-  const heightM = Math.max(1, (north - south) * M_PER_DEG_LAT);
-  const width = CANVAS_WIDTH;
-  const height = Math.min(1400, Math.max(60, Math.round(width * (heightM / widthM))));
-  const pxPerM = width / widthM;
+  const size = heatCanvasSize((east - west) * mPerDegLng, (north - south) * M_PER_DEG_LAT);
+  south -= size.padYM / M_PER_DEG_LAT;
+  north += size.padYM / M_PER_DEG_LAT;
+  west -= size.padXM / mPerDegLng;
+  east += size.padXM / mPerDegLng;
+  const { width, height, pxPerM } = size;
 
   const canvas = document.createElement("canvas");
   canvas.width = width;

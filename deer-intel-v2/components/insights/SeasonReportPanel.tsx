@@ -9,8 +9,8 @@ import { useSeasonCalendar } from "@/lib/seasonCalendar";
 import {
   availableSeasons,
   buildSeasonReport,
+  defaultSeasonYear,
   seasonWindow,
-  seasonYearFor,
   type SeasonReport,
 } from "@/lib/seasonReport";
 import { statsContextForProperty } from "@/lib/useInsightStats";
@@ -75,27 +75,30 @@ export default function SeasonReportPanel({
     [activeProperty, state.properties],
   );
 
-  const seasons = useMemo(() => {
-    if (!now) return [];
+  const scopedData = useMemo(() => {
     const inScope = <T extends { propertyId: string }>(items: T[]) =>
       items.filter((item) => scopedIds.includes(item.propertyId));
-    return availableSeasons(
-      {
-        hunts: inScope(state.hunts),
-        cameraChecks: inScope(state.cameraChecks),
-        photos: inScope(state.photoRecords),
-      },
-      now,
-    );
-  }, [now, scopedIds, state.hunts, state.cameraChecks, state.photoRecords]);
+    return {
+      hunts: inScope(state.hunts),
+      cameraChecks: inScope(state.cameraChecks),
+      photos: inScope(state.photoRecords),
+    };
+  }, [scopedIds, state.hunts, state.cameraChecks, state.photoRecords]);
+
+  // Only seasons whose Sep–Jan window has data, plus the current one.
+  const seasons = useMemo(
+    () => (now ? availableSeasons(scopedData, now) : []),
+    [now, scopedData],
+  );
 
   const [seasonYear, setSeasonYear] = useState<number | null>(null);
-  const currentYear = now
-    ? seasonYearFor(
-        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`,
-      )
-    : null;
-  const year = seasonYear ?? currentYear;
+  // Opens on the newest season that has data (else the current one) until
+  // the hunter picks one; a pick no longer offered falls back the same way.
+  const defaultYear = useMemo(
+    () => (now ? defaultSeasonYear(scopedData, now) : null),
+    [now, scopedData],
+  );
+  const year = seasonYear !== null && seasons.includes(seasonYear) ? seasonYear : defaultYear;
 
   const reports = useMemo(() => {
     if (year === null) return [];

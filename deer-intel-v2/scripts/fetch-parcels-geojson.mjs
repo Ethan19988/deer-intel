@@ -27,7 +27,9 @@ import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import {
   buildMonthOf,
+  carrySnapshotFile,
   createOwnerHistory,
+  holdingChange,
   readSnapshotFile,
   writeSnapshotFile,
 } from "./parcel-owner-history.mjs";
@@ -547,8 +549,9 @@ function summarizeParcel(geom, owner, acres, pin) {
 // Group same-owner parcels into holdings by proximity, then emit one point per
 // holding at the biggest parcel's interior anchor.
 // `changedOf(pin)` is the YYYY-MM a parcel changed hands, or "" — a holding
-// with any recently sold parcel carries the newest such month as `chg`, so its
-// name can be tinted without the map needing the parcel polygons.
+// whose main parcel (or most of whose acreage) recently sold carries the
+// newest such month as `chg` (see holdingChange), so its name can be tinted
+// without the map needing the parcel polygons.
 function buildHoldingLabels(summaries, changedOf = () => "") {
   const byOwner = new Map();
   for (const s of summaries) {
@@ -621,13 +624,11 @@ function buildHoldingLabels(summaries, changedOf = () => "") {
     for (const group of clusters.values()) {
       let rep = group[0];
       let acres = 0;
-      let chg = "";
       for (const s of group) {
         acres += s.acres || 0;
         if (s.area > rep.area) rep = s;
-        const c = changedOf(s.pin);
-        if (c && c > chg) chg = c;
       }
+      const chg = holdingChange(group, rep, changedOf);
       const acresText = acres > 0;
       const mz = labelMinZoom(owner, acresText, rep.wM, rep.hM, rep.lat);
       if (mz > LABEL_MAX_Z) continue; // never legible; skip rather than ship noise
@@ -660,10 +661,16 @@ async function fetchCounty(slug, outPath, labelPath) {
   const historyIn = process.env.PARCEL_HISTORY_IN;
   const historyOut = process.env.PARCEL_HISTORY_OUT;
   const buildMonth = process.env.PARCEL_BUILD_MONTH || buildMonthOf();
-  const history = createOwnerHistory(
-    readSnapshotFile(historyIn ? join(historyIn, `${slug}.json.gz`) : ""),
-    buildMonth,
-  );
+  const historyInPath = historyIn ? join(historyIn, `${slug}.json.gz`) : "";
+  const previous = readSnapshotFile(historyInPath);
+  // A corrupt/partial snapshot: compare against nothing (so nothing is marked)
+  // and carry the old file forward untouched below instead of overwriting it.
+  if (previous.unreadable) {
+    process.stderr.write(
+      `${slug}: owner snapshot ${historyInPath} is unreadable; marking no changes and keeping it as is\n`,
+    );
+  }
+  const history = createOwnerHistory(previous.snapshot, buildMonth);
 
   // One record per parcel, kept to feed the holding pass once the county has
   // streamed. Deliberately not the geometry — a big county is 300k parcels, so
@@ -741,7 +748,11 @@ async function fetchCounty(slug, outPath, labelPath) {
       ` (owner history: ${compared} compared, ${changed} changed, ${stamped} marked` +
       `${massChange ? "; mass change ignored as a data reformat" : ""})\n`,
   );
-  if (historyOut) writeSnapshotFile(join(historyOut, `${slug}.json.gz`), history.finish());
+  if (historyOut) {
+    const historyOutPath = join(historyOut, `${slug}.json.gz`);
+    if (previous.unreadable) carrySnapshotFile(historyInPath, historyOutPath);
+    else writeSnapshotFile(historyOutPath, history.finish());
+  }
 
   if (labelPath) {
     const labels = buildHoldingLabels(

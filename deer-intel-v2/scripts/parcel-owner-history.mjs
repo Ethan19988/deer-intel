@@ -13,7 +13,7 @@
 // comparison logic is unit tested from lib/__tests__.
 
 import { gunzipSync, gzipSync } from "node:zlib";
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 export const SNAPSHOT_VERSION = 1;
@@ -203,16 +203,59 @@ export function createOwnerHistory(previous, buildMonth) {
   };
 }
 
+/**
+ * The `chg` month for a holding (a group of same-owner parcels), or "".
+ * One small sold-off lot shouldn't tint a whole farm as "changed hands", so a
+ * holding is stamped only when its representative parcel (the largest, whose
+ * anchor carries the label) changed, or when changed parcels make up more
+ * than half the holding's acreage. The month is the newest among its changed
+ * parcels.
+ * @param {{ pin: string, acres: number }[]} group
+ * @param {{ pin: string }} rep the representative (largest) parcel
+ * @param {(pin: string) => string} changedOf YYYY-MM the parcel changed, or ""
+ */
+export function holdingChange(group, rep, changedOf) {
+  let total = 0;
+  let changedAcres = 0;
+  let newest = "";
+  for (const s of group) {
+    const acres = s.acres > 0 ? s.acres : 0;
+    total += acres;
+    const c = changedOf(s.pin);
+    if (!c) continue;
+    changedAcres += acres;
+    if (c > newest) newest = c;
+  }
+  if (!newest) return "";
+  if (changedOf(rep.pin)) return newest;
+  return total > 0 && changedAcres / total > 0.5 ? newest : "";
+}
+
 // --- File helpers (gzip JSON) ----------------------------------------------
 
-/** Reads a gzip JSON snapshot; an empty snapshot when missing or unreadable. */
+/**
+ * Reads a gzip JSON snapshot. A missing file is a first build (an empty
+ * snapshot). A file that exists but can't be decompressed or parsed (a
+ * corrupt or partial download) is reported as `unreadable` rather than
+ * silently becoming an empty snapshot: the caller must then mark nothing for
+ * that county and carry the old file forward unchanged, so a bad read can't
+ * overwrite a year of history with an empty baseline.
+ * @returns {{ snapshot: OwnerSnapshot, unreadable: boolean }}
+ */
 export function readSnapshotFile(path) {
-  if (!path || !existsSync(path)) return emptySnapshot();
+  if (!path || !existsSync(path)) return { snapshot: emptySnapshot(), unreadable: false };
   try {
-    return coerceSnapshot(JSON.parse(gunzipSync(readFileSync(path)).toString("utf8")));
+    const parsed = JSON.parse(gunzipSync(readFileSync(path)).toString("utf8"));
+    return { snapshot: coerceSnapshot(parsed), unreadable: false };
   } catch {
-    return emptySnapshot();
+    return { snapshot: emptySnapshot(), unreadable: true };
   }
+}
+
+/** Copies last build's snapshot file forward byte-for-byte (left unchanged). */
+export function carrySnapshotFile(fromPath, toPath) {
+  mkdirSync(dirname(toPath), { recursive: true });
+  copyFileSync(fromPath, toPath);
 }
 
 export function writeSnapshotFile(path, snapshot) {

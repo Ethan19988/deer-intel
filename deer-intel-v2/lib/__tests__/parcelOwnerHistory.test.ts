@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import {
   CHANGE_KEEP_MONTHS,
@@ -5,8 +9,11 @@ import {
   coerceSnapshot,
   createOwnerHistory,
   emptySnapshot,
+  holdingChange,
   monthsBetween,
+  readSnapshotFile,
   sameOwnerForHistory,
+  writeSnapshotFile,
 } from "../../scripts/parcel-owner-history.mjs";
 
 const snapshot = (
@@ -106,5 +113,78 @@ describe("createOwnerHistory", () => {
     const next = h.finish();
     expect(next.owners["5"]).toBe("JOHN SMITH 5");
     expect(next.changes).toEqual({ "0": ["EARLIER OWNER", "2026-06"] });
+  });
+});
+
+describe("readSnapshotFile", () => {
+  const withDir = (fn: (dir: string) => void) => {
+    const dir = mkdtempSync(join(tmpdir(), "owner-history-"));
+    try {
+      fn(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  it("treats a missing file as a first build", () => {
+    expect(readSnapshotFile("")).toEqual({ snapshot: emptySnapshot(), unreadable: false });
+    withDir((dir) => {
+      expect(readSnapshotFile(join(dir, "nope.json.gz")).unreadable).toBe(false);
+    });
+  });
+
+  it("round-trips a written snapshot", () => {
+    withDir((dir) => {
+      const path = join(dir, "c.json.gz");
+      const snap = snapshot("2026-10", { a: "SMITH JOHN" });
+      writeSnapshotFile(path, snap);
+      expect(readSnapshotFile(path)).toEqual({ snapshot: snap, unreadable: false });
+    });
+  });
+
+  it("flags a corrupt or truncated file as unreadable instead of empty history", () => {
+    withDir((dir) => {
+      const garbage = join(dir, "garbage.json.gz");
+      writeFileSync(garbage, "not gzip at all");
+      expect(readSnapshotFile(garbage).unreadable).toBe(true);
+
+      const partial = join(dir, "partial.json.gz");
+      const full = gzipSync(Buffer.from(JSON.stringify(snapshot("2026-10", { a: "X" }))));
+      writeFileSync(partial, full.subarray(0, Math.floor(full.length / 2)));
+      const read = readSnapshotFile(partial);
+      expect(read.unreadable).toBe(true);
+      // Nothing can be marked against it.
+      const h = createOwnerHistory(read.snapshot, "2026-11");
+      h.observe("a", "Y");
+      expect(h.stampFor("a")).toEqual({});
+    });
+  });
+});
+
+describe("holdingChange", () => {
+  const changed = (pins: Record<string, string>) => (pin: string) => pins[pin] ?? "";
+  const big = { pin: "big", acres: 80 };
+  const small = { pin: "small", acres: 2 };
+  const mid = { pin: "mid", acres: 30 };
+
+  it("ignores one small sold lot on a big holding", () => {
+    expect(holdingChange([big, small], big, changed({ small: "2026-10" }))).toBe("");
+  });
+
+  it("stamps when the representative parcel changed", () => {
+    expect(holdingChange([big, small], big, changed({ big: "2026-09" }))).toBe("2026-09");
+  });
+
+  it("stamps when changed parcels are most of the acreage", () => {
+    const a = { pin: "a", acres: 30 };
+    const b = { pin: "b", acres: 30 };
+    expect(holdingChange([mid, a, b], mid, changed({ a: "2026-08", b: "2026-10" }))).toBe(
+      "2026-10",
+    );
+    expect(holdingChange([mid, a, b], mid, changed({ a: "2026-08" }))).toBe("");
+  });
+
+  it("is empty when nothing changed", () => {
+    expect(holdingChange([big], big, changed({}))).toBe("");
   });
 });

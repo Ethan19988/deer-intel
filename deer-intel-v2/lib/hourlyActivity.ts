@@ -36,6 +36,17 @@ export function isBuckRecord(photo: PhotoRecord): boolean {
   return getPhotoBuckNames(photo).length > 0 || /buck|antler/i.test(photo.species);
 }
 
+/**
+ * A deer photo for counting purposes, timed or date-only: a timed deer photo,
+ * or (with or without a time) a buck link or a deer species name. The rule
+ * the season report and the any-time sighting heat share.
+ */
+export function isDeerPhotoRecord(photo: PhotoRecord): boolean {
+  return (
+    isTimedDeerPhoto(photo) || isBuckRecord(photo) || /deer|doe|fawn|buck/i.test(photo.species || "")
+  );
+}
+
 export function buildHourlyActivity(
   photos: PhotoRecord[],
   now: Date,

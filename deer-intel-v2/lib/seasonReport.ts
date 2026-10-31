@@ -8,7 +8,7 @@
 // September margin catches early scouting sits and camera hits). Season Y is
 // labelled "2026–27".
 
-import { hourLabel, isBuckRecord, isTimedDeerPhoto } from "@/lib/hourlyActivity";
+import { hourLabel, isBuckRecord, isDeerPhotoRecord, isTimedDeerPhoto } from "@/lib/hourlyActivity";
 import { getPhotoBuckNames, getPhotoDeerProfileIds, photoRecordTime } from "@/lib/photos";
 import { rutPhaseLabel, type RutPhase } from "@/lib/seasonCalendar";
 import {
@@ -76,26 +76,46 @@ function dateKeyOf(time: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-/** Seasons with any sit, check or photo, plus the current one — newest first. */
-export function availableSeasons(
-  data: { hunts: HuntLogEntry[]; cameraChecks: CameraCheck[]; photos: PhotoRecord[] },
-  now: Date,
-): number[] {
+type SeasonData = { hunts: HuntLogEntry[]; cameraChecks: CameraCheck[]; photos: PhotoRecord[] };
+
+/**
+ * Seasons whose Sep 1–Jan 31 window holds a sit, check or deer photo (the
+ * records a report counts), newest first. A date outside every window (a
+ * June sit) doesn't make its season look like it has data.
+ */
+export function seasonsWithData(data: SeasonData): number[] {
   const years = new Set<number>();
-  const current = seasonYearFor(dateKeyOf(now.getTime()));
-  if (current !== null) years.add(current);
   const add = (key: string | undefined) => {
     if (!key) return;
     const year = seasonYearFor(key);
-    if (year !== null) years.add(year);
+    if (year !== null && inSeason(key, seasonWindow(year))) years.add(year);
   };
   data.hunts.forEach((hunt) => add(hunt.date));
   data.cameraChecks.forEach((check) => add(check.date));
   data.photos.forEach((photo) => {
+    if (!isDeerPhotoRecord(photo)) return;
     const time = photoRecordTime(photo);
     if (time) add(dateKeyOf(time));
   });
   return [...years].sort((a, b) => b - a);
+}
+
+/** Seasons with data (see seasonsWithData) plus the current one — newest first. */
+export function availableSeasons(data: SeasonData, now: Date): number[] {
+  const years = new Set(seasonsWithData(data));
+  const current = seasonYearFor(dateKeyOf(now.getTime()));
+  if (current !== null) years.add(current);
+  return [...years].sort((a, b) => b - a);
+}
+
+/**
+ * The season a report opens on: the newest one (not after the current one)
+ * that has data, else the current season.
+ */
+export function defaultSeasonYear(data: SeasonData, now: Date): number | null {
+  const current = seasonYearFor(dateKeyOf(now.getTime()));
+  const withData = seasonsWithData(data).filter((year) => current === null || year <= current);
+  return withData[0] ?? current;
 }
 
 // --- report shape ----------------------------------------------------------------
@@ -196,7 +216,7 @@ function seasonPhotos(
     const buck = isBuckRecord(photo);
     // Deer only: a timed non-deer photo is dropped; an untimed one counts if
     // it's a buck link or names a deer species.
-    if (!timed && !buck && !/deer|doe|fawn|buck/i.test(photo.species || "")) continue;
+    if (!isDeerPhotoRecord(photo)) continue;
     const sun = timed ? ctx.sunFor(dateKey) : null;
     const date = new Date(time);
     out.push({

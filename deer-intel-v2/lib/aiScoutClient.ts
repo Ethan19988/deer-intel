@@ -46,7 +46,19 @@ export class AiScoutStreamError extends Error {
 type RequestOptions = {
   /** Called with the report-so-far each time more of the answer arrives. */
   onPartial?: (partial: AiScoutPartialReport) => void;
+  /** Aborts the request (and closes a streaming body) when signalled. */
+  signal?: AbortSignal;
 };
+
+/** Whether an error came from aborting the request on purpose. */
+export function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    (error as { name?: unknown }).name === "AbortError"
+  );
+}
 
 /** Whether this browser can read a fetch body as a stream. */
 function canReadStreams(): boolean {
@@ -77,18 +89,20 @@ export async function requestAiScoutReport(
       ...(await authHeaders()),
     },
     body: JSON.stringify(context),
+    signal: options.signal,
   });
 
   const contentType = response.headers.get("content-type") ?? "";
   if (stream && response.ok && response.body && contentType.includes(AI_SCOUT_STREAM_CONTENT_TYPE)) {
-    return readScoutStream(response.body, options.onPartial);
+    return readScoutStream(response.body, options.onPartial, options.signal);
   }
 
   // A platform timeout or outage can return an HTML page, not JSON.
   let data: AiScoutReport | AiScoutErrorResponse;
   try {
     data = (await response.json()) as AiScoutReport | AiScoutErrorResponse;
-  } catch {
+  } catch (error) {
+    if (options.signal?.aborted || isAbortError(error)) throw error;
     throw new Error(
       response.ok
         ? "AI Scout sent back a response it couldn't read. Try again."
@@ -108,6 +122,7 @@ export async function requestAiScoutReport(
 async function readScoutStream(
   body: ReadableStream<Uint8Array>,
   onPartial?: (partial: AiScoutPartialReport) => void,
+  signal?: AbortSignal,
 ): Promise<AiScoutReport> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -133,7 +148,9 @@ async function readScoutStream(
       if (state.report || state.error) break;
     }
     if (!state.report && !state.error) apply(lines.feed(decoder.decode()).concat(lines.flush()));
-  } catch {
+  } catch (error) {
+    // An intentional abort isn't a lost connection; let the caller see it.
+    if (signal?.aborted || isAbortError(error)) throw error;
     throw new AiScoutStreamError(
       "Lost the connection partway through AI Scout's answer. Try again.",
       state.partial,

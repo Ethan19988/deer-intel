@@ -187,6 +187,29 @@ describe("buildSightingHeat", () => {
     expect(spots.some((s) => s.id === "camera:c2")).toBe(false);
   });
 
+  it("counts date-only deer photos under any time, but not under a time filter", () => {
+    const input: HeatInput = {
+      ...base,
+      hunts: [],
+      cameras: [camera("c4", 41.53)],
+      // c4 has photos, so this check is never counted on top of them.
+      cameraChecks: [check("c4", "2025-10-15", 5, 5)],
+      photos: [
+        photo("d1", "c4", "2025-10-22", "Doe"),
+        photo("d2", "c4", "2025-10-23", "Unknown", "Big 8"),
+        photo("d3", "c4", "2025-10-24", "Turkey"),
+        photo("d4", "c4", "2025-10-25T07:30", "Doe"),
+      ],
+    };
+    const any = buildSightingHeat(input, { time: "all", phase: "all", weight: "deer" }, ctx);
+    const c4 = any.find((s) => s.id === "camera:c4")!;
+    expect(c4.observations).toBe(3);
+    expect(c4.deer).toBe(3);
+    expect(c4.bucks).toBe(1);
+    const morning = buildSightingHeat(input, { time: "morning", phase: "all", weight: "deer" }, ctx);
+    expect(morning.find((s) => s.id === "camera:c4")?.observations).toBe(1);
+  });
+
   it("lists every located asset for the extent and phrases a popup line", () => {
     expect(heatExtentPoints(base)).toHaveLength(3);
     const [first] = buildSightingHeat(base, { time: "all", phase: "all", weight: "deer" }, ctx);
