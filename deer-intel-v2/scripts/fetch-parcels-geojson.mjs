@@ -143,6 +143,9 @@ function dauphinOwner(p) {
 // One extractor per county. outFields lists exactly what to request.
 const COUNTIES = {
   franklin: {
+    // 224 fields per row: full 1000-row pages have come back as a server
+    // error page, so pages are smaller here.
+    pageSize: 250,
     layerUrl: PASDA("FranklinCounty"),
     outFields: ["FULL_OWNER", "TOTAL_DEED", "BASE_ACRES", "CONTROL_NU", "FULL_SITUS"],
     owner: (p) => str(p.FULL_OWNER),
@@ -612,19 +615,19 @@ const COUNTIES = {
     addr: (p) => cleanAddr(p.SitusDescription),
   },
   washington: {
-    // PASDA copy of Washington County's parcels (Aug 2026). owndat_own2 was
-    // empty in every sample, so its role is unknown and it isn't used.
-    // parcel_acres is GIS-computed (a string); no deeded acreage is published.
+    // PASDA copy of Washington County's parcels (Aug 2026). The layer's field
+    // list shows long names (owndat_own1, parcel_acres…) but queries only
+    // accept the 10-character shapefile names it actually stores (owndat_own,
+    // parcel_acr, legdat_a_3…); asking for the long ones fails every query.
+    // The second owner (owndat_o_1) was blank in every sample, so it isn't
+    // used. parcel_acr is GIS-computed acres.
     layerUrl: PASDA("WashingtonCounty", 7),
-    outFields: [
-      "owndat_own1", "parcel_acres", "PIN",
-      "legdat_adrno", "legdat_adrdir", "legdat_adrstr", "legdat_adrsuf",
-    ],
-    owner: (p) => str(p.owndat_own1),
-    acres: (p) => toAcres(p.parcel_acres),
+    outFields: ["owndat_own", "parcel_acr", "PIN", "legdat_adr", "legdat_a_2", "legdat_a_3", "legdat_a_4"],
+    owner: (p) => str(p.owndat_own),
+    acres: (p) => toAcres(p.parcel_acr),
     pin: (p) => str(p.PIN),
-    addr: (p) =>
-      cleanAddr(joinFields(p, ["legdat_adrno", "legdat_adrdir", "legdat_adrstr", "legdat_adrsuf"])),
+    // number, direction, street, suffix
+    addr: (p) => cleanAddr(joinFields(p, ["legdat_adr", "legdat_a_2", "legdat_a_3", "legdat_a_4"])),
   },
   philadelphia: {
     // PASDA's copy of the city's parcels (layer named 202402). No acreage.
@@ -1075,6 +1078,7 @@ async function fetchCounty(slug, outPath, labelPath) {
 
   let total = 0;
   let addressLikeOwners = 0;
+  const pageSize = cfg.pageSize || PAGE_SIZE;
   const partitions = cfg.partitionField
     ? await fetchPartitions(layerUrl, cfg.partitionField, cfg.where, cfg.excludePartitions)
     : [cfg.where || "1=1"];
@@ -1089,7 +1093,7 @@ async function fetchCounty(slug, outPath, labelPath) {
     url.searchParams.set("outSR", "4326");
     url.searchParams.set("orderByFields", cfg.orderBy || "OBJECTID");
     url.searchParams.set("resultOffset", String(offset));
-    url.searchParams.set("resultRecordCount", String(PAGE_SIZE));
+    url.searchParams.set("resultRecordCount", String(pageSize));
     url.searchParams.set("f", "geojson");
 
     const page = await fetchJson(url.toString());
@@ -1138,7 +1142,7 @@ async function fetchCounty(slug, outPath, labelPath) {
       page.exceededTransferLimit === true ||
       page.properties?.exceededTransferLimit === true;
     if (features.length === 0) break;
-    if (features.length < PAGE_SIZE && !more) break;
+    if (features.length < pageSize && !more) break;
     offset += features.length;
     if (offset % 10000 === 0) process.stderr.write(`  ${slug}: ${total}...\n`);
   }
