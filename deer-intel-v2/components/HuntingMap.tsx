@@ -2879,7 +2879,9 @@ export default function HuntingMap() {
 
     // A search hit's point comes from simplified tile geometry, so near a
     // boundary a county lookup there could describe the wrong parcel.
-    if (!pick || options.countyLookup === false) {
+    // Record-only parcels (Maryland) have no county owner lookup to run: the
+    // card links to the state record instead.
+    if (!pick || options.countyLookup === false || pick.recordUrl) {
       setTileOwnerDetail(IDLE_PARCEL_OWNER_LOOKUP_STATE);
       return;
     }
@@ -5166,9 +5168,14 @@ export default function HuntingMap() {
           {tileOwnerPick ? (
             <ParcelOwnerInfoCard
               ownerName={tileOwnerPick.ownerName}
-              summary={`${tileOwnerPick.isPublic ? "Public" : "Private"} · ${
-                ownerAcresText(tileOwnerPick.acres) || "acres not listed"
-              }`}
+              summary={`${
+                !tileOwnerPick.ownerName
+                  ? "Maryland parcel"
+                  : tileOwnerPick.isPublic
+                    ? "Public"
+                    : "Private"
+              } · ${ownerAcresText(tileOwnerPick.acres) || "acres not listed"}`}
+              recordUrl={tileOwnerPick.recordUrl ?? null}
               lines={countyRecordLines(tileOwnerDetail, tileOwnerPick.ownerName)}
               previousOwner={
                 previousOwnerText(
@@ -5179,7 +5186,7 @@ export default function HuntingMap() {
               }
               tag={landTags[landTagKey(tileOwnerPick.ownerName)]?.kind ?? null}
               onTag={
-                tileOwnerAt
+                tileOwnerAt && tileOwnerPick.ownerName
                   ? (kind) =>
                       setLandTag(
                         {

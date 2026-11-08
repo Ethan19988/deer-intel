@@ -13,6 +13,7 @@ import { PMTiles } from "pmtiles";
 import { isPublicOwnerName, ownerAcresText, ownerDisplayName } from "@/lib/ownerLabel";
 import { landTagKey, type LandTagKind } from "@/lib/landTags";
 import { getMapBearing, onMapBearingChange } from "@/lib/leafletRotation";
+import { sdatRecordUrl } from "@/lib/sdatRecord";
 import {
   OWNER_NEAR_KM,
   boundsIntersect,
@@ -497,6 +498,11 @@ export type ParcelTileOwnerPick = {
   previousOwner?: string;
   /** YYYY-MM of the build that saw the change. */
   changedMonth?: string;
+  /**
+   * Official parcel record to open for the owner, for land whose owner name
+   * isn't published (Maryland: ownerName is "" and this is the SDAT record).
+   */
+  recordUrl?: string;
 };
 
 type ParcelTilesLayerProps = {
@@ -1085,10 +1091,18 @@ export default function ParcelTilesLayer({
         for (const pick of picks) {
           if (pick.layerName !== "parcels") continue;
           const ownerName = String(pick.feature.props.owner ?? "").trim();
-          if (!ownerName) continue;
+          const recordUrl = sdatRecordUrl(pick.feature.props.rec);
+          if (!ownerName && !recordUrl) continue;
           const acres = Number(pick.feature.props.acres) || 0;
+          // A named parcel beats an unnamed, record-only one under the same
+          // tap; within each, the usual acreage ranking decides.
           const rank = parcelAcresRank(acres);
-          if (!best || rank < bestRank) {
+          const better =
+            !best ||
+            (Boolean(ownerName) !== Boolean(best.ownerName)
+              ? Boolean(ownerName)
+              : rank < bestRank);
+          if (better) {
             bestRank = rank;
             const prev = String(pick.feature.props.prev ?? "").trim();
             const chg = String(pick.feature.props.chg ?? "").trim();
@@ -1097,6 +1111,7 @@ export default function ParcelTilesLayer({
               acres,
               isPublic: pick.feature.props.pub === 1,
               ...(prev ? { previousOwner: prev, changedMonth: chg } : {}),
+              ...(recordUrl ? { recordUrl } : {}),
             };
           }
         }
