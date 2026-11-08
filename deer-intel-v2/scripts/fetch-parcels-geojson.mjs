@@ -651,7 +651,12 @@ const COUNTIES = {
     // Jurisdictions loaded below from a source WITH owner names, so their
     // unnamed statewide copies would only draw every line twice. The build
     // log lists the JURSCODE values it saw, to check these against.
-    excludePartitions: ["WASH", "CHAR", "KENT", "TALB"],
+    // (Charles's own layer turned out to hold only ~370 parcels, so Charles
+    // stays in this statewide layer, unnamed.)
+    excludePartitions: ["WASH", "KENT", "TALB"],
+    // ~2.3M parcels; deep resultOffset pages time out (HTTP 500) on big
+    // jurisdictions, so pages are fetched by OBJECTID instead of offset.
+    keyset: true,
     ownerOptional: true,
     outFields: ["ACCTID", "ACRES", "POLYACRES", "SDATWEBADR"],
     owner: () => "",
@@ -676,16 +681,6 @@ const COUNTIES = {
     acres: (p) => toAcres(p.Deeded_AC) || toAcres(p.CalcAcre),
     pin: (p) => str(p.TaxAccNo),
     addr: (p) => cleanAddr(joinFields(p, ["PremNum", "PremDir", "PremName", "PremType"])),
-  },
-  "md-charles": {
-    // Charles County's own parcels (June 2026), SDAT schema. LANDAREA is acres.
-    layerUrl:
-      "https://services7.arcgis.com/3BMWkdyrt45RNCrq/arcgis/rest/services/CCG_tax_parcels_06242026/FeatureServer/0",
-    outFields: ["OWNNAME1", "OWNNAME2", "LANDAREA", "ACCTID", "ADDRESS"],
-    owner: (p) => joinFields(p, ["OWNNAME1", "OWNNAME2"]),
-    acres: (p) => toAcres(p.LANDAREA),
-    pin: (p) => str(p.ACCTID),
-    addr: (p) => cleanAddr(p.ADDRESS),
   },
   "md-kent": {
     // Kent County's parcel viewer layer (SDAT Nov 2024). OID field is ID.
@@ -1079,20 +1074,30 @@ async function fetchCounty(slug, outPath, labelPath) {
   let total = 0;
   let addressLikeOwners = 0;
   const pageSize = cfg.pageSize || PAGE_SIZE;
+  const orderBy = cfg.orderBy || "OBJECTID";
   const partitions = cfg.partitionField
     ? await fetchPartitions(layerUrl, cfg.partitionField, cfg.where, cfg.excludePartitions)
     : [cfg.where || "1=1"];
   for (const where of partitions) {
   if (cfg.partitionField) process.stderr.write(`  ${slug}: ${where}\n`);
   let offset = 0;
+  // Keyset paging: the last OBJECTID seen, so each page asks for the next ids
+  // rather than skipping `offset` rows (which the server re-scans every page).
+  let lastId = null;
   for (;;) {
     const url = new URL(`${layerUrl}/query`);
-    url.searchParams.set("where", where);
-    url.searchParams.set("outFields", cfg.outFields.join(","));
+    url.searchParams.set(
+      "where",
+      cfg.keyset && lastId !== null ? `(${where}) AND ${orderBy} > ${lastId}` : where,
+    );
+    url.searchParams.set(
+      "outFields",
+      (cfg.keyset ? [...cfg.outFields, orderBy] : cfg.outFields).join(","),
+    );
     url.searchParams.set("returnGeometry", "true");
     url.searchParams.set("outSR", "4326");
-    url.searchParams.set("orderByFields", cfg.orderBy || "OBJECTID");
-    url.searchParams.set("resultOffset", String(offset));
+    url.searchParams.set("orderByFields", orderBy);
+    url.searchParams.set("resultOffset", cfg.keyset ? "0" : String(offset));
     url.searchParams.set("resultRecordCount", String(pageSize));
     url.searchParams.set("f", "geojson");
 
@@ -1144,6 +1149,14 @@ async function fetchCounty(slug, outPath, labelPath) {
     if (features.length === 0) break;
     if (features.length < pageSize && !more) break;
     offset += features.length;
+    if (cfg.keyset) {
+      const last = features[features.length - 1];
+      const id = Number(last?.id ?? last?.properties?.[orderBy]);
+      if (!Number.isFinite(id) || (lastId !== null && id <= lastId)) {
+        throw new Error(`keyset paging lost its place after ${total} features`);
+      }
+      lastId = id;
+    }
     if (offset % 10000 === 0) process.stderr.write(`  ${slug}: ${total}...\n`);
   }
   }
