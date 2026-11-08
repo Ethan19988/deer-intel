@@ -742,6 +742,39 @@ async function resolveMifflinLayerUrl(cfg) {
   return cfg.layerUrl;
 }
 
+const MIN_PAGE_SIZE = 10;
+// Records a statewide layer may lose to unloadable geometry before the source
+// counts as broken rather than having a few bad rows.
+const MAX_SKIPPED_RECORDS = 200;
+
+// The next MIN_PAGE_SIZE records' ids (attributes only, which still load when
+// a geometry doesn't), then each record on its own; a record that fails alone
+// is skipped and logged. Returns a geojson-like page; `partial` keeps the
+// caller paging even though the page may come back short.
+async function fetchPastBadRecords(slug, pageUrl, orderBy, skipped) {
+  const ids = await fetchJson(pageUrl(MIN_PAGE_SIZE, { noGeometry: true }));
+  const rows = (ids.features || [])
+    .map((f) => Number(f.attributes?.[orderBy]))
+    .filter(Number.isFinite);
+  if (rows.length === 0) return { features: [] };
+  const features = [];
+  for (const id of rows) {
+    try {
+      const one = await fetchJson(pageUrl(1, { idEquals: id }));
+      features.push(...(one.features || []));
+    } catch (err) {
+      skipped.count += 1;
+      process.stderr.write(`  ${slug}: skipping record ${orderBy}=${id} (${err.message})\n`);
+      if (skipped.count > MAX_SKIPPED_RECORDS) {
+        throw new Error(`more than ${MAX_SKIPPED_RECORDS} records failed to load`);
+      }
+      // Keep the paging position past the skipped record.
+      features.push({ type: "Feature", id, geometry: null, properties: { [orderBy]: id } });
+    }
+  }
+  return { features, partial: true };
+}
+
 // The distinct values of a field (e.g. Maryland's JURSCODE), as where clauses,
 // so a statewide layer is paged one jurisdiction at a time.
 async function fetchPartitions(layerUrl, field, baseWhere, exclude = []) {
@@ -1074,6 +1107,7 @@ async function fetchCounty(slug, outPath, labelPath) {
   let total = 0;
   let addressLikeOwners = 0;
   const pageSize = cfg.pageSize || PAGE_SIZE;
+  const skipped = { count: 0 };
   const orderBy = cfg.orderBy || "OBJECTID";
   const partitions = cfg.partitionField
     ? await fetchPartitions(layerUrl, cfg.partitionField, cfg.where, cfg.excludePartitions)
@@ -1084,24 +1118,49 @@ async function fetchCounty(slug, outPath, labelPath) {
   // Keyset paging: the last OBJECTID seen, so each page asks for the next ids
   // rather than skipping `offset` rows (which the server re-scans every page).
   let lastId = null;
-  for (;;) {
+  const pageUrl = (count, opts = {}) => {
     const url = new URL(`${layerUrl}/query`);
     url.searchParams.set(
       "where",
-      cfg.keyset && lastId !== null ? `(${where}) AND ${orderBy} > ${lastId}` : where,
+      opts.idEquals !== undefined
+        ? `${orderBy} = ${opts.idEquals}`
+        : cfg.keyset && lastId !== null
+          ? `(${where}) AND ${orderBy} > ${lastId}`
+          : where,
     );
     url.searchParams.set(
       "outFields",
       (cfg.keyset ? [...cfg.outFields, orderBy] : cfg.outFields).join(","),
     );
-    url.searchParams.set("returnGeometry", "true");
+    url.searchParams.set("returnGeometry", opts.noGeometry ? "false" : "true");
     url.searchParams.set("outSR", "4326");
     url.searchParams.set("orderByFields", orderBy);
     url.searchParams.set("resultOffset", cfg.keyset ? "0" : String(offset));
-    url.searchParams.set("resultRecordCount", String(pageSize));
-    url.searchParams.set("f", "geojson");
-
-    const page = await fetchJson(url.toString());
+    url.searchParams.set("resultRecordCount", String(count));
+    url.searchParams.set("f", opts.noGeometry ? "json" : "geojson");
+    return url.toString();
+  };
+  for (;;) {
+    // A page that keeps failing (an HTML error page, an HTTP 500) is asked
+    // for again in smaller pieces; one bad record shouldn't sink a county.
+    let requested = pageSize;
+    let page = null;
+    for (;;) {
+      try {
+        page = await fetchJson(pageUrl(requested));
+        break;
+      } catch (err) {
+        if (requested > MIN_PAGE_SIZE) {
+          requested = Math.max(MIN_PAGE_SIZE, Math.floor(requested / 4));
+          process.stderr.write(`  ${slug}: page failed (${err.message}); retrying ${requested} at a time\n`);
+          continue;
+        }
+        if (!cfg.keyset) throw err;
+        // Keyset paging can step past single records that won't load.
+        page = await fetchPastBadRecords(slug, pageUrl, orderBy, skipped);
+        break;
+      }
+    }
     const features = page.features || [];
     for (const feature of features) {
       const geom = feature.geometry;
@@ -1147,7 +1206,7 @@ async function fetchCounty(slug, outPath, labelPath) {
       page.exceededTransferLimit === true ||
       page.properties?.exceededTransferLimit === true;
     if (features.length === 0) break;
-    if (features.length < pageSize && !more) break;
+    if (features.length < requested && !more && !page.partial) break;
     offset += features.length;
     if (cfg.keyset) {
       const last = features[features.length - 1];
