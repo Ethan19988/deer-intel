@@ -105,6 +105,7 @@ import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
 import TodaysPlayPanel from "@/components/map/TodaysPlayPanel";
 import { pinMarkerSvg } from "@/lib/mapPinIcon";
 import UserLocationMarker from "@/components/map/UserLocationMarker";
+import MapRotationController from "@/components/map/MapRotationController";
 import PartyMembersLayer from "@/components/map/PartyMembersLayer";
 import PartyPinsLayer from "@/components/map/PartyPinsLayer";
 import WalkTrackLayer from "@/components/map/WalkTrackLayer";
@@ -856,12 +857,18 @@ function MapControlButtons({
   isFollowing,
   onToggleFollow,
   onHeadingChange,
+  headingUp,
+  onHeadingUpChange,
 }: {
   showCompass: boolean;
   showGps: boolean;
   isFollowing: boolean;
   onToggleFollow: (next: boolean) => void;
   onHeadingChange: (heading: number | null) => void;
+  // Whether the map turns so the way you face is up (only while following
+  // with the compass on). The compass button flips it back to north-up.
+  headingUp: boolean;
+  onHeadingUpChange: (next: boolean) => void;
 }) {
   const map = useMap();
   const [heading, setHeading] = useState<number | null>(null);
@@ -892,14 +899,22 @@ function MapControlButtons({
   }
 
   // The GPS button steps through three states on plain single taps: the 1st tap
-  // follows your live location, the 2nd adds the heading beam + compass, and the
-  // 3rd turns both back off.
+  // follows your live location, the 2nd adds the compass and turns the map
+  // heading-up (the way you face at the top), and the 3rd turns it all off.
+  // Dragging the map releases follow (and with it the turn) to look around; a
+  // GPS tap then snaps back onto you, still heading-up.
   function handleGpsTap() {
+    if (compassOn && !isFollowing) {
+      startFollow();
+      return;
+    }
+
     if (compassOn) {
       onToggleFollow(false);
       setCompassOn(false);
       setHeading(null);
       onHeadingChange(null);
+      onHeadingUpChange(false);
       return;
     }
 
@@ -937,7 +952,20 @@ function MapControlButtons({
     }
 
     setCompassOn(true);
+    onHeadingUpChange(true);
   }
+
+  // The compass button flips between heading-up and north-up while the
+  // compass is on; before that, it turns the compass on if you're following.
+  function handleCompassTap() {
+    if (compassOn) {
+      onHeadingUpChange(!headingUp);
+      return;
+    }
+    if (isFollowing) void enableCompass();
+  }
+
+  const mapTurned = compassOn && headingUp && isFollowing;
 
   // While the compass is on, follow the device's heading. Prefer iOS's
   // true-north webkitCompassHeading; otherwise use an absolute-orientation
@@ -1016,28 +1044,50 @@ function MapControlButtons({
         -
       </button>
       {showCompass ? (
-        <div
+        <button
+          type="button"
           aria-label={
-            compassOn && heading !== null
-              ? `Facing ${facingCardinal}, ${heading} degrees`
-              : "Compass north indicator"
+            mapTurned
+              ? `Map turned to ${facingCardinal ?? "your heading"}. Show north up`
+              : compassOn
+                ? heading !== null
+                  ? `Facing ${facingCardinal}, ${heading} degrees. Turn map to my heading`
+                  : "Reading compass"
+                : "North up. Tap GPS to follow, then here to turn the map"
           }
+          aria-pressed={mapTurned}
           className="di-map-control-button di-map-compass"
-          role="img"
           style={{
             ...mapControlButtonStyle,
             ...compassButtonStyle,
             ...(compassOn ? compassActiveStyle : null),
           }}
           title={
-            compassOn
-              ? heading !== null
-                ? `Facing ${facingCardinal} · ${heading}°`
-                : "Reading compass…"
-              : "Tap GPS again to show which way you're facing"
+            mapTurned
+              ? "Heading up · tap for north up"
+              : compassOn
+                ? heading !== null
+                  ? `Facing ${facingCardinal} · ${heading}° · tap to turn map`
+                  : "Reading compass…"
+                : "Tap GPS again to show which way you're facing"
           }
+          onClick={handleCompassTap}
         >
-          {compassOn && heading !== null ? (
+          {mapTurned ? (
+            // Heading-up: the needle points to true north on the turned map,
+            // with your facing direction underneath.
+            <>
+              <span
+                style={{
+                  ...compassNorthNeedleStyle,
+                  transform: `rotate(${-(heading ?? 0)}deg)`,
+                }}
+              >
+                N
+              </span>
+              <span style={compassFacingStyle}>{facingCardinal ?? ""}</span>
+            </>
+          ) : compassOn && heading !== null ? (
             <>
               <span
                 style={{
@@ -1055,13 +1105,15 @@ function MapControlButtons({
               <span style={compassTextStyle}>N</span>
             </>
           )}
-        </div>
+        </button>
       ) : null}
       {showGps ? (
         <button
           type="button"
           aria-label={
-            compassOn
+            compassOn && !isFollowing
+              ? "Snap back to my location"
+              : compassOn
               ? "Turn off location and compass"
               : isFollowing
                 ? "Show which way I'm facing"
@@ -1383,6 +1435,9 @@ export default function HuntingMap() {
   // Live device heading (degrees, 0 = N) while the compass is on — drives both
   // the compass control and the facing cone on the live-location dot.
   const [liveHeading, setLiveHeading] = useState<number | null>(null);
+  // Heading-up map: turns the map so the way you face is at the top. Only
+  // applies while following with the compass on; the compass button flips it.
+  const [headingUp, setHeadingUp] = useState(false);
   // Live walk recording: while `isTracking` is on, each GPS fix is appended to
   // `activeTrackPoints` to draw the trail as the hunter moves. On stop, the
   // finished trail is saved to the property; the id/start-time captured when
@@ -4134,6 +4189,13 @@ export default function HuntingMap() {
               isFollowing={mapTools.gps && followUser}
               onToggleFollow={setFollowUser}
               onHeadingChange={setLiveHeading}
+              headingUp={headingUp}
+              onHeadingUpChange={setHeadingUp}
+            />
+            <MapRotationController
+              heading={
+                mapTools.gps && followUser && headingUp ? liveHeading : null
+              }
             />
             <UserLocationMarker
               // Blood trailing shows where you are against the trail.
@@ -5359,7 +5421,7 @@ const compassButtonStyle: CSSProperties = {
   display: "grid",
   placeItems: "center",
   gap: 0,
-  cursor: "default",
+  cursor: "pointer",
   lineHeight: 1,
 };
 
@@ -5368,6 +5430,17 @@ const compassNeedleStyle: CSSProperties = {
   color: "#2f6d3a",
   fontSize: "0.82rem",
   fontWeight: 900,
+};
+
+// Heading-up north needle: a small "N" that swings to point at true north on
+// the turned map.
+const compassNorthNeedleStyle: CSSProperties = {
+  color: "#c2410c",
+  fontSize: "0.95rem",
+  fontWeight: 900,
+  lineHeight: 1,
+  transformOrigin: "center",
+  transition: "transform 0.12s ease-out",
 };
 
 const compassTextStyle: CSSProperties = {
