@@ -62,6 +62,9 @@ declare module "leaflet" {
     getBounds(): LatLngBounds;
     getSize(): { x: number; y: number };
     getZoom(): number;
+    getZoomScale(toZoom: number, fromZoom?: number): number;
+    getPane(name: string): HTMLElement | undefined;
+    eachLayer(fn: (layer: Layer) => void, context?: unknown): this;
     flyTo(center: LatLngExpression, zoom?: number, options?: unknown): this;
     setView(center: LatLngExpression, zoom?: number): this;
     zoomIn(delta?: number): this;
@@ -78,7 +81,18 @@ declare module "leaflet" {
     ): this;
   }
 
+  export class Point {
+    constructor(x: number, y: number, round?: boolean);
+    x: number;
+    y: number;
+  }
+  export class Bounds {
+    constructor(topLeft: Point, bottomRight: Point);
+    getCenter(round?: boolean): Point;
+  }
+
   export class Layer {}
+  export class Renderer extends Layer {}
   export class LayerGroup extends Layer {}
   export class FeatureGroup extends LayerGroup {}
   export class Path extends Layer {}
