@@ -235,6 +235,30 @@ export function syncRotationOrigin(map: LeafletMap) {
   pane.style.transformOrigin = `${size.x / 2}px ${size.y / 2}px`;
 }
 
+// Listeners told whenever a map's rotation changes (null = north-up), for
+// layers that draw their own text and need to keep it upright.
+const bearingListeners = new WeakMap<
+  LeafletMap,
+  Set<(bearing: number | null) => void>
+>();
+
+export function getMapBearing(map: LeafletMap): number | null {
+  return bearingOf(map);
+}
+
+export function onMapBearingChange(
+  map: LeafletMap,
+  listener: (bearing: number | null) => void,
+): () => void {
+  let set = bearingListeners.get(map);
+  if (!set) {
+    set = new Set();
+    bearingListeners.set(map, set);
+  }
+  set.add(listener);
+  return () => set?.delete(listener);
+}
+
 // Turn the map so `bearing` (degrees clockwise from north) is at the top of
 // the screen, or pass null to go back to north-up. The angle can run past 360
 // (it's kept continuous so the map never spins the long way round).
@@ -260,4 +284,5 @@ export function setMapBearing(map: LeafletMap, bearing: number | null) {
   }
 
   if (wasRotated !== (bearing !== null)) refreshCoverage(map);
+  bearingListeners.get(map)?.forEach((listener) => listener(bearing));
 }

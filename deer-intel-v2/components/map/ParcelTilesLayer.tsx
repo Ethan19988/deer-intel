@@ -12,6 +12,7 @@ import {
 import { PMTiles } from "pmtiles";
 import { isPublicOwnerName, ownerAcresText, ownerDisplayName } from "@/lib/ownerLabel";
 import { landTagKey, type LandTagKind } from "@/lib/landTags";
+import { getMapBearing, onMapBearingChange } from "@/lib/leafletRotation";
 import {
   OWNER_NEAR_KM,
   boundsIntersect,
@@ -198,6 +199,9 @@ export type LabelStyleState = {
   mine: Set<string>;
   selected: string;
   near: (feature: Feature, key: string, what: "tag" | "mine") => boolean;
+  // How far the map is turned (degrees, heading-up mode; 0 = north-up). Names
+  // are drawn turned the other way by this much so they read upright.
+  bearing: number;
 };
 
 const NEAR_ANYWHERE: LabelStyleState["near"] = () => true;
@@ -354,18 +358,26 @@ class HoldingLabelSymbolizer {
     const textWidth = Math.max(...lines.map((line) => line.width));
     const textHeight = lines.reduce((sum, line) => sum + line.height, 0) + 2;
 
+    // Heading-up map: draw the name turned back by the map's rotation so it
+    // reads upright, and size the collision box to the turned text.
+    const turn = (this.getState().bearing * Math.PI) / 180;
+    const cos = Math.abs(Math.cos(turn));
+    const sin = Math.abs(Math.sin(turn));
+    const boxWidth = textWidth * cos + textHeight * sin;
+    const boxHeight = textWidth * sin + textHeight * cos;
+
     return [
       {
         anchor,
         bboxes: [
           {
-            minX: anchor.x - textWidth / 2,
-            minY: anchor.y - textHeight / 2,
-            maxX: anchor.x + textWidth / 2,
-            maxY: anchor.y + textHeight / 2,
+            minX: anchor.x - boxWidth / 2,
+            minY: anchor.y - boxHeight / 2,
+            maxX: anchor.x + boxWidth / 2,
+            maxY: anchor.y + boxHeight / 2,
           },
         ],
-        draw: makeLabelDraw(lines, textHeight),
+        draw: makeLabelDraw(lines, textHeight, turn),
         deduplicationKey: landTagKey(rawOwner),
         deduplicationDistance: this.dedupPx,
       },
@@ -444,9 +456,11 @@ type LabelLine = {
 // Lettering sits straight on aerial imagery, which runs from near-black timber
 // to sunlit stubble and snow. A thin dark edge plus a soft shadow keeps it
 // readable on all of it without the heavy "stamped on" outline.
-function makeLabelDraw(lines: LabelLine[], textHeight: number) {
+function makeLabelDraw(lines: LabelLine[], textHeight: number, turn = 0) {
   return (ctx: CanvasRenderingContext2D) => {
     const dpr = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
+    ctx.save();
+    if (turn) ctx.rotate(turn);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
@@ -469,6 +483,7 @@ function makeLabelDraw(lines: LabelLine[], textHeight: number) {
     }
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
+    ctx.restore();
   };
 }
 
@@ -646,6 +661,7 @@ export default function ParcelTilesLayer({
     mine: new Set(),
     selected: selectedOwner ? landTagKey(selectedOwner) : "",
     near: NEAR_ANYWHERE,
+    bearing: 0,
   });
   const layerRef = useRef<{ refresh: () => void; findMine: () => void } | null>(null);
   const tagPointsRef = useRef<Record<string, GeoPoint>>({});
@@ -1091,8 +1107,34 @@ export default function ParcelTilesLayer({
 
     map.on("click", handleClick);
 
+    // Heading-up map: re-lay names upright as the map turns. Snapped to 10° and
+    // settled for a moment first, so walking with the compass on redraws the
+    // names a few times a turn, not on every compass tick.
+    const LABEL_TURN_STEP = 10;
+    const snapBearing = (bearing: number | null) =>
+      bearing === null
+        ? 0
+        : (((Math.round(bearing / LABEL_TURN_STEP) * LABEL_TURN_STEP) % 360) + 360) % 360;
+    let bearingTimer: ReturnType<typeof setTimeout> | null = null;
+    const applyBearing = (bearing: number | null) => {
+      const next = snapBearing(bearing);
+      if (bearingTimer) clearTimeout(bearingTimer);
+      if (next === styleRef.current.bearing) return;
+      const settle = bearing === null ? 0 : 250;
+      bearingTimer = setTimeout(() => {
+        bearingTimer = null;
+        if (cancelled || next === styleRef.current.bearing) return;
+        styleRef.current = { ...styleRef.current, bearing: next };
+        refresh();
+      }, settle);
+    };
+    applyBearing(getMapBearing(map));
+    const stopBearing = onMapBearingChange(map, applyBearing);
+
     return () => {
       cancelled = true;
+      stopBearing();
+      if (bearingTimer) clearTimeout(bearingTimer);
       map.off("click", handleClick);
       layer.off("load", findMine);
       layer.remove();
