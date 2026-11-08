@@ -23,6 +23,11 @@ type ParcelOwnerInfoCardProps = {
   distanceLabel?: string | null;
   /** "SMITH JOHN (changed Nov 2026)" when the land changed hands recently. */
   previousOwner?: string | null;
+  /**
+   * Official record that shows the owner, for land whose owner name isn't
+   * published (Maryland SDAT). With no ownerName, the card leads with it.
+   */
+  recordUrl?: string | null;
 };
 
 export default function ParcelOwnerInfoCard({
@@ -34,14 +39,17 @@ export default function ParcelOwnerInfoCard({
   onTag,
   distanceLabel,
   previousOwner,
+  recordUrl,
 }: ParcelOwnerInfoCardProps) {
+  const title = ownerName || "Owner not published";
   const [copied, setCopied] = useState(false);
   const [showDistance, setShowDistance] = useState(false);
 
   function copyOwner() {
     const text = [
-      ownerName,
+      title,
       summary,
+      ...(recordUrl ? [`Owner record: ${recordUrl}`] : []),
       ...(previousOwner ? [`Previously: ${previousOwner}`] : []),
       ...lines
         .filter((line) => line.value && line.value !== "Not listed")
@@ -60,14 +68,20 @@ export default function ParcelOwnerInfoCard({
     <aside
       className="di-map-card di-owner-card"
       style={cardStyle}
-      aria-label={`Parcel owner: ${ownerName}`}
+      aria-label={`Parcel owner: ${title}`}
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
     >
       <div style={headerStyle}>
         <div style={titleWrapStyle}>
           <p style={eyebrowStyle}>{summary}</p>
-          <h3 style={titleStyle}>{ownerName}</h3>
+          <h3 style={titleStyle}>{title}</h3>
+          {!ownerName && recordUrl ? (
+            <p style={recordNoteStyle}>
+              Maryland withholds owner names from its public parcel data. The
+              state record shows the owner.
+            </p>
+          ) : null}
           {tag ? (
             <p style={{ ...tagLineStyle, color: tag === "permission" ? "#a9b88a" : "#c9ccc2" }}>
               {tag === "permission" ? "■ Permission to hunt" : "■ Neighbor you noted"}
@@ -106,7 +120,17 @@ export default function ParcelOwnerInfoCard({
       </div>
 
       <div className="di-owner-card-actions" style={actionsStyle}>
-        {onTag ? (
+        {recordUrl ? (
+          <a
+            href={recordUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ ...(ownerName ? buttonStyle : callToActionStyle), ...linkButtonStyle }}
+          >
+            View owner on SDAT ↗
+          </a>
+        ) : null}
+        {onTag && ownerName ? (
           <>
             <button
               type="button"
@@ -137,7 +161,7 @@ export default function ParcelOwnerInfoCard({
           </button>
         ) : null}
         <button type="button" style={buttonStyle} onClick={copyOwner}>
-          {copied ? "Copied" : "Copy owner"}
+          {copied ? "Copied" : ownerName ? "Copy owner" : "Copy details"}
         </button>
       </div>
     </aside>
@@ -195,6 +219,20 @@ const titleStyle: CSSProperties = {
   fontSize: "1.9rem",
   lineHeight: 1,
   overflowWrap: "anywhere",
+};
+
+const linkButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  textDecoration: "none",
+};
+
+const recordNoteStyle: CSSProperties = {
+  margin: "0.35rem 0 0",
+  color: "#a3a79c",
+  fontSize: "0.8rem",
+  lineHeight: 1.35,
 };
 
 const tagLineStyle: CSSProperties = {

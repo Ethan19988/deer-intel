@@ -47,7 +47,7 @@ const ADDRESS_LIKE_OWNER_MAX_SHARE = 0.2;
 // Government / public land — gets a distinct style, same intent as the baked
 // datasets' `pub` flag.
 const PUBLIC_OWNER_PATTERN =
-  /\b(COMMONWEALTH|STATE GAME LAND|GAME COMMISSION|DCNR|BUREAU OF FOREST|STATE FOREST|STATE PARK|UNITED STATES|U ?S ?A\b|FEDERAL|NATIONAL PARK|FOREST SERVICE|FISH (AND|&) BOAT|COUNTY OF|TOWNSHIP OF|BOROUGH OF|MUNICIPAL|SCHOOL DISTRICT|AUTHORITY|DEPARTMENT OF)/i;
+  /\b(COMMONWEALTH|STATE GAME LAND|GAME COMMISSION|DCNR|BUREAU OF FOREST|STATE FOREST|STATE PARK|UNITED STATES|U ?S ?A\b|FEDERAL|NATIONAL PARK|FOREST SERVICE|FISH (AND|&) BOAT|COUNTY OF|TOWNSHIP OF|BOROUGH OF|MUNICIPAL|SCHOOL DISTRICT|AUTHORITY|DEPARTMENT OF|STATE OF MARYLAND|COMMISSIONERS)/i;
 
 const PASDA = (name, layer = 0) =>
   `https://mapservices.pasda.psu.edu/server/rest/services/pasda/${name}/MapServer/${layer}`;
@@ -111,6 +111,21 @@ function depCounty(...countyNames) {
     // (Sullivan's out-of-county owners show their home city), so none is taken.
     addr: () => "",
   };
+}
+
+// Maryland SDAT record links share one long prefix; only the query part
+// differs per parcel, so tiles store just that (the map adds the prefix back).
+// A link that doesn't match the prefix is kept whole.
+// Keep in sync with lib/sdatRecord.ts.
+const SDAT_RECORD_PREFIX =
+  "https://sdat.dat.maryland.gov/RealProperty/Pages/viewdetails.aspx?";
+
+function sdatRecordRef(v) {
+  const url = str(v).replace(/^http:\/\//i, "https://");
+  if (!/^https:\/\//i.test(url)) return "";
+  return url.toLowerCase().startsWith(SDAT_RECORD_PREFIX.toLowerCase())
+    ? url.slice(SDAT_RECORD_PREFIX.length)
+    : url;
 }
 
 // Dauphin stores the owner as separate name parts (or an org name in last_name
@@ -621,6 +636,78 @@ const COUNTIES = {
     addr: (p) => cleanAddr(p.ADDRESS),
   },
 
+  // --- Maryland (added 2026-11-08). The state publishes parcel polygons
+  // statewide but withholds owner names from the public data (the SDAT roll
+  // with names is licensed). So these parcels carry lines, acreage and a link
+  // to the parcel's official SDAT record, where the owner is shown — and no
+  // name. Paged one jurisdiction (JURSCODE) at a time to keep offsets small. ---
+  maryland: {
+    layerUrl:
+      "https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_ParcelBoundaries/MapServer/0",
+    partitionField: "JURSCODE",
+    // Jurisdictions loaded below from a source WITH owner names, so their
+    // unnamed statewide copies would only draw every line twice. The build
+    // log lists the JURSCODE values it saw, to check these against.
+    excludePartitions: ["WASH", "CHAR", "KENT", "TALB"],
+    ownerOptional: true,
+    outFields: ["ACCTID", "ACRES", "POLYACRES", "SDATWEBADR"],
+    owner: () => "",
+    acres: (p) => toAcres(p.ACRES) || toAcres(p.POLYACRES),
+    pin: (p) => str(p.ACCTID),
+    addr: () => "",
+    record: (p) => sdatRecordRef(p.SDATWEBADR),
+  },
+  // Maryland counties that publish owner names on their own (verified live
+  // 2026-11-08; owner data 2024 or newer, official county or regional sources).
+  "md-washington": {
+    // Washington County MD's own ArcGIS Online parcels (2025). OwnName2 is a
+    // co-owner.
+    layerUrl:
+      "https://services2.arcgis.com/uxxyl33jRTSmjre5/arcgis/rest/services/Washington_County_Public_Parcels/FeatureServer/0",
+    orderBy: "OBJECTID_1",
+    outFields: [
+      "OwnName1", "OwnName2", "Deeded_AC", "CalcAcre", "TaxAccNo",
+      "PremNum", "PremDir", "PremName", "PremType",
+    ],
+    owner: (p) => joinFields(p, ["OwnName1", "OwnName2"]),
+    acres: (p) => toAcres(p.Deeded_AC) || toAcres(p.CalcAcre),
+    pin: (p) => str(p.TaxAccNo),
+    addr: (p) => cleanAddr(joinFields(p, ["PremNum", "PremDir", "PremName", "PremType"])),
+  },
+  "md-charles": {
+    // Charles County's own parcels (June 2026), SDAT schema. LANDAREA is acres.
+    layerUrl:
+      "https://services7.arcgis.com/3BMWkdyrt45RNCrq/arcgis/rest/services/CCG_tax_parcels_06242026/FeatureServer/0",
+    outFields: ["OWNNAME1", "OWNNAME2", "LANDAREA", "ACCTID", "ADDRESS"],
+    owner: (p) => joinFields(p, ["OWNNAME1", "OWNNAME2"]),
+    acres: (p) => toAcres(p.LANDAREA),
+    pin: (p) => str(p.ACCTID),
+    addr: (p) => cleanAddr(p.ADDRESS),
+  },
+  "md-kent": {
+    // Kent County's parcel viewer layer (SDAT Nov 2024). OID field is ID.
+    layerUrl:
+      "https://services6.arcgis.com/RWHujKM5TItecIqp/arcgis/rest/services/Parcel_Viewer_experience_builder/FeatureServer/0",
+    orderBy: "ID",
+    outFields: ["OWNNAME1", "OWNNAME2", "ACRES", "POLYACRES", "ACCTID", "ADDRESS"],
+    owner: (p) => joinFields(p, ["OWNNAME1", "OWNNAME2"]),
+    acres: (p) => toAcres(p.ACRES) || toAcres(p.POLYACRES),
+    pin: (p) => str(p.ACCTID),
+    addr: (p) => cleanAddr(p.ADDRESS),
+  },
+  "md-talbot": {
+    // Talbot parcels from the Eastern Shore Regional GIS Cooperative (SDAT
+    // Jan 2024). OID field is FID.
+    layerUrl:
+      "https://services1.arcgis.com/X3lKekbdaBmNjCHu/arcgis/rest/services/Talbot_Parcels/FeatureServer/4",
+    orderBy: "FID",
+    outFields: ["OWNNAME1", "OWNNAME2", "ACRES", "POLYACRES", "ACCTID", "ADDRESS"],
+    owner: (p) => joinFields(p, ["OWNNAME1", "OWNNAME2"]),
+    acres: (p) => toAcres(p.ACRES) || toAcres(p.POLYACRES),
+    pin: (p) => str(p.ACCTID),
+    addr: (p) => cleanAddr(p.ADDRESS),
+  },
+
   // --- Added 2026-11-08: PA DEP statewide layer, for counties with no
   // county-run owner source (see PA_DEP_PARCELS). ---
   allegheny: depCounty("ALLEGHENY"),
@@ -655,6 +742,33 @@ async function resolveMifflinLayerUrl(cfg) {
     process.stderr.write(`mifflin: service lookup failed (${err.message}); using default\n`);
   }
   return cfg.layerUrl;
+}
+
+// The distinct values of a field (e.g. Maryland's JURSCODE), as where clauses,
+// so a statewide layer is paged one jurisdiction at a time.
+async function fetchPartitions(layerUrl, field, baseWhere, exclude = []) {
+  const url = new URL(`${layerUrl}/query`);
+  url.searchParams.set("where", baseWhere || "1=1");
+  url.searchParams.set("outFields", field);
+  url.searchParams.set("returnDistinctValues", "true");
+  url.searchParams.set("returnGeometry", "false");
+  url.searchParams.set("f", "json");
+  const data = await fetchJson(url.toString());
+  const values = (data.features || [])
+    .map((f) => str(f.attributes?.[field]))
+    .filter(Boolean)
+    .sort();
+  if (values.length === 0) throw new Error(`no ${field} values returned`);
+  const skip = new Set(exclude);
+  process.stderr.write(
+    `  ${field} values: ${values.join(" ")}` +
+      (skip.size ? ` (skipping ${values.filter((v) => skip.has(v)).join(" ") || "none of"} ${[...skip].join("/")})` : "") +
+      "\n",
+  );
+  return values.filter((v) => !skip.has(v)).map((v) => {
+    const clause = `${field}='${v.replace(/'/g, "''")}'`;
+    return baseWhere ? `(${baseWhere}) AND ${clause}` : clause;
+  });
 }
 
 // For a county whose owners live in a separate attribute table: read the whole
@@ -959,12 +1073,17 @@ async function fetchCounty(slug, outPath, labelPath) {
   const joined = cfg.join ? await fetchJoinTable(slug, cfg.join) : null;
   if (layerUrl !== cfg.layerUrl) process.stderr.write(`${slug}: using ${layerUrl}\n`);
 
-  let offset = 0;
   let total = 0;
   let addressLikeOwners = 0;
+  const partitions = cfg.partitionField
+    ? await fetchPartitions(layerUrl, cfg.partitionField, cfg.where, cfg.excludePartitions)
+    : [cfg.where || "1=1"];
+  for (const where of partitions) {
+  if (cfg.partitionField) process.stderr.write(`  ${slug}: ${where}\n`);
+  let offset = 0;
   for (;;) {
     const url = new URL(`${layerUrl}/query`);
-    url.searchParams.set("where", cfg.where || "1=1");
+    url.searchParams.set("where", where);
     url.searchParams.set("outFields", cfg.outFields.join(","));
     url.searchParams.set("returnGeometry", "true");
     url.searchParams.set("outSR", "4326");
@@ -983,10 +1102,11 @@ async function fetchCounty(slug, outPath, labelPath) {
       const own = feature.properties || {};
       const p = joined ? { ...own, ...joined.get(str(own[cfg.join.layerKey])) } : own;
       const owner = cfg.owner(p);
-      if (!owner) continue;
+      if (!owner && !cfg.ownerOptional) continue;
       const pin = cfg.pin ? cfg.pin(p) : "";
+      const record = cfg.record ? cfg.record(p) : "";
       if (ADDRESS_LIKE_OWNER.test(owner)) addressLikeOwners += 1;
-      history.observe(pin, owner);
+      if (owner) history.observe(pin, owner);
       out.write(
         `${JSON.stringify({
           type: "Feature",
@@ -998,6 +1118,9 @@ async function fetchCounty(slug, outPath, labelPath) {
             owner,
             acres: cfg.acres(p),
             pub: PUBLIC_OWNER_PATTERN.test(owner) ? 1 : 0,
+            // Link to the official parcel record (Maryland SDAT), for parcels
+            // whose owner name isn't published.
+            ...(record ? { rec: record } : {}),
           },
           // Build-only: stripped in the stamping pass, never reaches the tiles.
           _pin: pin,
@@ -1005,7 +1128,7 @@ async function fetchCounty(slug, outPath, labelPath) {
       );
       total += 1;
 
-      const summary = summarizeParcel(geom, owner, cfg.acres(p), pin);
+      const summary = owner ? summarizeParcel(geom, owner, cfg.acres(p), pin) : null;
       if (summary) parcelSummaries.push(summary);
     }
 
@@ -1018,6 +1141,7 @@ async function fetchCounty(slug, outPath, labelPath) {
     if (features.length < PAGE_SIZE && !more) break;
     offset += features.length;
     if (offset % 10000 === 0) process.stderr.write(`  ${slug}: ${total}...\n`);
+  }
   }
 
   await new Promise((resolve) => out.end(resolve));
