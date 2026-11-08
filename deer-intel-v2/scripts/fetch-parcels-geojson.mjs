@@ -37,6 +37,13 @@ import { LABEL_MAX_Z, labelMinZoom } from "./parcel-label-fit.mjs";
 
 const PAGE_SIZE = 1000;
 
+// Owner values that read like a street address ("134 RUSSELL ROAD"). A few are
+// real (an LLC named for its address), but a county where many are means the
+// owner field holds addresses, and the county is rejected.
+const ADDRESS_LIKE_OWNER =
+  /^\d+[A-Z]?\s+(?:[NSEW]\s+)?[A-Z0-9 .'-]*\b(?:ST|STREET|RD|ROAD|AVE|AVENUE|DR|DRIVE|LN|LANE|HWY|PIKE|WAY|CT|PL|BLVD|ROUTE|RT|SR|CIR|TER|TRL)\.?$/i;
+const ADDRESS_LIKE_OWNER_MAX_SHARE = 0.2;
+
 // Government / public land — gets a distinct style, same intent as the baked
 // datasets' `pub` flag.
 const PUBLIC_OWNER_PATTERN =
@@ -75,6 +82,35 @@ function acresFromText(v) {
 
 function cleanAddr(v) {
   return str(v).replace(/^none\s+/i, "").replace(/\s+/g, " ").trim();
+}
+
+// PA DEP's statewide parcel layer: one layer for ~44 counties, each county's
+// rows picked out by COUNTY_NAME (whose spelling and case vary by county —
+// Lackawanna even appears twice, once misspelled). Used only for counties with
+// no better county-run source. No data date is published; owner names were
+// spot-checked live per county before adding (Susquehanna's rows hold street
+// addresses in OWNER_NAME, so it is deliberately not here). Long names are cut
+// at 50 characters with a trailing "*".
+const PA_DEP_PARCELS =
+  "https://gis.dep.pa.gov/depgisprd/rest/services/Parcels/PA_Parcels/MapServer/0";
+
+function depOwner(p) {
+  return str(p.OWNER_NAME).replace(/\s*\*+$/, "").trim();
+}
+
+function depCounty(...countyNames) {
+  const quoted = countyNames.map((n) => `'${n.replace(/'/g, "''")}'`).join(",");
+  return {
+    layerUrl: PA_DEP_PARCELS,
+    where: `COUNTY_NAME IN (${quoted}) AND OWNER_NAME IS NOT NULL`,
+    outFields: ["OWNER_NAME", "ACREAGE", "ACRES", "PARCEL_ID"],
+    owner: depOwner,
+    acres: (p) => toAcres(p.ACREAGE) || toAcres(p.ACRES),
+    pin: (p) => str(p.PARCEL_ID),
+    // PROPERTY_ADDRESS_1 is the owner's mailing address in some counties
+    // (Sullivan's out-of-county owners show their home city), so none is taken.
+    addr: () => "",
+  };
 }
 
 // Dauphin stores the owner as separate name parts (or an org name in last_name
@@ -388,6 +424,217 @@ const COUNTIES = {
     pin: (p) => str(p.CONTROL_NUMBER),
     addr: (p) => cleanAddr(p.SITUS_DESC_1),
   },
+
+  // --- Added 2026-11-08: county-run sources (verified live: layer fields read
+  // from ?f=json and a sample query returned real owner names). ---
+  union: {
+    // Union County's own server. The dated "..._3_6_26_Update" copy has the
+    // same schema and rows; the undated name is the stable one to hardcode.
+    layerUrl:
+      "https://gis.unionco.org/server/rest/services/LandRecords/Union_Land_Records/MapServer/1",
+    outFields: ["OwnName", "LegalAcres", "ParcelNumber", "LocationAddress"],
+    owner: (p) => str(p.OwnName),
+    acres: (p) => toAcres(p.LegalAcres),
+    pin: (p) => str(p.ParcelNumber),
+    addr: (p) => cleanAddr(p.LocationAddress),
+  },
+  snyder: {
+    // Hosted on Union County's server. Owner2 mixes co-owners and "C/O"
+    // contacts, so only Owner is used (it's space-padded; str() trims).
+    layerUrl:
+      "https://gis.unionco.org/server/rest/services/LandRecords/Snyder_Land_Records/MapServer/1",
+    outFields: ["Owner", "Acreage", "GISAcres", "PIN", "SitusDesc"],
+    owner: (p) => str(p.Owner),
+    acres: (p) => toAcres(p.Acreage) || toAcres(p.GISAcres),
+    pin: (p) => str(p.PIN),
+    addr: (p) => cleanAddr(p.SitusDesc),
+  },
+  cumberland: {
+    // Cumberland County's own ArcGIS Online tax parcels. PASDA's has no owner.
+    layerUrl:
+      "https://services1.arcgis.com/1Cfo0re3un0w6a30/arcgis/rest/services/Tax_Parcels/FeatureServer/0",
+    outFields: ["OWNER", "DEEDED_AC", "CalcAcre", "PIN", "SITUS"],
+    owner: (p) => str(p.OWNER),
+    acres: (p) => toAcres(p.DEEDED_AC) || toAcres(p.CalcAcre),
+    pin: (p) => str(p.PIN),
+    addr: (p) => cleanAddr(p.SITUS),
+  },
+  lebanon: {
+    // Lebanon County's service, shared through an ArcGIS Online proxy URL (it
+    // can change if the county re-shares it). SECOND_LIS is a co-owner.
+    layerUrl:
+      "https://utility.arcgis.com/usrsvcs/servers/7072ca11c43c43feb1ab453851e847b9/rest/services/LandRecords/TaxParcels/MapServer/0",
+    orderBy: "OBJECTID_1",
+    outFields: ["OWNER", "SECOND_LIS", "DEEDED_ACR", "MAP_NUMBER", "SITUS_ADDR"],
+    owner: (p) => joinFields(p, ["OWNER", "SECOND_LIS"]),
+    acres: (p) => toAcres(p.DEEDED_ACR),
+    pin: (p) => str(p.MAP_NUMBER),
+    addr: (p) => cleanAddr(p.SITUS_ADDR),
+  },
+  luzerne: {
+    // Luzerne County's own server. No acreage or parcel address published;
+    // PUB_CareOf is a care-of line, not a co-owner.
+    layerUrl: "https://gis.luzernecounty.org/server/rest/services/PublicMap/MapServer/1",
+    outFields: ["PUB_OWNER", "PIN"],
+    owner: (p) => str(p.PUB_OWNER).replace(/\s+/g, " "),
+    acres: () => 0,
+    pin: (p) => str(p.PIN),
+    addr: () => "",
+  },
+  beaver: {
+    // Beaver County's own server. Owner_Name2 continues Owner_Name1.
+    layerUrl:
+      "https://gis.beavercountypa.gov/server/rest/services/InfoAtlas/Parcels_with_Owner/FeatureServer/22",
+    outFields: [
+      "Owner_Name1", "Owner_Name2", "Total_Acres", "GIS_Ac", "Parcel_ID",
+      "Location_Number", "Location_Street",
+    ],
+    owner: (p) => joinFields(p, ["Owner_Name1", "Owner_Name2"]),
+    acres: (p) => toAcres(p.Total_Acres) || toAcres(p.GIS_Ac),
+    pin: (p) => str(p.Parcel_ID),
+    addr: (p) => cleanAddr(joinFields(p, ["Location_Number", "Location_Street"])),
+  },
+  crawford: {
+    // Crawford County's own server. Water/right-of-way polygons have no
+    // attributes, so only owned parcels are requested. Its "Legal Area" looks
+    // like square feet, so the GIS acreage is used rather than guess units.
+    layerUrl:
+      "https://gis.crawfordcountypa.net/arcgis/rest/services/CivQuest_Public/MapServer/1",
+    where: "OWN_NAME1 IS NOT NULL",
+    outFields: ["OWN_NAME1", "OWN_NAME2", "GIS_ACRES", "CAMA_PIN", "REM_PRCL_LOCN"],
+    owner: (p) => joinFields(p, ["OWN_NAME1", "OWN_NAME2"]),
+    acres: (p) => toAcres(p.GIS_ACRES),
+    pin: (p) => str(p.CAMA_PIN),
+    addr: (p) => cleanAddr(p.REM_PRCL_LOCN),
+  },
+  mercer: {
+    // PASDA (March 2026). Comb_Own_1 is the owner's MAILING address, not a
+    // co-owner, so only Comb_Owner is used.
+    layerUrl: PASDA("MercerCounty"),
+    outFields: ["Comb_Owner", "Acreage", "Parcel_Id", "Situs_Desc"],
+    owner: (p) => str(p.Comb_Owner),
+    acres: (p) => toAcres(p.Acreage),
+    pin: (p) => str(p.Parcel_Id),
+    addr: (p) => cleanAddr(p.Situs_Desc),
+  },
+  centre: {
+    // Centre County's own server (DataScout parcels). CareOf is separate.
+    layerUrl:
+      "https://gissites4.centrecountypa.gov/arcgis/rest/services/DataScoutParcels/MapServer/10",
+    outFields: ["Name", "Cama_acres", "TAXIDNUM", "Location"],
+    owner: (p) => str(p.Name),
+    acres: (p) => toAcres(p.Cama_acres),
+    pin: (p) => str(p.TAXIDNUM),
+    addr: (p) => cleanAddr(p.Location),
+  },
+  tioga: {
+    // Tioga County's own server (parcel fabric joined to CAMA). The co-owner
+    // field is a real co-owner, not care-of.
+    layerUrl:
+      "https://tiogagis.tiogacountypa.us/arcgis2017/rest/services/01_Parcel_Fabric_CAMA_Lines_REG/MapServer/0",
+    orderBy: "OBJECTID_1",
+    outFields: ["SLH_OWN_NAME", "SLH_CO_OWN_NAME", "PRC_TTL_LND_AREA_ACRES", "PARCELID", "LOCATION"],
+    owner: (p) => joinFields(p, ["SLH_OWN_NAME", "SLH_CO_OWN_NAME"]),
+    acres: (p) => toAcres(p.PRC_TTL_LND_AREA_ACRES),
+    pin: (p) => str(p.PARCELID),
+    addr: (p) => cleanAddr(p.LOCATION),
+  },
+  elk: {
+    // Elk County parcels hosted by the North Central PA regional planning
+    // org's ArcGIS Online (OID FID). Its older "ElkParcel" covers only Ridgway.
+    layerUrl:
+      "https://services1.arcgis.com/qXvbYftT9ld1YWzi/arcgis/rest/services/Elk_County_view/FeatureServer/0",
+    orderBy: "FID",
+    outFields: ["camadb_NAM", "camadb_ACR", "camadb_pin", "camadb_LOC"],
+    owner: (p) => str(p.camadb_NAM),
+    acres: (p) => toAcres(p.camadb_ACR),
+    pin: (p) => str(p.camadb_pin),
+    addr: (p) => cleanAddr(p.camadb_LOC),
+  },
+  jefferson: {
+    // Jefferson County (PA, FIPS 42065) parcels on the same regional org.
+    // About 760 polygons carry a blank owner. TaxArea's units aren't
+    // confirmed, so no acreage is taken.
+    layerUrl:
+      "https://services1.arcgis.com/qXvbYftT9ld1YWzi/arcgis/rest/services/Jefferson_County_Parcels_View/FeatureServer/0",
+    where: "OwnerName IS NOT NULL AND OwnerName <> ' '",
+    outFields: ["OwnerName", "ParcelId", "AdrLabel"],
+    owner: (p) => str(p.OwnerName),
+    acres: () => 0,
+    pin: (p) => str(p.ParcelId),
+    addr: (p) => cleanAddr(p.AdrLabel),
+  },
+  susquehanna: {
+    // Susquehanna County's own ArcGIS Online parcels + CAMA. SECOND_NAME is a
+    // care-of line. (PA DEP's Susquehanna rows have addresses for owners.)
+    layerUrl:
+      "https://services5.arcgis.com/lmuC4NmaSm4GH9h5/arcgis/rest/services/Parcels_CAMA/FeatureServer/0",
+    outFields: ["COMBINED_NAME", "DEEDED_ACR", "PIN", "SITUS_COMBINED"],
+    owner: (p) => str(p.COMBINED_NAME),
+    acres: (p) => toAcres(p.DEEDED_ACR),
+    pin: (p) => str(p.PIN),
+    addr: (p) => cleanAddr(p.SITUS_COMBINED),
+  },
+  mckean: {
+    // McKean's polygons carry no owner; the owner is in a CAMA table joined on
+    // polygon `pin` = table `GISParcelID` (the service's own relationship 1,
+    // confirmed by matching values). Table 2 is the Aug 2025 CAMA. Care-of is
+    // folded into OwnerName ("... C/O ...") and is cut off here.
+    layerUrl:
+      "https://gis.mckeancountypa.gov/server/rest/services/ParcelViewer/BPV3_Parcels/MapServer/0",
+    orderBy: "objectid",
+    outFields: ["pin", "calc_acrea"],
+    join: {
+      tableUrl:
+        "https://gis.mckeancountypa.gov/server/rest/services/ParcelViewer/BPV3_Parcels/MapServer/2",
+      tableKey: "GISParcelID",
+      layerKey: "pin",
+      outFields: ["GISParcelID", "OwnerName", "Acres", "SitusDescription"],
+    },
+    owner: (p) => str(p.OwnerName).replace(/\s+C\/O\b.*$/i, "").trim(),
+    acres: (p) => toAcres(p.Acres) || toAcres(p.calc_acrea),
+    pin: (p) => str(p.pin),
+    addr: (p) => cleanAddr(p.SitusDescription),
+  },
+  washington: {
+    // PASDA copy of Washington County's parcels (Aug 2026). owndat_own2 was
+    // empty in every sample, so its role is unknown and it isn't used.
+    // parcel_acres is GIS-computed (a string); no deeded acreage is published.
+    layerUrl: PASDA("WashingtonCounty", 7),
+    outFields: [
+      "owndat_own1", "parcel_acres", "PIN",
+      "legdat_adrno", "legdat_adrdir", "legdat_adrstr", "legdat_adrsuf",
+    ],
+    owner: (p) => str(p.owndat_own1),
+    acres: (p) => toAcres(p.parcel_acres),
+    pin: (p) => str(p.PIN),
+    addr: (p) =>
+      cleanAddr(joinFields(p, ["legdat_adrno", "legdat_adrdir", "legdat_adrstr", "legdat_adrsuf"])),
+  },
+  philadelphia: {
+    // PASDA's copy of the city's parcels (layer named 202402). No acreage.
+    layerUrl: PASDA("CityPhilly", 14),
+    outFields: ["OWNER1", "OWNER2", "PARCELID", "ADDRESS"],
+    owner: (p) => joinFields(p, ["OWNER1", "OWNER2"]),
+    acres: () => 0,
+    pin: (p) => str(p.PARCELID),
+    addr: (p) => cleanAddr(p.ADDRESS),
+  },
+
+  // --- Added 2026-11-08: PA DEP statewide layer, for counties with no
+  // county-run owner source (see PA_DEP_PARCELS). ---
+  allegheny: depCounty("ALLEGHENY"),
+  blair: depCounty("BLAIR"),
+  clinton: depCounty("CLINTON"),
+  delaware: depCounty("Delaware"),
+  greene: depCounty("GREENE"),
+  lackawanna: depCounty("Lackawanna", "Lacakawanna"),
+  lancaster: depCounty("LANCASTER"),
+  lehigh: depCounty("LEHIGH"),
+  northumberland: depCounty("Northumberland"),
+  schuylkill: depCounty("SCHUYLKILL"),
+  sullivan: depCounty("Sullivan"),
+  westmoreland: depCounty("WESTMORELAND"),
 };
 
 // Picks Mifflin's newest Hosted/parcels<MMDDYY> (or parcels_<MMDDYY>) service.
@@ -408,6 +655,37 @@ async function resolveMifflinLayerUrl(cfg) {
     process.stderr.write(`mifflin: service lookup failed (${err.message}); using default\n`);
   }
   return cfg.layerUrl;
+}
+
+// For a county whose owners live in a separate attribute table: read the whole
+// table once (attributes only) into key -> first row, so each polygon can pick
+// up its owner by the service's join key.
+async function fetchJoinTable(slug, join) {
+  const rows = new Map();
+  let offset = 0;
+  for (;;) {
+    const url = new URL(`${join.tableUrl}/query`);
+    url.searchParams.set("where", "1=1");
+    url.searchParams.set("outFields", join.outFields.join(","));
+    url.searchParams.set("returnGeometry", "false");
+    url.searchParams.set("orderByFields", join.orderBy || "OBJECTID");
+    url.searchParams.set("resultOffset", String(offset));
+    url.searchParams.set("resultRecordCount", String(PAGE_SIZE));
+    url.searchParams.set("f", "json");
+    const page = await fetchJson(url.toString());
+    const features = page.features || [];
+    for (const f of features) {
+      const a = f.attributes || {};
+      const key = str(a[join.tableKey]);
+      if (key && !rows.has(key)) rows.set(key, a);
+    }
+    if (features.length === 0) break;
+    if (features.length < PAGE_SIZE && page.exceededTransferLimit !== true) break;
+    offset += features.length;
+  }
+  process.stderr.write(`${slug}: joined table has ${rows.size} keyed rows\n`);
+  if (rows.size === 0) throw new Error(`${slug}: join table returned no rows`);
+  return rows;
 }
 
 async function fetchJson(url) {
@@ -678,13 +956,15 @@ async function fetchCounty(slug, outPath, labelPath) {
   const parcelSummaries = [];
 
   const layerUrl = cfg.resolveLayerUrl ? await cfg.resolveLayerUrl(cfg) : cfg.layerUrl;
+  const joined = cfg.join ? await fetchJoinTable(slug, cfg.join) : null;
   if (layerUrl !== cfg.layerUrl) process.stderr.write(`${slug}: using ${layerUrl}\n`);
 
   let offset = 0;
   let total = 0;
+  let addressLikeOwners = 0;
   for (;;) {
     const url = new URL(`${layerUrl}/query`);
-    url.searchParams.set("where", "1=1");
+    url.searchParams.set("where", cfg.where || "1=1");
     url.searchParams.set("outFields", cfg.outFields.join(","));
     url.searchParams.set("returnGeometry", "true");
     url.searchParams.set("outSR", "4326");
@@ -700,10 +980,12 @@ async function fetchCounty(slug, outPath, labelPath) {
       // Owner parcels are polygons; skip anything else (guards against a county
       // whose layer turns out to be address points).
       if (!geom || !/Polygon/.test(geom.type)) continue;
-      const p = feature.properties || {};
+      const own = feature.properties || {};
+      const p = joined ? { ...own, ...joined.get(str(own[cfg.join.layerKey])) } : own;
       const owner = cfg.owner(p);
       if (!owner) continue;
       const pin = cfg.pin ? cfg.pin(p) : "";
+      if (ADDRESS_LIKE_OWNER.test(owner)) addressLikeOwners += 1;
       history.observe(pin, owner);
       out.write(
         `${JSON.stringify({
@@ -739,6 +1021,15 @@ async function fetchCounty(slug, outPath, labelPath) {
   }
 
   await new Promise((resolve) => out.end(resolve));
+
+  // A source whose "owner" column is really street addresses (PA DEP's
+  // Susquehanna rows were) would put wrong names on the map. Refuse it.
+  if (total > 0 && addressLikeOwners / total > ADDRESS_LIKE_OWNER_MAX_SHARE) {
+    await rm(rawPath, { force: true });
+    throw new Error(
+      `${slug}: ${addressLikeOwners} of ${total} owners look like street addresses; refusing this source`,
+    );
+  }
 
   const stamped = await stampOwnerHistory(rawPath, outPath, history);
   await rm(rawPath, { force: true });

@@ -137,6 +137,52 @@ const PA_COUNTIES: Array<{ countyFips: string; countyName: string }> = [
   { countyFips: "133", countyName: "York" },
 ];
 
+// PA DEP's statewide parcel layer: owner names for ~40 counties in one layer.
+// Used only where a county runs no public owner source of its own (owner
+// names spot-checked live per county). A tap lookup is a point query, so no
+// county filter is needed.
+const PA_DEP_PARCEL_SERVICE_URL =
+  "https://gis.dep.pa.gov/depgisprd/rest/services/Parcels/PA_Parcels/MapServer";
+
+function paDepCounty(countyName: string): Partial<CountyParcelProvider> {
+  return {
+    acreageFieldNames: ["ACREAGE", "ACRES"],
+    // PROPERTY_ADDRESS_1 is a mailing address in some counties.
+    addressFieldNames: [],
+    geometrySupport: "polygon",
+    notes: `PA DEP statewide parcels (${countyName} rows); no data date published.`,
+    ownerFieldNames: ["OWNER_NAME"],
+    parcelIdFieldNames: ["PARCEL_ID"],
+    parcelLayerId: 0,
+    parcelServiceUrl: PA_DEP_PARCEL_SERVICE_URL,
+    source: "PA DEP",
+    status: "supported",
+  };
+}
+
+function countyArcgis(
+  config: Pick<
+    CountyParcelProvider,
+    | "acreageFieldNames"
+    | "addressFieldNames"
+    | "ownerFieldNames"
+    | "parcelIdFieldNames"
+    | "parcelLayerId"
+    | "parcelServiceUrl"
+    | "notes"
+  > & {
+    addressFieldGroups?: string[][];
+    source?: CountyParcelProvider["source"];
+  },
+): Partial<CountyParcelProvider> {
+  return {
+    geometrySupport: "polygon",
+    source: "County ArcGIS",
+    status: "supported",
+    ...config,
+  };
+}
+
 const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
   Adams: {
     acreageFieldNames: ["DEEDED_ACRES", "Map_Ac"],
@@ -442,6 +488,171 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     source: "PASDA",
     status: "supported",
   },
+
+  // Added 2026-11-08 (same sources as scripts/fetch-parcels-geojson.mjs).
+  Beaver: countyArcgis({
+    acreageFieldNames: ["Total_Acres", "GIS_Ac"],
+    addressFieldNames: [],
+    addressFieldGroups: [["Location_Number", "Location_Street"]],
+    notes: "Beaver County ArcGIS Server parcels with owner names.",
+    ownerFieldNames: ["Owner_Name1", "Owner_Name2"],
+    parcelIdFieldNames: ["Parcel_ID"],
+    parcelLayerId: 22,
+    parcelServiceUrl:
+      "https://gis.beavercountypa.gov/server/rest/services/InfoAtlas/Parcels_with_Owner/FeatureServer",
+  }),
+  Centre: countyArcgis({
+    acreageFieldNames: ["Cama_acres"],
+    addressFieldNames: ["Location"],
+    notes: "Centre County DataScout parcels with owner names.",
+    ownerFieldNames: ["Name"],
+    parcelIdFieldNames: ["TAXIDNUM"],
+    parcelLayerId: 10,
+    parcelServiceUrl:
+      "https://gissites4.centrecountypa.gov/arcgis/rest/services/DataScoutParcels/MapServer",
+  }),
+  Crawford: countyArcgis({
+    acreageFieldNames: ["GIS_ACRES"],
+    addressFieldNames: ["REM_PRCL_LOCN"],
+    notes: "Crawford County ArcGIS Server tax parcels (GIS acreage).",
+    ownerFieldNames: ["OWN_NAME1", "OWN_NAME2"],
+    parcelIdFieldNames: ["CAMA_PIN"],
+    parcelLayerId: 1,
+    parcelServiceUrl:
+      "https://gis.crawfordcountypa.net/arcgis/rest/services/CivQuest_Public/MapServer",
+  }),
+  Cumberland: countyArcgis({
+    acreageFieldNames: ["DEEDED_AC", "CalcAcre"],
+    addressFieldNames: ["SITUS"],
+    notes: "Cumberland County ArcGIS Online tax parcels.",
+    ownerFieldNames: ["OWNER"],
+    parcelIdFieldNames: ["PIN"],
+    parcelLayerId: 0,
+    parcelServiceUrl:
+      "https://services1.arcgis.com/1Cfo0re3un0w6a30/arcgis/rest/services/Tax_Parcels/FeatureServer",
+  }),
+  Elk: countyArcgis({
+    acreageFieldNames: ["camadb_ACR"],
+    addressFieldNames: ["camadb_LOC"],
+    notes: "Elk County parcels on the North Central PA regional ArcGIS Online.",
+    ownerFieldNames: ["camadb_NAM"],
+    parcelIdFieldNames: ["camadb_pin"],
+    parcelLayerId: 0,
+    parcelServiceUrl:
+      "https://services1.arcgis.com/qXvbYftT9ld1YWzi/arcgis/rest/services/Elk_County_view/FeatureServer",
+  }),
+  Jefferson: countyArcgis({
+    acreageFieldNames: [],
+    addressFieldNames: ["AdrLabel"],
+    notes: "Jefferson County parcels on the North Central PA regional ArcGIS Online.",
+    ownerFieldNames: ["OwnerName"],
+    parcelIdFieldNames: ["ParcelId"],
+    parcelLayerId: 0,
+    parcelServiceUrl:
+      "https://services1.arcgis.com/qXvbYftT9ld1YWzi/arcgis/rest/services/Jefferson_County_Parcels_View/FeatureServer",
+  }),
+  Lebanon: countyArcgis({
+    acreageFieldNames: ["DEEDED_ACR"],
+    addressFieldNames: ["SITUS_ADDR"],
+    notes: "Lebanon County tax parcels (shared through an ArcGIS Online proxy URL).",
+    ownerFieldNames: ["OWNER", "SECOND_LIS"],
+    parcelIdFieldNames: ["MAP_NUMBER"],
+    parcelLayerId: 0,
+    parcelServiceUrl:
+      "https://utility.arcgis.com/usrsvcs/servers/7072ca11c43c43feb1ab453851e847b9/rest/services/LandRecords/TaxParcels/MapServer",
+  }),
+  Luzerne: countyArcgis({
+    acreageFieldNames: [],
+    addressFieldNames: [],
+    notes: "Luzerne County ArcGIS Server tax parcels; no acreage or parcel address.",
+    ownerFieldNames: ["PUB_OWNER"],
+    parcelIdFieldNames: ["PIN"],
+    parcelLayerId: 1,
+    parcelServiceUrl: "https://gis.luzernecounty.org/server/rest/services/PublicMap/MapServer",
+  }),
+  Mercer: countyArcgis({
+    acreageFieldNames: ["Acreage"],
+    addressFieldNames: ["Situs_Desc"],
+    notes: "PASDA Mercer County tax parcels (March 2026).",
+    ownerFieldNames: ["Comb_Owner"],
+    parcelIdFieldNames: ["Parcel_Id"],
+    parcelLayerId: 0,
+    parcelServiceUrl: pasdaCountyParcelServiceUrl("Mercer"),
+    source: "PASDA",
+  }),
+  Philadelphia: countyArcgis({
+    acreageFieldNames: [],
+    addressFieldNames: ["ADDRESS"],
+    notes: "PASDA copy of Philadelphia parcels.",
+    ownerFieldNames: ["OWNER1", "OWNER2"],
+    parcelIdFieldNames: ["PARCELID"],
+    parcelLayerId: 14,
+    parcelServiceUrl: `${PASDA_COUNTY_SERVICE_ROOT}/CityPhilly/MapServer`,
+    source: "PASDA",
+  }),
+  Snyder: countyArcgis({
+    acreageFieldNames: ["Acreage", "GISAcres"],
+    addressFieldNames: ["SitusDesc"],
+    notes: "Snyder County parcels on Union County's GIS server.",
+    ownerFieldNames: ["Owner"],
+    parcelIdFieldNames: ["PIN"],
+    parcelLayerId: 1,
+    parcelServiceUrl:
+      "https://gis.unionco.org/server/rest/services/LandRecords/Snyder_Land_Records/MapServer",
+  }),
+  Susquehanna: countyArcgis({
+    acreageFieldNames: ["DEEDED_ACR"],
+    addressFieldNames: ["SITUS_COMBINED"],
+    notes: "Susquehanna County ArcGIS Online parcels with CAMA owners.",
+    ownerFieldNames: ["COMBINED_NAME"],
+    parcelIdFieldNames: ["PIN"],
+    parcelLayerId: 0,
+    parcelServiceUrl:
+      "https://services5.arcgis.com/lmuC4NmaSm4GH9h5/arcgis/rest/services/Parcels_CAMA/FeatureServer",
+  }),
+  Tioga: countyArcgis({
+    acreageFieldNames: ["PRC_TTL_LND_AREA_ACRES"],
+    addressFieldNames: ["LOCATION"],
+    notes: "Tioga County ArcGIS Server parcel fabric joined to CAMA.",
+    ownerFieldNames: ["SLH_OWN_NAME", "SLH_CO_OWN_NAME"],
+    parcelIdFieldNames: ["PARCELID"],
+    parcelLayerId: 0,
+    parcelServiceUrl:
+      "https://tiogagis.tiogacountypa.us/arcgis2017/rest/services/01_Parcel_Fabric_CAMA_Lines_REG/MapServer",
+  }),
+  Union: countyArcgis({
+    acreageFieldNames: ["LegalAcres"],
+    addressFieldNames: ["LocationAddress"],
+    notes: "Union County ArcGIS Server land records.",
+    ownerFieldNames: ["OwnName"],
+    parcelIdFieldNames: ["ParcelNumber"],
+    parcelLayerId: 1,
+    parcelServiceUrl:
+      "https://gis.unionco.org/server/rest/services/LandRecords/Union_Land_Records/MapServer",
+  }),
+  Washington: countyArcgis({
+    acreageFieldNames: ["parcel_acres"],
+    addressFieldNames: [],
+    addressFieldGroups: [["legdat_adrno", "legdat_adrdir", "legdat_adrstr", "legdat_adrsuf"]],
+    notes: "PASDA Washington County parcels (Aug 2026); GIS acreage.",
+    ownerFieldNames: ["owndat_own1"],
+    parcelIdFieldNames: ["PIN"],
+    parcelLayerId: 7,
+    parcelServiceUrl: pasdaCountyParcelServiceUrl("Washington"),
+    source: "PASDA",
+  }),
+  Allegheny: paDepCounty("Allegheny"),
+  Blair: paDepCounty("Blair"),
+  Clinton: paDepCounty("Clinton"),
+  Delaware: paDepCounty("Delaware"),
+  Greene: paDepCounty("Greene"),
+  Lackawanna: paDepCounty("Lackawanna"),
+  Lancaster: paDepCounty("Lancaster"),
+  Lehigh: paDepCounty("Lehigh"),
+  Northumberland: paDepCounty("Northumberland"),
+  Schuylkill: paDepCounty("Schuylkill"),
+  Sullivan: paDepCounty("Sullivan"),
+  Westmoreland: paDepCounty("Westmoreland"),
 };
 
 export const PA_COUNTY_PARCEL_PROVIDERS: CountyParcelProvider[] =

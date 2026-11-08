@@ -62,7 +62,7 @@ export type CountyParcelProvider = {
   parcelIdFieldNames: string[];
   parcelLayerId?: number;
   parcelServiceUrl?: string;
-  source: "PASDA" | "PA GeoData" | "County ArcGIS" | "Unavailable";
+  source: "PASDA" | "PA GeoData" | "PA DEP" | "County ArcGIS" | "Unavailable";
   status: ParcelProviderSupportStatus;
 };
 

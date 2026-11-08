@@ -38,44 +38,65 @@ HISTORY_IN="${PARCEL_HISTORY_IN:-}"
 HISTORY_OUT="${PARCEL_HISTORY_OUT:-$WORK/history-next}"
 mkdir -p "$WORK" "$HISTORY_OUT"
 
-inputs=()
-labelInputs=()
-failed=()
-for county in $COUNTIES; do
-  ndjson="$WORK/$county.ndjson"
+# Counties are fetched a few at a time (FETCH_JOBS, default 4): the fetch is
+# almost all waiting on county servers, and with 50+ counties one-at-a-time
+# no longer fits the workflow's time limit. Each county's outcome is recorded
+# in a marker file so results are collected in county order afterwards.
+FETCH_JOBS="${FETCH_JOBS:-4}"
+
+fetch_county() {
+  local county="$1"
+  local ndjson="$WORK/$county.ndjson"
+  local labels="$WORK/$county.labels.ndjson"
+  local errlog="$WORK/$county.err"
+  rm -f "$WORK/$county.ok" "$WORK/$county.failed"
   echo ">> fetching $county"
   # A single county service can hiccup mid-stream (large counties occasionally
   # trip an undici assertion), so retry each a few times. One county that stays
   # down is skipped with a warning rather than aborting the whole build.
-  ok=0
-  labels="$WORK/$county.labels.ndjson"
-  errlog="$WORK/$county.err"
+  local attempt
   for attempt in 1 2 3; do
     if NODE_USE_ENV_PROXY="${NODE_USE_ENV_PROXY:-1}" \
         PARCEL_HISTORY_IN="$HISTORY_IN" PARCEL_HISTORY_OUT="$HISTORY_OUT" \
         node "$HERE/fetch-parcels-geojson.mjs" "$county" "$ndjson" "$labels" \
         2> >(tee "$errlog" >&2); then
-      ok=1
-      break
+      touch "$WORK/$county.ok"
+      return 0
     fi
     echo "   attempt $attempt for $county failed; retrying in 10s"
     sleep 10
   done
-  if [ "$ok" -eq 1 ]; then
-    inputs+=("$ndjson")
-    [ -s "$labels" ] && labelInputs+=("$labels")
+  echo "WARNING: giving up on $county after 3 attempts; excluding it"
+  # A GitHub annotation (not just a log line) so a dropped county shows on
+  # the run summary instead of silently vanishing from the map.
+  local reason
+  reason="$(grep -m1 'FAILED:' "$errlog" 2>/dev/null || tail -n1 "$errlog" 2>/dev/null)"
+  echo "::warning title=Parcel county skipped::$county excluded from tiles after 3 attempts: ${reason:-unknown error}"
+  # Keep the skipped county's last snapshot so its history isn't lost (its
+  # parcels aren't in this archive, so there's nothing to compare against).
+  if [ -n "$HISTORY_IN" ] && [ -s "$HISTORY_IN/$county.json.gz" ]; then
+    cp "$HISTORY_IN/$county.json.gz" "$HISTORY_OUT/$county.json.gz"
+  fi
+  touch "$WORK/$county.failed"
+}
+
+for county in $COUNTIES; do
+  while [ "$(jobs -rp | wc -l)" -ge "$FETCH_JOBS" ]; do
+    wait -n || true
+  done
+  fetch_county "$county" &
+done
+wait
+
+inputs=()
+labelInputs=()
+failed=()
+for county in $COUNTIES; do
+  if [ -e "$WORK/$county.ok" ]; then
+    inputs+=("$WORK/$county.ndjson")
+    [ -s "$WORK/$county.labels.ndjson" ] && labelInputs+=("$WORK/$county.labels.ndjson")
   else
-    echo "WARNING: giving up on $county after 3 attempts; excluding it"
-    # A GitHub annotation (not just a log line) so a dropped county shows on
-    # the run summary instead of silently vanishing from the map.
-    reason="$(grep -m1 'FAILED:' "$errlog" 2>/dev/null || tail -n1 "$errlog" 2>/dev/null)"
-    echo "::warning title=Parcel county skipped::$county excluded from tiles after 3 attempts: ${reason:-unknown error}"
     failed+=("$county")
-    # Keep the skipped county's last snapshot so its history isn't lost (its
-    # parcels aren't in this archive, so there's nothing to compare against).
-    if [ -n "$HISTORY_IN" ] && [ -s "$HISTORY_IN/$county.json.gz" ]; then
-      cp "$HISTORY_IN/$county.json.gz" "$HISTORY_OUT/$county.json.gz"
-    fi
   fi
 done
 
