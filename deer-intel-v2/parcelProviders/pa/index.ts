@@ -631,11 +631,12 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
       "https://gis.unionco.org/server/rest/services/LandRecords/Union_Land_Records/MapServer",
   }),
   Washington: countyArcgis({
-    acreageFieldNames: ["parcel_acres"],
+    acreageFieldNames: ["parcel_acr"],
     addressFieldNames: [],
-    addressFieldGroups: [["legdat_adrno", "legdat_adrdir", "legdat_adrstr", "legdat_adrsuf"]],
+    // Queries return the 10-character stored names, not the long aliases.
+    addressFieldGroups: [["legdat_adr", "legdat_a_2", "legdat_a_3", "legdat_a_4"]],
     notes: "PASDA Washington County parcels (Aug 2026); GIS acreage.",
-    ownerFieldNames: ["owndat_own1"],
+    ownerFieldNames: ["owndat_own"],
     parcelIdFieldNames: ["PIN"],
     parcelLayerId: 7,
     parcelServiceUrl: pasdaCountyParcelServiceUrl("Washington"),
