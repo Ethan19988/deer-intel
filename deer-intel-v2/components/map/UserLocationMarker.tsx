@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { divIcon } from "leaflet";
 import { Circle, Marker, useMapEvents } from "react-leaflet";
 
+import { NO_COUNTER_ROTATE_CLASS } from "@/lib/leafletRotation";
+
 type LiveLocation = {
   lat: number;
   lng: number;
@@ -119,7 +121,9 @@ export default function UserLocationMarker({
       heading === null
         ? null
         : divIcon({
-            className: "di-user-location-beam-icon",
+            // Turns with the map (not kept upright like pins), so in
+            // heading-up mode the cone points up the screen.
+            className: `di-user-location-beam-icon ${NO_COUNTER_ROTATE_CLASS}`,
             html: `<span class="di-user-location-beam" style="transform: rotate(${heading}deg)"></span>`,
             iconSize: [22, 22],
             iconAnchor: [11, 11],
