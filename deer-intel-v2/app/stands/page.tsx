@@ -10,21 +10,18 @@ import EmptyState from "@/components/ui/EmptyState";
 import {
   ClipboardIcon,
   CompassIcon,
-  DeerIcon,
   PlusIcon,
   StandIcon,
 } from "@/components/ui/FieldIcons";
 import PageShell from "@/components/ui/PageShell";
 import PageHeader from "@/components/ui/PageHeader";
 import Section from "@/components/ui/Section";
-import StatCard from "@/components/ui/StatCard";
-import Tabs from "@/components/ui/Tabs";
 import {
   updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { getStandIntelligenceSummary } from "@/lib/standIntelligence";
-import type { SitPeriodKey } from "@/lib/todayVerdict";
+import { sitWindLabel } from "@/lib/todayVerdict";
 import { usePropertyToday } from "@/lib/usePropertyToday";
 
 export default function StandsPage() {
@@ -56,16 +53,25 @@ export default function StandsPage() {
   const huntedStandCount = propertyStands.filter((stand) =>
     huntedStandIds.has(stand.id),
   ).length;
-  const standsWithWindNotes = propertyStands.filter(
-    (stand) => stand.bestWinds.trim() || stand.avoidWinds.trim(),
-  ).length;
 
   // Grade stands on the next sit's forecast wind, the same wind Today's
   // verdict and dial use (not the wind blowing right now).
   const { verdict } = usePropertyToday(selectedPropertyId);
   const sitWind = verdict.wind;
   const sitWindSpeed = verdict.windSpeed;
-  const sitWindLabel = SIT_WIND_LABEL[verdict.period];
+  const sitLabel = sitWindLabel(verdict.period);
+  // List stands in the verdict's next-sit ranking (best sit first), the same
+  // order as Today's Stand check; any stand it hasn't graded keeps its place
+  // at the end.
+  const rankById = new Map(
+    verdict.check.rows.map((row, index) => [row.stand.id, index]),
+  );
+  const rankedStands = [...propertyStands].sort(
+    (a, b) =>
+      (rankById.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+      (rankById.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+  );
+  const pickStandId = verdict.check.pick?.stand.id;
 
   const likelyDuplicateIds = findLikelyDuplicateStands(propertyStands);
 
@@ -90,7 +96,6 @@ export default function StandsPage() {
     }));
   }
 
-
   if (state.properties.length === 0) {
     return (
       <PageShell>
@@ -109,7 +114,7 @@ export default function StandsPage() {
     );
   }
 
-  const sitesTab = (
+  const sitesView = (
     <div style={listStyle}>
       {/* The header's "Add stand" opens this; it isn't a standing card. */}
       {addForm.requested || propertyStands.length === 0 ? (
@@ -120,13 +125,9 @@ export default function StandsPage() {
           defaultOpen
         />
       ) : null}
-      {propertyStands.length === 0 ? (
-        <EmptyState
-          illustration={<StandIcon size={30} />}
-          title="No stands for this property"
-          description="Add your first stand above with its type, best and avoid winds, and access and exit notes."
-        />
-      ) : (
+      {/* With no stands the add form above is already open, so it stands in
+          for an empty state ("Add your first stand above" just repeated it). */}
+      {propertyStands.length === 0 ? null : (
         <>
           {sitWind ? (
             <div style={windBannerStyle}>
@@ -134,12 +135,8 @@ export default function StandsPage() {
                 <CompassIcon size={20} />
               </span>
               <span>
-                <b>
-                  {sitWindLabel}: {sitWind}
-                  {sitWindSpeed ? ` ${sitWindSpeed}` : ""}
-                </b>{" "}
-                — check each stand&apos;s wind fit below before you pick your
-                sit.
+                {sitLabel}: {sitWind}
+                {sitWindSpeed ? ` ${sitWindSpeed.replace(/\s*mph$/i, "")}` : ""}
               </span>
             </div>
           ) : null}
@@ -151,7 +148,7 @@ export default function StandsPage() {
             style={sectionStyle}
           >
             <div style={listStyle}>
-              {propertyStands.map((stand) => {
+              {rankedStands.map((stand) => {
                 const intelligence = getStandIntelligenceSummary({
                   stand,
                   propertyId: selectedPropertyId,
@@ -172,6 +169,7 @@ export default function StandsPage() {
                     pins={propertyPins}
                     onDelete={deleteStand}
                     likelyDuplicate={likelyDuplicateIds.has(stand.id)}
+                    bestSit={stand.id === pickStandId}
                   />
                 );
               })}
@@ -179,32 +177,6 @@ export default function StandsPage() {
           </Section>
         </>
       )}
-    </div>
-  );
-
-  const activityTab = (
-    <div style={statGridStyle}>
-      <StatCard
-        label="Stand Sites"
-        value={propertyStands.length}
-        detail="Saved stand locations"
-        icon={<StandIcon size={18} />}
-        tone="green"
-      />
-      <StatCard
-        label="Hunted Stands"
-        value={huntedStandCount}
-        detail={`${propertyHunts.length} hunts logged`}
-        icon={<DeerIcon size={18} />}
-        tone="blaze"
-      />
-      <StatCard
-        label="Wind Notes"
-        value={standsWithWindNotes}
-        detail="Stands with wind guidance"
-        icon={<CompassIcon size={18} />}
-        tone="neutral"
-      />
     </div>
   );
 
@@ -239,33 +211,10 @@ export default function StandsPage() {
         }
       />
 
-      <Tabs
-        items={[
-          {
-            id: "sites",
-            label: "Sites",
-            badge: propertyStands.length,
-            content: sitesTab,
-          },
-          { id: "activity", label: "Activity", content: activityTab },
-        ]}
-      />
+      {sitesView}
     </PageShell>
   );
 }
-
-// Which sit the banner's wind is for, matching the Today verdict and dial.
-const SIT_WIND_LABEL: Record<SitPeriodKey, string> = {
-  morning: "Morning sit wind",
-  evening: "Tonight's sit wind",
-  tomorrow: "Tomorrow AM sit wind",
-};
-
-const statGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))",
-  gap: "1rem",
-};
 
 const listStyle: CSSProperties = {
   display: "grid",

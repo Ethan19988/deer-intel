@@ -39,6 +39,8 @@ type StandCardProps = {
   onDelete?: (standId: string) => void;
   /** Same name as another stand here, and this copy carries no winds. */
   likelyDuplicate?: boolean;
+  /** The next sit's pick (Today verdict): shows a small "Best sit" badge. */
+  bestSit?: boolean;
 };
 
 const WIND_BADGE_VARIANT = {
@@ -56,6 +58,7 @@ export default function StandCard({
   pins = [],
   onDelete,
   likelyDuplicate = false,
+  bestSit = false,
 }: StandCardProps) {
   const [editingMarks, setEditingMarks] = useState<WindMarks | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -117,10 +120,10 @@ export default function StandCard({
           </div>
         </div>
         <div style={actionsStyle}>
+          {bestSit ? <Badge style={bestSitBadgeStyle}>Best sit</Badge> : null}
           {windVariant ? (
             <Badge variant={windVariant}>{windCheck.label}</Badge>
           ) : null}
-          <Badge>{stand.standType}</Badge>
           <Link
             href={`/properties/${stand.propertyId}/assets/${stand.id}`}
             style={openLinkStyle}
@@ -258,6 +261,13 @@ function StandDetail({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+// Blaze orange is kept for the one thing that matters: the stand to sit.
+const bestSitBadgeStyle: CSSProperties = {
+  background: "var(--accent-2-tint)",
+  border: "1px solid var(--accent-2-tint-border)",
+  color: "var(--accent-2-text)",
+};
 
 const windEditorStyle: CSSProperties = {
   display: "grid",

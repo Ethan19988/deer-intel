@@ -8,6 +8,7 @@ import {
   legalEnd,
   legalStart,
   PA_LEGAL_LIGHT_MINUTES,
+  sitWindLabel,
 } from "@/lib/todayVerdict";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { Stand } from "@/types/stand";
@@ -176,6 +177,49 @@ describe("verdict sit wind", () => {
     expect(verdict.check.pick).toBeNull();
     expect(verdict.check.rows[0].wind.label).toBe("Light & variable");
     expect(verdict.headline).toBe("Light & variable wind");
+  });
+});
+
+describe("after dark", () => {
+  it("counts down to tomorrow's legal light once the call is tomorrow morning", () => {
+    const verdict = buildTodayVerdict({ ...base, now: at(19, 30), stands: [stand("Saddle", "NW")] });
+
+    expect(verdict.period).toBe("tomorrow");
+    // Tomorrow's legal light is 6:58 AM (sunrise + 24 h - 30 min).
+    expect(verdict.daylight?.label).toBe("Legal light in 11 h 28 m");
+    expect(verdict.daylight?.legalStartLabel).toBe("6:58 AM");
+    expect(verdict.daylight?.progress).toBe(0);
+    expect(verdict.daylight?.isDark).toBe(true);
+  });
+
+  it("keeps today's bar while today's sits are still ahead", () => {
+    const verdict = buildTodayVerdict({ ...base, now: at(16, 10), stands: [stand("Ridge", "SW")] });
+
+    expect(verdict.daylight?.label).toBe("2 h 47 m of legal light left");
+  });
+});
+
+describe("cold-front chip", () => {
+  it("carries the pressure drop on the hero chip", () => {
+    const frontForecast: LiveForecast = {
+      ...forecast,
+      pressure: { value: "29.98 inHg", trend: "falling", hint: "", series: [30.1, 30.04, 29.98] },
+    };
+    const verdict = buildTodayVerdict({
+      ...base,
+      forecast: frontForecast,
+      now: at(14),
+      stands: [stand("Ridge", "SW")],
+    });
+
+    expect(verdict.chips.map((chip) => chip.label)).toContain("Front moving in · −0.12 inHg");
+  });
+});
+
+describe("sitWindLabel", () => {
+  it("names the sit the wind is for", () => {
+    expect(sitWindLabel("evening")).toBe("Tonight's sit wind");
+    expect(sitWindLabel("tomorrow")).toBe("Tomorrow AM sit wind");
   });
 });
 

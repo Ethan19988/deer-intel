@@ -139,6 +139,14 @@ describe("buildWindMatrix", () => {
     expect(matrix.rows[0].cells).toEqual(["avoid", "good", "good", "good"]);
   });
 
+  it("marks sits before the next sit as past", () => {
+    const days = [day("2024-11-05", "NW 8 mph"), day("2024-11-06", "NW 8 mph")];
+    const matrix = buildWindMatrix(days, [stand("Oak Ridge", "NW")], "2024-11-05-PM");
+
+    expect(matrix.columns.map((c) => c.isPast)).toEqual([true, false, false, false]);
+    expect(buildWindMatrix(days, []).columns.every((c) => !c.isPast)).toBe(true);
+  });
+
   it("marks cells unknown when a sit has no wind", () => {
     const matrix = buildWindMatrix([day("2024-11-07", "calm")], [stand("Oak Ridge", "NW")]);
 

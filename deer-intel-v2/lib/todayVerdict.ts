@@ -69,6 +69,19 @@ const PERIOD_LABEL: Record<SitPeriodKey, string> = {
   tomorrow: "Tomorrow morning",
 };
 
+const SIT_WIND_LABEL: Record<SitPeriodKey, string> = {
+  morning: "Morning sit wind",
+  evening: "Tonight's sit wind",
+  tomorrow: "Tomorrow AM sit wind",
+};
+
+/** Which sit a wind reading is for, e.g. "Tonight's sit wind". */
+export function sitWindLabel(period: SitPeriodKey): string {
+  return SIT_WIND_LABEL[period];
+}
+
+const DAY_MS = 24 * 60 * 60_000;
+
 /**
  * Parse an Open-Meteo local "YYYY-MM-DDTHH:MM" (the property's wall clock).
  * With the response's UTC offset it becomes the real instant, so comparisons
@@ -134,7 +147,15 @@ export function buildDaylight(
   const sunrise = parseLocal(sunriseIso, utcOffsetSeconds);
   const sunset = parseLocal(sunsetIso, utcOffsetSeconds);
   if (!sunrise || !sunset) return null;
+  return daylightBetween(now, sunrise, sunset, utcOffsetSeconds);
+}
 
+function daylightBetween(
+  now: Date,
+  sunrise: Date,
+  sunset: Date,
+  utcOffsetSeconds?: number,
+): DaylightState {
   const legal = { start: legalStart(sunrise), end: legalEnd(sunset) };
   const span = legal.end.getTime() - legal.start.getTime();
   const elapsed = now.getTime() - legal.start.getTime();
@@ -289,8 +310,14 @@ export function buildTodayVerdict(input: {
   if (pick?.scent.status === "clear") {
     chips.push({ label: "Clean walk in", tone: "good" });
   }
-  if (coldFrontStatus(forecast?.pressure).isFront) {
-    chips.push({ label: "Front moving in", tone: "info" });
+  const front = coldFrontStatus(forecast?.pressure);
+  if (front.isFront) {
+    // The drop rides on the chip so Today needs no separate cold-front banner.
+    const drop =
+      front.dropInHg !== null && front.dropInHg > 0
+        ? ` · −${front.dropInHg.toFixed(2)} inHg`
+        : "";
+    chips.push({ label: `Front moving in${drop}`, tone: "info" });
   }
   if (rutActive && rutLabel) chips.push({ label: rutLabel, tone: "info" });
 
@@ -326,13 +353,39 @@ export function buildTodayVerdict(input: {
     detail,
     chips,
     check,
-    daylight: buildDaylight(
-      now,
-      forecast?.sunriseIso,
-      forecast?.sunsetIso,
-      forecast?.utcOffsetSeconds,
-    ),
+    daylight: periodDaylight(period, now, forecast),
   };
+}
+
+/**
+ * The daylight bar for the planned sit. Once today's light is gone and the
+ * call is tomorrow morning, it counts down to tomorrow's legal light instead of
+ * repeating "Light's gone for today". Tomorrow's sun times are taken as
+ * today's + 24 h (within a minute or two), as sitStartTime and entryAdvice do.
+ */
+function periodDaylight(
+  period: SitPeriodKey,
+  now: Date,
+  forecast: LiveForecast | null,
+): DaylightState | null {
+  const offset = forecast?.utcOffsetSeconds;
+  if (period !== "tomorrow") {
+    return buildDaylight(now, forecast?.sunriseIso, forecast?.sunsetIso, offset);
+  }
+  const sunrise = parseLocal(forecast?.sunriseIso, offset);
+  const sunset = parseLocal(forecast?.sunsetIso, offset);
+  if (!sunrise || !sunset) return null;
+  const nextSunrise = new Date(sunrise.getTime() + DAY_MS);
+  // Only shift when the forecast's day is behind us (the usual after-dark case).
+  if (legalStart(nextSunrise).getTime() <= now.getTime()) {
+    return daylightBetween(now, sunrise, sunset, offset);
+  }
+  return daylightBetween(
+    now,
+    nextSunrise,
+    new Date(sunset.getTime() + DAY_MS),
+    offset,
+  );
 }
 
 // --- Good-wind alert ---------------------------------------------------------
