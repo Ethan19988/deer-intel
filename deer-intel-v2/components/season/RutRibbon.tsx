@@ -29,8 +29,9 @@ function peakCaption(phase: RutPhase, daysToPeak: number): string {
   // Key the "on" state off the phase itself so the caption never disagrees with
   // the lit segment (the peak phase spans daysToPeak -2..2).
   if (phase === "peak") return "Peak is on";
-  if (daysToPeak > 0) return `Peak in ~${daysToPeak} days`;
-  return `Peak was ~${Math.abs(daysToPeak)} days ago`;
+  const days = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
+  if (daysToPeak > 0) return `Peak in ~${days(daysToPeak)}`;
+  return `Peak was ~${days(Math.abs(daysToPeak))} ago`;
 }
 
 export default function RutRibbon({

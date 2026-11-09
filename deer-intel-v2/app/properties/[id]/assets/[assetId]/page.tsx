@@ -1,5 +1,6 @@
 "use client";
 
+import { huntsForStand } from "@/lib/standHunts";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState, type CSSProperties } from "react";
@@ -37,6 +38,8 @@ import {
 import { deletePhotoImage, getPhotoImage } from "@/lib/imageStore";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { buildPhotoWeatherSnapshot } from "@/lib/photoWeather";
+import { retargetPhotoHeading } from "@/lib/photoHeading";
+import { deerCountFor } from "@/lib/photoOptions";
 import { requestPhotoStamp } from "@/lib/photoStampClient";
 import { frameDirectionToHeading } from "@/lib/travelDirection";
 import {
@@ -162,14 +165,8 @@ export default function PropertyAssetWorkspacePage() {
     const propertyHunts = state.hunts.filter(
       (hunt) => hunt.propertyId === propertyId,
     );
-    const standHunts = state.hunts.filter(
-      (hunt) =>
-        hunt.propertyId === propertyId &&
-        (hunt.standId === stand.id ||
-          (!hunt.standId &&
-            hunt.standName.trim().toLowerCase() ===
-              stand.name.trim().toLowerCase())),
-    );
+    // Same sit-to-stand rule as the Stands page and Today.
+    const standHunts = huntsForStand(stand, state.hunts);
     const relationshipGroups = getStandRelationshipGroups({
       propertyId,
       stand,
@@ -298,18 +295,67 @@ export default function PropertyAssetWorkspacePage() {
   }
 
   function movePhotoRecords(photoIds: string[], targetCameraId: string) {
+    updateDeerIntelStore((currentState) => {
+      // The compass heading depends on which way the camera points, so a
+      // moved photo's AI-derived heading is recomputed for its new camera.
+      const facingOf = (id: string) =>
+        currentState.cameras.find((item) => item.id === id)?.facingDirection;
+      const targetFacing = facingOf(targetCameraId);
+
+      return {
+        ...currentState,
+        photoRecords: currentState.photoRecords.map((photo) =>
+          photoIds.includes(photo.id)
+            ? {
+                ...retargetPhotoHeading(
+                  photo,
+                  facingOf(photo.cameraSiteId),
+                  targetFacing,
+                ),
+                cameraSiteId: targetCameraId,
+                // A camera check belongs to one camera, so a moved photo
+                // detaches from its old check rather than pointing across.
+                cameraCheckId: "",
+              }
+            : photo,
+        ),
+      };
+    });
+  }
+
+  // Edit a saved photo's details (species, time, deer count, age, points).
+  // A changed date/time also refreshes the weather and moon it was taken in;
+  // values the camera printed on the photo (source "photo") are kept.
+  async function updatePhotoRecord(photoId: string, patch: Partial<PhotoRecord>) {
+    const existing = state.photoRecords.find((photo) => photo.id === photoId);
+    let weatherPatch: Partial<PhotoRecord> = {};
+
+    if (existing && patch.photoDate && patch.photoDate !== existing.photoDate) {
+      const stamped =
+        existing.weatherSnapshot?.source === "photo"
+          ? {
+              temperature: existing.weatherSnapshot.temperature,
+              windDirection: existing.weatherSnapshot.windDirection,
+              windSpeed: existing.weatherSnapshot.windSpeed,
+            }
+          : undefined;
+      const weatherSnapshot = await buildPhotoWeatherSnapshot(
+        patch.photoDate,
+        resolvePropertyWeatherPoint(
+          property ?? null,
+          state.cameras.filter((item) => item.propertyId === propertyId),
+          state.pins.filter((pin) => pin.propertyId === propertyId),
+        ),
+        units,
+        stamped,
+      );
+      weatherPatch = { weatherSnapshot };
+    }
+
     updateDeerIntelStore((currentState) => ({
       ...currentState,
       photoRecords: currentState.photoRecords.map((photo) =>
-        photoIds.includes(photo.id)
-          ? {
-              ...photo,
-              cameraSiteId: targetCameraId,
-              // A camera check belongs to one camera, so a moved photo detaches
-              // from its old check rather than pointing across cameras.
-              cameraCheckId: "",
-            }
-          : photo,
+        photo.id === photoId ? { ...photo, ...patch, ...weatherPatch } : photo,
       ),
     }));
   }
@@ -354,6 +400,8 @@ export default function PropertyAssetWorkspacePage() {
       values: {
         ...EMPTY_DEER_PROFILE_FORM_VALUES,
         nickname,
+        // The photo's judged age class seeds the profile's estimate.
+        estimatedAge: photo.ageClass ?? "",
         firstSeen: seenDate,
         lastSeen: seenDate,
         notes: seededNotes,
@@ -457,9 +505,21 @@ export default function PropertyAssetWorkspacePage() {
       );
 
       if (heading && !photo.travelDirection) patch.travelDirection = heading;
+      if (stamp.travelDirectionInFrame && !photo.frameDirection) {
+        patch.frameDirection = stamp.travelDirectionInFrame;
+      }
       if (stamp.behavior && !photo.behavior) patch.behavior = stamp.behavior;
       if (stamp.species && (!photo.species || photo.species === "Other")) {
         patch.species = stamp.species;
+      }
+      const species = patch.species ?? photo.species;
+      const deerCount = deerCountFor(species, stamp.deerCount);
+      if (deerCount && photo.deerCount === undefined) patch.deerCount = deerCount;
+      if (species === "Buck" && stamp.ageClass && !photo.ageClass) {
+        patch.ageClass = stamp.ageClass;
+      }
+      if (species === "Buck" && stamp.antlerPoints && !photo.antlerPoints) {
+        patch.antlerPoints = stamp.antlerPoints;
       }
       if (
         stamp.matchedProfileId &&
@@ -499,8 +559,8 @@ export default function PropertyAssetWorkspacePage() {
     setIsRereading(false);
     setRereadStatus(
       patches.size > 0
-        ? `Updated ${patches.size} of ${storedPhotos.length} photos.`
-        : `Read ${storedPhotos.length} photos — nothing to add (no clear direction, and no new match).`,
+        ? `Updated ${patches.size} of ${storedPhotos.length} ${storedPhotos.length === 1 ? "photo" : "photos"}.`
+        : `Read ${storedPhotos.length} ${storedPhotos.length === 1 ? "photo" : "photos"} — nothing to add (no clear direction, and no new match).`,
     );
   }
 
@@ -625,7 +685,7 @@ export default function PropertyAssetWorkspacePage() {
                     {cleanupStatus ||
                       rereadStatus ||
                       (camera.facingDirection
-                        ? "Re-read fills in the animal, behavior, travel direction, and buck match on saved photos — only where they're still blank."
+                        ? "Re-read fills in the animal, behavior, travel direction, deer count, age, points, and buck match on saved photos — only where they're still blank."
                         : "Point this camera first (Edit camera) so travel direction can be read; the AI will still fill in animal and behavior.")}
                   </span>
                 </div>
@@ -642,6 +702,7 @@ export default function PropertyAssetWorkspacePage() {
             onDeletePhotos={deletePhotoRecords}
             onCreateBuckFromPhoto={createBuckFromPhoto}
             onSetPhotoBucks={setPhotoBucks}
+            onUpdatePhoto={updatePhotoRecord}
           />
         </AssetPanel>
 

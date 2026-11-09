@@ -48,7 +48,7 @@ export default function PropertyInsightsTab({ propertyId }: { propertyId: string
         {standStats.property.overall.sits === 0 ? (
           <EmptyState
             title="No sits logged yet"
-            description="Success rates by stand, wind, time of day and rut phase fill in from your hunt log."
+            description="Success rates by stand, wind, time of day and rut phase fill in from your logged sits."
           />
         ) : (
           <PropertyStandTable stats={standStats} />

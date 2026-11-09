@@ -202,7 +202,7 @@ describe("bestSitsThisWeek", () => {
       "Tue PM 3",
       "Thu AM 2",
     ]);
-    expect(bestSitsLine(sits)).toBe("Best this week: Tue PM (3 stands) · Thu AM (2)");
+    expect(bestSitsLine(sits)).toBe("Best next 3 days: Tue PM (3 stands) · Thu AM (2)");
   });
 
   it("counts Monday morning when it is still ahead", () => {
@@ -224,6 +224,60 @@ describe("bestSitsThisWeek", () => {
   it("singular stand wording", () => {
     expect(
       bestSitsLine([{ key: "k", dayLabel: "Fri", period: "AM", goodCount: 1, isFront: false }]),
-    ).toBe("Best this week: Fri AM (1 stand)");
+    ).toBe("Best next 3 days: Fri AM (1 stand)");
+  });
+});
+
+describe("buildHuntWindows skips sits that are over", () => {
+  const today: ForecastDay = {
+    ...day("2024-11-05", "S 6 mph"),
+    morningWind: "NW 6 mph",
+    eveningWind: "S 6 mph",
+  };
+  const tomorrow: ForecastDay = {
+    ...day("2024-11-06", "S 6 mph"),
+    morningWind: "S 5 mph",
+    eveningWind: "S 6 mph",
+  };
+  const stands = [stand("Oak Ridge", "NW", "S")];
+
+  it("doesn't rank this morning's sit once the next sit is this evening", () => {
+    const windows = buildHuntWindows([today, tomorrow], stands, "2024-11-05-PM");
+    const first = windows.find((window) => window.date === "2024-11-05");
+    expect(first?.sits.map((sit) => sit.period)).toEqual(["PM"]);
+    expect(first?.goodStandNames).toEqual([]);
+  });
+
+  it("drops a day whose sits are all over", () => {
+    const windows = buildHuntWindows([today, tomorrow], stands, "2024-11-06-AM");
+    expect(windows.map((window) => window.date)).toEqual(["2024-11-06"]);
+  });
+
+  it("keeps everything without a next-sit key", () => {
+    expect(buildHuntWindows([today, tomorrow], stands)).toHaveLength(2);
+  });
+});
+
+describe("buildWindMatrix best time", () => {
+  it("never counts a morning-only stand good on an evening sit", async () => {
+    const { buildWindMatrix, standFitsSitPeriod } = await import("@/lib/huntPlanner");
+    const stand = {
+      id: "s",
+      propertyId: "p",
+      name: "Morning Oak",
+      standType: "Ladder" as const,
+      bestWinds: "NW",
+      avoidWinds: "",
+      accessRouteNotes: "",
+      exitRouteNotes: "",
+      notes: "",
+      bestTime: "am" as const,
+    };
+    expect(standFitsSitPeriod(stand, "AM")).toBe(true);
+    expect(standFitsSitPeriod(stand, "PM")).toBe(false);
+    const day = { date: "2026-11-09", label: "Mon", morningWind: "NW", eveningWind: "NW", wind: "NW" };
+    const matrix = buildWindMatrix([day as never], [stand]);
+    expect(matrix.rows[0].cells).toEqual(["good", "unknown"]);
+    expect(matrix.rows[0].offTime).toEqual([false, true]);
   });
 });

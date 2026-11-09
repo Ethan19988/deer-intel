@@ -15,7 +15,13 @@ import type { DeerProfile } from "@/types/deerProfile";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { PhotoRecord } from "@/types/photo";
 import type { Property } from "@/types/property";
-import type { Stand } from "@/types/stand";
+import { huntsForStand } from "@/lib/standHunts";
+import {
+  STAND_BEST_TIME_LABEL,
+  STAND_WEAPON_LABEL,
+  shotYardsLabel,
+  type Stand,
+} from "@/types/stand";
 
 const MAX_RECENT_HUNTS = 15;
 const MAX_RECENT_CAMERA_CHECKS = 15;
@@ -29,6 +35,17 @@ export const EMPTY_AI_SCOUT_CONDITIONS: AiScoutConditions = {
   temperature: "",
   moonPhase: "",
   notes: "",
+};
+
+type StandContextWithDetails = AiScoutStandContext & {
+  /** "Morning" / "Evening" / "All day". */
+  bestTime?: string;
+  setup?: string[];
+  /** "Bow" / "Gun" / "Bow & gun". */
+  weapon?: string;
+  /** e.g. "40 yd" or "200+ yd". */
+  maxShot?: string;
+  heightFeet?: number;
 };
 
 type BuildAiScoutContextInput = {
@@ -62,8 +79,10 @@ export function buildAiScoutRequestContext({
 }: BuildAiScoutContextInput): AiScoutRequestContext {
   const cameraNameById = new Map(cameras.map((camera) => [camera.id, camera.name]));
 
-  const standContexts: AiScoutStandContext[] = stands.map((stand) => {
-    const standHunts = hunts.filter((hunt) => hunt.standId === stand.id);
+  // Optional stand details ride along only when set. The route JSON-stringifies
+  // the whole context, so these reach the model as-is.
+  const standContexts: StandContextWithDetails[] = stands.map((stand) => {
+    const standHunts = huntsForStand(stand, hunts);
     const lastHunt = [...standHunts].sort(
       (left, right) => recordTime(right.date) - recordTime(left.date),
     )[0];
@@ -78,6 +97,11 @@ export function buildAiScoutRequestContext({
       notes: truncate(stand.notes),
       huntCount: standHunts.length,
       lastHuntDate: lastHunt?.date,
+      ...(stand.bestTime ? { bestTime: STAND_BEST_TIME_LABEL[stand.bestTime] } : {}),
+      ...(stand.setup?.length ? { setup: stand.setup } : {}),
+      ...(stand.weapon ? { weapon: STAND_WEAPON_LABEL[stand.weapon] } : {}),
+      ...(stand.maxShotYards ? { maxShot: shotYardsLabel(stand.maxShotYards) } : {}),
+      ...(stand.heightFeet ? { heightFeet: stand.heightFeet } : {}),
     };
   });
 
@@ -122,7 +146,17 @@ export function buildAiScoutRequestContext({
       notes: truncate(profile.notes),
     }));
 
-  const recentBuckPhotos: AiScoutBuckPhotoContext[] = [...photoRecords]
+  // What each buck photo tells the scout beyond the date: behavior, travel
+  // heading, how many deer, and the judged age / points. (Extra keys ride
+  // along in the JSON the scout reads.)
+  type ScoutBuckPhoto = AiScoutBuckPhotoContext & {
+    behavior?: string;
+    travelDirection?: string;
+    deerCount?: number;
+    ageClass?: string;
+    antlerPoints?: number;
+  };
+  const recentBuckPhotos: ScoutBuckPhoto[] = [...photoRecords]
     .filter(
       (photo) =>
         photo.species.trim().toLowerCase().includes("buck") ||
@@ -130,19 +164,32 @@ export function buildAiScoutRequestContext({
     )
     .sort((left, right) => recordTime(right.photoDate) - recordTime(left.photoDate))
     .slice(0, MAX_RECENT_BUCK_PHOTOS)
-    .map((photo) => ({
-      date: photo.photoDate,
-      cameraName: cameraNameById.get(photo.cameraSiteId) ?? "Camera site",
-      species: photo.species,
-      buckName: photo.buckName,
-      // The conditions this photo was taken in — captured at import from the
-      // photo's stamp or weather history — so the scout can pattern movement
-      // against temperature, wind, and moon.
-      temperature: photo.weatherSnapshot?.temperature || undefined,
-      windDirection: photo.weatherSnapshot?.windDirection || undefined,
-      moonPhase: photo.weatherSnapshot?.moonPhase || undefined,
-      notes: truncate(photo.notes),
-    }));
+    .map((photo) => {
+      // A time from the file's modified date or a date-only stamp isn't the
+      // shutter time, so the scout only gets the day for those.
+      const timeTrusted =
+        photo.captureTimeSource !== "file" &&
+        photo.captureTimeSource !== "stampDate";
+
+      return {
+        date: timeTrusted ? photo.photoDate : photo.photoDate.slice(0, 10),
+        cameraName: cameraNameById.get(photo.cameraSiteId) ?? "Camera site",
+        species: photo.species,
+        buckName: photo.buckName,
+        behavior: photo.behavior || undefined,
+        travelDirection: photo.travelDirection || undefined,
+        deerCount: photo.deerCount,
+        ageClass: photo.ageClass,
+        antlerPoints: photo.antlerPoints,
+        // The conditions this photo was taken in — captured at import from the
+        // photo's stamp or weather history — so the scout can pattern movement
+        // against temperature, wind, and moon.
+        temperature: photo.weatherSnapshot?.temperature || undefined,
+        windDirection: photo.weatherSnapshot?.windDirection || undefined,
+        moonPhase: photo.weatherSnapshot?.moonPhase || undefined,
+        notes: truncate(photo.notes),
+      };
+    });
 
   return {
     property: {

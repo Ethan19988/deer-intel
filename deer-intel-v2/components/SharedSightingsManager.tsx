@@ -17,7 +17,7 @@ import {
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
 export const SHARING_DISCLOSURE =
-  "Share anonymous sighting times and weather from your trail-cam photos to improve deer movement predictions for hunters in your county. Your photos, notes, and locations never leave your device. You can turn this off anytime in Settings.";
+  "Share anonymous sighting times and weather from your trail-cam photos to improve deer movement predictions for hunters in your county. Sharing never sends your photos, notes, or exact locations. You can turn this off anytime in Settings.";
 
 // Asks each signed-in account once, right away, whether to share anonymous
 // sightings, then quietly contributes new timed deer photos while it's on.

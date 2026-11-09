@@ -72,6 +72,31 @@ describe("forecast snapshot", () => {
     expect(rolled?.sunriseIso).toBe("2026-10-21T07:21");
     expect(rolled?.sunsetIso).toBe("2026-10-21T18:19");
   });
+
+  it("rolls onto the kept day's own sun times across a DST change", () => {
+    const acrossDst = {
+      current: { windDirection: "NNE" },
+      sunriseIso: "2026-10-31T07:40",
+      sunsetIso: "2026-10-31T18:05",
+      utcOffsetSeconds: -4 * 3600,
+      timezone: "America/New_York",
+      days: [
+        { date: "2026-10-31", sunriseIso: "2026-10-31T07:40", sunsetIso: "2026-10-31T18:05" },
+        { date: "2026-11-01", sunriseIso: "2026-11-01T06:41", sunsetIso: "2026-11-01T17:04" },
+      ],
+    } as unknown as LiveForecast;
+    writeForecastSnapshot(KEY, acrossDst, new Date(2026, 9, 31, 12).getTime());
+    const rolled = readForecastSnapshot(KEY, new Date(2026, 10, 1, 5).getTime());
+    expect(rolled?.sunriseIso).toBe("2026-11-01T06:41");
+    expect(rolled?.sunsetIso).toBe("2026-11-01T17:04");
+    expect(rolled?.timezone).toBe("America/New_York");
+  });
+
+  it("drops a possibly stale UTC offset when rolling a snapshot with no zone name", () => {
+    writeForecastSnapshot(KEY, { ...withDays, utcOffsetSeconds: -4 * 3600 }, NOON);
+    const rolled = readForecastSnapshot(KEY, new Date(2026, 9, 21, 5, 30).getTime());
+    expect(rolled?.utcOffsetSeconds).toBeUndefined();
+  });
 });
 
 describe("forecast as-of label", () => {

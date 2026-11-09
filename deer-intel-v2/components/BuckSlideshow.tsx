@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import PhotoImage from "@/components/photos/PhotoImage";
 import { DeerIcon } from "@/components/ui/FieldIcons";
+import { formatDeerAge } from "@/lib/deerProfileTimeline";
 import type { HitListSlide } from "@/lib/hitListSlides";
 
 const ADVANCE_MS = 5000;
@@ -99,7 +100,7 @@ export default function BuckSlideshow({
             <span style={scrimStyle} aria-hidden="true" />
 
             <span style={captionStyle}>
-              {slide.age ? <span style={ageStyle}>{slide.age} yrs</span> : null}
+              {slide.age ? <span style={ageStyle}>{formatDeerAge(slide.age)}</span> : null}
               <span style={nameStyle}>{slide.name}</span>
               <span style={factsStyle}>
                 {slide.lastSeen ? <span>Last seen {slide.lastSeen}</span> : <span>No photos yet</span>}

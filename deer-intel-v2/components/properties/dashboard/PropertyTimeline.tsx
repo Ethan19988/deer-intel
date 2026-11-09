@@ -14,7 +14,7 @@ type PropertyTimelineProps = {
 export default function PropertyTimeline({ events }: PropertyTimelineProps) {
   if (events.length === 0) {
     return (
-      <EmptyState description="No timeline events yet. Add camera sites, stands, camera checks, photo records, or hunts to start this property's history." />
+      <EmptyState description="No timeline events yet. Add camera sites, stands, camera checks, photo records, or sits to start this property's history." />
     );
   }
 

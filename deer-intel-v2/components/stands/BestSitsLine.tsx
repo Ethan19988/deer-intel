@@ -3,7 +3,7 @@ import { bestSitsLine, bestSitsThisWeek } from "@/lib/huntPlanner";
 import type { ForecastDay } from "@/lib/liveWeather";
 import type { Stand } from "@/types/stand";
 
-// "Best this week: Tue PM (3 stands) · Thu AM (2)" above the Wind by sit grid:
+// "Best next 3 days: Tue PM (3 stands) · Thu AM (2)" above the Wind by sit grid:
 // the grid's answer in one glance. Hidden when no stand has winds set.
 export default function BestSitsLine({
   days,

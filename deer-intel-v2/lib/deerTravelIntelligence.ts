@@ -4,6 +4,7 @@
 // explicitly linked to the profile count — name-mention guesses would pollute
 // a pattern that stand decisions ride on.
 
+import { trustedPhotoDate } from "@/lib/photoDateTime";
 import { photoLinksProfile } from "@/lib/photos";
 import { bearingBetween, degreesToCompass, toEightWind } from "@/lib/travelDirection";
 import type { Camera } from "@/types/camera";
@@ -84,7 +85,7 @@ export function getDeerTravelIntelligence({
 }
 
 function toSighting(photo: PhotoRecord): Sighting | null {
-  const raw = photo.photoDate.trim();
+  const raw = trustedPhotoDate(photo).trim();
 
   if (!raw) return null;
 

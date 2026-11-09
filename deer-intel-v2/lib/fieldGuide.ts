@@ -36,7 +36,9 @@ export type GuideReading = {
   headText: string;
   /**
    * Arrow rotation relative to the phone (bearing − heading), or null with no
-   * compass heading. 0 = straight ahead.
+   * compass heading. 0 = straight ahead. `heading` must be a TRUE heading
+   * (lib/deviceHeading corrects the phone's magnetic reading); a raw magnetic
+   * one would skew the arrow by the declination (~10° in PA).
    */
   arrowRotation: number | null;
   arrived: boolean;

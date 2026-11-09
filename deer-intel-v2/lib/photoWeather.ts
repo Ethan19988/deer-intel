@@ -60,7 +60,17 @@ export async function buildPhotoWeatherSnapshot(
     return undefined;
   }
 
+  // The moon is computed from the date, never taken from the stamp: camera
+  // moon icons are often set wrong or drawn from a crude table, while the
+  // date-based phase is exact. (The stamped moon only stands in above, when
+  // the photo has no usable date.)
   const moonPhase = describeMoonPhase(parsed.getTime());
+  const usedStampValues = Boolean(
+    stamped?.temperature ||
+      stamped?.windDirection ||
+      stamped?.windSpeed ||
+      stamped?.humidity,
+  );
   const historical = point
     ? await fetchHistoricalWeather(point, parsed, units)
     : null;
@@ -76,8 +86,8 @@ export async function buildPhotoWeatherSnapshot(
     conditions: [historical?.weather ?? "", humidityText]
       .filter(Boolean)
       .join(" / "),
-    moonPhase: stamped?.moonPhase || moonPhase,
-    source: usedStamp ? "photo" : "historical",
+    moonPhase,
+    source: usedStampValues ? "photo" : "historical",
   });
 }
 

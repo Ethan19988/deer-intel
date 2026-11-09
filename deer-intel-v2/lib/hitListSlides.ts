@@ -1,5 +1,10 @@
 import { getDeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
 import { isActiveDeerProfile } from "@/lib/deerProfiles";
+import {
+  describeDeerTimeWindow,
+  getDeerProfileTimeline,
+  MIN_TIMED_FOR_PATTERN,
+} from "@/lib/deerProfileTimeline";
 import { getPhotoBuckNames, getPhotoDeerProfileIds, photoRecordTime } from "@/lib/photos";
 import type { Camera } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
@@ -21,8 +26,6 @@ export type HitListSlide = {
   sightings: number;
   href: string;
 };
-
-const NO_PATTERN = /^no /i;
 
 function newest(photos: PhotoRecord[]): PhotoRecord | undefined {
   return photos
@@ -52,6 +55,17 @@ export function buildHitListSlides(input: {
   const propertyPhotos = photos.filter((photo) => photo.propertyId === propertyId);
 
   const propertyProfiles = profiles.filter((profile) => profile.propertyId === propertyId);
+  const usualTimeOf = (profile: DeerProfile): string | null => {
+    const { timeWindow } = getDeerProfileTimeline({
+      profile,
+      photoRecords: input.photos,
+      hunts: input.hunts,
+      cameras: input.cameras,
+    });
+    if (!timeWindow || timeWindow.sampleSize < MIN_TIMED_FOR_PATTERN) return null;
+    return describeDeerTimeWindow(timeWindow)?.title ?? null;
+  };
+
   const slides: HitListSlide[] = propertyProfiles
     // Harvested or retired bucks are off the hit list.
     .filter(isActiveDeerProfile)
@@ -82,9 +96,9 @@ export function buildHitListSlides(input: {
         imageId: latest?.imageId ?? null,
         age: profile.estimatedAge.trim(),
         lastSeen: when ? (where ? `${when} on ${where}` : when) : null,
-        usualTime: NO_PATTERN.test(intel.commonTimeOfDay.title)
-          ? null
-          : intel.commonTimeOfDay.title,
+        // Same reading as the buck's card (photos plus sits he was tagged on),
+        // and only once there are enough timed sightings to call it "usually".
+        usualTime: usualTimeOf(profile),
         sightings: intel.sightingCount,
         href: `/hit-list?buck=${encodeURIComponent(profile.id)}`,
       };

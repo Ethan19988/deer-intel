@@ -35,6 +35,8 @@ import { getPropertyIntelligenceCards } from "@/lib/propertyIntelligence";
 import { getHuntPlannerIntelligence } from "@/lib/huntPlannerIntelligence";
 import { getPropertyWeatherSummary } from "@/lib/weather";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
+import { isActiveDeerProfile } from "@/lib/deerProfiles";
+import { cleanPropertyField, propertyRegionLabel } from "@/lib/propertyFields";
 import { dateInputTime } from "@/lib/photos";
 import { formatDayWithAgo } from "@/lib/relativeDate";
 
@@ -137,10 +139,14 @@ export default function PropertyWorkspacePage() {
 
   const propertyId = property.id;
   const standCount = propertyStands.length;
-  const deerProfileCount = propertyDeerProfiles.length;
+  // Matches the Hit List page: harvested and retired bucks aren't counted.
+  const activeDeerProfileCount =
+    propertyDeerProfiles.filter(isActiveDeerProfile).length;
   const recentActivity = getRecentActivity({
     pins: propertyPins,
     hunts: propertyHunts,
+    cameraChecks: propertyCameraChecks,
+    cameras: propertyCameras,
   });
   const timelineEvents = getPropertyTimelineEvents({
     state,
@@ -174,10 +180,8 @@ export default function PropertyWorkspacePage() {
     (check) => check.date,
   );
 
-  const headerEyebrow =
-    [property.county, property.acres ? `${property.acres} acres` : ""]
-      .filter(Boolean)
-      .join(" · ") || "Property";
+  const headerEyebrow = propertyRegionLabel(property) || "Property";
+  const propertyNotes = cleanPropertyField(property.notes);
 
   // Today shows whichever property is selected, so pin it to this one first.
   function selectThisProperty() {
@@ -217,7 +221,7 @@ export default function PropertyWorkspacePage() {
       <PageHeader
         eyebrow={headerEyebrow}
         title={property.name}
-        description={property.notes || undefined}
+        description={propertyNotes || undefined}
         action={
           <>
             <Link href="/ai" className="di-link-btn">
@@ -271,8 +275,12 @@ export default function PropertyWorkspacePage() {
             count: propertyCameras.length,
           },
           { href: "/stands", label: "Stands", count: standCount },
-          { href: "/hit-list", label: "Hit List", count: deerProfileCount },
-          { href: "/hunt-log", label: "Sits logged", count: propertyHunts.length },
+          { href: "/hit-list", label: "Hit List", count: activeDeerProfileCount },
+          {
+            href: `/hunt-log?tab=history&propertyId=${encodeURIComponent(propertyId)}`,
+            label: "Sits logged",
+            count: propertyHunts.length,
+          },
           { href: "/map", label: "Map pins", count: propertyPins.length },
         ].map((item) => (
           <Link key={item.label} href={item.href} style={shortcutStyle}>
@@ -296,7 +304,7 @@ export default function PropertyWorkspacePage() {
       <div style={detailDropdownStackStyle}>
         <CollapsibleSection
           title="Recent Activity"
-          description="Pins, hunts and checks saved on this property"
+          description="Pins, sits and camera checks saved on this property"
         >
           <RecentActivityList activities={recentActivity} />
         </CollapsibleSection>
@@ -315,7 +323,7 @@ export default function PropertyWorkspacePage() {
 
         <CollapsibleSection
           title="What Produces Deer Here"
-          description="Patterns from your logged hunts and sightings"
+          description="Patterns from your logged sits and sightings"
         >
           <PropertyPatternReport report={patternReport} />
         </CollapsibleSection>
@@ -353,18 +361,18 @@ export default function PropertyWorkspacePage() {
             description={weatherCardDescription(weatherSummary)}
           />
           <InfoCard
-            title="Last Hunt"
+            title="Last Sit"
             value={formatDateLabel(latestHunt?.date)}
             description={
               latestHunt
                 ? `${latestHunt.standName || "Stand"} / ${
                     latestHunt.windDirection || "Wind not saved"
                   }`
-                : "No hunts logged for this property yet."
+                : "No sits logged for this property yet."
             }
           />
           <InfoCard
-            title="Recent Camera Activity"
+            title="Last camera check"
             value={formatDateLabel(latestCameraCheck?.date)}
             description={
               latestCameraCheck
@@ -432,7 +440,9 @@ function weatherCardDescription({
   latestDateLabel: string;
   sourceLabel: string;
 }) {
-  if (recordCount === 0) return `${description} ${sourceLabel}.`;
+  if (recordCount === 0) {
+    return sourceLabel ? `${description} ${sourceLabel}.` : description;
+  }
 
   const recordText =
     recordCount === 1 ? "1 weather record" : `${recordCount} weather records`;

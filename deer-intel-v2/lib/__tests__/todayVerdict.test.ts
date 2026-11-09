@@ -4,6 +4,8 @@ import {
   buildDaylight,
   buildGoodWindAlert,
   buildTodayVerdict,
+  calmThresholdLabel,
+  parseForecastLocal,
   sitStartTime,
   legalEnd,
   legalStart,
@@ -298,5 +300,75 @@ describe("sitStartTime", () => {
     expect(sitStartTime("morning", forecast)).toEqual(at(6, 58));
     expect(sitStartTime("evening", forecast)).toEqual(at(15, 27));
     expect(sitStartTime("tomorrow", forecast)).toEqual(new Date(2026, 9, 19, 6, 58));
+  });
+});
+
+describe("tomorrow's sit across the DST change (Nov 1 2026)", () => {
+  // Fetched Saturday Oct 31 on EDT (UTC-4); Sunday's sun is on EST (UTC-5).
+  const dstForecast: LiveForecast = {
+    ...forecast,
+    sunriseIso: "2026-10-31T07:40",
+    sunsetIso: "2026-10-31T18:05",
+    utcOffsetSeconds: -4 * 3600,
+    timezone: "America/New_York",
+    days: [
+      { date: "2026-10-31", label: "Today", high: "", low: "", conditions: "", wind: "S 5 mph", sunriseIso: "2026-10-31T07:40", sunsetIso: "2026-10-31T18:05" },
+      { date: "2026-11-01", label: "Sun", high: "", low: "", conditions: "", wind: "N 7 mph", morningWind: "NW 6 mph", sunriseIso: "2026-11-01T06:41", sunsetIso: "2026-11-01T17:04" },
+    ],
+  };
+  // 8 PM EDT Saturday.
+  const evening = new Date(Date.UTC(2026, 10, 1, 0, 0));
+
+  it("parses tomorrow's wall-clock sunrise with tomorrow's offset", () => {
+    expect(parseForecastLocal("2026-11-01T06:41", -4 * 3600, "America/New_York")).toEqual(
+      new Date(Date.UTC(2026, 10, 1, 11, 41)),
+    );
+    expect(parseForecastLocal("2026-10-31T07:40", -4 * 3600, "America/New_York")).toEqual(
+      new Date(Date.UTC(2026, 9, 31, 11, 40)),
+    );
+  });
+
+  it("uses tomorrow's own sunrise and labels it on tomorrow's clock", () => {
+    const verdict = buildTodayVerdict({
+      ...base,
+      forecast: dstForecast,
+      now: evening,
+      stands: [stand("Saddle", "NW")],
+    });
+
+    expect(verdict.period).toBe("tomorrow");
+    expect(verdict.daylight?.legalStartLabel).toBe("6:11 AM");
+    expect(verdict.daylight?.label).toBe("Legal light in 11 h 11 m");
+    expect(verdict.detail).toBe("NW wind. Be in the stand by 5:56 AM; legal light 6:11 AM.");
+    expect(sitStartTime("tomorrow", dstForecast)).toEqual(new Date(Date.UTC(2026, 10, 1, 11, 11)));
+  });
+});
+
+describe("calm threshold label", () => {
+  it("follows the unit the sit wind came in", () => {
+    expect(calmThresholdLabel("2 mph")).toBe("3 mph");
+    expect(calmThresholdLabel("4 km/h")).toBe("5 km/h");
+    expect(calmThresholdLabel(undefined)).toBe("3 mph");
+  });
+});
+
+describe("Maryland Sunday caveat", () => {
+  // 2026-10-18 is a Sunday.
+  it("flags a Sunday sit on a Maryland property", () => {
+    const md = { ...forecast, point: { lat: 39.65, lng: -78.76 } };
+    const verdict = buildTodayVerdict({ ...base, forecast: md, now: at(14), stands: [stand("Ridge", "SW")] });
+    expect(verdict.chips.map((chip) => chip.label)).toContain("MD: Sunday hours vary by county");
+  });
+
+  it("stays off in PA and on a Maryland weekday", () => {
+    const pa = { ...forecast, point: { lat: 40.8, lng: -77.8 } };
+    expect(
+      buildTodayVerdict({ ...base, forecast: pa, now: at(14), stands: [stand("Ridge", "SW")] }).chips.map((c) => c.label),
+    ).not.toContain("MD: Sunday hours vary by county");
+    const md = { ...forecast, point: { lat: 39.65, lng: -78.76 } };
+    // After dark the call is Monday morning.
+    expect(
+      buildTodayVerdict({ ...base, forecast: md, now: at(20), stands: [stand("Ridge", "SW")] }).chips.map((c) => c.label),
+    ).not.toContain("MD: Sunday hours vary by county");
   });
 });

@@ -1,4 +1,5 @@
 import type { Camera } from "@/types/camera";
+import { trustedPhotoDate } from "@/lib/photoDateTime";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { DeerProfile } from "@/types/deerProfile";
 import type { HuntLogEntry } from "@/types/hunt";
@@ -185,7 +186,7 @@ function getCommonTimeOfDay(sightingPhotos: PhotoRecord[]): DeerProfilePattern {
   const buckets = new Map<string, number>();
 
   sightingPhotos.forEach((photo) => {
-    const bucket = photoTimeBucket(photo.photoDate);
+    const bucket = photoTimeBucket(trustedPhotoDate(photo));
 
     if (!bucket) return;
 
@@ -205,7 +206,9 @@ function getCommonTimeOfDay(sightingPhotos: PhotoRecord[]): DeerProfilePattern {
 
   return {
     title: topBucket[0],
-    detail: `${topBucket[1]} linked photo records fall in this window.`,
+    detail: `${topBucket[1]} linked ${
+      topBucket[1] === 1 ? "photo falls" : "photos fall"
+    } in this window.`,
   };
 }
 
@@ -237,7 +240,9 @@ function getCommonArea({
   if (topCamera) {
     return {
       title: topCamera[0],
-      detail: `${topCamera[1]} linked photo records are tied to this camera site.`,
+      detail: `${topCamera[1]} linked ${
+        topCamera[1] === 1 ? "photo is" : "photos are"
+      } tied to this camera site.`,
     };
   }
 

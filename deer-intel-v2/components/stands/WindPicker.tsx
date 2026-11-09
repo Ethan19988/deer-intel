@@ -3,11 +3,13 @@
 import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 import { compassToDegrees } from "@/lib/travelDirection";
 import {
+  markedPoints,
   nextWindMark,
+  WIND_IN_BETWEEN_POINTS,
   WIND_POINTS,
+  type WindDirection,
   type WindMark,
   type WindMarks,
-  type WindPoint,
 } from "@/lib/windPicker";
 
 type WindPickerProps = {
@@ -102,19 +104,22 @@ export default function WindPicker({ marks, onChange, currentWind, backdrop }: W
   const onMap = Boolean(backdrop);
   const currentDegrees = currentWind ? compassToDegrees(currentWind) : null;
 
-  function cycle(point: WindPoint) {
+  function cycle(point: WindDirection) {
     onChange({ ...marks, [point]: nextWindMark(marks[point]) });
   }
 
-  function onKey(event: KeyboardEvent, point: WindPoint) {
+  function onKey(event: KeyboardEvent, point: WindDirection) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       cycle(point);
     }
   }
 
-  const good = WIND_POINTS.filter((point) => marks[point] === "good");
-  const avoid = WIND_POINTS.filter((point) => marks[point] === "avoid");
+  const good = markedPoints(marks, "good");
+  const avoid = markedPoints(marks, "avoid");
+  // Saved in-between points (NNW, ENE, …) have no wedge of their own; they're
+  // kept exactly and shown as chips here so they can be changed or cleared.
+  const inBetween = WIND_IN_BETWEEN_POINTS.filter((point) => marks[point] !== "none");
 
   return (
     <div style={wrapStyle}>
@@ -222,6 +227,27 @@ export default function WindPicker({ marks, onChange, currentWind, backdrop }: W
       </svg>
       </div>
 
+      {inBetween.length > 0 ? (
+        <div style={inBetweenRowStyle} role="group" aria-label="In-between wind directions">
+          {inBetween.map((point) => (
+            <button
+              key={point}
+              type="button"
+              aria-label={`${point} wind: ${SPOKEN[marks[point]]}. Tap to change.`}
+              onClick={() => cycle(point)}
+              style={{
+                ...inBetweenChipStyle,
+                background: FILL[marks[point]],
+                borderColor: STROKE[marks[point]],
+                color: INK[marks[point]],
+              }}
+            >
+              {point} {GLYPH[marks[point]]}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <p style={summaryStyle}>
         <span>
           <strong style={{ color: "var(--success-text)" }}>Good:</strong>{" "}
@@ -285,6 +311,25 @@ const wedgeGroupStyle: CSSProperties = {
 
 const noPointerStyle: CSSProperties = {
   pointerEvents: "none",
+};
+
+const inBetweenRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  justifyContent: "center",
+  gap: "0.4rem",
+};
+
+const inBetweenChipStyle: CSSProperties = {
+  minHeight: "44px",
+  minWidth: "64px",
+  padding: "0 0.8rem",
+  border: "1px solid",
+  borderRadius: "var(--radius-sm)",
+  fontSize: "0.95rem",
+  fontWeight: 800,
+  cursor: "pointer",
+  touchAction: "manipulation",
 };
 
 const summaryStyle: CSSProperties = {

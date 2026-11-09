@@ -38,6 +38,15 @@ export function windSpeedMph(speed: string | number | undefined | null): number 
   return match[2] ? value / KMH_PER_MPH : value;
 }
 
+/**
+ * A wind speed label with its unit: forecast labels already carry one ("7 mph",
+ * "12 km/h") and are shown as-is; a bare number ("7") gets `unitLabel`.
+ */
+export function windSpeedWithUnit(speed: string, unitLabel: string): string {
+  const text = speed.trim();
+  return /^\d+(?:\.\d+)?$/.test(text) ? `${text} ${unitLabel}` : text;
+}
+
 /** True when a known wind speed is too light to carry scent one way. */
 export function isCalmWind(speed: string | number | undefined | null): boolean {
   const mph = windSpeedMph(speed);

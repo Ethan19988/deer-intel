@@ -19,8 +19,8 @@ export function useStandStats(standId: string, standName: string, propertyId: st
   const state = useDeerIntelStore();
   const ctx = usePropertyStatsContext(propertyId);
   return useMemo(
-    () => buildStandStats({ id: standId, name: standName }, state.hunts, ctx),
-    [standId, standName, state.hunts, ctx],
+    () => buildStandStats({ id: standId, name: standName, propertyId }, state.hunts, ctx),
+    [standId, standName, propertyId, state.hunts, ctx],
   );
 }
 

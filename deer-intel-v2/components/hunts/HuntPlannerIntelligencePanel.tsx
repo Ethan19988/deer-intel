@@ -32,7 +32,7 @@ export default function HuntPlannerIntelligencePanel({
         ) : null}
         {!summary.hasHuntHistory ? (
           <EmptyState
-            title="No hunt history yet"
+            title="No sits logged yet"
             description="Log sits to help Deer Intel understand pressure and stand results."
           />
         ) : null}
@@ -60,7 +60,7 @@ export default function HuntPlannerIntelligencePanel({
         ) : (
           <EmptyState
             title="No stand candidates yet"
-            description="Add stands, wind notes, hunts, or camera activity to build candidate recommendations."
+            description="Add stands, wind notes, sits, or camera activity to build candidate recommendations."
           />
         )}
       </div>

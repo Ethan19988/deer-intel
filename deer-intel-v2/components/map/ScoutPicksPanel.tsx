@@ -19,9 +19,9 @@ const metersToYards = (m: number): number => Math.round(m * 1.0936);
 // The strongest nearby camera's counts, zeros omitted — the confirmation detail.
 function confirmCounts(c: { bucks: number; does: number; fawns: number }): string {
   const parts: string[] = [];
-  if (c.bucks) parts.push(`${c.bucks} bucks`);
-  if (c.does) parts.push(`${c.does} does`);
-  if (c.fawns) parts.push(`${c.fawns} fawns`);
+  if (c.bucks) parts.push(`${c.bucks} ${c.bucks === 1 ? "buck" : "bucks"}`);
+  if (c.does) parts.push(`${c.does} ${c.does === 1 ? "doe" : "does"}`);
+  if (c.fawns) parts.push(`${c.fawns} ${c.fawns === 1 ? "fawn" : "fawns"}`);
   return parts.length ? ` · ${parts.join(", ")}` : "";
 }
 

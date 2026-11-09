@@ -1,9 +1,9 @@
 "use client";
 
+import type { PhotoStampRead } from "@/lib/photoOptions";
 import { authHeaders } from "@/lib/supabaseClient";
 import type {
   KnownBuckSummary,
-  PhotoStamp,
   PhotoStampStatusResponse,
 } from "@/types/photoStamp";
 
@@ -36,6 +36,15 @@ function isConfigured(): Promise<boolean> {
 }
 
 /**
+ * Whether AI photo reading is on for this deployment — when it is, a resized
+ * copy of each picked photo is sent to the AI service (used for the privacy
+ * note next to the photo pickers).
+ */
+export function isPhotoReadingEnabled(): Promise<boolean> {
+  return isConfigured();
+}
+
+/**
  * Read a trail-cam photo: the date/time/temp/moon printed on its info bar plus
  * an identification of the animal in the frame. Returns null when reading is
  * unavailable or nothing was found — callers fall back to EXIF, the weather
@@ -45,7 +54,7 @@ export async function requestPhotoStamp(
   file: Blob,
   unit: "F" | "C",
   knownBucks: KnownBuckSummary[] = [],
-): Promise<PhotoStamp | null> {
+): Promise<PhotoStampRead | null> {
   if (!(await isConfigured())) return null;
 
   const cropped = await prepareVisionImage(file).catch(() => null);
@@ -70,7 +79,7 @@ export async function requestPhotoStamp(
 
     if (!response.ok) return null;
 
-    const data = (await response.json()) as { stamp?: PhotoStamp | null };
+    const data = (await response.json()) as { stamp?: PhotoStampRead | null };
 
     return data.stamp ?? null;
   } catch {

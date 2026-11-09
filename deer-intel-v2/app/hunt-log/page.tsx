@@ -34,7 +34,7 @@ import {
   withHuntDeerProfileIds,
   type HuntFormValues,
 } from "@/lib/huntFormValues";
-import { recentStandIds } from "@/lib/hunts";
+import { huntsForProperty, recentStandIds } from "@/lib/hunts";
 import {
   clearSitDraft,
   endSitDraft,
@@ -60,6 +60,10 @@ export default function HuntLogPage() {
   // A sit started with "Start sit" and not yet saved. Mirrored to
   // localStorage on every change so an iOS tab reload doesn't lose it.
   const [draft, setDraft] = useState<SitDraft | null>(null);
+  // History shows the property named in the link (?propertyId=) or picked in
+  // the header, unless the hunter flips to "All properties".
+  const [linkedPropertyId, setLinkedPropertyId] = useState("");
+  const [showAllProperties, setShowAllProperties] = useState(false);
   const hasStands = state.stands.length > 0;
   const standPins = getStandPins(state.pins);
   const weatherLocation = resolvePropertyWeatherPoint(
@@ -131,6 +135,9 @@ export default function HuntLogPage() {
       );
 
       setDraft(readSitDraft());
+      if (params.get("propertyId") && propertyExists) {
+        setLinkedPropertyId(propertyId);
+      }
       setLoadedUrlDefaults(true);
     });
 
@@ -435,33 +442,68 @@ export default function HuntLogPage() {
     state.pins.filter((pin) => pin.propertyId === editValues.propertyId),
   );
 
+  const historyPropertyId = [linkedPropertyId, state.selectedPropertyId].find(
+    (id) => id && state.properties.some((property) => property.id === id),
+  );
+  const historyShowsAll = showAllProperties || !historyPropertyId;
+  const historyHunts = huntsForProperty(
+    state.hunts,
+    historyShowsAll ? null : historyPropertyId,
+  );
+  const historyPropertyName = historyPropertyId
+    ? getPropertyName(historyPropertyId)
+    : "";
+
   const historyTab = (
-    <HuntLogList
-      hunts={state.hunts}
-      getPropertyName={getPropertyName}
-      emptyDescription="No hunts logged yet. Save your first sit from the Log a sit tab."
-      onEdit={startEditingHunt}
-      onDelete={deleteHunt}
-      editingHuntId={editingHuntId}
-      editor={
-        editingHuntId ? (
-          <HuntLogForm
-            values={editValues}
-            properties={state.properties}
-            stands={state.stands}
-            deerProfiles={state.deerProfiles}
-            weatherLocation={editWeatherLocation}
-            getPropertyName={getPropertyName}
-            onChange={setEditValues}
-            onSubmit={saveEditedHunt}
-            onCancel={cancelEditingHunt}
-            submitLabel="Save changes"
-            autoFillWeather={false}
-            missingStandName={editingHunt?.standName || "Saved stand"}
-          />
-        ) : null
-      }
-    />
+    <div style={historyStyle}>
+      {historyPropertyId && state.properties.length > 1 ? (
+        <div style={historyScopeStyle}>
+          <span style={historyScopeLabelStyle}>
+            {historyShowsAll
+              ? "Showing sits from all properties"
+              : `Showing sits on ${historyPropertyName}`}
+          </span>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setShowAllProperties((current) => !current)}
+          >
+            {historyShowsAll ? `Only ${historyPropertyName}` : "All properties"}
+          </Button>
+        </div>
+      ) : null}
+      <HuntLogList
+        hunts={historyHunts}
+        getPropertyName={getPropertyName}
+        showPropertyName={historyShowsAll && state.properties.length > 1}
+        emptyDescription={
+          historyShowsAll
+            ? "No sits logged yet. Save your first sit from the Log a sit tab."
+            : `No sits logged on ${historyPropertyName} yet. Save one from the Log a sit tab.`
+        }
+        onEdit={startEditingHunt}
+        onDelete={deleteHunt}
+        editingHuntId={editingHuntId}
+        editor={
+          editingHuntId ? (
+            <HuntLogForm
+              values={editValues}
+              properties={state.properties}
+              stands={state.stands}
+              deerProfiles={state.deerProfiles}
+              weatherLocation={editWeatherLocation}
+              getPropertyName={getPropertyName}
+              onChange={setEditValues}
+              onSubmit={saveEditedHunt}
+              onCancel={cancelEditingHunt}
+              submitLabel="Save changes"
+              autoFillWeather={false}
+              missingStandName={editingHunt?.standName || "Saved stand"}
+            />
+          ) : null
+        }
+      />
+    </div>
   );
 
   return (
@@ -469,12 +511,13 @@ export default function HuntLogPage() {
       <PageHeader eyebrow="Hunt log" title="Log a sit" />
 
       <Tabs
+        urlParam="tab"
         items={[
           { id: "log", label: "Log a sit", content: logTab },
           {
             id: "history",
             label: "History",
-            badge: state.hunts.length,
+            badge: historyHunts.length,
             content: historyTab,
           },
         ]}
@@ -482,6 +525,24 @@ export default function HuntLogPage() {
     </PageShell>
   );
 }
+
+const historyStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
+};
+
+const historyScopeStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.5rem",
+};
+
+const historyScopeLabelStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontSize: "0.88rem",
+};
 
 const formCardStyle: CSSProperties = {
   maxWidth: "640px",

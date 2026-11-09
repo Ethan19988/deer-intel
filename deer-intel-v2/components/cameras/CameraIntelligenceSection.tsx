@@ -104,7 +104,7 @@ export default function CameraIntelligenceSection({
           <div style={attentionGridStyle}>
             <AttentionPanel
               title="Cameras With No Recent Checks"
-              emptyDescription="Every saved camera site has a recent check."
+              emptyDescription="Every active camera site has a recent check."
               items={summary.camerasWithNoRecentChecks}
               propertyId={propertyId}
             />
@@ -177,7 +177,13 @@ function AttentionPanel({
             >
               <span>
                 <strong style={attentionNameStyle}>{item.cameraName}</strong>
-                <span style={attentionReasonStyle}>{item.reason}</span>
+                <span
+                  style={
+                    item.tone === "note" ? attentionNoteStyle : attentionReasonStyle
+                  }
+                >
+                  {item.reason}
+                </span>
               </span>
               <span style={attentionDetailStyle}>{item.detail}</span>
             </Link>
@@ -272,6 +278,12 @@ const attentionReasonStyle: CSSProperties = {
   color: "var(--warning-text)",
   fontSize: "0.88rem",
   fontWeight: 800,
+};
+
+// A neutral note ("No checks yet") reads as information, not a warning.
+const attentionNoteStyle: CSSProperties = {
+  ...attentionReasonStyle,
+  color: "var(--text-muted)",
 };
 
 const attentionDetailStyle: CSSProperties = {

@@ -1,4 +1,5 @@
 import { legalEnd, legalStart, parseForecastLocal } from "@/lib/todayVerdict";
+import { forecastClock } from "@/lib/forecastTime";
 
 // The map's legal-light chip: "Legal light in 9h 40m", "Legal end in 32m" or
 // "Legal now · ends 5:32 PM", from the forecast's sunrise/sunset and the PA
@@ -16,16 +17,9 @@ export type LegalLightChip = {
 // The forecast's local times are read the same way Today reads them.
 export { parseForecastLocal };
 
-function clockLabel(date: Date, utcOffsetSeconds?: number): string {
-  if (typeof utcOffsetSeconds === "number" && Number.isFinite(utcOffsetSeconds)) {
-    return new Date(date.getTime() + utcOffsetSeconds * 1000).toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      timeZone: "UTC",
-    });
-  }
-  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-}
+// On the property's clock: its IANA zone (right on either side of a DST
+// change), else the fetch's fixed UTC offset, else the device's zone.
+const clockLabel = forecastClock;
 
 /** "9h 40m", "2h", "32m" (rounded up to the minute, never "0m"). */
 export function shortDuration(minutes: number): string {
@@ -41,9 +35,10 @@ export function legalLightChip(
   sunriseIso: string | undefined,
   sunsetIso: string | undefined,
   utcOffsetSeconds?: number,
+  timeZone?: string,
 ): LegalLightChip | null {
-  const sunrise = parseForecastLocal(sunriseIso, utcOffsetSeconds);
-  const sunset = parseForecastLocal(sunsetIso, utcOffsetSeconds);
+  const sunrise = parseForecastLocal(sunriseIso, utcOffsetSeconds, timeZone);
+  const sunset = parseForecastLocal(sunsetIso, utcOffsetSeconds, timeZone);
   if (!sunrise || !sunset) return null;
 
   const nowMs = now.getTime();
@@ -66,7 +61,7 @@ export function legalLightChip(
       return { label: `Legal end in ${shortDuration(minutesLeft)}`, tone: "ending" };
     }
     return {
-      label: `Legal now · ends ${clockLabel(end, utcOffsetSeconds)}`,
+      label: `Legal now · ends ${clockLabel(end, utcOffsetSeconds, timeZone)}`,
       tone: "legal",
     };
   }

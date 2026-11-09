@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import AddStandCard from "@/components/stands/AddStandCard";
 import StandCard from "@/components/stands/StandCard";
+import { saveStandForm } from "@/components/stands/saveStandForm";
 import { findLikelyDuplicateStands } from "@/lib/standDuplicates";
 import { useAddFormRequest } from "@/lib/useAddFormRequest";
 import EmptyState from "@/components/ui/EmptyState";
@@ -20,7 +21,13 @@ import {
   updateDeerIntelStore,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
+import type { StandFormValues } from "@/lib/standFormValues";
+import { countHuntedStands } from "@/lib/standHunts";
 import { getStandIntelligenceSummary } from "@/lib/standIntelligence";
+import { standLocationPin } from "@/lib/standSave";
+import { windSpeedWithUnit } from "@/lib/standWind";
+import { useUnitPreferences, WIND_UNIT_LABEL } from "@/lib/units";
+import type { Stand } from "@/types/stand";
 import { sitWindLabel } from "@/lib/todayVerdict";
 import { usePropertyToday } from "@/lib/usePropertyToday";
 
@@ -47,12 +54,10 @@ export default function StandsPage() {
   const propertyPins = state.pins.filter(
     (pin) => pin.propertyId === selectedPropertyId,
   );
-  const huntedStandIds = new Set(
-    propertyHunts.map((hunt) => hunt.standId).filter(Boolean),
-  );
-  const huntedStandCount = propertyStands.filter((stand) =>
-    huntedStandIds.has(stand.id),
-  ).length;
+  // Same sit-to-stand rule as stand stats, pressure and intelligence
+  // (lib/standHunts), so "hunted" here matches the cards below.
+  const huntedStandCount = countHuntedStands(propertyStands, propertyHunts);
+  const units = useUnitPreferences();
 
   // Grade stands on the next sit's forecast wind, the same wind Today's
   // verdict and dial use (not the wind blowing right now).
@@ -72,6 +77,11 @@ export default function StandsPage() {
       (rankById.get(b.id) ?? Number.MAX_SAFE_INTEGER),
   );
   const pickStandId = verdict.check.pick?.stand.id;
+  const timingById = new Map(
+    verdict.check.rows
+      .filter((row) => row.timing)
+      .map((row) => [row.stand.id, row.timing!.reason]),
+  );
 
   const likelyDuplicateIds = findLikelyDuplicateStands(propertyStands);
 
@@ -82,6 +92,15 @@ export default function StandsPage() {
       ...currentState,
       stands: currentState.stands.filter((stand) => stand.id !== standId),
     }));
+  }
+
+  // The full edit form: the whole record plus its map location.
+  function saveStand(stand: Stand, values: StandFormValues): string | null {
+    return saveStandForm(values, {
+      id: stand.id,
+      propertyId: stand.propertyId,
+      sourcePinId: stand.sourcePinId,
+    });
   }
 
   function saveStandWinds(
@@ -136,7 +155,9 @@ export default function StandsPage() {
               </span>
               <span>
                 {sitLabel}: {sitWind}
-                {sitWindSpeed ? ` ${sitWindSpeed.replace(/\s*mph$/i, "")}` : ""}
+                {sitWindSpeed
+                  ? ` ${windSpeedWithUnit(sitWindSpeed, WIND_UNIT_LABEL[units.wind])}`
+                  : ""}
               </span>
             </div>
           ) : null}
@@ -170,6 +191,9 @@ export default function StandsPage() {
                     onDelete={deleteStand}
                     likelyDuplicate={likelyDuplicateIds.has(stand.id)}
                     bestSit={stand.id === pickStandId}
+                    onSave={saveStand}
+                    locationPin={standLocationPin(stand, state.stands, state.pins)}
+                    timingNote={timingById.get(stand.id)}
                   />
                 );
               })}
@@ -187,7 +211,11 @@ export default function StandsPage() {
         title="Stands"
         meta={
           propertyStands.length > 0
-            ? `${propertyStands.length} sites · ${huntedStandCount} hunted · ${propertyHunts.length} sits`
+            ? [
+                plural(propertyStands.length, "site"),
+                `${huntedStandCount} hunted`,
+                plural(propertyHunts.length, "sit"),
+              ].join(" · ")
             : undefined
         }
         action={
@@ -214,6 +242,10 @@ export default function StandsPage() {
       {sitesView}
     </PageShell>
   );
+}
+
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 const listStyle: CSSProperties = {

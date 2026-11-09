@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getDeerProfileTimeline } from "@/lib/deerProfileTimeline";
+import {
+  describeDeerTimeWindow,
+  formatDeerAge,
+  getDeerProfileTimeline,
+} from "@/lib/deerProfileTimeline";
 import { createHuntFromValues, newHuntFormValues, withHuntDeerProfileIds } from "@/lib/huntFormValues";
 import type { Camera } from "@/types/camera";
 import type { DeerProfile } from "@/types/deerProfile";
@@ -100,5 +104,47 @@ describe("hunt form buck tags", () => {
     const hunt = createHuntFromValues({ id: "h", values, stands: [stand] })!;
 
     expect("deerProfileIds" in hunt).toBe(false);
+  });
+});
+
+describe("deer time window wording", () => {
+  it("won't call a single timed sighting a pattern", () => {
+    const text = describeDeerTimeWindow({
+      label: "Morning",
+      hours: "5–10 AM",
+      count: 1,
+      sampleSize: 1,
+    });
+
+    expect(text?.title).toBe("No time pattern yet");
+    expect(text?.line).not.toMatch(/Usually/);
+    expect(text?.detail).toMatch(/morning \(5–10 AM\)/);
+  });
+
+  it("calls it usual once there are enough timed sightings", () => {
+    const text = describeDeerTimeWindow({
+      label: "Evening",
+      hours: "3–8 PM",
+      count: 3,
+      sampleSize: 4,
+    });
+
+    expect(text?.line).toBe("Usually evening (3–8 PM) · 3 of 4 timed");
+    expect(text?.title).toBe("Usually evening (3–8 PM)");
+  });
+
+  it("is empty with no timed sightings", () => {
+    expect(describeDeerTimeWindow(null)).toBeNull();
+  });
+});
+
+describe("formatDeerAge", () => {
+  it("adds yrs to a bare number and leaves typed text alone", () => {
+    expect(formatDeerAge("4.5")).toBe("4.5 yrs");
+    expect(formatDeerAge("3.5+")).toBe("3.5+ yrs");
+    expect(formatDeerAge(" 2 ")).toBe("2 yrs");
+    expect(formatDeerAge("4.5 years")).toBe("4.5 years");
+    expect(formatDeerAge("Mature")).toBe("Mature");
+    expect(formatDeerAge("")).toBe("");
   });
 });

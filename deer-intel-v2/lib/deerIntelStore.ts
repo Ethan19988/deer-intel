@@ -20,6 +20,8 @@ import { PIN_TYPES, type MapPin, type PinType } from "@/types/mapPin";
 import type { PhotoRecord } from "@/types/photo";
 import type { HuntAreaPoint, Property } from "@/types/property";
 import { STAND_TYPES, type Stand, type StandType } from "@/types/stand";
+import { readStandDetails } from "@/lib/standDetails";
+import { cleanStandNotes } from "@/lib/standFormValues";
 import type { WalkTrack, WalkTrackPoint } from "@/types/walkTrack";
 
 export { PIN_TYPES, PROPERTY_ASSET_PIN_TYPES } from "@/types/mapPin";
@@ -368,8 +370,13 @@ function normalizeStand(value: unknown): Stand | null {
     avoidWinds: stringValue(value.avoidWinds),
     accessRouteNotes: stringValue(value.accessRouteNotes),
     exitRouteNotes: stringValue(value.exitRouteNotes),
-    notes: stringValue(value.notes, "No notes yet."),
+    // Older builds saved the "No notes yet." placeholder as the note itself;
+    // that's no note, so it isn't shown as one or sent to AI Scout.
+    notes: cleanStandNotes(stringValue(value.notes)),
     ...(sourcePinId ? { sourcePinId } : {}),
+    // Optional details (best time, setup, weapon, shot, height): only the
+    // valid ones, and absent when unset so older records keep their shape.
+    ...readStandDetails(value),
   };
 }
 
@@ -493,6 +500,27 @@ function normalizePhotoRecord(value: unknown): PhotoRecord | null {
   const weatherSnapshot = isRecord(value.weatherSnapshot)
     ? normalizeWeatherSnapshot(value.weatherSnapshot)
     : undefined;
+  // Newer optional photo fields: kept only when they hold a known value, and
+  // added only when present so older records keep their exact shape.
+  // Imports saved before captureTimeSource existed left their source in the
+  // notes: a file-modified time, or a date-only stamp padded to T12:00. Tag
+  // those so their made-up clock times stay out of time-of-day stats.
+  const legacyNotes = stringValue(value.notes);
+  const legacyTimeSource = legacyNotes.includes("Metadata: Date read from file metadata.")
+    ? "file"
+    : legacyNotes.includes("Metadata: Date read from photo stamp.") &&
+        photoDate.endsWith("T12:00")
+      ? "stampDate"
+      : undefined;
+  const captureTimeSource =
+    (["stamp", "exif", "stampDate", "filename", "file", "manual"] as const).find(
+      (source) => source === value.captureTimeSource,
+    ) ?? (value.captureTimeSource === undefined ? legacyTimeSource : undefined);
+  const ageClass = (["1.5", "2.5", "3.5", "4.5+"] as const).find(
+    (option) => option === value.ageClass,
+  );
+  const deerCount = optionalNumberValue(value.deerCount);
+  const antlerPoints = optionalNumberValue(value.antlerPoints);
 
   return {
     id,
@@ -501,13 +529,28 @@ function normalizePhotoRecord(value: unknown): PhotoRecord | null {
     cameraCheckId,
     fileName,
     photoDate,
+    ...withOptional("captureTimeSource", captureTimeSource),
     species,
     deerProfileId: optionalStringValue(value.deerProfileId),
     buckName: optionalStringValue(value.buckName),
     deerProfileIds: optionalStringArrayValue(value.deerProfileIds),
     buckNames: optionalStringArrayValue(value.buckNames),
     travelDirection: optionalStringValue(value.travelDirection),
+    ...withOptional("frameDirection", optionalStringValue(value.frameDirection)),
     behavior: optionalStringValue(value.behavior),
+    ...withOptional(
+      "deerCount",
+      deerCount !== undefined && Number.isInteger(deerCount) && deerCount >= 1 && deerCount <= 50
+        ? deerCount
+        : undefined,
+    ),
+    ...withOptional("ageClass", ageClass),
+    ...withOptional(
+      "antlerPoints",
+      antlerPoints !== undefined && Number.isInteger(antlerPoints) && antlerPoints >= 1 && antlerPoints <= 40
+        ? antlerPoints
+        : undefined,
+    ),
     notes: stringValue(value.notes),
     createdAt: stringValue(value.createdAt, photoDate),
     imageId,

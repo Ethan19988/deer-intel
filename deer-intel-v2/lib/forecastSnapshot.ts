@@ -37,9 +37,9 @@ function withDate(iso: string | undefined, date: string): string | undefined {
  * The part of a saved forecast that still applies at `nowMs`, or null once it
  * has run out: past the end of its last day, or (with no day list) older than
  * SNAPSHOT_MAX_AGE_MS. Days before today are dropped so days[0] is today, and
- * today's sunrise/sunset times are carried over from the first kept day's
- * date (sun times move a minute or two a day). Returns the same object when
- * nothing has rolled over.
+ * today's sunrise/sunset come from the first kept day (its own times when
+ * saved, else the old clock times on its date — sun times move a minute or
+ * two a day). Returns the same object when nothing has rolled over.
  */
 export function usableForecast(
   forecast: LiveForecast | null | undefined,
@@ -59,12 +59,20 @@ export function usableForecast(
   if (firstCurrent === 0) return forecast;
 
   const kept = days.slice(firstCurrent);
-  return {
+  const rolled: LiveForecast = {
     ...forecast,
     days: kept,
-    sunriseIso: withDate(forecast.sunriseIso, kept[0].date),
-    sunsetIso: withDate(forecast.sunsetIso, kept[0].date),
+    // The kept day's own sun times when the snapshot has them; otherwise the
+    // old clock times moved onto its date.
+    sunriseIso: kept[0].sunriseIso ?? withDate(forecast.sunriseIso, kept[0].date),
+    sunsetIso: kept[0].sunsetIso ?? withDate(forecast.sunsetIso, kept[0].date),
   };
+  // The saved UTC offset was right on the day it was fetched, not necessarily
+  // on the kept day (a DST change in between). With the IANA zone the times
+  // are read per date anyway; without it, the device's own zone is the better
+  // guess than a possibly stale offset.
+  if (!forecast.timezone) delete rolled.utcOffsetSeconds;
+  return rolled;
 }
 
 /** The saved forecast for this spot plus when it was fetched, while usable. */

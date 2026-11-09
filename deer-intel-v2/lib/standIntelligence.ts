@@ -5,9 +5,15 @@ import type { CameraCheck } from "@/types/cameraCheck";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { MapPin } from "@/types/mapPin";
 import type { Stand } from "@/types/stand";
+import { findStandLocation } from "@/lib/accessScent";
+import { distanceMeters } from "@/lib/movementPrediction";
+import { huntsForStand } from "@/lib/standHunts";
 
 const RECENT_HUNT_DAYS = 21;
 const RECENT_CAMERA_ACTIVITY_DAYS = 14;
+// A map pin's "pressure" note only speaks for stands this close to it
+// (~220 yd): a note on a pin across the property is about somewhere else.
+export const PRESSURE_NOTE_REACH_M = 200;
 
 export type StandInsight = {
   title: string;
@@ -75,7 +81,7 @@ export function getStandIntelligenceSummary({
   const propertyCameraChecks = cameraChecks.filter(
     (check) => check.propertyId === propertyId,
   );
-  const standHunts = getStandHunts({ stand, propertyId, hunts });
+  const standHunts = huntsForStand(stand, hunts);
   const chronologicalHunts = sortHuntsChronologically(standHunts);
   const latestHunt = chronologicalHunts.at(-1);
   const latestHuntDays = latestHunt
@@ -141,23 +147,40 @@ export function getStandIntelligenceSummary({
   };
 }
 
-function getStandHunts({
-  stand,
-  propertyId,
-  hunts,
-}: {
-  stand: Stand;
-  propertyId: string;
-  hunts: HuntLogEntry[];
-}) {
-  const standName = stand.name.trim().toLowerCase();
+/** "today", "yesterday", or "N days ago" for a whole-day count. */
+export function daysAgoLabel(days: number): string {
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  return `${days} days ago`;
+}
 
-  return hunts.filter(
-    (hunt) =>
-      hunt.propertyId === propertyId &&
-      (hunt.standId === stand.id ||
-        (!hunt.standId && hunt.standName.trim().toLowerCase() === standName)),
+/**
+ * True for a note about hunting pressure ("heavy pressure from the neighbors"),
+ * not the barometer ("pressure falling ahead of the front").
+ */
+export function isHuntingPressureNote(note: string): boolean {
+  const text = note.toLowerCase();
+  if (!text.includes("pressure")) return false;
+  return !/barometric|barometer|\bbaro\b|inhg|\bmb\b|millibar|\bhpa\b|\bfront\b|falling|rising|dropping/.test(
+    text,
   );
+}
+
+/**
+ * Notes on the stand's own map pin and pins within PRESSURE_NOTE_REACH_M of it.
+ * With no location there's no way to tell which pins are near, so none count.
+ */
+function nearbyPinNotes(stand: Stand, pins: MapPin[]): string[] {
+  const location = findStandLocation(stand, pins);
+  if (!location) return [];
+  return pins
+    .filter(
+      (pin) =>
+        pin.propertyId === stand.propertyId &&
+        (pin.id === location.id ||
+          distanceMeters(location, pin) <= PRESSURE_NOTE_REACH_M),
+    )
+    .map((pin) => pin.notes);
 }
 
 function getBestWindInsight(stand: Stand): StandInsight {
@@ -197,7 +220,7 @@ function getLastHuntedInsight(
     detail:
       latestHuntDays === null
         ? "Latest hunt saved for this stand."
-        : `Last hunted ${latestHuntDays} days ago.`,
+        : `Last hunted ${daysAgoLabel(latestHuntDays)}.`,
   };
 }
 
@@ -218,7 +241,7 @@ function getRecentDeerActivityInsight(
     latestCameraActivity.check.does +
     latestCameraActivity.check.fawns;
   const activityAge =
-    activityDays === null ? "Date not set" : `${activityDays} days ago`;
+    activityDays === null ? "Date not set" : capitalize(daysAgoLabel(activityDays));
 
   return {
     title: latestCameraActivity.cameraName,
@@ -258,15 +281,17 @@ function getPressureNotes({
   latestHuntDays: number | null;
   pins: MapPin[];
 }): StandInsight {
+  // The stand's own note first, then its sits (newest first), then map pins
+  // at or near the stand — never a pin elsewhere on the property.
   const explicitPressureNotes = [
     stand.notes,
-    ...standHunts.map((hunt) => hunt.notes),
-    ...pins
-      .filter((pin) => pin.propertyId === stand.propertyId)
-      .map((pin) => pin.notes),
+    ...sortHuntsChronologically(standHunts)
+      .reverse()
+      .map((hunt) => hunt.notes),
+    ...nearbyPinNotes(stand, pins),
   ]
-    .filter((note) => note.toLowerCase().includes("pressure"))
-    .at(0);
+    .filter((note): note is string => typeof note === "string")
+    .find(isHuntingPressureNote);
 
   if (explicitPressureNotes) {
     return {
@@ -285,13 +310,13 @@ function getPressureNotes({
   if (latestHuntDays > RECENT_HUNT_DAYS) {
     return {
       title: "Has not been hunted recently",
-      detail: `Last hunt was ${latestHuntDays} days ago.`,
+      detail: `Last hunt was ${daysAgoLabel(latestHuntDays)}.`,
     };
   }
 
   return {
     title: "Recently hunted",
-    detail: `Last hunt was ${latestHuntDays} days ago. Consider pressure before going back.`,
+    detail: `Last hunt was ${daysAgoLabel(latestHuntDays)}. Consider pressure before going back.`,
   };
 }
 
@@ -433,6 +458,10 @@ function getRelatedCameraSites({
         : "No checks saved yet.",
     };
   });
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function daysSince(date: string | undefined, now: Date) {

@@ -57,7 +57,7 @@ export default function PropertyStandTable({ stats }: { stats: PropertyStandStat
               <Th>Deer/sit</Th>
               <Th>Bucks/sit</Th>
               <Th>Shots</Th>
-              <Th>Kills</Th>
+              <Th>Harvests</Th>
               <Th align="left">Best wind / time</Th>
             </tr>
           </thead>

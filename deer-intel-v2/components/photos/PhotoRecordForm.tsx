@@ -1,36 +1,21 @@
-import type { CSSProperties, FormEvent } from "react";
+"use client";
+
+import { useState, type CSSProperties, type FormEvent } from "react";
 import DeerProfileMultiSelect from "@/components/photos/DeerProfileMultiSelect";
+import PhotoDateTimeFields from "@/components/photos/PhotoDateTimeFields";
+import PhotoDetailChips from "@/components/photos/PhotoDetailChips";
 import PhotoUploadField, {
   type SelectedPhotoImage,
 } from "@/components/photos/PhotoUploadField";
+import SpeciesSelect from "@/components/photos/SpeciesSelect";
 import Button from "@/components/ui/Button";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import { formatCameraCheckDate } from "@/lib/cameraChecks";
 import type { PhotoFormValues } from "@/lib/photoFormValues";
+import { BEHAVIOR_OPTIONS } from "@/lib/photoOptions";
 import { COMPASS_16, frameDirectionToHeading } from "@/lib/travelDirection";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { DeerProfile } from "@/types/deerProfile";
-
-const SPECIES_OPTIONS = [
-  "Buck",
-  "Doe",
-  "Fawn",
-  "Turkey",
-  "Bear",
-  "Coyote",
-  "Other",
-];
-
-// Must match the BEHAVIOR_VALUES the photo vision reports.
-const BEHAVIOR_OPTIONS = [
-  "Traveling",
-  "Feeding",
-  "Chasing",
-  "At scrape or rub",
-  "Bedded",
-  "Alert",
-  "Other",
-];
 
 type PhotoRecordFormProps = {
   values: PhotoFormValues;
@@ -56,6 +41,8 @@ export default function PhotoRecordForm({
   const canSave = Boolean(
     (values.fileName || values.imageId) && values.photoDate && values.species,
   );
+  // The picked photo's stamp and file data disagreed about the date.
+  const [clockWarning, setClockWarning] = useState(false);
 
   function updateField<Field extends keyof PhotoFormValues>(
     field: Field,
@@ -78,15 +65,15 @@ export default function PhotoRecordForm({
   }));
 
   function handleImageSelected(image: SelectedPhotoImage) {
-    // Only a real capture time (EXIF, or the date/time the camera printed on the
-    // photo — both in 24hr time) auto-fills the date, and it keeps the full
-    // "YYYY-MM-DDTHH:mm" so the exact time of day feeds the movement /
-    // time-of-day intelligence. We deliberately do NOT fall back to the file's
-    // date: for a cellular camera that sends photos in batches, that timestamp
-    // is when the batch arrived, not when the shot was taken. When no capture
-    // time is embedded, the existing value stays and PhotoUploadField prompts
-    // the hunter to set the real time. The label only auto-fills when blank.
+    setClockWarning(image.clockWarning);
+    // Only what the photo itself says fills the date: the printed stamp or
+    // EXIF ("YYYY-MM-DDTHH:mm"), or a date-only stamp ("YYYY-MM-DD"). The
+    // date/time the form was opened at is NOT a capture time, so when the
+    // photo carries none the field is cleared for the hunter to set — and
+    // the file's own date is never used (for a cellular camera that's when
+    // the batch arrived). The label only auto-fills when blank.
     const imageDate = image.capturedAt;
+    const detectedSpecies = values.species || image.detectedSpecies;
 
     onChange({
       ...values,
@@ -94,7 +81,8 @@ export default function PhotoRecordForm({
       imageWidth: image.imageWidth,
       imageHeight: image.imageHeight,
       fileName: values.fileName.trim() || cleanFileLabel(image.fileName),
-      photoDate: imageDate || values.photoDate,
+      photoDate: imageDate,
+      captureTimeSource: image.captureSource,
       stampedTemperature: image.stampedTemperature,
       stampedMoonPhase: image.stampedMoonPhase,
       stampedWindDirection: image.stampedWindDirection,
@@ -102,8 +90,18 @@ export default function PhotoRecordForm({
       stampedHumidity: image.stampedHumidity,
       // Pre-select what the AI saw; anything the hunter already picked or
       // typed stays untouched, and everything stays editable before submitting.
-      species: values.species || image.detectedSpecies,
+      species: detectedSpecies,
       behavior: values.behavior || image.detectedBehavior,
+      deerCount: values.deerCount ?? (image.detectedDeerCount || undefined),
+      ageClass:
+        values.ageClass ||
+        (detectedSpecies === "Buck" ? image.detectedAgeClass : ""),
+      antlerPoints:
+        values.antlerPoints ??
+        (detectedSpecies === "Buck" && image.detectedAntlerPoints
+          ? image.detectedAntlerPoints
+          : undefined),
+      frameDirection: image.detectedFrameDirection,
       travelDirection:
         values.travelDirection ||
         frameDirectionToHeading(
@@ -121,6 +119,7 @@ export default function PhotoRecordForm({
   }
 
   function handleImageCleared() {
+    setClockWarning(false);
     onChange({
       ...values,
       imageId: "",
@@ -186,30 +185,25 @@ export default function PhotoRecordForm({
           className="di-form-grid"
           style={{ ...formGridStyle, marginTop: "1rem" }}
         >
-          <label style={fieldStyle}>
-            <span style={labelStyle}>Photo Date and Time</span>
-            <input
-              type="datetime-local"
+          <div style={wideFieldStyle}>
+            <PhotoDateTimeFields
+              idPrefix="photo-form"
               value={values.photoDate}
-              onChange={(event) => updateField("photoDate", event.target.value)}
-              style={inputStyle}
+              source={values.captureTimeSource}
+              clockWarning={clockWarning}
+              onChange={(photoDate, captureTimeSource) =>
+                onChange({ ...values, photoDate, captureTimeSource })
+              }
             />
-          </label>
+          </div>
 
           <label style={fieldStyle}>
             <span style={labelStyle}>Species</span>
-            <select
+            <SpeciesSelect
               value={values.species}
-              onChange={(event) => updateField("species", event.target.value)}
+              onChange={(species) => updateField("species", species)}
               style={inputStyle}
-            >
-              <option value="">Choose species</option>
-              {SPECIES_OPTIONS.map((species) => (
-                <option key={species} value={species}>
-                  {species}
-                </option>
-              ))}
-            </select>
+            />
           </label>
 
           <label style={fieldStyle}>
@@ -245,6 +239,17 @@ export default function PhotoRecordForm({
               ))}
             </select>
           </label>
+        </div>
+
+        <div style={{ marginTop: "1rem" }}>
+          <PhotoDetailChips
+            idPrefix="photo-form"
+            species={values.species}
+            deerCount={values.deerCount}
+            ageClass={values.ageClass}
+            antlerPoints={values.antlerPoints}
+            onChange={(patch) => onChange({ ...values, ...patch })}
+          />
         </div>
       </CollapsibleSection>
 
@@ -299,6 +304,11 @@ const formGridStyle: CSSProperties = {
 const fieldStyle: CSSProperties = {
   display: "grid",
   gap: "0.45rem",
+};
+
+// Date + time sit side by side and need the full row.
+const wideFieldStyle: CSSProperties = {
+  gridColumn: "1 / -1",
 };
 
 const labelStyle: CSSProperties = {

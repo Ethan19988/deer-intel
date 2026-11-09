@@ -4,6 +4,7 @@
 // Only photos explicitly linked to the profile count — the same rule the travel
 // and intelligence reads follow, so a stand decision never rides on a guess.
 
+import { trustedPhotoDate } from "@/lib/photoDateTime";
 import { photoLinksProfile } from "@/lib/photos";
 import { toEightWind } from "@/lib/travelDirection";
 import type { DeerProfile } from "@/types/deerProfile";
@@ -124,7 +125,7 @@ function temperatureValue(photo: PhotoRecord): string {
 }
 
 function timeValue(photo: PhotoRecord): string {
-  const raw = photo.photoDate.trim();
+  const raw = trustedPhotoDate(photo).trim();
 
   // A date without a clock time can't be placed in a part of the day.
   if (!/T\d{2}:\d{2}/.test(raw)) return "";

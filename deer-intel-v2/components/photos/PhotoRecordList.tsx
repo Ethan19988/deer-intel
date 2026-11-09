@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import DeerProfileMultiSelect from "@/components/photos/DeerProfileMultiSelect";
+import PhotoDetailsEditor from "@/components/photos/PhotoDetailsEditor";
 import PhotoImage from "@/components/photos/PhotoImage";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -13,6 +14,8 @@ import {
   getPhotoDeerProfileIds,
   sortPhotoRecordsChronologically,
 } from "@/lib/photos";
+import { hasTrustedPhotoTime } from "@/lib/photoDateTime";
+import { MAX_DEER_COUNT_CHIP } from "@/lib/photoOptions";
 import {
   hasWeatherSnapshot,
   weatherSnapshotDescription,
@@ -53,6 +56,9 @@ type PhotoRecordListProps = {
   layout?: "list" | "grid";
   /** Extra bulk tools shown in the grid's Manage panel (e.g. AI re-read). */
   manageTools?: ReactNode;
+  /** When provided, each photo card gets "Edit details" to fix species,
+   *  date/time, behavior, and the deer count / age / points after saving. */
+  onUpdatePhoto?: (photoId: string, patch: Partial<PhotoRecord>) => void;
 };
 
 export default function PhotoRecordList({
@@ -66,6 +72,7 @@ export default function PhotoRecordList({
   onSetPhotoBucks,
   layout = "list",
   manageTools,
+  onUpdatePhoto,
 }: PhotoRecordListProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [managing, setManaging] = useState(false);
@@ -128,6 +135,7 @@ export default function PhotoRecordList({
     toggleSelected,
     onCreateBuckFromPhoto,
     onSetPhotoBucks,
+    onUpdatePhoto,
   };
 
   if (layout === "grid") {
@@ -277,7 +285,12 @@ export default function PhotoRecordList({
               if (next) setOpenPhotoId(next.id);
             }}
           >
-            <PhotoCard photo={openPhoto} {...cardProps} manageable={false} />
+            <PhotoCard
+              key={openPhoto.id}
+              photo={openPhoto}
+              {...cardProps}
+              manageable={false}
+            />
           </PhotoViewer>
         ) : null}
       </div>
@@ -362,6 +375,7 @@ type PhotoCardProps = {
   toggleSelected: (photoId: string, checked: boolean) => void;
   onCreateBuckFromPhoto?: (photo: PhotoRecord) => void;
   onSetPhotoBucks?: PhotoRecordListProps["onSetPhotoBucks"];
+  onUpdatePhoto?: PhotoRecordListProps["onUpdatePhoto"];
 };
 
 // One photo with everything known about it: date, badges, the image, weather,
@@ -374,7 +388,9 @@ function PhotoCard({
   toggleSelected,
   onCreateBuckFromPhoto,
   onSetPhotoBucks,
+  onUpdatePhoto,
 }: PhotoCardProps) {
+  const [editing, setEditing] = useState(false);
   const linkedProfileIds = getPhotoDeerProfileIds(photo);
   const linkedProfileNames = linkedProfileIds
     .map((id) => deerProfiles.find((profile) => profile.id === id)?.nickname)
@@ -411,6 +427,7 @@ function PhotoCard({
           <div>
             <p style={eyebrowStyle}>
               {formatPhotoDateTime(photo.photoDate)}
+              {hasTrustedPhotoTime(photo) ? "" : " · time not set"}
             </p>
             <h4 style={titleStyle}>{photo.fileName}</h4>
           </div>
@@ -428,6 +445,15 @@ function PhotoCard({
             </Badge>
           ) : null}
           <Badge>{photo.species}</Badge>
+          {photo.deerCount && photo.deerCount > 1 ? (
+            <Badge>
+              {photo.deerCount >= MAX_DEER_COUNT_CHIP
+                ? `${MAX_DEER_COUNT_CHIP}+ deer`
+                : `${photo.deerCount} deer`}
+            </Badge>
+          ) : null}
+          {photo.ageClass ? <Badge>{photo.ageClass} yrs</Badge> : null}
+          {photo.antlerPoints ? <Badge>{photo.antlerPoints} pts</Badge> : null}
           {photo.behavior ? <Badge>{photo.behavior}</Badge> : null}
           {photo.travelDirection ? (
             <Badge variant="success">Headed {photo.travelDirection}</Badge>
@@ -477,6 +503,29 @@ function PhotoCard({
             <PhotoDetail label="Notes" value={photo.notes} />
           ) : null}
         </div>
+      ) : null}
+
+      {onUpdatePhoto ? (
+        editing ? (
+          <div style={editorWrapStyle}>
+            <PhotoDetailsEditor
+              photo={photo}
+              onCancel={() => setEditing(false)}
+              onSave={(patch) => {
+                onUpdatePhoto(photo.id, patch);
+                setEditing(false);
+              }}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            style={editButtonStyle}
+          >
+            Edit details
+          </button>
+        )
       ) : null}
 
       {photo.species === "Buck" &&
@@ -717,6 +766,25 @@ const newBuckButtonStyle: CSSProperties = {
   borderRadius: "var(--radius-sm)",
   background: "transparent",
   color: "var(--accent)",
+  fontSize: "0.85rem",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const editorWrapStyle: CSSProperties = {
+  marginTop: "0.75rem",
+};
+
+const editButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  marginTop: "0.75rem",
+  minHeight: "44px",
+  padding: "0.45rem 0.7rem",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "var(--radius-sm)",
+  background: "transparent",
+  color: "var(--text)",
   fontSize: "0.85rem",
   fontWeight: 800,
   cursor: "pointer",

@@ -6,6 +6,8 @@ import type { Stand } from "@/types/stand";
 type HuntWindowsPanelProps = {
   days: ForecastDay[];
   stands: Stand[];
+  /** Next sit's key ("YYYY-MM-DD-AM"/"-PM"); sits before it are over and skipped. */
+  nextSitKey?: string;
 };
 
 // "Best window": the next few days ranked for when + where to sit, from the
@@ -15,10 +17,11 @@ type HuntWindowsPanelProps = {
 export default function HuntWindowsPanel({
   days,
   stands,
+  nextSitKey,
 }: HuntWindowsPanelProps) {
   if (days.length === 0) return null;
 
-  const windows = buildHuntWindows(days, stands).slice(0, 3);
+  const windows = buildHuntWindows(days, stands, nextSitKey).slice(0, 3);
   const informative = windows.some(
     (window) => window.isFront || window.goodStandNames.length > 0,
   );

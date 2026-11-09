@@ -81,7 +81,9 @@ export default function WindCompass({
   const bustedCount = checks.filter((entry) => entry.check.status === "avoid").length;
   const isCalm = checks.some((entry) => entry.check.calm);
 
-  const speedLabel = windSpeed ? windSpeed.replace(/\s*mph/i, "") : "";
+  // Shown with its unit ("8 mph" / "13 km/h"); stripping only "mph" left a
+  // bare number for mph users but "13 km/h" for metric ones.
+  const speedLabel = windSpeed ? windSpeed.trim() : "";
 
   return (
     <section style={cardStyle}>

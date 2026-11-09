@@ -7,6 +7,7 @@
 // when you swapped the card, not when deer moved, so it's no signal for
 // conditions. Buck sightings weigh double (mature-buck focus). Pure local data.
 
+import { trustedPhotoDate } from "@/lib/photoDateTime";
 import { toWind8 } from "@/lib/standStats";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { CameraCheck } from "@/types/cameraCheck";
@@ -159,7 +160,7 @@ function bestBucket(
     label,
     value: phrase(best.bucket),
     detail: `${lift.toFixed(1)}× your average — ${best.g.deer} deer${
-      best.g.bucks ? ` (${best.g.bucks} bucks)` : ""
+      best.g.bucks ? ` (${best.g.bucks} ${best.g.bucks === 1 ? "buck" : "bucks"})` : ""
     } over ${best.g.n} ${unit}.`,
     lift,
     confidence: confidenceFor(best.g.n),
@@ -185,8 +186,16 @@ function conditionInsightsFor(
     if (s.temp == null || t33 == null || t66 == null || t33 === t66) return null;
     return s.temp <= t33 ? "Colder" : s.temp >= t66 ? "Warmer" : "Middle";
   };
-  const timeBucket = (s: Sit): string | null =>
-    s.hour == null ? null : s.hour < 9 ? "Dawn" : s.hour >= 15 ? "Dusk" : "Midday";
+  // Same windows as lib/deerProfileTimeline (Morning 5–10 AM, Midday 11 AM–
+  // 2 PM, Evening 3–8 PM, Night otherwise), so a 2 AM trail-cam photo counts as
+  // night, not first light.
+  const timeBucket = (s: Sit): string | null => {
+    if (s.hour == null) return null;
+    if (s.hour >= 5 && s.hour <= 10) return "Morning";
+    if (s.hour >= 11 && s.hour <= 14) return "Midday";
+    if (s.hour >= 15 && s.hour <= 20) return "Evening";
+    return "Night";
+  };
 
   const out: PatternInsight[] = [];
   const push = (i: PatternInsight | null) => {
@@ -208,7 +217,7 @@ function conditionInsightsFor(
       obs,
       timeBucket,
       "Best time",
-      (b) => (b === "Dawn" ? "First light" : b === "Dusk" ? "Last light" : "Midday"),
+      (b) => b,
       unit,
     ),
   );
@@ -248,7 +257,7 @@ function photoObservation(photo: PhotoRecord): Sit | null {
     wind: normWind(snap?.windDirection),
     temp: parseTemp(snap?.temperature),
     moon: normMoon(snap?.moonPhase),
-    hour: hourFromTimestamp(photo.photoDate),
+    hour: hourFromTimestamp(trustedPhotoDate(photo)),
     stand: null,
   };
 }
@@ -306,7 +315,7 @@ export function buildPropertyPatternReport(
     hottestCamera = {
       label: "Hottest camera",
       value: nameById.get(top.id) ?? "A camera",
-      detail: `${top.deer} deer${top.bucks ? ` (${top.bucks} bucks)` : ""} logged — your most active site.`,
+      detail: `${top.deer} deer${top.bucks ? ` (${top.bucks} ${top.bucks === 1 ? "buck" : "bucks"})` : ""} logged — your most active site.`,
     };
   }
 

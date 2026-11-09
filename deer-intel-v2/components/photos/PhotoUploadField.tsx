@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent, type CSSProperties } from "react";
+import PhotoAiPrivacyNote from "@/components/photos/PhotoAiPrivacyNote";
 import PhotoImage from "@/components/photos/PhotoImage";
 import Button from "@/components/ui/Button";
 import { createDeerIntelId } from "@/lib/deerIntelStore";
@@ -8,9 +9,11 @@ import { isImageFile, processImageFile } from "@/lib/imageProcessing";
 import { deletePhotoImage, putPhotoImage } from "@/lib/imageStore";
 import { pickCaptureDateTime } from "@/lib/photoCaptureTime";
 import { readPhotoDateTimeInput } from "@/lib/photoExif";
+import type { PhotoStampRead } from "@/lib/photoOptions";
 import { requestPhotoStamp } from "@/lib/photoStampClient";
 import { useUnitPreferences } from "@/lib/units";
-import type { KnownBuckSummary, PhotoStamp } from "@/types/photoStamp";
+import type { PhotoAgeClass, PhotoCaptureTimeSource } from "@/types/photo";
+import type { KnownBuckSummary } from "@/types/photoStamp";
 
 export type SelectedPhotoImage = {
   imageId: string;
@@ -19,8 +22,13 @@ export type SelectedPhotoImage = {
   fileName: string;
   lastModified: number;
   // True capture time: the printed stamp when the AI read one with a time,
-  // otherwise EXIF, otherwise "" (callers fall back to the file's own date).
+  // otherwise EXIF, otherwise a date-only stamp ("YYYY-MM-DD"), otherwise "".
+  // Never the file's own modified date.
   capturedAt: string;
+  // Where capturedAt came from; "" when nothing was read.
+  captureSource: PhotoCaptureTimeSource | "";
+  // Stamp and EXIF disagree by over a day (or one is impossible).
+  clockWarning: boolean;
   // Values read off the photo's printed info bar, or "" if none.
   stampedTemperature: string;
   stampedMoonPhase: string;
@@ -34,6 +42,11 @@ export type SelectedPhotoImage = {
   // converts it to a compass heading using the camera's facing direction.
   detectedFrameDirection: string;
   detectedNotes: string;
+  // Deer in the frame (0 = not counted), and for a buck the age class and
+  // antler points the AI judged ("" / 0 when not judged).
+  detectedDeerCount: number;
+  detectedAgeClass: PhotoAgeClass | "";
+  detectedAntlerPoints: number;
   // Saved deer profile the AI matched the buck to, or "" if no match.
   matchedProfileId: string;
   matchConfidence: string;
@@ -105,7 +118,7 @@ export default function PhotoUploadField({
       // capture time — burned into the photo, unlike EXIF, which cellular cams
       // and app exports rewrite to the download time. So it runs on every photo.
       setStatusText("Reading photo info…");
-      const stamp: PhotoStamp | null = await requestPhotoStamp(
+      const stamp: PhotoStampRead | null = await requestPhotoStamp(
         file,
         units.temperature,
         knownBucks,
@@ -119,7 +132,12 @@ export default function PhotoUploadField({
       const capturedAt = resolved.dateTime;
 
       setCaptureNote(
-        resolved.source === "stampTime"
+        resolved.clockWarning
+          ? {
+              tone: "warn",
+              text: "Camera clock may be wrong — the printed stamp and the photo's file data disagree by more than a day, or one shows an impossible date. Check the Photo Date and Time.",
+            }
+          : resolved.source === "stamp"
           ? {
               tone: "info",
               text: "Capture time read from the photo's printed info bar — the moment the shot was taken, not when your camera sent the batch.",
@@ -132,11 +150,11 @@ export default function PhotoUploadField({
             : resolved.source === "stampDate"
               ? {
                   tone: "warn",
-                  text: "Only a date was printed on this photo, so the time wasn't auto-filled. Set the Photo Time to when the shot was actually taken.",
+                  text: "Only a date was printed on this photo, so the time wasn't filled in. Set the time if you know it.",
                 }
               : {
                   tone: "warn",
-                  text: "No capture time is embedded in this photo, so the date wasn't auto-filled. Set the Photo Date and Time to when the shot was actually taken — a cellular camera's file date is when the batch came through, not the capture time.",
+                  text: "No capture time is embedded in this photo, so the date and time were left blank. Set them to when the shot was actually taken — a cellular camera's file date is when the batch came through, not the capture time.",
                 },
       );
 
@@ -147,6 +165,8 @@ export default function PhotoUploadField({
         fileName: file.name,
         lastModified: file.lastModified,
         capturedAt,
+        captureSource: resolved.source === "none" ? "" : resolved.source,
+        clockWarning: resolved.clockWarning,
         stampedTemperature: stamp?.temperature ?? "",
         stampedMoonPhase: stamp?.moonPhase ?? "",
         stampedWindDirection: stamp?.windDirection ?? "",
@@ -156,6 +176,9 @@ export default function PhotoUploadField({
         detectedBehavior: stamp?.behavior ?? "",
         detectedFrameDirection: stamp?.travelDirectionInFrame ?? "",
         detectedNotes: stamp?.animalNotes ?? "",
+        detectedDeerCount: stamp?.deerCount ?? 0,
+        detectedAgeClass: stamp?.ageClass ?? "",
+        detectedAntlerPoints: stamp?.antlerPoints ?? 0,
         matchedProfileId: stamp?.matchedProfileId ?? "",
         matchConfidence: stamp?.matchConfidence ?? "",
       });
@@ -238,6 +261,8 @@ export default function PhotoUploadField({
           </span>
         </button>
       )}
+
+      <PhotoAiPrivacyNote />
 
       {error ? <p style={errorStyle}>{error}</p> : null}
 

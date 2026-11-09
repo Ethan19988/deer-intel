@@ -1,5 +1,6 @@
 "use client";
 
+import { retargetCameraPhotoHeadings } from "@/lib/photoHeading";
 import "leaflet/dist/leaflet.css";
 import {
   useCallback,
@@ -161,7 +162,12 @@ import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { useWakeLock } from "@/lib/useWakeLock";
-import { requestCompassPermission, subscribeHeading, useDeviceHeading } from "@/lib/deviceHeading";
+import {
+  magneticDeclination,
+  requestCompassPermission,
+  subscribeHeading,
+  useDeviceHeading,
+} from "@/lib/deviceHeading";
 import {
   acceptPathFix,
   bloodTrailLine,
@@ -265,6 +271,7 @@ import {
   rutPeakMonthDay,
   useSeasonCalendar,
 } from "@/lib/seasonCalendar";
+import { formatWindSpeedFromMph, useUnitPreferences } from "@/lib/units";
 import Button from "./ui/Button";
 
 type ClickToAddPinProps = {
@@ -1005,16 +1012,25 @@ function MapControlButtons({
 
   const mapTurned = compassOn && headingUp && isFollowing;
 
-  // While the compass is on, follow the device's heading (lib/deviceHeading
-  // reads iOS's true-north heading or an absolute-orientation alpha).
+  // While the compass is on, follow the device's heading. lib/deviceHeading
+  // reads the phone's MAGNETIC heading (iOS webkitCompassHeading or an
+  // absolute-orientation alpha) and corrects it to true north with the
+  // declination at the map's center, so the heading-up turn and facing cone
+  // line up with true bearings.
   useEffect(() => {
     if (!compassOn) return;
 
-    return subscribeHeading((next) => {
-      setHeading(next);
-      onHeadingChange(next);
-    });
-  }, [compassOn, onHeadingChange]);
+    return subscribeHeading(
+      (next) => {
+        setHeading(next);
+        onHeadingChange(next);
+      },
+      () => {
+        const center = map.getCenter();
+        return magneticDeclination(center.lat, center.lng);
+      },
+    );
+  }, [compassOn, onHeadingChange, map]);
 
   const facingCardinal =
     heading === null
@@ -1270,6 +1286,9 @@ function boundsFromHuntArea(points: HuntAreaPoint[]): OfflineMapBounds {
 
 export default function HuntingMap() {
   const state = useDeerIntelStore();
+  // Settings → units, for every wind speed the map shows. The map's own
+  // forecast stays in mph / °F because the movement model scores in those.
+  const units = useUnitPreferences();
   const [pinType, setPinType] = useState<PinType>(
     PROPERTY_ASSET_PIN_TYPES[0],
   );
@@ -1427,16 +1446,26 @@ export default function HuntingMap() {
     ? timelineSlots.find((slot) => slot.key === timelineKey) ?? null
     : null;
   const showingFuture = Boolean(selectedSlot && !selectedSlot.isNow);
+  // The live wind's speed in the user's unit (liveWind holds mph).
+  const liveWindSpeedLabel =
+    liveWind && liveWind.speedMph !== null
+      ? formatWindSpeedFromMph(liveWind.speedMph, units.wind)
+      : (liveWind?.speedLabel ?? "");
   const windData = useMemo(() => {
-    if (!liveWind || !selectedSlot || selectedSlot.isNow) return liveWind;
+    if (!liveWind) return liveWind;
+    if (!selectedSlot || selectedSlot.isNow) {
+      return { ...liveWind, speedLabel: liveWindSpeedLabel };
+    }
     return {
       fromCompass: selectedSlot.windFromCompass || liveWind.fromCompass,
       speedLabel:
-        selectedSlot.windMph !== null ? `${Math.round(selectedSlot.windMph)} mph` : "",
+        selectedSlot.windMph !== null
+          ? formatWindSpeedFromMph(selectedSlot.windMph, units.wind)
+          : "",
       speedMph: selectedSlot.windMph,
       thermal: selectedSlot.thermal,
     };
-  }, [liveWind, selectedSlot]);
+  }, [liveWind, liveWindSpeedLabel, selectedSlot, units.wind]);
   // The window the movement layer, legend and badge describe.
   const movementPeriod = selectedSlot?.period ?? livePeriod;
   const [waybackReleases, setWaybackReleases] = useState<WaybackRelease[]>([]);
@@ -2319,6 +2348,10 @@ export default function HuntingMap() {
   const [guideCompass, setGuideCompass] = useState(false);
   const guideOwnHeading = useDeviceHeading(
     Boolean(guideTarget) && guideCompass && liveHeading === null,
+    // True-north correction for where you're standing (or the pin before a fix).
+    liveFix
+      ? magneticDeclination(liveFix.lat, liveFix.lng)
+      : magneticDeclination(guideTarget?.lat ?? NaN, guideTarget?.lng ?? NaN),
   );
   const fieldHeading = liveHeading ?? guideOwnHeading;
   // Follow the pin if it's moved mid-walk; keep the saved spot if it's gone
@@ -2395,6 +2428,7 @@ export default function HuntingMap() {
           propertyToday.forecast.sunriseIso,
           propertyToday.forecast.sunsetIso,
           propertyToday.forecast.utcOffsetSeconds,
+          propertyToday.forecast.timezone,
         )
       : null;
   const draftAreaAcresLabel = formatHuntAreaAcres(draftAreaPoints);
@@ -2522,6 +2556,9 @@ export default function HuntingMap() {
 
     let cancelled = false;
 
+    // Deliberately mph / °F (the default): speedMph and the temperature feed
+    // the movement model, which scores in those units. Labels the hunter sees
+    // are converted to their Settings units at display time.
     fetchLiveForecast(point)
       .then((result) => {
         if (cancelled) return;
@@ -2949,7 +2986,8 @@ export default function HuntingMap() {
       endedAt: new Date(),
       windDirection:
         liveWind?.fromCompass || propertyToday.forecast?.current.windDirection || "",
-      windSpeed: liveWind?.speedLabel || propertyToday.forecast?.current.windSpeed || "",
+      // Both sources in the Settings unit (Today's forecast is fetched in it).
+      windSpeed: liveWindSpeedLabel || propertyToday.forecast?.current.windSpeed || "",
     });
 
     if (!result.ok) {
@@ -3249,17 +3287,26 @@ export default function HuntingMap() {
   // for that pin type, /map?draw=area starts drawing the hunt area. Handled once,
   // as soon as a property is selected, then stripped from the URL.
   const deepLinkHandledRef = useRef(false);
+  // /map?pin=Stand&stand=<id> (from a stand's edit form): the pin placed next
+  // is that stand's location — named after it, linked by sourcePinId — and the
+  // hunter is taken back to the stand.
+  const linkStandIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (deepLinkHandledRef.current || !selectedPropertyId) return;
     deepLinkHandledRef.current = true;
     const params = new URLSearchParams(window.location.search);
     const pin = params.get("pin");
     const draw = params.get("draw");
+    const standId = params.get("stand");
     if (!pin && !draw) return;
     window.history.replaceState(null, "", window.location.pathname);
     if (draw === "area") {
       startAreaDraw();
     } else if (pin && isSupportedPropertyPinType(pin)) {
+      linkStandIdRef.current =
+        pin === "Stand" && standId && state.stands.some((stand) => stand.id === standId)
+          ? standId
+          : null;
       placePinType(pin);
     }
     // Runs once per visit; the handlers only set state.
@@ -3267,6 +3314,7 @@ export default function HuntingMap() {
   }, [selectedPropertyId]);
 
   function cancelPinPlacement() {
+    linkStandIdRef.current = null;
     setIsPlacingPin(false);
     setPinBoxMessage("Pin placement canceled.");
   }
@@ -3422,6 +3470,26 @@ export default function HuntingMap() {
   }
 
   function createPinAtLocation(type: PinType, lat: number, lng: number) {
+    const linkStand =
+      type === "Stand" && linkStandIdRef.current
+        ? state.stands.find((stand) => stand.id === linkStandIdRef.current)
+        : undefined;
+    if (linkStand) {
+      linkStandIdRef.current = null;
+      const linkedPinId = addPin(type, lat, lng, linkStand.name);
+      if (!linkedPinId) return null;
+      updateDeerIntelStore((currentState) => ({
+        ...currentState,
+        stands: currentState.stands.map((stand) =>
+          stand.id === linkStand.id ? { ...stand, sourcePinId: linkedPinId } : stand,
+        ),
+      }));
+      setIsPlacingPin(false);
+      setPinBoxMessage(`${linkStand.name} placed.`);
+      window.location.assign(`/stands?stand=${encodeURIComponent(linkStand.id)}`);
+      return linkedPinId;
+    }
+
     const name = window.prompt(`Name or notes for this ${type}`, "");
 
     if (name === null) {
@@ -3660,6 +3728,14 @@ export default function HuntingMap() {
               camera.id === id
                 ? { ...camera, facingDirection: preview }
                 : camera,
+            ),
+            // Photos' compass headings come from where the camera points, so
+            // re-aiming it re-reads them.
+            photoRecords: retargetCameraPhotoHeadings(
+              currentState.photoRecords,
+              id,
+              currentState.cameras.find((camera) => camera.id === id)?.facingDirection,
+              preview,
             ),
           }
         : {
@@ -3941,12 +4017,16 @@ export default function HuntingMap() {
     isDrawingArea ||
     isPlanningRoute ||
     isTrackingBlood;
-  const scoutPanelYields = isNarrowViewport && mapModeLive;
+  // The open Assets sheet covers the bottom of a phone screen, where the
+  // Hunt Area button and the "On now" keys sit; they step aside until it closes.
+  const timelineYields = isNarrowViewport && mapModeLive;
+  const scoutPanelYields = timelineYields || (isNarrowViewport && isMobileAssetSheetOpen);
 
   // The "On now" keys sit in that same bottom-left slot on a phone and paint
   // over the mode pill too (aiming a stand showed only "…oints" and Cancel),
   // so they yield to a live mode as well.
-  const mapKeysHidden = isNarrowViewport && (scoutPanelOpen || mapModeLive);
+  const mapKeysHidden =
+    isNarrowViewport && (scoutPanelOpen || mapModeLive || isMobileAssetSheetOpen);
 
   return (
     <div className="di-map-layout" style={mapLayoutStyle}>
@@ -4794,7 +4874,7 @@ export default function HuntingMap() {
             />
           ) : null}
 
-          {!scoutPanelYields &&
+          {!timelineYields &&
           ((forecastStatus === "ok" && timelineViews.length > 0) ||
             (legalChip && !timelineOpen)) ? (
             <div
@@ -5028,7 +5108,7 @@ export default function HuntingMap() {
                   }}
                 >
                   {pendingScent && liveWind
-                    ? `Wind ${liveWind.fromCompass} ${liveWind.speedLabel} · scent → ${pendingScent.drift}${
+                    ? `Wind ${liveWind.fromCompass} ${liveWindSpeedLabel} · scent → ${pendingScent.drift}${
                         pendingScent.verdict
                           ? ` · ${pendingScent.verdict.text}`
                           : ""

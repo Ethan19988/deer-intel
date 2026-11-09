@@ -1,9 +1,19 @@
+import {
+  DEFAULT_STALE_CHECK_DAYS,
+  LOW_PERCENT,
+  getCameraHealth,
+  readPercent,
+} from "@/lib/cameraHealth";
+import { hasTrustedPhotoTime } from "@/lib/photoDateTime";
+import { isDeerPhotoRecord } from "@/lib/hourlyActivity";
+import {
+  NO_ANIMAL,
+  ageClassYears,
+  photoDeerCount,
+} from "@/lib/photoOptions";
 import type { Camera } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { PhotoRecord } from "@/types/photo";
-
-const RECENT_CHECK_DAYS = 30;
-const LOW_PERCENT_THRESHOLD = 25;
 
 export type CameraInsight = {
   title: string;
@@ -17,6 +27,9 @@ export type CameraAttentionItem = {
   cameraName: string;
   reason: string;
   detail: string;
+  // "note" = worth knowing, not a problem (e.g. a site never checked yet);
+  // unset = a real warning.
+  tone?: "note";
 };
 
 export type CameraActivityCounts = {
@@ -53,8 +66,12 @@ const ACTIVITY_WINDOW_LABEL: Record<string, string> = {
 };
 
 export function getCameraActivityProfile(
-  photoRecords: PhotoRecord[],
+  allPhotoRecords: PhotoRecord[],
 ): CameraActivityProfile | null {
+  // Only deer photos make a deer pattern — false triggers, turkeys and
+  // unidentified frames would skew the window and the wind.
+  const photoRecords = allPhotoRecords.filter(isDeerPhotoRecord);
+
   if (photoRecords.length < CAMERA_PROFILE_MIN_PHOTOS) return null;
 
   const windowCounts = new Map<string, number>();
@@ -65,7 +82,7 @@ export function getCameraActivityProfile(
   let does = 0;
 
   for (const photo of photoRecords) {
-    const bucket = photoTimeBucket(photo.photoDate);
+    const bucket = photoTimeBucket(photo);
     if (bucket) {
       windowCounts.set(bucket, (windowCounts.get(bucket) ?? 0) + 1);
       windowTotal += 1;
@@ -190,7 +207,7 @@ function getCameraActivityStat(
 ): CameraActivityStat {
   const checks = cameraChecks.filter((check) => check.cameraId === camera.id);
   const photos = photoRecords.filter(
-    (photo) => photo.cameraSiteId === camera.id,
+    (photo) => photo.cameraSiteId === camera.id && photo.species !== NO_ANIMAL,
   );
   const latestTime = Math.max(
     ...checks.map((check) => dateInputTime(check.date)),
@@ -231,7 +248,7 @@ function getMostActiveCameraInsight(
 
   return {
     title: topStat.camera.name,
-    detail: `${topStat.score} activity records: ${topStat.checks.length} checks and ${topStat.photos.length} photo records.`,
+    detail: `${plural(topStat.score, "activity record")}: ${plural(topStat.checks.length, "check")} and ${plural(topStat.photos.length, "photo record")}.`,
     cameraId: topStat.camera.id,
     badge: "Most Active",
   };
@@ -255,14 +272,16 @@ function getMostRecentActivityInsight({
       title: "Camera check",
       detail: wildlifeSummary(check),
     })),
-    ...photoRecords.map((photo) => ({
-      cameraId: photo.cameraSiteId,
-      cameraName: cameraNameById.get(photo.cameraSiteId) ?? "Camera site",
-      time: dateInputTime(photo.photoDate),
-      dateLabel: formatDate(photo.photoDate),
-      title: "Photo record",
-      detail: `${photo.species || "Wildlife"}: ${photo.fileName}`,
-    })),
+    ...photoRecords
+      .filter((photo) => photo.species !== NO_ANIMAL)
+      .map((photo) => ({
+        cameraId: photo.cameraSiteId,
+        cameraName: cameraNameById.get(photo.cameraSiteId) ?? "Camera site",
+        time: dateInputTime(photo.photoDate),
+        dateLabel: formatDate(photo.photoDate),
+        title: "Photo record",
+        detail: `${photo.species || "Wildlife"}: ${photo.fileName}`,
+      })),
   ].filter((event) => event.time > 0);
 
   const latestEvent = events.sort((left, right) => right.time - left.time)[0];
@@ -282,8 +301,8 @@ function getMostRecentActivityInsight({
   };
 }
 
-function getBestPhotoTimeInsight(photoRecords: PhotoRecord[]): CameraInsight {
-  if (photoRecords.length === 0) {
+function getBestPhotoTimeInsight(allPhotoRecords: PhotoRecord[]): CameraInsight {
+  if (allPhotoRecords.length === 0) {
     return {
       title: "No photo records yet",
       detail: "Add photo records to start seeing time-of-day patterns.",
@@ -291,9 +310,11 @@ function getBestPhotoTimeInsight(photoRecords: PhotoRecord[]): CameraInsight {
   }
 
   const bucketCounts = new Map<string, number>();
+  // Deer photos only: an hour full of false triggers isn't a good hour to hunt.
+  const photoRecords = allPhotoRecords.filter(isDeerPhotoRecord);
 
   photoRecords.forEach((photo) => {
-    const bucket = photoTimeBucket(photo.photoDate);
+    const bucket = photoTimeBucket(photo);
 
     if (!bucket) return;
 
@@ -307,13 +328,13 @@ function getBestPhotoTimeInsight(photoRecords: PhotoRecord[]): CameraInsight {
   if (!topBucket) {
     return {
       title: "Photo times not recorded yet",
-      detail: "Current photo records use dates only. Future time entries can power this pattern.",
+      detail: "No deer photos with a real capture time yet. Photos whose time was read or set will power this pattern.",
     };
   }
 
   return {
     title: topBucket[0],
-    detail: `${topBucket[1]} photo records fall in this time window.`,
+    detail: `${topBucket[1]} deer ${topBucket[1] === 1 ? "photo falls" : "photos fall"} in this time window.`,
     badge: "Best Time",
   };
 }
@@ -340,17 +361,20 @@ function getActivityCounts(
     { bucks: 0, does: 0, fawns: 0 },
   );
 
+  // A photo of three does counts three does (deerCount, default 1).
   return photoRecords.reduce((counts, photo) => {
+    const deer = photoDeerCount(photo);
+
     if (isBuckPhoto(photo)) {
-      return { ...counts, bucks: counts.bucks + 1 };
+      return { ...counts, bucks: counts.bucks + deer };
     }
 
     if (speciesIncludes(photo.species, "doe")) {
-      return { ...counts, does: counts.does + 1 };
+      return { ...counts, does: counts.does + deer };
     }
 
     if (speciesIncludes(photo.species, "fawn")) {
-      return { ...counts, fawns: counts.fawns + 1 };
+      return { ...counts, fawns: counts.fawns + deer };
     }
 
     return counts;
@@ -368,7 +392,7 @@ function getMatureBuckActivityInsight(
   if (!latestMatureBuckPhoto) {
     return {
       title: "No mature buck activity marked",
-      detail: "Use photo labels or notes like mature buck, shooter, or 4.5 to flag this later.",
+      detail: "Set an age class of 3.5 or older on buck photos (or note mature, shooter, 4.5) to flag this.",
     };
   }
 
@@ -384,33 +408,38 @@ function getMatureBuckActivityInsight(
   };
 }
 
+// Same rule as the Today line and camera rows (lib/cameraHealth): an active
+// camera unchecked for more than DEFAULT_STALE_CHECK_DAYS needs a visit; a
+// pulled (inactive) camera never does; a site never checked is a neutral note.
 function getCamerasWithNoRecentChecks(
   cameras: Camera[],
   cameraChecks: CameraCheck[],
   now: Date,
 ): CameraAttentionItem[] {
   return cameras
-    .map((camera) => {
-      const latestCheckDate = latestCameraCheckDate(camera, cameraChecks);
+    .filter((camera) => camera.status === "Active")
+    .map((camera): CameraAttentionItem | null => {
+      const health = getCameraHealth(camera, cameraChecks, { now });
 
-      if (!latestCheckDate) {
+      if (!health.latestCheck) {
         return {
           cameraId: camera.id,
           cameraName: camera.name,
           reason: "No checks yet",
-          detail: "This camera site has not had a check saved.",
+          detail: "Log a check on your next visit to track battery and SD card.",
+          tone: "note",
         };
       }
 
-      const daysSinceCheck = daysBetween(latestCheckDate, now);
+      const overdue = health.issues.find((issue) => issue.kind === "overdue");
 
-      if (daysSinceCheck <= RECENT_CHECK_DAYS) return null;
+      if (!overdue) return null;
 
       return {
         cameraId: camera.id,
         cameraName: camera.name,
         reason: "Check due",
-        detail: `Last checked ${daysSinceCheck} days ago.`,
+        detail: `Last checked ${overdue.days} days ago (over ${DEFAULT_STALE_CHECK_DAYS}).`,
       };
     })
     .filter((item): item is CameraAttentionItem => item !== null);
@@ -426,44 +455,26 @@ function getAttentionItems(
     cameraChecks,
     now,
   );
+  // Battery / SD readings come from the shared health rule, which already
+  // skips inactive cameras; weak cellular signal is the one extra here.
   const conditionItems = cameras.flatMap((camera) => {
-    const latestCheck = latestCameraCheck(camera.id, cameraChecks);
-    const batteryPercent = percentNumber(latestCheck?.batteryPercent);
-    const sdCardPercent = percentNumber(latestCheck?.sdCardPercent);
-    const signalStrength = percentNumber(latestCheck?.signalStrength);
-    const items: CameraAttentionItem[] = [];
-
-    if (camera.status === "Inactive") {
-      items.push({
+    const health = getCameraHealth(camera, cameraChecks, { now });
+    const latestCheck = health.latestCheck;
+    const items: CameraAttentionItem[] = health.issues
+      .filter((issue) => issue.kind !== "overdue")
+      .map((issue) => ({
         cameraId: camera.id,
         cameraName: camera.name,
-        reason: "Inactive",
-        detail: "This camera site is marked inactive.",
-      });
-    }
-
-    if (batteryPercent !== null && batteryPercent <= LOW_PERCENT_THRESHOLD) {
-      items.push({
-        cameraId: camera.id,
-        cameraName: camera.name,
-        reason: "Battery low",
-        detail: `${batteryPercent}% battery reported.`,
-      });
-    }
-
-    if (sdCardPercent !== null && sdCardPercent <= LOW_PERCENT_THRESHOLD) {
-      items.push({
-        cameraId: camera.id,
-        cameraName: camera.name,
-        reason: "SD card low",
-        detail: `${sdCardPercent}% SD card reported.`,
-      });
-    }
+        reason: issue.label,
+        detail: conditionDetail(issue.kind, latestCheck),
+      }));
+    const signalStrength = readPercent(latestCheck?.signalStrength);
 
     if (
+      camera.status === "Active" &&
       camera.cameraType === "Cellular" &&
       signalStrength !== null &&
-      signalStrength <= LOW_PERCENT_THRESHOLD
+      signalStrength <= LOW_PERCENT
     ) {
       items.push({
         cameraId: camera.id,
@@ -479,26 +490,29 @@ function getAttentionItems(
   return [...checkAttentionItems, ...conditionItems];
 }
 
-function latestCameraCheck(cameraId: string, cameraChecks: CameraCheck[]) {
-  return cameraChecks
-    .filter((check) => check.cameraId === cameraId)
-    .sort((left, right) => dateInputTime(right.date) - dateInputTime(left.date))[0];
-}
+function conditionDetail(kind: string, check: CameraCheck | null): string {
+  const battery = readPercent(check?.batteryPercent);
+  const sd = readPercent(check?.sdCardPercent);
 
-function latestCameraCheckDate(camera: Camera, cameraChecks: CameraCheck[]) {
-  const latestCheck = latestCameraCheck(camera.id, cameraChecks);
-  const latestCheckTime = dateInputTime(latestCheck?.date);
-
-  if (latestCheckTime > 0) return new Date(latestCheckTime);
-
-  return null;
+  switch (kind) {
+    case "batteryDead":
+    case "batteryLow":
+      return `${battery ?? 0}% battery reported.`;
+    case "sdMissing":
+      return "SD card reported missing.";
+    case "sdFull":
+    case "sdLow":
+      return `${sd ?? 0}% SD card space left.`;
+    default:
+      return "";
+  }
 }
 
 function wildlifeSummary(check: CameraCheck) {
   const parts = [
-    check.bucks > 0 ? `${check.bucks} bucks` : "",
-    check.does > 0 ? `${check.does} does` : "",
-    check.fawns > 0 ? `${check.fawns} fawns` : "",
+    check.bucks > 0 ? plural(check.bucks, "buck") : "",
+    check.does > 0 ? plural(check.does, "doe") : "",
+    check.fawns > 0 ? plural(check.fawns, "fawn") : "",
   ].filter(Boolean);
 
   if (parts.length > 0) return parts.join(", ");
@@ -508,6 +522,10 @@ function wildlifeSummary(check: CameraCheck) {
 
 function isMatureBuckPhoto(photo: PhotoRecord) {
   if (!isBuckPhoto(photo)) return false;
+
+  // A judged age class is the real answer; the word search below is only a
+  // fallback for photos saved before age classes existed.
+  if (photo.ageClass) return ageClassYears(photo.ageClass) >= 3.5;
 
   const searchableText = [
     photo.fileName,
@@ -537,8 +555,11 @@ function speciesIncludes(species: string, value: string) {
   return species.trim().toLowerCase().includes(value);
 }
 
-function photoTimeBucket(date: string) {
-  const hour = dateHour(date);
+function photoTimeBucket(photo: PhotoRecord) {
+  // A file-modified or date-only-stamp time isn't the shutter time.
+  if (!hasTrustedPhotoTime(photo)) return null;
+
+  const hour = dateHour(photo.photoDate);
 
   if (hour === null) return null;
   if (hour >= 5 && hour <= 10) return "Morning";
@@ -558,18 +579,9 @@ function dateHour(date: string) {
   return new Date(time).getHours();
 }
 
-function daysBetween(date: Date, now: Date) {
-  const difference = now.getTime() - date.getTime();
 
-  return Math.max(0, Math.floor(difference / 86_400_000));
-}
-
-function percentNumber(value: string | undefined) {
-  if (!value) return null;
-
-  const parsedValue = Number(value.replace("%", "").trim());
-
-  return Number.isNaN(parsedValue) ? null : parsedValue;
+function plural(count: number, noun: string) {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 function formatDate(date: string | undefined) {

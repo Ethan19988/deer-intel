@@ -2,17 +2,9 @@ import type { CameraCheck } from "@/types/cameraCheck";
 import type { HuntLogEntry } from "@/types/hunt";
 import type {
   PropertyWeatherSummary,
-  WeatherIntegrationStatus,
   WeatherSnapshot,
   WeatherSource,
 } from "@/types/weather";
-
-export const LIVE_WEATHER_PLACEHOLDER: WeatherIntegrationStatus = {
-  source: "live-placeholder",
-  label: "Live weather ready",
-  description:
-    "Manual weather is saved today. A live weather provider can use this same weather layer later.",
-};
 
 type WeatherSnapshotInput = Partial<Omit<WeatherSnapshot, "source">> & {
   source?: WeatherSource;
@@ -90,7 +82,9 @@ export function weatherSnapshotDescription(snapshot: WeatherSnapshot) {
 
 export function weatherSourceLabel(source: WeatherSource) {
   if (source === "live") return "Live weather";
-  if (source === "live-placeholder") return "Future live weather";
+  // Old saves tagged hand-typed weather "live-placeholder" before live
+  // weather shipped; it was entered by hand.
+  if (source === "live-placeholder") return "Manual entry";
   if (source === "historical") return "Weather history";
   if (source === "photo") return "Read from photo";
 
@@ -127,7 +121,7 @@ export function getPropertyWeatherSummary({
   const events = [
     ...hunts.map((hunt) => ({
       date: hunt.date,
-      label: hunt.standName ? `Hunt at ${hunt.standName}` : "Hunt log",
+      label: hunt.standName ? `Sit at ${hunt.standName}` : "Sit",
       snapshot: hunt.weatherSnapshot,
       time: weatherEventTime(
         hunt.startTime ? `${hunt.date}T${hunt.startTime}` : hunt.date,
@@ -145,12 +139,12 @@ export function getPropertyWeatherSummary({
 
   if (events.length === 0) {
     return {
-      value: "Ready for weather",
+      value: "No weather saved",
       description:
-        "Add weather to hunts or camera checks, or tap Use live weather to pull current conditions automatically.",
+        "Log a sit or camera check and live weather fills in automatically, or type it in yourself.",
       recordCount: 0,
       latestDateLabel: "No records yet",
-      sourceLabel: LIVE_WEATHER_PLACEHOLDER.label,
+      sourceLabel: "",
     };
   }
 

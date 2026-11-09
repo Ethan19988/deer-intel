@@ -84,6 +84,54 @@ export function getDeerProfileTimeline({
   };
 }
 
+/** Timed sightings needed before a buck's time window is called a pattern. */
+export const MIN_TIMED_FOR_PATTERN = 2;
+
+export type DeerTimeWindowText = {
+  /** The one-line timeline summary. */
+  line: string;
+  /** "When He Moves" title and detail. */
+  title: string;
+  detail: string;
+};
+
+/**
+ * Wording for a buck's time window, shared by the timeline line and the
+ * Travel section's "When He Moves" so the two never disagree. Both read the
+ * same sightings (timed photos plus tagged sits), and neither claims "usually"
+ * until there are MIN_TIMED_FOR_PATTERN timed sightings.
+ */
+export function describeDeerTimeWindow(
+  window: DeerTimeWindow | null,
+): DeerTimeWindowText | null {
+  if (!window) return null;
+
+  const when = `${window.label.toLowerCase()} (${window.hours})`;
+
+  if (window.sampleSize < MIN_TIMED_FOR_PATTERN) {
+    return {
+      line: `${window.sampleSize} timed sighting so far: ${when}`,
+      title: "No time pattern yet",
+      detail: `Only ${window.sampleSize} timed sighting so far (${when}); a pattern needs at least ${MIN_TIMED_FOR_PATTERN}.`,
+    };
+  }
+
+  return {
+    line: `Usually ${when} · ${window.count} of ${window.sampleSize} timed`,
+    title: `Usually ${when}`,
+    detail: `${window.count} of ${window.sampleSize} timed sightings, from trail-cam photos and sits you tagged him on.`,
+  };
+}
+
+/** "4.5 yrs" for a bare number like "4.5" or "3.5+"; anything else as typed. */
+export function formatDeerAge(age: string | undefined): string {
+  const text = (age ?? "").trim();
+
+  if (!text) return "";
+
+  return /^\d+(\.\d+)?\+?$/.test(text) ? `${text} yrs` : text;
+}
+
 function cameraCounts(photos: PhotoRecord[], cameras: Camera[]): DeerTimelineCamera[] {
   const nameById = new Map(cameras.map((camera) => [camera.id, camera.name]));
   const byCamera = new Map<string, { count: number; latest: number; latestDate: string }>();

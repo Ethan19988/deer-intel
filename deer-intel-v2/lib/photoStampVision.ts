@@ -1,5 +1,16 @@
+import { isPlausibleCaptureDate } from "@/lib/photoCaptureTime";
+import {
+  AGE_CLASS_OPTIONS,
+  BEHAVIOR_OPTIONS,
+  NO_ANIMAL,
+  SPECIES_OPTIONS,
+  cleanAntlerPoints,
+  cleanDeerCount,
+  isAgeClass,
+  type PhotoStampRead,
+} from "@/lib/photoOptions";
 import { FRAME_DIRECTION_VALUES } from "@/lib/travelDirection";
-import type { KnownBuckSummary, PhotoStamp } from "@/types/photoStamp";
+import type { KnownBuckSummary } from "@/types/photoStamp";
 
 // Server-only module: reads process.env.ANTHROPIC_API_KEY directly, so this must
 // only ever be imported from a Route Handler (app/api/**/route.ts), never from a
@@ -20,27 +31,11 @@ const DEFAULT_MODEL = "claude-haiku-5-5";
 
 const STAMP_TOOL_NAME = "submit_photo_stamp";
 
-// Must match the SPECIES_OPTIONS the photo forms offer.
-const SPECIES_VALUES = [
-  "Buck",
-  "Doe",
-  "Fawn",
-  "Turkey",
-  "Bear",
-  "Coyote",
-  "Other",
-] as const;
-
+// The same lists the photo forms offer (lib/photoOptions), so anything the AI
+// reports is a choice the hunter can see and change.
+const SPECIES_VALUES: readonly string[] = SPECIES_OPTIONS;
 // What the animal is doing — the movement intel a hunter patterns deer with.
-const BEHAVIOR_VALUES = [
-  "Traveling",
-  "Feeding",
-  "Chasing",
-  "At scrape or rub",
-  "Bedded",
-  "Alert",
-  "Other",
-] as const;
+const BEHAVIOR_VALUES: readonly string[] = BEHAVIOR_OPTIONS;
 
 export type PhotoStampUnit = "F" | "C";
 
@@ -94,13 +89,29 @@ function buildTool(unit: PhotoStampUnit, knownBucks: KnownBuckSummary[]) {
           type: "string",
           enum: [...SPECIES_VALUES, ""],
           description:
-            'The main animal visible in the photo. A deer showing antlers of any kind — including the thin, dark, or velvet-covered ones that are easy to miss in grayscale night-vision shots — is a "Buck"; scan above and beside the head before deciding. "Doe" is an adult deer you can positively see has NO antlers and a slender doe build; do not fall back to "Doe" just because antlers are hard to make out. "Fawn" is a young deer (small body, possibly spotted). Use "Other" for any other animal or a person/vehicle. Empty string if no animal is clearly visible.',
+            `The main animal visible in the photo. A deer showing antlers of any kind — including the thin, dark, or velvet-covered ones that are easy to miss in grayscale night-vision shots — is a "Buck"; scan above and beside the head before deciding. "Doe" is an adult deer you can positively see has NO antlers and a slender doe build; do not fall back to "Doe" just because antlers are hard to make out. "Fawn" is a young deer (small body, possibly spotted). "Human" is a person or a vehicle. Use "Other" for any other animal. "${NO_ANIMAL}" when the frame clearly shows nothing — a false trigger from wind, sun, rain, or branches. Empty string when you cannot tell (too dark, too blurry, only part of something).`,
         },
         behavior: {
           type: "string",
           enum: [...BEHAVIOR_VALUES, ""],
           description:
             "What the main animal is doing in the frame. Empty string if no animal is visible or the behavior is unclear.",
+        },
+        deerCount: {
+          type: "integer",
+          description:
+            "How many deer are visible in the frame (count partial deer at the edges too). 0 when no deer is visible or they cannot be counted.",
+        },
+        ageClass: {
+          type: "string",
+          enum: [...AGE_CLASS_OPTIONS, ""],
+          description:
+            'Buck only: estimated age class in years from body (neck, chest depth, belly sag, legs looking short) and rack mass — "1.5" spikes/forks and a lanky doe-like body, "2.5" a slim body with a modest rack, "3.5" a filled-out chest and thicker neck, "4.5+" a deep chest, sagging belly, heavy neck blending into the shoulders. Empty string for a non-buck or when the body is not clearly visible.',
+        },
+        antlerPoints: {
+          type: "integer",
+          description:
+            "Buck only: total antler points (both sides, every tine at least an inch long, brow tines included) when they can be clearly counted. 0 when not a buck or the rack cannot be counted with confidence — never guess.",
         },
         travelDirectionInFrame: {
           type: "string",
@@ -160,7 +171,7 @@ const SYSTEM_PROMPT = `You analyze trail camera photos for a hunting app. Your j
 
 Many uploads are SCREENSHOTS of a trail-camera app (WiseEye, Spypoint, Tactacam, etc.) or a phone photo viewer, so the image also carries that app's own chrome AROUND the photo: a large date/time heading, a weather card (temperature, humidity, wind, dawn/sunset, a moon icon), a species tag, star/share/▤ buttons, a filmstrip of thumbnails, and the phone's own status-bar clock. NEVER take the date or time from that surrounding app UI — it usually shows when the photo was synced, received, or opened (a different, later time), not when the animal tripped the camera. Read the date and time ONLY from the small strip burned onto the photo itself. When a burned-in time (e.g. 18:47:11 at the image edge) and an app-UI time (e.g. a "10:22 PM" heading or card) both appear and disagree, the burned-in strip ALWAYS wins. Report the time exactly as printed on that strip (keep AM/PM only if the strip itself shows it; never convert it). Likewise prefer temperature, moon, wind, and humidity from the burned-in strip; only read them from an app weather card if the burned-in strip does not show them. Do not infer or guess. If the photo has no burned-in camera strip at all, report found = false.
 
-2. Identify the main animal in the frame, if any. A whitetail deer with antlers is a "Buck"; an adult deer with no antlers and a doe's build is a "Doe"; a young deer (small body, possibly spotted) is a "Fawn". Report "Other" for any animal outside the list (or a person/vehicle), and an empty species if nothing is clearly visible.
+2. Identify the main animal in the frame, if any. A whitetail deer with antlers is a "Buck"; an adult deer with no antlers and a doe's build is a "Doe"; a young deer (small body, possibly spotted) is a "Fawn". Report "Human" for a person or vehicle, "Other" for any animal outside the list, "${NO_ANIMAL}" when the frame clearly holds nothing (a false trigger), and an empty species when you cannot tell. Report deerCount (how many deer are in the frame), and for a buck its ageClass and antlerPoints only when you can judge them clearly.
 
 Do NOT default to "Doe". Most trail-camera frames are grayscale night-vision or low-contrast, and antlers are easy to miss in them: they can read as thin, dark, or washed-out lines, they blur into the brush and branches behind the head, and in summer they are velvet-covered and rounded rather than sharp. Before calling a deer a "Doe", look closely above and to the sides of the head for any tine or beam, even a faint one. Also weigh body shape, which stays visible when antlers don't: a buck carries a heavier, more muscular frame, a thicker neck (very swollen in the fall rut), and a blockier, squarer head, while a doe has a slender neck and a narrow, wedge-shaped head. Call "Doe" only when you can positively see a deer that has no antlers — not merely because you cannot make antlers out.
 
@@ -179,7 +190,7 @@ export async function readPhotoStamp(
   mediaType: string,
   unit: PhotoStampUnit,
   knownBucks: KnownBuckSummary[] = [],
-): Promise<PhotoStamp | null> {
+): Promise<PhotoStampRead | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
@@ -294,7 +305,7 @@ function buildUserText(knownBucks: KnownBuckSummary[]): string {
 function normalizeStamp(
   rawInput: unknown,
   knownBucks: KnownBuckSummary[],
-): PhotoStamp | null {
+): PhotoStampRead | null {
   if (!rawInput || typeof rawInput !== "object") return null;
 
   const input = rawInput as {
@@ -310,6 +321,9 @@ function normalizeStamp(
     behavior?: unknown;
     travelDirectionInFrame?: unknown;
     animalNotes?: unknown;
+    deerCount?: unknown;
+    ageClass?: unknown;
+    antlerPoints?: unknown;
     matchedBuckId?: unknown;
     matchConfidence?: unknown;
   };
@@ -327,12 +341,25 @@ function normalizeStamp(
   const windSpeed = hasOverlay ? asString(input.windSpeed).trim().slice(0, 12) : "";
   const humidity = hasOverlay ? cleanNumber(asString(input.humidity)) : "";
   const species = cleanListedValue(asString(input.species), SPECIES_VALUES);
-  const behavior = cleanListedValue(asString(input.behavior), BEHAVIOR_VALUES);
-  const travelDirectionInFrame = cleanListedValue(
-    asString(input.travelDirectionInFrame),
-    FRAME_DIRECTION_VALUES,
-  );
+  // An empty frame has no animal to behave or travel.
+  const emptyFrame = species === NO_ANIMAL;
+  const behavior = emptyFrame
+    ? ""
+    : cleanListedValue(asString(input.behavior), BEHAVIOR_VALUES);
+  const travelDirectionInFrame = emptyFrame
+    ? ""
+    : cleanListedValue(
+        asString(input.travelDirectionInFrame),
+        FRAME_DIRECTION_VALUES,
+      );
   const animalNotes = asString(input.animalNotes).trim().slice(0, 300);
+  const isDeer = species === "Buck" || species === "Doe" || species === "Fawn";
+  const deerCount = isDeer ? (cleanDeerCount(input.deerCount) ?? 1) : 0;
+  const rawAgeClass = asString(input.ageClass).trim();
+  const ageClass =
+    species === "Buck" && isAgeClass(rawAgeClass) ? rawAgeClass : "";
+  const antlerPoints =
+    species === "Buck" ? (cleanAntlerPoints(input.antlerPoints) ?? 0) : 0;
 
   // A profile match only stands when the animal is a buck, the id is one we
   // actually offered, and a confidence came with it.
@@ -365,6 +392,9 @@ function normalizeStamp(
     behavior,
     travelDirectionInFrame,
     animalNotes,
+    deerCount,
+    ageClass,
+    antlerPoints,
     matchedProfileId,
     matchConfidence,
   };
@@ -383,10 +413,16 @@ function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+// A well-formed date that could really be a capture date: not before 2015
+// (a camera whose clock reset reads 2000-01-01) and not in the future.
 function cleanDate(value: string): string {
   const match = /(\d{4})-(\d{2})-(\d{2})/.exec(value.trim());
 
-  return match ? `${match[1]}-${match[2]}-${match[3]}` : "";
+  if (!match) return "";
+
+  const date = `${match[1]}-${match[2]}-${match[3]}`;
+
+  return isPlausibleCaptureDate(date) ? date : "";
 }
 
 // Accepts the time as printed — "8:08 PM", "08:08pm", or 24-hour "20:08" —

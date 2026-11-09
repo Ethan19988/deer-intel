@@ -39,7 +39,7 @@ export const CALENDAR_KIND_META: Record<
   CalendarEventKind,
   { label: string; color: string }
 > = {
-  hunt: { label: "Hunts", color: "#2f7d43" },
+  hunt: { label: "Sits", color: "#2f7d43" },
   camera: { label: "Camera checks", color: "#e0642a" },
   sighting: { label: "Sightings", color: "#3b82c4" },
   pin: { label: "Map marks", color: "#9a7b1e" },
@@ -123,7 +123,7 @@ export function buildCalendarEvents(
       id: `hunt-${hunt.id}`,
       dayKey,
       kind: "hunt",
-      title: hunt.standName?.trim() || "Hunt",
+      title: hunt.standName?.trim() || "Sit",
       detail: huntDetail(
         hunt.bucks,
         hunt.does,

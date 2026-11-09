@@ -56,7 +56,7 @@ export default function StandCheckPanel({
       </div>
 
       <ul style={listStyle}>
-        {rows.map(({ stand, wind: windCheck, pressure, scent }) => (
+        {rows.map(({ stand, wind: windCheck, pressure, scent, timing }) => (
           <li
             key={stand.id}
             style={{
@@ -86,6 +86,7 @@ export default function StandCheckPanel({
               </Badge>
               <Badge variant={SCENT_VARIANT[scent.status]}>{scent.label}</Badge>
             </div>
+            {timing ? <p style={detailStyle}>{timing.reason}</p> : null}
             {scent.status === "risk" ? (
               <p style={detailStyle}>{scent.detail}</p>
             ) : null}

@@ -72,7 +72,7 @@ const PHASE_META: Record<RutPhase, PhaseMeta> = {
   },
   peak: {
     label: "Peak rut",
-    hint: "Bucks locked with does — mature movement can slow. Target areas with unbred does.",
+    hint: "Peak breeding. Bucks still roam between does, but a mature buck tending one can go quiet for a day or two. Sit near doe bedding and funnels; all-day sits pay.",
   },
   lockdown: {
     label: "Lockdown",
@@ -160,6 +160,13 @@ export function estimatedRutPeak(latitude: number, now: Date = new Date()): Date
   return nearestOccurrence(shifted.getMonth(), shifted.getDate(), now);
 }
 
+/**
+ * Last day of a deer season (0-based month): late seasons (PA flintlock, MD
+ * late archery) are over by Jan 31, so from Feb 1 the calendar counts down to
+ * the next opener.
+ */
+const SEASON_CLOSE = { month: 0, day: 31 } as const;
+
 /** Map days-until-peak (negative once past) to a rut phase. */
 function phaseForDaysToPeak(days: number): RutPhase {
   if (days >= 76) return "off-season";
@@ -227,12 +234,27 @@ export function getSeasonContext(
 
   const opener = parseISODate(prefs.seasonOpener);
   if (opener) {
-    // The opener belongs to the same season as the peak it precedes.
-    const openerDate = new Date(
+    // The opener belongs to the same season as the peak it precedes...
+    let openerDate = new Date(
       peakDate.getFullYear(),
       opener.getMonth(),
       opener.getDate(),
     );
+    // ...until that season has closed (after Jan 31): from February on the
+    // peak still points back at last fall, but the hunter is waiting on the
+    // NEXT opener, so count down to it instead of "Day 120 of season".
+    const seasonClose = new Date(
+      openerDate.getFullYear() + 1,
+      SEASON_CLOSE.month,
+      SEASON_CLOSE.day,
+    );
+    if (dayDiff(seasonClose, now) > 0) {
+      openerDate = new Date(
+        openerDate.getFullYear() + 1,
+        opener.getMonth(),
+        opener.getDate(),
+      );
+    }
     const daysToOpener = dayDiff(now, openerDate);
     context.opener = {
       date: openerDate,

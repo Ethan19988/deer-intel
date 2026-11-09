@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import Card from "@/components/ui/Card";
 import { MapPinIcon } from "@/components/ui/FieldIcons";
+import { cleanPropertyField, propertyRegionLabel } from "@/lib/propertyFields";
 import { formatPropertyCoordinate } from "@/lib/propertyLocation";
 import type { Property } from "@/types/property";
 import PropertyForm, { type PropertyFormValues } from "./PropertyForm";
@@ -73,9 +74,7 @@ export default function PropertyCard({
           <Link href={`/properties/${property.id}`} style={summaryLinkStyle}>
             <h3 style={nameStyle}>{property.name}</h3>
             <p style={regionStyle}>
-              {[property.county, property.acres ? `${property.acres} acres` : ""]
-                .filter(Boolean)
-                .join(", ") || "Region not set"}
+              {propertyRegionLabel(property, ", ") || "Region not set"}
             </p>
 
             {stats ? (
@@ -83,7 +82,7 @@ export default function PropertyCard({
                 <Stat label="Cameras" value={stats.cameras} />
                 <Stat label="Stands" value={stats.stands} />
                 <Stat label="Sits" value={stats.sits} />
-                <Stat label="Bucks" value={stats.buckPhotos} accent />
+                <Stat label="Buck photos" value={stats.buckPhotos} accent />
               </dl>
             ) : null}
 
@@ -92,7 +91,9 @@ export default function PropertyCard({
             </p>
           </Link>
 
-          {property.notes ? <p style={notesStyle}>{property.notes}</p> : null}
+          {cleanPropertyField(property.notes) ? (
+            <p style={notesStyle}>{cleanPropertyField(property.notes)}</p>
+          ) : null}
 
           {!formatPropertyCoordinate(property) ? (
             <p style={hintStyle}>

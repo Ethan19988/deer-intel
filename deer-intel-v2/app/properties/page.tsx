@@ -24,6 +24,7 @@ import {
   formatPropertyCoordinate,
   parsePropertyCoordinate,
 } from "@/lib/propertyLocation";
+import { cleanPropertyDetails } from "@/lib/propertyFields";
 import { deleteFile } from "@/lib/fileStore";
 import { deletePhotoImage } from "@/lib/imageStore";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -83,9 +84,10 @@ export default function PropertiesPage() {
     const newProperty: Property = {
       id: createDeerIntelId("property"),
       name: trimmedName,
-      county: newPropertyValues.county.trim() || "Unknown",
-      acres: newPropertyValues.acres.trim() || "Unknown",
-      notes: newPropertyValues.notes.trim() || "No notes yet.",
+      // Blank stays blank; the display layer shows a fallback.
+      county: newPropertyValues.county.trim(),
+      acres: newPropertyValues.acres.trim(),
+      notes: newPropertyValues.notes.trim(),
       ...(coordinate
         ? { latitude: coordinate.latitude, longitude: coordinate.longitude }
         : {}),
@@ -99,9 +101,8 @@ export default function PropertiesPage() {
     setEditingPropertyId(property.id);
     setEditValues({
       name: property.name,
-      county: property.county,
-      acres: property.acres,
-      notes: property.notes,
+      // Old saves hold "Unknown" / "No notes yet."; prefill those as blank.
+      ...cleanPropertyDetails(property),
       coordinate: formatPropertyCoordinate(property),
     });
   }
@@ -151,9 +152,9 @@ export default function PropertiesPage() {
           ? {
               ...property,
               name: trimmedName,
-              county: editValues.county.trim() || "Unknown",
-              acres: editValues.acres.trim() || "Unknown",
-              notes: editValues.notes.trim() || "No notes yet.",
+              county: editValues.county.trim(),
+              acres: editValues.acres.trim(),
+              notes: editValues.notes.trim(),
               latitude: coordinate?.latitude,
               longitude: coordinate?.longitude,
             }
@@ -289,7 +290,7 @@ export default function PropertiesPage() {
         title="Properties"
         meta={
           properties.length > 0
-            ? `${properties.length} ${properties.length === 1 ? "property" : "properties"} · ${stands.length} stands · ${cameras.length} cameras`
+            ? `${properties.length} ${properties.length === 1 ? "property" : "properties"} · ${stands.length} ${stands.length === 1 ? "stand" : "stands"} · ${cameras.length} ${cameras.length === 1 ? "camera" : "cameras"}`
             : undefined
         }
       />

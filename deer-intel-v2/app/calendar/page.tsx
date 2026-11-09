@@ -8,7 +8,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import { CalendarIcon } from "@/components/ui/FieldIcons";
 import MonthCalendar from "@/components/calendar/MonthCalendar";
 import CalendarDayList from "@/components/calendar/CalendarDayList";
-import { useDeerIntelStore } from "@/lib/deerIntelStore";
+import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import {
   buildCalendarEvents,
   CALENDAR_KINDS,
@@ -22,9 +22,33 @@ import { addMonths, buildMonthGrid, monthLabel } from "@/lib/calendarGrid";
 export default function CalendarPage() {
   const state = useDeerIntelStore();
   const [now, setNow] = useState<Date | null>(null);
-  const [propertyId, setPropertyId] = useState<string | "all">(
-    state.selectedPropertyId || "all",
+  // The picker follows the app-wide selected property (the shell's switcher),
+  // read from the store each render so it isn't stuck on the empty first
+  // snapshot. "All properties" is remembered against the property that was
+  // selected when it was picked, so switching property in the shell turns
+  // it back to that property.
+  const [allPickedFor, setAllPickedFor] = useState<string | null>(null);
+  const selectedPropertyExists = state.properties.some(
+    (property) => property.id === state.selectedPropertyId,
   );
+  const propertyId: string | "all" =
+    !selectedPropertyExists || allPickedFor === state.selectedPropertyId
+      ? "all"
+      : state.selectedPropertyId;
+
+  function pickProperty(value: string) {
+    if (value === "all") {
+      setAllPickedFor(state.selectedPropertyId);
+      return;
+    }
+
+    setAllPickedFor(null);
+    updateDeerIntelStore((current) =>
+      current.selectedPropertyId === value
+        ? current
+        : { ...current, selectedPropertyId: value },
+    );
+  }
   const [viewOverride, setViewOverride] = useState<{
     year: number;
     month: number;
@@ -83,6 +107,9 @@ export default function CalendarPage() {
           a.title.localeCompare(b.title),
       );
   }, [eventsByDay, selected, visibleKinds]);
+  const hiddenDayEventCount = selected
+    ? (eventsByDay.get(selected)?.length ?? 0) - selectedDayEvents.length
+    : 0;
 
   function toggleKind(kind: CalendarEventKind) {
     setVisibleKinds((prev) => {
@@ -109,12 +136,12 @@ export default function CalendarPage() {
         eyebrow="Season record"
         title="Calendar"
         icon={<CalendarIcon size={22} />}
-        description="Everything you've marked, by the day — hunts, camera checks, sightings, map marks, and walks. It builds the story of your ground season over season."
+        description="Everything you've marked, by the day — sits, camera checks, sightings, map marks, and walks. It builds the story of your ground season over season."
         action={
           <select
             aria-label="Property"
             value={propertyId}
-            onChange={(event) => setPropertyId(event.target.value)}
+            onChange={(event) => pickProperty(event.target.value)}
             style={selectStyle}
           >
             <option value="all">All properties</option>
@@ -221,12 +248,29 @@ export default function CalendarPage() {
         <h2 style={dayTitleStyle}>{formatSelectedLabel(selected, todayKey)}</h2>
 
         {selectedDayEvents.length === 0 ? (
-          <EmptyState
-            title="Nothing marked on this day"
-            description="Log a hunt, check a camera, tag a photo, or drop a map pin and it will show up here."
-          />
+          hiddenDayEventCount > 0 ? (
+            <EmptyState
+              title={`${hiddenDayEventCount} ${
+                hiddenDayEventCount === 1 ? "item" : "items"
+              } hidden by filters`}
+              description="Turn the filters above back on to see everything marked on this day."
+            />
+          ) : (
+            <EmptyState
+              title="Nothing marked on this day"
+              description="Log a sit, check a camera, tag a photo, or drop a map pin and it will show up here."
+            />
+          )
         ) : (
-          <CalendarDayList events={selectedDayEvents} />
+          <>
+            <CalendarDayList events={selectedDayEvents} />
+            {hiddenDayEventCount > 0 ? (
+              <p style={hiddenNoteStyle}>
+                {hiddenDayEventCount} more{" "}
+                {hiddenDayEventCount === 1 ? "item" : "items"} hidden by filters
+              </p>
+            ) : null}
+          </>
         )}
       </Card>
     </PageShell>
@@ -250,6 +294,12 @@ function formatSelectedLabel(
 
   return selected === todayKey ? `Today — ${label}` : label;
 }
+
+const hiddenNoteStyle: CSSProperties = {
+  margin: "0.75rem 0 0",
+  color: "var(--text-muted)",
+  fontSize: "0.85rem",
+};
 
 const selectStyle: CSSProperties = {
   maxWidth: "100%",

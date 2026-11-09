@@ -120,7 +120,9 @@ export function scoreMovement(input: MovementModelInput): MovementModelResult {
       add(1.5, "Chasing phase: bucks on their feet all day");
       break;
     case "peak":
-      add(1.25, "Peak rut: bucks covering the most ground of the year");
+      // Below chasing: plenty of bucks still roam between does, but mature
+      // ones tending a hot doe often stay put (then lockdown, below).
+      add(1.25, "Peak rut: bucks roaming between does; mature ones may be tending");
       break;
     case "lockdown":
       add(-0.5, "Lockdown: bucks tied up with does");
