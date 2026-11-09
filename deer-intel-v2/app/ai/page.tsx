@@ -120,12 +120,23 @@ export default function AIPage() {
   // The same forecast, next-sit call (morning / evening / tomorrow AM), legal
   // light and rut phase that Today shows for this property.
   const {
-    forecast,
+    forecast: sharedForecast,
     forecastSavedAt,
     verdict,
     seasonCtx,
     now: todayNow,
+    weatherPoint,
   } = usePropertyToday(selectedPropertyId);
+  // Right after a property switch the hook can still hold the previous
+  // property's forecast for a render; never fill this property's form from it.
+  const forecast =
+    sharedForecast &&
+    (!sharedForecast.point ||
+      !weatherPoint ||
+      (Math.abs(sharedForecast.point.lat - weatherPoint.lat) < 0.01 &&
+        Math.abs(sharedForecast.point.lng - weatherPoint.lng) < 0.01))
+      ? sharedForecast
+      : null;
   const [aiScoutStatus, setAiScoutStatus] = useState<"idle" | "loading" | "error">("idle");
   const [aiScoutError, setAiScoutError] = useState<string>("");
   const [aiScoutReport, setAiScoutReport] = useState<AiScoutReport | null>(null);
@@ -189,7 +200,7 @@ export default function AIPage() {
     // The forecast object itself is rebuilt per render; its save time, the
     // sit and the property identify it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPropertyId, forecastSavedAt, verdict.period, sitWind, sitWindSpeed]);
+  }, [selectedPropertyId, Boolean(forecast), forecastSavedAt, verdict.period, sitWind, sitWindSpeed]);
 
   // Today's moon phase (client-computed). Used to auto-fill the AI Scout
   // conditions when the hunter hasn't typed their own, and to show a movement
