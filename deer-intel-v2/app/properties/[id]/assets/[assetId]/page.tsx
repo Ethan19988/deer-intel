@@ -1,5 +1,6 @@
 "use client";
 
+import { huntsForStand } from "@/lib/standHunts";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState, type CSSProperties } from "react";
@@ -164,14 +165,8 @@ export default function PropertyAssetWorkspacePage() {
     const propertyHunts = state.hunts.filter(
       (hunt) => hunt.propertyId === propertyId,
     );
-    const standHunts = state.hunts.filter(
-      (hunt) =>
-        hunt.propertyId === propertyId &&
-        (hunt.standId === stand.id ||
-          (!hunt.standId &&
-            hunt.standName.trim().toLowerCase() ===
-              stand.name.trim().toLowerCase())),
-    );
+    // Same sit-to-stand rule as the Stands page and Today.
+    const standHunts = huntsForStand(stand, state.hunts);
     const relationshipGroups = getStandRelationshipGroups({
       propertyId,
       stand,

@@ -5,6 +5,8 @@
 // plus a movement "outlook" scored from real weather factors. Everything is
 // explainable — each rating carries the factors that produced it.
 
+import { trustedPhotoDate } from "@/lib/photoDateTime";
+import type { PhotoRecord } from "@/types/photo";
 import { clockToMinutes } from "@/lib/windViz";
 import { scoreMovement } from "@/lib/movementModel";
 import type { RutPhase } from "@/lib/seasonCalendar";
@@ -162,6 +164,7 @@ export type PropertyPhotoTiming = {
   species: string;
   buckName?: string;
   deerProfileId?: string;
+  captureTimeSource?: PhotoRecord["captureTimeSource"];
 };
 
 export type PropertyMovementSignal = {
@@ -198,7 +201,7 @@ export function propertyMovementSignal(
 
   for (const photo of photos) {
     if (!isDeerTiming(photo)) continue;
-    const minutes = photoLocalMinutes(photo.photoDate);
+    const minutes = photoLocalMinutes(trustedPhotoDate(photo));
     if (minutes === null) continue;
     sampleSize += 1;
     counts[classifyPeriodByMinutes(minutes, sunriseMin, sunsetMin)] += 1;
@@ -445,7 +448,7 @@ export function resolveSeasonalPhotos<T extends PhotoLike>(
     (photo) => photoPhase(photo.photoDate, shift) === phase,
   );
   const usable = inPhase.filter(
-    (photo) => isDeerTiming(photo) && photoLocalMinutes(photo.photoDate) !== null,
+    (photo) => isDeerTiming(photo) && photoLocalMinutes(trustedPhotoDate(photo)) !== null,
   ).length;
 
   if (usable >= minPhaseSamples) {
@@ -639,7 +642,7 @@ export function corridorEvidence(
   >();
   for (const photo of photos) {
     if (!isDeerTiming(photo)) continue;
-    const minutes = photoLocalMinutes(photo.photoDate);
+    const minutes = photoLocalMinutes(trustedPhotoDate(photo));
     if (minutes === null) continue;
     const record = hitsByCamera.get(photo.cameraSiteId) ?? {
       periodHits: 0,

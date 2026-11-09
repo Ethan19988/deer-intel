@@ -170,3 +170,17 @@ export function resolveImportCaptureTime({
 
   return { ...base, photoDate: "", captureTimeSource: "" };
 }
+
+/**
+ * The photo's date for time-of-day math: as stored when its time is trusted,
+ * otherwise just the date part, so a made-up or file-copy time can't land in a
+ * part of the day.
+ */
+export function trustedPhotoDate(
+  photo: Pick<PhotoRecord, "photoDate" | "captureTimeSource">,
+): string {
+  const raw = (photo.photoDate ?? "").trim();
+  if (hasTrustedPhotoTime(photo)) return raw;
+  const dateOnly = /^(\d{4}-\d{2}-\d{2})/.exec(raw);
+  return dateOnly ? dateOnly[1] : raw;
+}

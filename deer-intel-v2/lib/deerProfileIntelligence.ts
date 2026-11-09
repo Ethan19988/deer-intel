@@ -1,4 +1,5 @@
 import type { Camera } from "@/types/camera";
+import { trustedPhotoDate } from "@/lib/photoDateTime";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { DeerProfile } from "@/types/deerProfile";
 import type { HuntLogEntry } from "@/types/hunt";
@@ -185,7 +186,7 @@ function getCommonTimeOfDay(sightingPhotos: PhotoRecord[]): DeerProfilePattern {
   const buckets = new Map<string, number>();
 
   sightingPhotos.forEach((photo) => {
-    const bucket = photoTimeBucket(photo.photoDate);
+    const bucket = photoTimeBucket(trustedPhotoDate(photo));
 
     if (!bucket) return;
 

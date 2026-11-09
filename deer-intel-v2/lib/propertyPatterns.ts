@@ -7,6 +7,7 @@
 // when you swapped the card, not when deer moved, so it's no signal for
 // conditions. Buck sightings weigh double (mature-buck focus). Pure local data.
 
+import { trustedPhotoDate } from "@/lib/photoDateTime";
 import { toWind8 } from "@/lib/standStats";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { CameraCheck } from "@/types/cameraCheck";
@@ -256,7 +257,7 @@ function photoObservation(photo: PhotoRecord): Sit | null {
     wind: normWind(snap?.windDirection),
     temp: parseTemp(snap?.temperature),
     moon: normMoon(snap?.moonPhase),
-    hour: hourFromTimestamp(photo.photoDate),
+    hour: hourFromTimestamp(trustedPhotoDate(photo)),
     stand: null,
   };
 }

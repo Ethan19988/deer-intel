@@ -1,5 +1,6 @@
 "use client";
 
+import { retargetCameraPhotoHeadings } from "@/lib/photoHeading";
 import "leaflet/dist/leaflet.css";
 import {
   useCallback,
@@ -3697,6 +3698,14 @@ export default function HuntingMap() {
               camera.id === id
                 ? { ...camera, facingDirection: preview }
                 : camera,
+            ),
+            // Photos' compass headings come from where the camera points, so
+            // re-aiming it re-reads them.
+            photoRecords: retargetCameraPhotoHeadings(
+              currentState.photoRecords,
+              id,
+              currentState.cameras.find((camera) => camera.id === id)?.facingDirection,
+              preview,
             ),
           }
         : {
