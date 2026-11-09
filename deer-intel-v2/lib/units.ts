@@ -31,6 +31,17 @@ export const WIND_UNIT_LABEL: Record<WindSpeedUnit, string> = {
   kmh: "km/h",
 };
 
+export const KMH_PER_MPH = 1.609344;
+
+/**
+ * A wind speed held in mph (the movement model's unit) as a label in the
+ * user's unit: "8 mph" or "13 km/h".
+ */
+export function formatWindSpeedFromMph(mph: number, unit: WindSpeedUnit): string {
+  const value = unit === "kmh" ? mph * KMH_PER_MPH : mph;
+  return `${Math.round(value)} ${WIND_UNIT_LABEL[unit]}`;
+}
+
 // Open-Meteo query-parameter values for each unit.
 export function openMeteoTemperatureUnit(unit: TemperatureUnit): string {
   return unit === "C" ? "celsius" : "fahrenheit";

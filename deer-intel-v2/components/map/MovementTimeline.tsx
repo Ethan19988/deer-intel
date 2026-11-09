@@ -7,6 +7,7 @@ import {
   PERIOD_SHORT,
   type TimelineSlot,
 } from "@/lib/movementTimeline";
+import { formatWindSpeedFromMph, useUnitPreferences } from "@/lib/units";
 
 export type TimelineSlotView = TimelineSlot & { forecast: MovementForecast | null };
 
@@ -33,6 +34,8 @@ export default function MovementTimeline({
   selectedKey,
   onSelect,
 }: MovementTimelineProps) {
+  // Slots carry mph (the model's unit); show it in the Settings unit.
+  const units = useUnitPreferences();
   const [playing, setPlaying] = useState(false);
   const indexRef = useRef(0);
   const activeIndex = Math.max(
@@ -172,7 +175,7 @@ export default function MovementTimeline({
           {active.isNow ? "Now" : `${active.dayLabel} ${PERIOD_SHORT[active.period].toLowerCase()}`}
           {" · "}
           {active.windFromCompass ? `${active.windFromCompass} wind` : "wind unknown"}
-          {active.windMph !== null ? ` ${Math.round(active.windMph)} mph` : ""}
+          {active.windMph !== null ? ` ${formatWindSpeedFromMph(active.windMph, units.wind)}` : ""}
           {" · "}
           {active.thermal.phase === "uphill" ? "thermals rising" : "thermals falling"}
         </p>

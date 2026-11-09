@@ -60,3 +60,17 @@ describe("buildPropertyPatternReport — trail-cam sightings", () => {
     expect(report.sightings).toBe(0);
   });
 });
+
+describe("best time buckets", () => {
+  it("counts a 2 AM photo as night, not first light", () => {
+    const photos: PhotoRecord[] = [];
+    for (let i = 0; i < 12; i += 1) {
+      // Local times (no zone suffix): bucks at 2 AM, does at 5 PM.
+      photos.push({ ...photo(`n${i}`, "Buck", "NW", `Buck ${i}`), photoDate: "2024-11-01T02:00:00" });
+      photos.push({ ...photo(`e${i}`, "Doe", "NW"), photoDate: "2024-11-01T17:00:00" });
+    }
+    const report = buildPropertyPatternReport([], [], [], photos);
+    const time = report.sightingInsights.find((i) => i.label === "Best time");
+    expect(time?.value).toBe("Night");
+  });
+});

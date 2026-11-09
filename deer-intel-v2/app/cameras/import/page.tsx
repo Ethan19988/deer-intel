@@ -25,12 +25,20 @@ import {
   EMPTY_CAMERA_CHECK_FORM_VALUES,
   createCameraCheckFromValues,
 } from "@/lib/cameraCheckFormValues";
+import { daysSince } from "@/lib/cameraHealth";
+import { latestCheckForCamera, sortCameraChecksChronologically } from "@/lib/cameraChecks";
 import {
   EMPTY_DEER_PROFILE_FORM_VALUES,
   createDeerProfileFromValues,
 } from "@/lib/deerProfileFormValues";
 import DeerProfileMultiSelect from "@/components/photos/DeerProfileMultiSelect";
+import PhotoAiPrivacyNote from "@/components/photos/PhotoAiPrivacyNote";
+import PhotoDateTimeFields from "@/components/photos/PhotoDateTimeFields";
+import PhotoDetailChips, {
+  type PhotoDetailValues,
+} from "@/components/photos/PhotoDetailChips";
 import PhotoImage from "@/components/photos/PhotoImage";
+import SpeciesSelect from "@/components/photos/SpeciesSelect";
 import { resolveBuckLinks } from "@/lib/photoFormValues";
 import { processImageFile } from "@/lib/imageProcessing";
 import { deletePhotoImage, putPhotoImage } from "@/lib/imageStore";
@@ -43,78 +51,73 @@ import {
   importedPhotoKeys,
   isAlreadyImported,
 } from "@/lib/photoImportDuplicates";
-import { pickCaptureDateTime } from "@/lib/photoCaptureTime";
+import { resolveImportCaptureTime, toDateInputValue } from "@/lib/photoDateTime";
+import {
+  BEHAVIOR_OPTIONS,
+  NO_ANIMAL,
+  buckOnlyFields,
+  deerCountFor,
+} from "@/lib/photoOptions";
 import { readPhotoDateTimeInput } from "@/lib/photoExif";
 import { requestPhotoStamp } from "@/lib/photoStampClient";
 import { COMPASS_16, frameDirectionToHeading } from "@/lib/travelDirection";
 import { useUnitPreferences } from "@/lib/units";
 import type { CameraCheck } from "@/types/cameraCheck";
-import type { PhotoRecord } from "@/types/photo";
+import type {
+  PhotoAgeClass,
+  PhotoCaptureTimeSource,
+  PhotoRecord,
+} from "@/types/photo";
 
 // Sentinel for the Camera Check dropdown: create a fresh check on import
 // instead of attaching photos to an existing one.
 const NEW_CHECK_OPTION = "new-check";
 
+// A check logged this recently is taken to be this card pull, so the import
+// attaches to it by default instead of creating a second check.
+const RECENT_CHECK_DAYS = 1;
+
 // Default note seeded when the AI reported no animal notes; used to tell a real
 // AI description (worth seeding a buck profile with) from the placeholder.
 const IMPORTED_NOTE = "Imported through Camera Import Inbox.";
 
-const SPECIES_OPTIONS = [
-  "Buck",
-  "Doe",
-  "Fawn",
-  "Turkey",
-  "Bear",
-  "Coyote",
-  "Other",
-];
-
-// Must match the BEHAVIOR_VALUES the photo vision reports.
-const BEHAVIOR_OPTIONS = [
-  "Traveling",
-  "Feeding",
-  "Chasing",
-  "At scrape or rub",
-  "Bedded",
-  "Alert",
-  "Other",
-];
-
-// How trustworthy the auto-filled capture time is. "capture" comes from the
-// photo itself (EXIF or the printed info bar) and is the real shutter time;
-// "filename" is a date embedded in the file name; "file" is the file's
-// last-modified stamp — which, for a cellular camera that transmits in batches,
-// is when the batch arrived, not when the shot was taken; "none" means no date
-// was found at all.
-type DateConfidence = "capture" | "filename" | "file" | "none";
-
 type ImportDraft = {
   id: string;
   fileName: string;
-  // The file's own name, kept when the label above is edited: with the capture
-  // time it's how a repeat import of the same photo is recognized.
+  // The file's own name and first-read capture date, kept when the label or
+  // date are edited: together they are how a repeat import is recognized.
   originalFileName: string;
+  originalPhotoDate: string;
   // The same photo was already staged in this inbox when this one was picked.
   inboxDuplicate: boolean;
+  // "YYYY-MM-DDTHH:mm" when a real time was read, else "YYYY-MM-DD".
   photoDate: string;
-  extractedTime: string;
-  metadataSource: string;
-  dateConfidence: DateConfidence;
+  // Where photoDate came from; "" when nothing was found.
+  captureTimeSource: PhotoCaptureTimeSource | "";
+  // The file's modified clock time, offered (never applied) as a one-tap fill.
+  fileTimeHint: string;
+  // Stamp and EXIF disagree, or one had an impossible date.
+  clockWarning: boolean;
+  // "" until the AI or the hunter picks one — never a silent "Other".
   species: string;
   // A photo can show more than one buck: linked deer profile ids plus loose
   // buck names (typed in without a saved profile).
   deerProfileIds: string[];
   buckNames: string[];
-  // What the animal was doing and the compass point it was headed — pre-filled
-  // from the AI (direction converted through the camera's facing direction),
-  // editable on the card before saving.
   behavior: string;
-  travelDirection: string;
+  // The AI's raw frame read ("Left to right", ...), "" when none.
+  frameDirection: string;
+  // The hunter's own heading pick; null = use the AI read turned through the
+  // currently selected camera's facing (so switching cameras recomputes it).
+  travelDirectionOverride: string | null;
+  deerCount?: number;
+  ageClass: PhotoAgeClass | "";
+  antlerPoints?: number;
   notes: string;
   selected: boolean;
   // Values read off the photo's printed info bar, "" when nothing was read.
+  // (The stamped moon is not used — the date-based phase is exact.)
   stampedTemperature: string;
-  stampedMoonPhase: string;
   stampedWindDirection: string;
   stampedWindSpeed: string;
   stampedHumidity: string;
@@ -123,8 +126,6 @@ type ImportDraft = {
   // the hunter adjusts the dropdown.
   aiSpecies: string;
   aiBehavior: string;
-  // Frame-relative movement the AI saw ("Left to right", ...), "" when none.
-  aiFrameDirection: string;
   // "Big 8 (likely)" when the AI matched a saved deer profile, else "".
   aiMatchLabel: string;
   // The stored (resized) image blob's id and dimensions; "" / 0 when storing
@@ -148,27 +149,40 @@ export default function CameraImportPage() {
     (camera) => camera.propertyId === propertyId,
   );
   const [selectedCameraId, setSelectedCameraId] = useState("");
+  // The hunter picks the camera: photos filed to the wrong site corrupt that
+  // site's pattern. Only a property with a single camera is preselected.
   const cameraId =
     selectedCameraId && propertyCameras.some((camera) => camera.id === selectedCameraId)
       ? selectedCameraId
-      : propertyCameras[0]?.id ?? "";
+      : propertyCameras.length === 1
+        ? propertyCameras[0].id
+        : "";
   const activeCamera = propertyCameras.find((camera) => camera.id === cameraId);
+  const activeFacing = activeCamera?.facingDirection ?? "";
   // Cellular cameras transmit photos over service, so there is no card-pull
   // check — those imports attach directly to the camera site.
   const isCellularCamera = activeCamera?.cameraType === "Cellular";
-  const cameraChecks = state.cameraChecks.filter(
-    (check) => check.propertyId === propertyId && check.cameraId === cameraId,
-  );
+  // Newest first, so the most likely check is at the top of the list.
+  const cameraChecks = sortCameraChecksChronologically(
+    state.cameraChecks.filter(
+      (check) => check.propertyId === propertyId && check.cameraId === cameraId,
+    ),
+  ).reverse();
+  const newestCheck = latestCheckForCamera(cameraChecks, cameraId);
+  const newestCheckAge = newestCheck ? daysSince(newestCheck.date, new Date()) : null;
   const [selectedCameraCheckId, setSelectedCameraCheckId] = useState("");
   // For standard cameras the effective selection is either an existing check id
-  // or the sentinel NEW_CHECK_OPTION (a check is created on import). When a
-  // camera has no checks yet, default to creating one rather than blocking.
+  // or the sentinel NEW_CHECK_OPTION (a check dated today is created on
+  // import). By default a check logged today or yesterday is this card pull;
+  // anything older gets a new check — never the camera's oldest check.
   const standardCheckSelection =
     selectedCameraCheckId === NEW_CHECK_OPTION ||
     (selectedCameraCheckId &&
       cameraChecks.some((check) => check.id === selectedCameraCheckId))
       ? selectedCameraCheckId
-      : cameraChecks[0]?.id ?? NEW_CHECK_OPTION;
+      : newestCheck && newestCheckAge !== null && newestCheckAge <= RECENT_CHECK_DAYS
+        ? newestCheck.id
+        : NEW_CHECK_OPTION;
   const cameraCheckSelection = isCellularCamera ? "" : standardCheckSelection;
   const willCreateCheck =
     !isCellularCamera && cameraCheckSelection === NEW_CHECK_OPTION;
@@ -189,39 +203,46 @@ export default function CameraImportPage() {
   );
   const draftAlreadyImported = (draft: ImportDraft) =>
     isAlreadyImported(
-      { fileName: draft.originalFileName, photoDate: draft.photoDate },
+      { fileName: draft.originalFileName, photoDate: draft.originalPhotoDate },
       cameraId,
       importedKeys,
     );
+  // The heading saved for a draft: the hunter's pick, else the AI frame read
+  // through the selected camera's facing ("" when the camera isn't pointed).
+  const draftHeading = (draft: ImportDraft) =>
+    draft.travelDirectionOverride ??
+    frameDirectionToHeading(draft.frameDirection, activeFacing);
+  const missingSpeciesCount = selectedDrafts.filter((draft) => !draft.species.trim()).length;
   const missingRequirements: string[] = [];
   if (!propertyId) missingRequirements.push("a property");
   if (!cameraId) missingRequirements.push("a camera site");
   if (selectedDrafts.length === 0) {
     missingRequirements.push("at least one selected photo");
-  } else if (
-    !selectedDrafts.every(
-      (draft) => draft.fileName.trim() && draft.photoDate.trim() && draft.species.trim(),
-    )
-  ) {
-    missingRequirements.push("a file name, date, and species on every selected photo");
+  } else {
+    if (missingSpeciesCount > 0) {
+      missingRequirements.push(
+        `a species on ${missingSpeciesCount} ${missingSpeciesCount === 1 ? "photo" : "photos"} (pick "No animal" for an empty frame)`,
+      );
+    }
+    if (!selectedDrafts.every((draft) => draft.fileName.trim() && draft.photoDate.trim())) {
+      missingRequirements.push("a file name and date on every selected photo");
+    }
   }
   const canCreateRecords = missingRequirements.length === 0;
   const activePropertyName =
     state.properties.find((property) => property.id === propertyId)?.name ??
     "No property selected";
-  const activeCameraName =
-    propertyCameras.find((camera) => camera.id === cameraId)?.name ??
-    "No camera site selected";
+  const activeCameraName = activeCamera?.name ?? "No camera site selected";
   const selectedCheckLabel = useMemo(() => {
     if (isCellularCamera) return "Sent over service (no check)";
 
     if (cameraCheckSelection === NEW_CHECK_OPTION) {
-      return "New check (created on import)";
+      return "New check dated today";
     }
 
     const check = cameraChecks.find((item) => item.id === cameraCheckSelection);
 
-    return check?.date || "New check (created on import)";
+    return check?.date ? `check of ${check.date}` : "New check dated today";
   }, [isCellularCamera, cameraCheckSelection, cameraChecks]);
 
   function handlePropertyChange(nextPropertyId: string) {
@@ -262,10 +283,8 @@ export default function CameraImportPage() {
           storeImportImage(file),
         ]);
         // The AI read identifies the animal and which way it moved through the
-        // frame — the inputs the per-buck travel learning trains on — and its
-        // printed-stamp read is the true capture time (see extractPhotoMetadata:
-        // a timed stamp beats EXIF, which app/cellular exports rewrite). So it
-        // runs on every photo.
+        // frame, and its printed-stamp read is the capture time (checked
+        // against EXIF in resolveImportCaptureTime). So it runs on every photo.
         const stamp = await requestPhotoStamp(
           file,
           units.temperature,
@@ -274,40 +293,53 @@ export default function CameraImportPage() {
         const matchedProfile = stamp?.matchedProfileId
           ? deerProfiles.find((profile) => profile.id === stamp.matchedProfileId)
           : undefined;
-        const frameDirection = stamp?.travelDirectionInFrame ?? "";
-
-        return createImportDraft({
-          file,
-          // The AI's identification pre-fills the species ("Other" when it
-          // couldn't tell); the hunter can change it on the card before saving.
-          species: stamp?.species || "Other",
-          deerProfileIds: matchedProfile ? [matchedProfile.id] : [],
-          behavior: stamp?.behavior ?? "",
-          // The AI's frame-relative read only becomes a compass heading when
-          // this camera site's facing direction is known; either way it stays
-          // editable on the card.
-          travelDirection: frameDirectionToHeading(
-            frameDirection,
-            activeCamera?.facingDirection ?? "",
-          ),
-          aiFrameDirection: frameDirection,
+        // The AI's call pre-fills the species; when it couldn't tell (or AI
+        // reading is off) the species stays blank for the hunter to pick.
+        const species = stamp?.species ?? "";
+        const time = resolveImportCaptureTime({
+          fileName: file.name,
+          lastModified: file.lastModified,
           exifDate,
           stampDate: stamp?.dateTime ?? "",
+        });
+
+        return {
+          id: createDeerIntelId("import-photo"),
+          fileName: file.name,
+          originalFileName: file.name,
+          originalPhotoDate: time.photoDate,
+          inboxDuplicate: false,
+          photoDate: time.photoDate,
+          captureTimeSource: time.captureTimeSource,
+          fileTimeHint: time.fileTimeHint,
+          clockWarning: time.clockWarning,
+          species,
+          deerProfileIds: matchedProfile ? [matchedProfile.id] : [],
+          buckNames: [],
+          behavior: stamp?.behavior ?? "",
+          frameDirection: stamp?.travelDirectionInFrame ?? "",
+          travelDirectionOverride: null,
+          deerCount: deerCountFor(species, stamp?.deerCount),
+          ageClass: species === "Buck" ? (stamp?.ageClass ?? "") : "",
+          antlerPoints:
+            species === "Buck" && stamp?.antlerPoints ? stamp.antlerPoints : undefined,
+          // Seed the notes with what the AI saw so it lands on the record; the
+          // hunter can edit or clear it on the draft card.
+          notes: stamp?.animalNotes || IMPORTED_NOTE,
+          selected: true,
           stampedTemperature: stamp?.temperature ?? "",
-          stampedMoonPhase: stamp?.moonPhase ?? "",
           stampedWindDirection: stamp?.windDirection ?? "",
           stampedWindSpeed: stamp?.windSpeed ?? "",
           stampedHumidity: stamp?.humidity ?? "",
-          aiSpecies: stamp?.species ?? "",
+          aiSpecies: species,
           aiBehavior: stamp?.behavior ?? "",
           aiMatchLabel: matchedProfile
             ? `${matchedProfile.nickname}${stamp?.matchConfidence ? ` (${stamp.matchConfidence})` : ""}`
             : "",
-          animalNotes: stamp?.animalNotes ?? "",
           imageId: storedImage?.imageId ?? "",
           imageWidth: storedImage?.width ?? 0,
           imageHeight: storedImage?.height ?? 0,
-        });
+        } satisfies ImportDraft;
       }),
     );
 
@@ -315,12 +347,12 @@ export default function CameraImportPage() {
     // unselected with a note, so picking the same batch twice can't double it.
     const stagedKeys = new Set(
       drafts.map((draft) =>
-        importDuplicateKey("inbox", draft.originalFileName, draft.photoDate),
+        importDuplicateKey("inbox", draft.originalFileName, draft.originalPhotoDate),
       ),
     );
     let repeatCount = 0;
     const flaggedDrafts = nextDrafts.map((draft) => {
-      const inboxKey = importDuplicateKey("inbox", draft.originalFileName, draft.photoDate);
+      const inboxKey = importDuplicateKey("inbox", draft.originalFileName, draft.originalPhotoDate);
       const inboxDuplicate = Boolean(inboxKey) && stagedKeys.has(inboxKey);
       if (inboxKey) stagedKeys.add(inboxKey);
       const repeat = inboxDuplicate || draftAlreadyImported(draft);
@@ -328,10 +360,14 @@ export default function CameraImportPage() {
 
       return repeat ? { ...draft, inboxDuplicate, selected: false } : draft;
     });
+    const needSpecies = flaggedDrafts.filter((draft) => !draft.species).length;
 
     setDrafts((currentDrafts) => [...currentDrafts, ...flaggedDrafts]);
     setMessage(
       `${files.length} ${files.length === 1 ? "photo" : "photos"} ready below — check them and press Save Photos.` +
+        (needSpecies > 0
+          ? ` ${needSpecies} ${needSpecies === 1 ? "needs" : "need"} a species picked.`
+          : "") +
         (repeatCount > 0
           ? ` ${repeatCount} already imported (or already staged) — left unselected.`
           : ""),
@@ -346,6 +382,14 @@ export default function CameraImportPage() {
     setDrafts((currentDrafts) =>
       currentDrafts.map((draft) =>
         draft.id === draftId ? { ...draft, [field]: value } : draft,
+      ),
+    );
+  }
+
+  function patchDraft(draftId: string, patch: Partial<ImportDraft>) {
+    setDrafts((currentDrafts) =>
+      currentDrafts.map((draft) =>
+        draft.id === draftId ? { ...draft, ...patch } : draft,
       ),
     );
   }
@@ -378,6 +422,8 @@ export default function CameraImportPage() {
       values: {
         ...EMPTY_DEER_PROFILE_FORM_VALUES,
         nickname,
+        // The age class judged on this photo seeds the profile's estimate.
+        estimatedAge: draft.ageClass,
         firstSeen: seenDate,
         lastSeen: seenDate,
         notes: seededNotes,
@@ -422,7 +468,7 @@ export default function CameraImportPage() {
     if (!canCreateRecords || isSaving) {
       if (!canCreateRecords) {
         setMessage(
-          "Choose a property and camera site, and make sure selected photos have a file name, date, and species.",
+          `Before saving, add ${formatRequirementList(missingRequirements)}.`,
         );
       }
       return;
@@ -431,8 +477,8 @@ export default function CameraImportPage() {
     setIsSaving(true);
     setMessage("Looking up the weather each photo was taken in…");
 
-    // When importing to a site with no check selected, create one dated to the
-    // earliest photo — importing a batch of card photos is itself a card pull.
+    // Importing a batch of card photos is itself a card pull, so a new check
+    // is dated today — the day the card was pulled, not the oldest photo.
     const newCheck: CameraCheck | null = willCreateCheck
       ? createCameraCheckFromValues({
           id: createDeerIntelId("camera-check"),
@@ -440,7 +486,7 @@ export default function CameraImportPage() {
           cameraId,
           values: {
             ...EMPTY_CAMERA_CHECK_FORM_VALUES,
-            date: deriveCheckDate(selectedDrafts),
+            date: toDateInputValue(new Date()),
             notes: "Created automatically from a Camera Import.",
           },
         })
@@ -467,7 +513,6 @@ export default function CameraImportPage() {
           units,
           {
             temperature: draft.stampedTemperature,
-            moonPhase: draft.stampedMoonPhase,
             windDirection: draft.stampedWindDirection,
             windSpeed: draft.stampedWindSpeed,
             humidity: draft.stampedHumidity,
@@ -485,6 +530,8 @@ export default function CameraImportPage() {
           },
           deerProfiles,
         );
+        const species = draft.species.trim();
+        const emptyFrame = species === NO_ANIMAL;
 
         return {
           id: createDeerIntelId("photo"),
@@ -493,16 +540,20 @@ export default function CameraImportPage() {
           cameraCheckId: targetCheckId,
           fileName: draft.fileName.trim(),
           photoDate: draft.photoDate.trim(),
-          species: draft.species.trim(),
+          captureTimeSource: draft.captureTimeSource || undefined,
+          species,
           // Singular fields stay populated with the primary (first) link for
           // backward-compatible reads; the plural fields carry the full set.
           deerProfileId: deerProfileIds[0],
           buckName: buckNames[0],
           deerProfileIds: deerProfileIds.length > 0 ? deerProfileIds : undefined,
           buckNames: buckNames.length > 0 ? buckNames : undefined,
-          travelDirection: draft.travelDirection.trim() || undefined,
-          behavior: draft.behavior.trim() || undefined,
-          notes: buildImportNotes(draft),
+          travelDirection: emptyFrame ? undefined : draftHeading(draft).trim() || undefined,
+          frameDirection: emptyFrame ? undefined : draft.frameDirection || undefined,
+          behavior: emptyFrame ? undefined : draft.behavior.trim() || undefined,
+          deerCount: deerCountFor(species, draft.deerCount),
+          ...buckOnlyFields(species, draft.ageClass, draft.antlerPoints),
+          notes: draft.notes.trim(),
           createdAt: new Date().toISOString(),
           imageId: draft.imageId || undefined,
           imageWidth:
@@ -594,10 +645,13 @@ export default function CameraImportPage() {
                     setSelectedCameraId(event.target.value);
                     setSelectedCameraCheckId("");
                   }}
-                  style={inputStyle}
+                  aria-invalid={!cameraId}
+                  style={{ ...inputStyle, ...(cameraId ? null : needsChoiceStyle) }}
                 >
                   {propertyCameras.length === 0 ? (
                     <option value="">No camera sites yet</option>
+                  ) : !cameraId ? (
+                    <option value="">Choose the camera these came from…</option>
                   ) : null}
                   {propertyCameras.map((camera) => (
                     <option key={camera.id} value={camera.id}>
@@ -617,10 +671,11 @@ export default function CameraImportPage() {
                   <select
                     value={cameraCheckSelection}
                     onChange={(event) => setSelectedCameraCheckId(event.target.value)}
+                    disabled={!cameraId}
                     style={inputStyle}
                   >
                     <option value={NEW_CHECK_OPTION}>
-                      New check (created on import)
+                      New check dated today
                     </option>
                     {cameraChecks.map((check) => (
                       <option key={check.id} value={check.id}>
@@ -634,8 +689,8 @@ export default function CameraImportPage() {
             </div>
 
             <p style={assignmentTextStyle}>
-              Importing to {activePropertyName} / {activeCameraName} /{" "}
-              {selectedCheckLabel}.
+              Importing to {activePropertyName} / {activeCameraName}
+              {cameraId ? ` / ${selectedCheckLabel}` : ""}.
             </p>
 
             {propertyCameras.length === 0 ? (
@@ -655,11 +710,11 @@ export default function CameraImportPage() {
               />
             ) : null}
 
-            {propertyCameras.length > 0 && willCreateCheck ? (
+            {cameraId && willCreateCheck ? (
               <p style={assignmentTextStyle}>
-                This camera site has no matching check selected, so importing
-                will create a new camera check dated to your earliest photo. You
-                can review or edit it later from the camera site.
+                Saving will log a new camera check for {activeCameraName} dated
+                today (this card pull). Pick an earlier check above if these
+                photos belong to one.
               </p>
             ) : null}
 
@@ -709,6 +764,7 @@ export default function CameraImportPage() {
               just check the cards below and press Save Photos.
             </span>
           </button>
+          <PhotoAiPrivacyNote style={{ marginTop: "0.75rem" }} />
         </Card>
       </Section>
 
@@ -721,7 +777,11 @@ export default function CameraImportPage() {
           />
         ) : (
           <div style={draftListStyle}>
-            {drafts.map((draft) => (
+            {drafts.map((draft) => {
+              const heading = draftHeading(draft);
+              const moon = moonLabelForDate(draft.photoDate);
+
+              return (
               <Card key={draft.id} as="article" variant="subtle">
                 <div style={draftHeaderStyle}>
                   <label style={checkFieldStyle}>
@@ -731,20 +791,19 @@ export default function CameraImportPage() {
                       onChange={(event) =>
                         updateDraft(draft.id, "selected", event.target.checked)
                       }
+                      style={checkboxStyle}
                     />
                     <span>
                       <span style={draftTitleStyle}>{draft.fileName}</span>
                       <span style={draftMetaStyle}>
-                        {draft.metadataSource}
-                        {draft.extractedTime ? ` / ${draft.extractedTime}` : ""}
-                        {draft.stampedTemperature
-                          ? ` / ${draft.stampedTemperature}° stamped`
-                          : ""}
-                        {draft.stampedMoonPhase
-                          ? ` / ${draft.stampedMoonPhase} moon (stamped)`
-                          : moonLabelForDate(draft.photoDate)
-                            ? ` / ${moonLabelForDate(draft.photoDate)} moon`
-                            : ""}
+                        {[
+                          draft.stampedTemperature
+                            ? `${draft.stampedTemperature}° stamped`
+                            : "",
+                          moon ? `${moon} moon` : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" / ")}
                       </span>
                     </span>
                   </label>
@@ -758,12 +817,10 @@ export default function CameraImportPage() {
                       <Badge variant="success">
                         AI saw: {draft.aiSpecies}
                         {draft.aiBehavior ? ` — ${draft.aiBehavior}` : ""}
-                        {draft.aiFrameDirection
-                          ? `, ${draft.aiFrameDirection.toLowerCase()}`
+                        {draft.frameDirection
+                          ? `, ${draft.frameDirection.toLowerCase()}`
                           : ""}
-                        {draft.travelDirection
-                          ? ` (headed ${draft.travelDirection})`
-                          : ""}
+                        {heading ? ` (headed ${heading})` : ""}
                       </Badge>
                     ) : null}
                     {draft.aiMatchLabel ? (
@@ -771,7 +828,9 @@ export default function CameraImportPage() {
                         Looks like: {draft.aiMatchLabel}
                       </Badge>
                     ) : null}
-                    <Badge>{draft.species || "Species needed"}</Badge>
+                    {draft.species ? null : (
+                      <Badge variant="warning">Pick species</Badge>
+                    )}
                   </div>
                 </div>
 
@@ -791,92 +850,84 @@ export default function CameraImportPage() {
 
                 <div className="di-form-grid" style={draftFormGridStyle}>
                   <label style={fieldStyle}>
-                    <span style={labelStyle}>File Name or Label</span>
-                    <input
-                      value={draft.fileName}
-                      onChange={(event) =>
-                        updateDraft(draft.id, "fileName", event.target.value)
-                      }
-                      style={inputStyle}
-                    />
-                  </label>
-
-                  <label style={fieldStyle}>
-                    <span style={labelStyle}>Photo Date and Time</span>
-                    <input
-                      type="datetime-local"
-                      value={draft.photoDate}
-                      onChange={(event) =>
-                        updateDraft(draft.id, "photoDate", event.target.value)
-                      }
-                      style={inputStyle}
-                    />
-                    {dateWarning(draft.dateConfidence) ? (
-                      <span style={dateWarnStyle}>
-                        {dateWarning(draft.dateConfidence)}
-                      </span>
-                    ) : null}
-                  </label>
-
-                  <label style={fieldStyle}>
                     <span style={labelStyle}>Species</span>
-                    <select
+                    <SpeciesSelect
                       value={draft.species}
-                      onChange={(event) =>
-                        updateDraft(draft.id, "species", event.target.value)
-                      }
+                      onChange={(species) => updateDraft(draft.id, "species", species)}
                       style={inputStyle}
-                    >
-                      {SPECIES_OPTIONS.map((species) => (
-                        <option key={species} value={species}>
-                          {species}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </label>
 
-                  <label style={fieldStyle}>
-                    <span style={labelStyle}>Behavior</span>
-                    <select
-                      value={draft.behavior}
-                      onChange={(event) =>
-                        updateDraft(draft.id, "behavior", event.target.value)
+                  <div style={wideFieldStyle}>
+                    <PhotoDateTimeFields
+                      idPrefix={`import-${draft.id}`}
+                      value={draft.photoDate}
+                      source={draft.captureTimeSource}
+                      fileTimeHint={draft.fileTimeHint}
+                      clockWarning={draft.clockWarning}
+                      onChange={(photoDate, captureTimeSource) =>
+                        patchDraft(draft.id, { photoDate, captureTimeSource })
                       }
-                      style={inputStyle}
-                    >
-                      <option value="">Not observed</option>
-                      {BEHAVIOR_OPTIONS.map((behavior) => (
-                        <option key={behavior} value={behavior}>
-                          {behavior}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                    />
+                  </div>
 
-                  <label style={fieldStyle}>
-                    <span style={labelStyle}>Headed (compass)</span>
-                    <select
-                      value={draft.travelDirection}
-                      onChange={(event) =>
-                        updateDraft(
-                          draft.id,
-                          "travelDirection",
-                          event.target.value,
-                        )
-                      }
-                      style={inputStyle}
-                    >
-                      <option value="">Direction unknown</option>
-                      {COMPASS_16.map((point) => (
-                        <option key={point} value={point}>
-                          {point}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  {draft.species === NO_ANIMAL ? null : (
+                    <>
+                      <label style={fieldStyle}>
+                        <span style={labelStyle}>Behavior</span>
+                        <select
+                          value={draft.behavior}
+                          onChange={(event) =>
+                            updateDraft(draft.id, "behavior", event.target.value)
+                          }
+                          style={inputStyle}
+                        >
+                          <option value="">Not observed</option>
+                          {BEHAVIOR_OPTIONS.map((behavior) => (
+                            <option key={behavior} value={behavior}>
+                              {behavior}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
 
+                      <label style={fieldStyle}>
+                        <span style={labelStyle}>Headed (compass)</span>
+                        <select
+                          value={heading}
+                          onChange={(event) =>
+                            updateDraft(
+                              draft.id,
+                              "travelDirectionOverride",
+                              event.target.value,
+                            )
+                          }
+                          style={inputStyle}
+                        >
+                          <option value="">Direction unknown</option>
+                          {COMPASS_16.map((point) => (
+                            <option key={point} value={point}>
+                              {point}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </>
+                  )}
                 </div>
 
+                <div style={chipWrapStyle}>
+                  <PhotoDetailChips
+                    idPrefix={`import-${draft.id}`}
+                    species={draft.species}
+                    deerCount={draft.deerCount}
+                    ageClass={draft.ageClass}
+                    antlerPoints={draft.antlerPoints}
+                    onChange={(patch: PhotoDetailValues) => patchDraft(draft.id, patch)}
+                  />
+                </div>
+
+                {draft.species === NO_ANIMAL ? null : (
                 <div style={buckLinkWrapStyle}>
                   <DeerProfileMultiSelect
                     deerProfiles={deerProfiles}
@@ -884,13 +935,7 @@ export default function CameraImportPage() {
                     buckNames={draft.buckNames}
                     idPrefix={`import-${draft.id}`}
                     onChange={(deerProfileIds, buckNames) =>
-                      setDrafts((currentDrafts) =>
-                        currentDrafts.map((item) =>
-                          item.id === draft.id
-                            ? { ...item, deerProfileIds, buckNames }
-                            : item,
-                        ),
-                      )
+                      patchDraft(draft.id, { deerProfileIds, buckNames })
                     }
                   />
                   {(draft.species === "Buck" || draft.aiSpecies === "Buck") &&
@@ -904,6 +949,7 @@ export default function CameraImportPage() {
                     </button>
                   ) : null}
                 </div>
+                )}
 
                 <label style={{ ...fieldStyle, marginTop: "1rem" }}>
                   <span style={labelStyle}>Notes</span>
@@ -917,7 +963,8 @@ export default function CameraImportPage() {
                   />
                 </label>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </Section>
@@ -965,6 +1012,7 @@ export default function CameraImportPage() {
   );
 }
 
+// The moon phase computed from the date (never the camera's stamped icon).
 function moonLabelForDate(photoDate: string): string {
   if (!photoDate) return "";
 
@@ -993,236 +1041,6 @@ async function storeImportImage(
   }
 }
 
-function createImportDraft({
-  file,
-  species,
-  deerProfileIds,
-  behavior,
-  travelDirection,
-  aiFrameDirection,
-  exifDate,
-  stampDate,
-  stampedTemperature,
-  stampedMoonPhase,
-  stampedWindDirection,
-  stampedWindSpeed,
-  stampedHumidity,
-  aiSpecies,
-  aiBehavior,
-  aiMatchLabel,
-  animalNotes,
-  imageId,
-  imageWidth,
-  imageHeight,
-}: {
-  file: File;
-  species: string;
-  deerProfileIds: string[];
-  behavior: string;
-  travelDirection: string;
-  aiFrameDirection: string;
-  exifDate: string;
-  stampDate: string;
-  stampedTemperature: string;
-  stampedMoonPhase: string;
-  stampedWindDirection: string;
-  stampedWindSpeed: string;
-  stampedHumidity: string;
-  aiSpecies: string;
-  aiBehavior: string;
-  aiMatchLabel: string;
-  animalNotes: string;
-  imageId: string;
-  imageWidth: number;
-  imageHeight: number;
-}): ImportDraft {
-  const metadata = extractPhotoMetadata(file, exifDate, stampDate);
-
-  return {
-    id: createDeerIntelId("import-photo"),
-    fileName: file.name,
-    originalFileName: file.name,
-    inboxDuplicate: false,
-    photoDate: metadata.photoDate,
-    extractedTime: metadata.extractedTime,
-    metadataSource: metadata.metadataSource,
-    dateConfidence: metadata.dateConfidence,
-    species,
-    deerProfileIds,
-    buckNames: [],
-    behavior,
-    travelDirection,
-    // Seed the notes with what the AI saw so it lands on the record; the
-    // hunter can edit or clear it on the draft card.
-    notes: animalNotes || IMPORTED_NOTE,
-    selected: true,
-    stampedTemperature,
-    stampedMoonPhase,
-    stampedWindDirection,
-    stampedWindSpeed,
-    stampedHumidity,
-    aiSpecies,
-    aiBehavior,
-    aiFrameDirection,
-    aiMatchLabel,
-    imageId,
-    imageWidth,
-    imageHeight,
-  };
-}
-
-// Warns when the auto-filled date is not the real capture time, so a cellular
-// camera's batch/arrival time isn't saved as if it were the shutter time.
-// Trusted sources (EXIF, printed info bar) and filename dates get no warning.
-function dateWarning(confidence: DateConfidence): string {
-  if (confidence === "file") {
-    return "This date is the file's — for a cellular camera that's when the batch came through, not when the shot was taken. Set the real capture time.";
-  }
-
-  if (confidence === "none") {
-    return "No date was found in this photo. Set the date and time the shot was actually taken.";
-  }
-
-  return "";
-}
-
-function extractPhotoMetadata(file: File, exifDate: string, stampDate: string) {
-  // The printed stamp is the camera's own capture time, burned into the pixels
-  // and immune to the EXIF rewrite that cellular cams and app/share exports do
-  // on download (they stamp DateTimeOriginal with the *download* time). So a
-  // stamp that carries a time wins; EXIF — lossless and exact for photos pulled
-  // straight off the SD card — comes next; a date-only stamp is the last
-  // structured source before falling back to the filename or file date.
-  const resolved = pickCaptureDateTime(exifDate, stampDate);
-
-  if (resolved.source === "stampTime") {
-    const parsed = new Date(resolved.dateTime);
-
-    return {
-      photoDate: resolved.dateTime,
-      extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
-      metadataSource: "Date read from photo stamp",
-      dateConfidence: "capture" as DateConfidence,
-    };
-  }
-
-  if (resolved.source === "exif") {
-    const parsed = new Date(resolved.dateTime);
-
-    return {
-      photoDate: resolved.dateTime,
-      extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
-      metadataSource: "Date read from photo (EXIF)",
-      dateConfidence: "capture" as DateConfidence,
-    };
-  }
-
-  if (resolved.source === "stampDate") {
-    // A date-only stamp has no time; anchor it to noon for the datetime input.
-    const photoDate = `${resolved.dateTime}T12:00`;
-    const parsed = new Date(photoDate);
-
-    return {
-      photoDate,
-      extractedTime: Number.isNaN(parsed.getTime()) ? "" : timeLabel(parsed),
-      metadataSource: "Date read from photo stamp",
-      dateConfidence: "capture" as DateConfidence,
-    };
-  }
-
-  const filenameDate = dateTimeFromFileName(file.name);
-
-  if (filenameDate) {
-    return {
-      photoDate: filenameDate.photoDate,
-      extractedTime: filenameDate.extractedTime,
-      metadataSource: "Date read from filename",
-      dateConfidence: "filename" as DateConfidence,
-    };
-  }
-
-  if (file.lastModified > 0) {
-    const fileDate = new Date(file.lastModified);
-
-    return {
-      photoDate: toDateTimeInputValue(fileDate),
-      extractedTime: timeLabel(fileDate),
-      metadataSource: "Date read from file metadata",
-      dateConfidence: "file" as DateConfidence,
-    };
-  }
-
-  return {
-    photoDate: "",
-    extractedTime: "",
-    metadataSource: "No date metadata found",
-    dateConfidence: "none" as DateConfidence,
-  };
-}
-
-function dateTimeFromFileName(fileName: string) {
-  const match = /(20\d{2})[-_]?(\d{2})[-_]?(\d{2})(?:[^\d]?(\d{2})[-_]?(\d{2})(?:[-_]?(\d{2}))?)?/.exec(
-    fileName,
-  );
-
-  if (!match) return null;
-
-  const [, year, month, day, hour = "12", minute = "00", second = "00"] = match;
-  const parsedDate = new Date(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour),
-    Number(minute),
-    Number(second),
-  );
-
-  if (Number.isNaN(parsedDate.getTime())) return null;
-
-  return {
-    photoDate: toDateTimeInputValue(parsedDate),
-    extractedTime: timeLabel(parsedDate),
-  };
-}
-
-function toDateTimeInputValue(date: Date) {
-  const year = date.getFullYear();
-  const month = padNumber(date.getMonth() + 1);
-  const day = padNumber(date.getDate());
-  const hour = padNumber(date.getHours());
-  const minute = padNumber(date.getMinutes());
-
-  return `${year}-${month}-${day}T${hour}:${minute}`;
-}
-
-function timeLabel(date: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date);
-}
-
-function padNumber(value: number) {
-  return String(value).padStart(2, "0");
-}
-
-function deriveCheckDate(drafts: ImportDraft[]): string {
-  // Photo dates are datetime-local values (YYYY-MM-DDThh:mm); the check stores a
-  // plain date. Use the earliest photo's date, falling back to today.
-  const dates = drafts
-    .map((draft) => draft.photoDate.trim().slice(0, 10))
-    .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
-    .sort();
-
-  if (dates.length > 0) return dates[0];
-
-  const today = new Date();
-
-  return `${today.getFullYear()}-${padNumber(today.getMonth() + 1)}-${padNumber(
-    today.getDate(),
-  )}`;
-}
-
 function formatRequirementList(requirements: string[]) {
   if (requirements.length === 0) return "";
   if (requirements.length === 1) return requirements[0];
@@ -1233,15 +1051,25 @@ function formatRequirementList(requirements: string[]) {
   }`;
 }
 
-function buildImportNotes(draft: ImportDraft) {
-  return [
-    draft.notes.trim(),
-    draft.metadataSource ? `Metadata: ${draft.metadataSource}.` : "",
-    draft.extractedTime ? `Time: ${draft.extractedTime}.` : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
+const needsChoiceStyle: CSSProperties = {
+  borderColor: "var(--warning-border)",
+  boxShadow: "inset 3px 0 0 var(--warning-text)",
+};
+
+const wideFieldStyle: CSSProperties = {
+  gridColumn: "1 / -1",
+};
+
+const chipWrapStyle: CSSProperties = {
+  marginTop: "0.75rem",
+};
+
+const checkboxStyle: CSSProperties = {
+  width: "22px",
+  height: "22px",
+  marginTop: "0.1rem",
+  flexShrink: 0,
+};
 
 // The PageHeader now carries the golden-hour band itself (di-section-hero), so
 // this wrapper card just passes through without its own surface/padding.
@@ -1300,20 +1128,6 @@ const readonlyFieldStyle: CSSProperties = {
   alignItems: "center",
   color: "var(--text-muted)",
   fontWeight: 700,
-};
-
-const dateWarnStyle: CSSProperties = {
-  display: "block",
-  marginTop: "0.4rem",
-  padding: "0.55rem 0.7rem",
-  border: "1px solid var(--warning-border)",
-  borderLeft: "4px solid var(--warning-text)",
-  borderRadius: "var(--radius-sm)",
-  background: "var(--warning-bg)",
-  color: "var(--text)",
-  fontSize: "0.82rem",
-  fontWeight: 600,
-  lineHeight: 1.4,
 };
 
 const assignmentTextStyle: CSSProperties = {

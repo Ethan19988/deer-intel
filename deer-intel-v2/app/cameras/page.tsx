@@ -214,7 +214,7 @@ export default function CamerasPage() {
         title="Cameras"
         meta={
           propertyCameras.length > 0
-            ? `${propertyCameras.length} sites · ${activeCameraCount} active · ${propertyPhotos.length} photos`
+            ? `${propertyCameras.length} ${propertyCameras.length === 1 ? "site" : "sites"} · ${activeCameraCount} active · ${propertyPhotos.length} ${propertyPhotos.length === 1 ? "photo" : "photos"}`
             : undefined
         }
         action={

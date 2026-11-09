@@ -42,7 +42,8 @@ export function standTimingMismatch(
   if (stand.bestTime === sit) return null;
   const sitLabel = sit === "pm" ? "Evening" : "Morning";
   const standLabel = STAND_BEST_TIME_LABEL[stand.bestTime].toLowerCase();
-  return { reason: `${sitLabel} sit — this is a ${standLabel} stand` };
+  const article = /^[aeiou]/.test(standLabel) ? "an" : "a";
+  return { reason: `${sitLabel} sit — this is ${article} ${standLabel} stand` };
 }
 
 export type StandCheckResult = {

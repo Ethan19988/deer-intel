@@ -58,11 +58,11 @@ export default function DeerHoursChart({
         {peak !== null ? (
           <>
             Busiest <strong>{hourLabel(peak)} to {hourLabel(peak + 2)}</strong>,
-            from {activity.total} timed photos
+            from {activity.total} timed {activity.total === 1 ? "photo" : "photos"}
             {regional ? ` shared by ${regional.contributors} hunters` : ""}.
           </>
         ) : (
-          `${activity.total} timed photos so far. A pattern shows after a few more.`
+          `${activity.total} timed ${activity.total === 1 ? "photo" : "photos"} so far. A pattern shows after a few more.`
         )}
       </p>
 

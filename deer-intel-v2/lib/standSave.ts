@@ -1,4 +1,5 @@
 import { findStandLocation } from "@/lib/accessScent";
+import { huntMatchesStand } from "@/lib/standHunts";
 import { createStandPin } from "@/lib/standPins";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 import type { MapPin } from "@/types/mapPin";
@@ -82,5 +83,23 @@ export function saveStandWithLocation(
     ? state.stands.map((existing) => (existing.id === stand.id ? stand : existing))
     : [...state.stands, stand];
 
-  return { ...state, stands, pins };
+  // Older id-less sits are matched to a stand by name (lib/standHunts). On a
+  // rename, give them the stand's id first so they don't fall off its record —
+  // unless another stand here still has the old name (then they're ambiguous).
+  let hunts = state.hunts;
+  if (previous && previous.name.trim().toLowerCase() !== stand.name.trim().toLowerCase()) {
+    const oldNameShared = state.stands.some(
+      (other) =>
+        other.id !== previous.id &&
+        other.propertyId === previous.propertyId &&
+        other.name.trim().toLowerCase() === previous.name.trim().toLowerCase(),
+    );
+    if (!oldNameShared && state.hunts.some((hunt) => !hunt.standId && huntMatchesStand(previous, hunt))) {
+      hunts = state.hunts.map((hunt) =>
+        !hunt.standId && huntMatchesStand(previous, hunt) ? { ...hunt, standId: stand.id } : hunt,
+      );
+    }
+  }
+
+  return { ...state, stands, pins, hunts };
 }

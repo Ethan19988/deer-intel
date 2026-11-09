@@ -270,6 +270,7 @@ import {
   rutPeakMonthDay,
   useSeasonCalendar,
 } from "@/lib/seasonCalendar";
+import { formatWindSpeedFromMph, useUnitPreferences } from "@/lib/units";
 import Button from "./ui/Button";
 
 type ClickToAddPinProps = {
@@ -1284,6 +1285,9 @@ function boundsFromHuntArea(points: HuntAreaPoint[]): OfflineMapBounds {
 
 export default function HuntingMap() {
   const state = useDeerIntelStore();
+  // Settings → units, for every wind speed the map shows. The map's own
+  // forecast stays in mph / °F because the movement model scores in those.
+  const units = useUnitPreferences();
   const [pinType, setPinType] = useState<PinType>(
     PROPERTY_ASSET_PIN_TYPES[0],
   );
@@ -1441,16 +1445,26 @@ export default function HuntingMap() {
     ? timelineSlots.find((slot) => slot.key === timelineKey) ?? null
     : null;
   const showingFuture = Boolean(selectedSlot && !selectedSlot.isNow);
+  // The live wind's speed in the user's unit (liveWind holds mph).
+  const liveWindSpeedLabel =
+    liveWind && liveWind.speedMph !== null
+      ? formatWindSpeedFromMph(liveWind.speedMph, units.wind)
+      : (liveWind?.speedLabel ?? "");
   const windData = useMemo(() => {
-    if (!liveWind || !selectedSlot || selectedSlot.isNow) return liveWind;
+    if (!liveWind) return liveWind;
+    if (!selectedSlot || selectedSlot.isNow) {
+      return { ...liveWind, speedLabel: liveWindSpeedLabel };
+    }
     return {
       fromCompass: selectedSlot.windFromCompass || liveWind.fromCompass,
       speedLabel:
-        selectedSlot.windMph !== null ? `${Math.round(selectedSlot.windMph)} mph` : "",
+        selectedSlot.windMph !== null
+          ? formatWindSpeedFromMph(selectedSlot.windMph, units.wind)
+          : "",
       speedMph: selectedSlot.windMph,
       thermal: selectedSlot.thermal,
     };
-  }, [liveWind, selectedSlot]);
+  }, [liveWind, liveWindSpeedLabel, selectedSlot, units.wind]);
   // The window the movement layer, legend and badge describe.
   const movementPeriod = selectedSlot?.period ?? livePeriod;
   const [waybackReleases, setWaybackReleases] = useState<WaybackRelease[]>([]);
@@ -2541,6 +2555,9 @@ export default function HuntingMap() {
 
     let cancelled = false;
 
+    // Deliberately mph / °F (the default): speedMph and the temperature feed
+    // the movement model, which scores in those units. Labels the hunter sees
+    // are converted to their Settings units at display time.
     fetchLiveForecast(point)
       .then((result) => {
         if (cancelled) return;
@@ -2968,7 +2985,8 @@ export default function HuntingMap() {
       endedAt: new Date(),
       windDirection:
         liveWind?.fromCompass || propertyToday.forecast?.current.windDirection || "",
-      windSpeed: liveWind?.speedLabel || propertyToday.forecast?.current.windSpeed || "",
+      // Both sources in the Settings unit (Today's forecast is fetched in it).
+      windSpeed: liveWindSpeedLabel || propertyToday.forecast?.current.windSpeed || "",
     });
 
     if (!result.ok) {
@@ -5047,7 +5065,7 @@ export default function HuntingMap() {
                   }}
                 >
                   {pendingScent && liveWind
-                    ? `Wind ${liveWind.fromCompass} ${liveWind.speedLabel} · scent → ${pendingScent.drift}${
+                    ? `Wind ${liveWind.fromCompass} ${liveWindSpeedLabel} · scent → ${pendingScent.drift}${
                         pendingScent.verdict
                           ? ` · ${pendingScent.verdict.text}`
                           : ""
