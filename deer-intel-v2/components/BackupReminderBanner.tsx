@@ -19,7 +19,7 @@ type BackupReminderBannerProps = {
 // A one-line, dismissible nudge to download a backup. Data lives only in this
 // browser, so a manual backup is easy to forget; this surfaces when it's been a
 // while or a fair amount of new data has piled up. Dismissing it hides it for a
-// week. It links straight to the existing export in Settings.
+// week. It links straight to the Data tab in Settings, where the export lives.
 const SNOOZE_KEY = "deer-intel:backup-reminder-snoozed";
 const SNOOZE_MS = 7 * 86_400_000;
 
@@ -73,7 +73,7 @@ export default function BackupReminderBanner({
       <p style={textStyle} title="Your data lives only in this browser. A backup protects it if the browser is cleared or the phone is lost.">
         {headline(status)}
       </p>
-      <Link href="/settings" className="di-navbtn" style={linkStyle}>
+      <Link href="/settings?tab=data" className="di-navbtn" style={linkStyle}>
         Back up
       </Link>
       <button

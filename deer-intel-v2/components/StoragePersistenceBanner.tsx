@@ -23,7 +23,7 @@ export default function StoragePersistenceBanner() {
         <strong>This device&apos;s storage is full.</strong> Recent changes may
         not be saved. Free up space by removing old offline maps or photos.
       </p>
-      <Link href="/settings" className="di-navbtn" style={linkStyle}>
+      <Link href="/settings?tab=data" className="di-navbtn" style={linkStyle}>
         Manage storage
       </Link>
     </div>

@@ -5,13 +5,12 @@ import { usePathname } from "next/navigation";
 import AccountNavControl from "@/components/auth/AccountNavControl";
 import BuckMark from "@/components/ui/BuckMark";
 import {
+  FOOTER_LINKS,
   isActivePath as isActive,
   NAV_GROUPS,
-  SETTINGS_LINK,
 } from "@/components/ui/navConfig";
 
 const ICON_SIZE = 18;
-const FOOTER_LINKS = [SETTINGS_LINK];
 
 export default function Sidebar({ activePath }: { activePath?: string } = {}) {
   const currentPath = usePathname() ?? "/";
@@ -37,8 +36,11 @@ export default function Sidebar({ activePath }: { activePath?: string } = {}) {
                 key={link.href}
                 href={link.href}
                 className="di-sidebar-link"
+                aria-label={group.quickAdd ? `Add ${link.label.toLowerCase()}` : undefined}
                 aria-current={
-                  isActive(pathname, link.href) ? "page" : undefined
+                  !group.quickAdd && isActive(pathname, link.href)
+                    ? "page"
+                    : undefined
                 }
               >
                 <span className="di-sidebar-icon" aria-hidden="true">
@@ -62,6 +64,9 @@ export default function Sidebar({ activePath }: { activePath?: string } = {}) {
                 isActive(pathname, link.href) ? "page" : undefined
               }
             >
+              <span className="di-sidebar-icon" aria-hidden="true">
+                {link.icon(ICON_SIZE)}
+              </span>
               {link.label}
             </Link>
           ))}

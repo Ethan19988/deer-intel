@@ -21,7 +21,7 @@ export default function SeasonReportPage() {
     <PageShell maxWidth="900px">
       <div className="di-report-hide-print" style={headerWrapStyle}>
         <PageHeader
-          eyebrow="Plan the hunt"
+          eyebrow="Season Report"
           title="Season Report"
           description="Your season on one page: sits, deer, best stands, winds and times, tracked bucks, and what to change next year."
           icon={<ClipboardIcon size={20} />}

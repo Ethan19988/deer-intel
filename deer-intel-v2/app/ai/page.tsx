@@ -369,7 +369,7 @@ export default function AIPage() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow={selectedProperty ? `Assistant · ${selectedProperty.name}` : "Assistant"}
+        eyebrow={selectedProperty ? `AI Scout · ${selectedProperty.name}` : "AI Scout"}
         title="AI Scout"
       />
 

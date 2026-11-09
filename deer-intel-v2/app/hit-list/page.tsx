@@ -50,8 +50,8 @@ export default function HitListPage() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow={`Hit list · ${summaries.length} ${summaries.length === 1 ? "buck" : "bucks"}${property ? ` · ${property.name}` : ""}`}
-        title="Bucks"
+        eyebrow={`Hit List · ${summaries.length} ${summaries.length === 1 ? "buck" : "bucks"}${property ? ` · ${property.name}` : ""}`}
+        title="Hit List"
         action={
           available ? (
             <a
@@ -163,7 +163,7 @@ function PartyHitList({
   );
 
   return (
-    <Section eyebrow="Party hit list" title={`${partyName} — everyone's targets`}>
+    <Section eyebrow="Party" title={`${partyName} — everyone's targets`}>
       {sorted.length === 0 ? (
         <Card>
           <p style={{ margin: 0, color: "var(--text-muted)" }}>

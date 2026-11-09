@@ -30,7 +30,7 @@ export default function AccountNavControl() {
   const tone = syncStatusTone(syncStatus);
 
   return (
-    <Link href="/settings" style={accountStyle} aria-label="Account and sync" className="di-navbtn">
+    <Link href="/settings?tab=account" style={accountStyle} aria-label="Account and sync" className="di-navbtn">
       <span
         style={{ ...dotStyle, background: TONE_COLORS[tone] ?? TONE_COLORS.default }}
         aria-hidden
