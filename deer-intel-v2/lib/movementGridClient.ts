@@ -80,17 +80,36 @@ export function reviveMovementGrid(value: unknown): MovementGrid | null {
 }
 
 /**
- * Shrink a bbox about its center so neither side exceeds the API's limit — a
- * huge drawn outline still gets a read of its middle instead of a 400.
+ * Shrink a bbox so neither side exceeds the API's limit — a huge drawn outline
+ * still gets a read instead of a 400. The window centers on the middle of the
+ * `focus` points inside the outline (the hunter's stands, beds and food) when
+ * there are any, so a big area reads where the hunting is rather than its
+ * geometric middle; it's slid back to stay inside the outline.
  */
-export function clampGridBbox(bbox: GridBbox): GridBbox {
+export function clampGridBbox(bbox: GridBbox, focus: LatLng[] = []): GridBbox {
   const max = MOVEMENT_GRID_LIMITS.maxSideM * 0.99;
   const { heightM, widthM } = bboxSizeM(bbox);
   if (heightM <= max && widthM <= max) return bbox;
-  const c = centerOfBounds(bbox);
+  const inside = focus.filter(
+    (p) =>
+      Number.isFinite(p.lat) && Number.isFinite(p.lng) &&
+      p.lat >= bbox.minLat && p.lat <= bbox.maxLat &&
+      p.lng >= bbox.minLng && p.lng <= bbox.maxLng,
+  );
+  const mid = centerOfBounds(bbox);
+  const c = inside.length
+    ? centerOfBounds({
+        minLat: Math.min(...inside.map((p) => p.lat)),
+        maxLat: Math.max(...inside.map((p) => p.lat)),
+        minLng: Math.min(...inside.map((p) => p.lng)),
+        maxLng: Math.max(...inside.map((p) => p.lng)),
+      })
+    : mid;
   const halfLat = (Math.min(heightM, max) / 2) / M_PER_DEG;
-  const halfLng = (Math.min(widthM, max) / 2) / (M_PER_DEG * Math.cos((c.lat * Math.PI) / 180));
-  return { minLat: c.lat - halfLat, minLng: c.lng - halfLng, maxLat: c.lat + halfLat, maxLng: c.lng + halfLng };
+  const halfLng = (Math.min(widthM, max) / 2) / (M_PER_DEG * Math.cos((mid.lat * Math.PI) / 180));
+  const lat = Math.min(Math.max(c.lat, bbox.minLat + halfLat), bbox.maxLat - halfLat);
+  const lng = Math.min(Math.max(c.lng, bbox.minLng + halfLng), bbox.maxLng - halfLng);
+  return { minLat: lat - halfLat, minLng: lng - halfLng, maxLat: lat + halfLat, maxLng: lng + halfLng };
 }
 
 type PropertyLike = Pick<Property, "latitude" | "longitude" | "huntArea"> | null | undefined;
@@ -98,11 +117,12 @@ type PropertyLike = Pick<Property, "latitude" | "longitude" | "huntArea"> | null
 /** What to request for a property: hunt-area bbox first, else its coordinate. */
 export function movementGridRequestFor(
   property: PropertyLike,
+  focus: LatLng[] = [],
 ): { point: LatLng; bbox: GridBbox | null; key: string } | null {
   if (!property) return null;
   const area = boundsOfHuntArea(property.huntArea);
   if (area) {
-    const bbox = clampGridBbox(area);
+    const bbox = clampGridBbox(area, focus);
     return {
       point: centerOfBounds(bbox),
       bbox,
@@ -141,12 +161,18 @@ function cachedGrid(key: string): MovementGrid | null {
   return stored;
 }
 
-/** The property's movement grid, fetched once per tab per ground. */
-export function useMovementGrid(property: PropertyLike): {
+/**
+ * The property's movement grid, fetched once per tab per ground. `focus` (the
+ * hunter's stands, beds, food) steers which part of a too-big area is read.
+ */
+export function useMovementGrid(
+  property: PropertyLike,
+  focus: LatLng[] = [],
+): {
   grid: MovementGrid | null;
   status: MovementGridStatus;
 } {
-  const req = movementGridRequestFor(property);
+  const req = movementGridRequestFor(property, focus);
   const key = req?.key ?? "";
 
   const [state, setState] = useState<{ key: string; grid: MovementGrid | null; status: MovementGridStatus }>(

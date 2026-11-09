@@ -493,6 +493,19 @@ function lastPointAsFix(points: Array<{ lat: number; lng: number }>): TrackFix |
   return last ? { lat: last.lat, lng: last.lng, accuracy: null, timestamp: null } : null;
 }
 
+// Pins that mark where the hunting is: on a hunt area too big for one terrain
+// read, the deer-route grid centers on these.
+const ROUTE_FOCUS_PIN_TYPES = new Set<PinType>([
+  "Stand",
+  "Treestand",
+  "Bedding",
+  "Bedding Area",
+  "Food",
+  "Food Source",
+  "Water",
+  "Water Source",
+]);
+
 // Directional assets: a stand you sit and a camera you aim both point a way and
 // both put your scent on the ground. They get the scent-plume preview while
 // placing and a second "aim it" step before saving.
@@ -2273,8 +2286,17 @@ export default function HuntingMap() {
   // land-cover grid, walked from beds to food by lib/deerRoutes. Fetched only
   // while the Movement layer is on. The straight-line pin corridors above stay
   // as the fallback when the grid can't be read.
+  // On a hunt area bigger than one grid read, read around these pins.
+  const routeFocus = useMemo(
+    () =>
+      pins
+        .filter((pin) => ROUTE_FOCUS_PIN_TYPES.has(pin.type))
+        .map((pin) => ({ lat: pin.lat, lng: pin.lng })),
+    [pins],
+  );
   const movementGrid = useMovementGrid(
     showMovement ? (selectedProperty ?? null) : null,
+    routeFocus,
   );
   // Each saved stand's map location (its pin, via findStandLocation).
   const routeStandLocations = useMemo(() => {
