@@ -89,7 +89,10 @@ export default function HuntLogList({
             </button>
             <div style={headerStyle}>
               <div>
-                <p style={eyebrowStyle}>{hunt.standName || "Stand"}</p>
+                <p style={eyebrowStyle}>
+                  {hunt.kind === "blood-trail" ? "Blood trail · " : ""}
+                  {hunt.standName || "Stand"}
+                </p>
                 <h3 style={titleStyle}>{formatHuntDate(hunt.date)}</h3>
                 {getPropertyName ? (
                   <p style={subtitleStyle}>{getPropertyName(hunt.propertyId)}</p>

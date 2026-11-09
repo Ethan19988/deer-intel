@@ -552,7 +552,11 @@ export function buildSeasonReport(
   ctx: StatsContext,
 ): SeasonReport {
   const season = seasonWindow(seasonYear);
-  const hunts = input.hunts.filter((hunt) => hunt.date && inSeason(hunt.date, season));
+  // Saved blood trails are recovery records, not sits (they'd double-count the
+  // sit the shot came from).
+  const hunts = input.hunts.filter(
+    (hunt) => hunt.kind !== "blood-trail" && hunt.date && inSeason(hunt.date, season),
+  );
   const checks = input.cameraChecks.filter((check) => check.date && inSeason(check.date, season));
   const photos = seasonPhotos(input.photos, season, ctx);
 

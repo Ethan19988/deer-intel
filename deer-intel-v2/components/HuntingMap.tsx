@@ -5843,7 +5843,11 @@ export default function HuntingMap() {
                   : tileOwnerPick.isPublic
                     ? "Public"
                     : "Private"
-              } · ${ownerAcresText(tileOwnerPick.acres) || "acres not listed"}`}
+              } · ${
+                ownerAcresText(tileOwnerPick.acres, {
+                  mappedAcres: tileOwnerPick.mappedAcres,
+                }) || "acres not listed"
+              }`}
               recordUrl={tileOwnerPick.recordUrl ?? null}
               lines={countyRecordLines(tileOwnerDetail, tileOwnerPick.ownerName)}
               previousOwner={

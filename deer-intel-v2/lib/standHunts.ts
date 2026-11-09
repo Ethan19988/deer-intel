@@ -11,13 +11,15 @@ import type { Stand } from "@/types/stand";
 
 type StandRef = Pick<Stand, "id" | "name"> & { propertyId?: string };
 type HuntRef = Pick<HuntLogEntry, "standId"> &
-  Partial<Pick<HuntLogEntry, "standName" | "propertyId">>;
+  Partial<Pick<HuntLogEntry, "standName" | "propertyId" | "kind">>;
 
 function nameKey(name: string | undefined): string {
   return (name ?? "").trim().toLowerCase();
 }
 
 export function huntMatchesStand(stand: StandRef, hunt: HuntRef): boolean {
+  // A saved blood trail is a recovery record, not a sit on the stand.
+  if (hunt.kind === "blood-trail") return false;
   if (hunt.standId) return hunt.standId === stand.id;
   if (!stand.propertyId || hunt.propertyId !== stand.propertyId) return false;
   const name = nameKey(stand.name);
