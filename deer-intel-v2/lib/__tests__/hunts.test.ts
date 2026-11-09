@@ -52,7 +52,7 @@ describe("hunt history helpers", () => {
 
   it("summarizes a sit on one line", () => {
     expect(huntOneLineSummary(hunt("h", { bucks: 2, does: 1 }))).toBe(
-      "Sat Nov 8 · PM · My Tree · 2 bucks, 1 doe",
+      "Sun Nov 8 · PM · My Tree · 2 bucks, 1 doe",
     );
     expect(huntOneLineSummary(hunt("h", { startTime: "", endTime: "" }))).toBe(
       "Sat Nov 8 · My Tree · nothing seen",
