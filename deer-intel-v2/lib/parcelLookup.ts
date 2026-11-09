@@ -191,7 +191,9 @@ async function queryParcelOwnerProvider(
     provider.ownerFieldNames,
     provider.ownerFieldMode ?? "join",
   );
-  const ownerName = joined ? stripCareOf(joined) : undefined;
+  // PA DEP marks a name cut at 50 characters with a trailing "*" (the build's
+  // depOwner drops it too).
+  const ownerName = joined ? stripCareOf(joined.replace(/\s*\*+$/, "")) || undefined : undefined;
 
   if (!ownerName) return null;
 

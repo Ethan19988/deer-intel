@@ -1343,7 +1343,7 @@ async function fetchCounty(slug, outPath, labelPath) {
           type: "Feature",
           geometry: geom,
           properties: {
-            // Only owner/acres/pub are rendered by the map overlay; pin/addr
+            // Only owner/acres/pub (+ mac/rec/prev/chg) reach the tiles; pin/addr
             // were dead weight in the tiles (click-to-identify queries the
             // county services live), so they're dropped to shrink the archive.
             owner,
