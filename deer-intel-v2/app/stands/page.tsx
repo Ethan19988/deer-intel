@@ -194,7 +194,7 @@ export default function StandsPage() {
           <>
             <Link href="/hunt-log" className="di-link-btn">
               <ClipboardIcon size={16} />
-              Log hunt
+              Log sit
             </Link>
             <a
               href="#add-stand"

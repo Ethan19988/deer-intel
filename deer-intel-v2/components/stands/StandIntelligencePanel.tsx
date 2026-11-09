@@ -51,7 +51,7 @@ export default function StandIntelligencePanel({
       {!summary.hasHuntHistory ? (
         <EmptyState
           title="No hunt history yet"
-          description="Log hunts from this stand to track pressure, sightings, shot chances, and harvests."
+          description="Log sits from this stand to track pressure, sightings, shot chances, and harvests."
         />
       ) : null}
 
