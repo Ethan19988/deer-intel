@@ -26,8 +26,28 @@ const SERVICE_WORKER = `// Deer Intel service worker (generated per deploy — s
 // untouched here.
 
 const CACHE = "deer-intel-app-${VERSION}";
-// Warm the routes a hunter reaches for offline; others are cached as visited.
-const PRECACHE = ["/", "/map"];
+// Warm every page the app navigation reaches (components/ui/navConfig.tsx), so
+// tapping Log sit or Cameras with no signal opens that page, not the map. Keep
+// this list in step with navConfig when a page is added there. "/offline" is
+// what an uncached page falls back to.
+const PRECACHE = [
+  "/",
+  "/map",
+  "/cameras",
+  "/stands",
+  "/hit-list",
+  "/properties",
+  "/import",
+  "/ai",
+  "/hunt-log",
+  "/calendar",
+  "/report",
+  "/party",
+  "/settings",
+  "/offline",
+];
+// Served for a page that was never saved on this phone while offline.
+const OFFLINE_FALLBACK = "/offline";
 // Upper bound on build assets warmed at install, so a surprise can't balloon it.
 const MAX_WARM_ASSETS = 400;
 // Matches "/_next/static/…" in HTML and the bare "static/…" chunk paths
@@ -133,8 +153,10 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/")) return;
   if (url.pathname === "/sw.js") return;
 
-  // Page loads: network-first (stay fresh online), fall back to the cached shell
-  // so the app still opens offline.
+  // Page loads: network-first (stay fresh online), fall back to the cached copy
+  // of that page offline. A page never saved on this phone gets the offline
+  // notice, never a different page (the old map fallback opened the Map when
+  // the hunter tapped Log sit).
   if (request.mode === "navigate") {
     event.respondWith(
       (async () => {
@@ -150,8 +172,7 @@ self.addEventListener("fetch", (event) => {
           const cached = await caches.match(request);
           return (
             cached ||
-            (await caches.match("/map")) ||
-            (await caches.match("/")) ||
+            (await caches.match(OFFLINE_FALLBACK)) ||
             Response.error()
           );
         }

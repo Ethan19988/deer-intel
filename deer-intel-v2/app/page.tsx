@@ -86,6 +86,7 @@ export default function Home() {
     weatherPoint,
     weatherKey,
     forecast,
+    forecastAsOf,
     now,
     moon,
     seasonCtx,
@@ -164,6 +165,7 @@ export default function Home() {
         verdict={verdict}
         propertyName={activeProperty?.name ?? "Your ground"}
         photo={heroPhoto}
+        forecastAsOf={forecastAsOf}
       />
 
       <div style={todayStackStyle}>

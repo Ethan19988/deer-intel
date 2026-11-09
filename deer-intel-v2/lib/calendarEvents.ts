@@ -54,15 +54,15 @@ export function dateToDayKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-// A stored date string → its day bucket. A plain date or ISO string keeps its
-// leading YYYY-MM-DD (what the app stamps and displays elsewhere); anything else
-// is parsed. Null when it can't be read as a date.
+// A stored date string → its local day bucket. A plain "YYYY-MM-DD" is that
+// day as written; a timestamp is parsed and bucketed on the device's local
+// date, so an evening pin stamped "2026-11-08T23:30:00.000Z" (6:30 PM EST)
+// lands on Nov 8, not Nov 9. Null when it can't be read as a date.
 export function toDayKey(value: string): string | null {
   if (!value) return null;
 
   const trimmed = value.trim();
-  const leading = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmed);
-  if (leading) return `${leading[1]}-${leading[2]}-${leading[3]}`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
 
   const parsed = new Date(trimmed);
   if (Number.isNaN(parsed.getTime())) return null;

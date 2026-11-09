@@ -1,4 +1,5 @@
 import type { CameraCheck } from "@/types/cameraCheck";
+import { dateInputTime } from "@/lib/photos";
 
 export type CameraCheckSummary = {
   checkCount: number;
@@ -68,7 +69,8 @@ export function formatCameraCheckDate(date: string | undefined) {
 }
 
 function checkTime(check: CameraCheck) {
-  const time = Date.parse(check.date);
+  // "YYYY-MM-DD" is local midnight, not UTC (a day early in the US).
+  const time = dateInputTime(check.date);
 
   return Number.isNaN(time) ? 0 : time;
 }

@@ -11,6 +11,7 @@
 import type { Camera } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { LatLng, TerrainMovementFeature } from "@/lib/terrainMovement";
+import { dateInputTime } from "@/lib/photos";
 
 // A camera reduced to a located, summed activity record.
 export type CameraObservation = {
@@ -53,7 +54,8 @@ export function aggregateCameraActivity(
     e.bucks += c.bucks || 0;
     e.does += c.does || 0;
     e.fawns += c.fawns || 0;
-    const t = Date.parse(c.date);
+    // "YYYY-MM-DD" is local midnight, not UTC.
+    const t = dateInputTime(c.date);
     if (Number.isFinite(t)) e.lastMs = Math.max(e.lastMs, t);
     byCam.set(c.cameraId, e);
   }

@@ -57,6 +57,7 @@ declare module "leaflet" {
 
   export class Map {
     containerPointToLatLng(point: PointExpression): LatLng;
+    mouseEventToContainerPoint(event: MouseEvent | TouchEvent): Point;
     getContainer(): HTMLElement;
     getCenter(): LatLng;
     getBounds(): LatLngBounds;

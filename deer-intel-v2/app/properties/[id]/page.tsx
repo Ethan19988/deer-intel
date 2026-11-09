@@ -261,6 +261,7 @@ export default function PropertyWorkspacePage() {
         verdict={today.verdict}
         propertyName={property.name}
         photo={today.heroPhoto}
+        forecastAsOf={today.forecastAsOf}
       />
 
       <ConditionsStrip

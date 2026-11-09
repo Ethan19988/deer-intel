@@ -1,5 +1,6 @@
 import * as L from "leaflet";
 import { Marker } from "react-leaflet";
+import { NO_COUNTER_ROTATE_CLASS } from "@/lib/leafletRotation";
 
 type CameraFacingConeProps = {
   lat: number;
@@ -71,7 +72,9 @@ function createConeIcon(
   </svg>`;
 
   return L.divIcon({
-    className: "deer-intel-camera-cone",
+    // Points a true compass direction, so it turns with a heading-up map
+    // instead of being kept upright like pins.
+    className: `deer-intel-camera-cone ${NO_COUNTER_ROTATE_CLASS}`,
     html,
     iconSize: [iconSize, iconSize],
     // Centered on the pin's exact spot; the wedge fans out from it.

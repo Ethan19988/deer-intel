@@ -214,10 +214,19 @@ function tagOfFeature(feature: Feature, state: LabelStyleState): LandTagKind | u
   return tag && state.near(feature, key, "tag") ? tag : undefined;
 }
 
-/** Whether this parcel is the land under (or right by) your hunt areas. */
+/**
+ * Whether this parcel is the land under (or right by) your hunt areas. That's
+ * a guess from how much of a hunt area an owner covers, so a "neighbor" tag you
+ * set by hand on the same owner always overrules it.
+ */
 function isMineFeature(feature: Feature, state: LabelStyleState): boolean {
   const key = landTagKey(String(feature.props.owner ?? ""));
-  return Boolean(key) && state.mine.has(key) && state.near(feature, key, "mine");
+  return (
+    Boolean(key) &&
+    state.mine.has(key) &&
+    state.near(feature, key, "mine") &&
+    tagOfFeature(feature, state) !== "neighbor"
+  );
 }
 
 type LabelRole = LandTagKind | "mine" | "public" | "changed" | "selected" | "plain";

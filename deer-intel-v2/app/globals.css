@@ -2111,3 +2111,34 @@ textarea {
 :root[data-theme="night"] .di-movement-timeline [role="tab"] span[style*="height"] {
   background: var(--accent) !important;
 }
+
+/* ---- Phone map: keep the field controls clear of each other (2026-11) -----
+   The mode bars (pin, route, blood trail, draw, walk) used to sit centered on
+   the GPS/compass column's row and cover it — exactly when you need "where am
+   I". The 4-second status toast landed between the year stepper and the wind
+   badge and overlapped both. The Assets button sat behind the bottom nav. */
+@media (max-width: 720px) {
+  .di-page-shell-bare .di-map-mode-bar {
+    left: 0.75rem !important;
+    right: 5.25rem !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  /* A brief, tap-to-dismiss line: across the full width just under the top
+     row, above the stepper and timeline button for its few seconds. */
+  .di-page-shell-bare .di-map-notice {
+    top: 4.25rem !important;
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    z-index: 1300 !important;
+  }
+
+  /* Above the GPS/compass column, clear of the nav and the bottom-left cards. */
+  .di-page-shell-bare .di-map-assets-toggle {
+    left: auto !important;
+    right: 0.75rem !important;
+    bottom: calc(12.5rem + env(safe-area-inset-bottom)) !important;
+  }
+}

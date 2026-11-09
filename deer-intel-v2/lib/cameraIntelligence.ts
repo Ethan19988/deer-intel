@@ -318,16 +318,25 @@ function getBestPhotoTimeInsight(photoRecords: PhotoRecord[]): CameraInsight {
   };
 }
 
+// Each deer counted once: a check whose photos were imported counts from
+// those photos (its logged tally describes the same deer); a check with no
+// linked photos counts from its tally; photos not tied to a check still count.
 function getActivityCounts(
   cameraChecks: CameraCheck[],
   photoRecords: PhotoRecord[],
 ): CameraActivityCounts {
+  const checkIdsWithPhotos = new Set(
+    photoRecords.map((photo) => photo.cameraCheckId).filter(Boolean),
+  );
   const checkCounts = cameraChecks.reduce(
-    (counts, check) => ({
-      bucks: counts.bucks + check.bucks,
-      does: counts.does + check.does,
-      fawns: counts.fawns + check.fawns,
-    }),
+    (counts, check) =>
+      checkIdsWithPhotos.has(check.id)
+        ? counts
+        : {
+            bucks: counts.bucks + check.bucks,
+            does: counts.does + check.does,
+            fawns: counts.fawns + check.fawns,
+          },
     { bucks: 0, does: 0, fawns: 0 },
   );
 

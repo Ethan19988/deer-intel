@@ -7,7 +7,12 @@ import {
   resolvePropertyWeatherPoint,
   type LiveForecast,
 } from "@/lib/liveWeather";
-import { readForecastSnapshot, writeForecastSnapshot } from "@/lib/forecastSnapshot";
+import {
+  forecastAsOfLabel,
+  readForecastSnapshotEntry,
+  usableForecast,
+  writeForecastSnapshot,
+} from "@/lib/forecastSnapshot";
 import { rememberSunTimes } from "@/lib/theme";
 import { buildTodayVerdict } from "@/lib/todayVerdict";
 import { buildHitListSlides } from "@/lib/hitListSlides";
@@ -59,7 +64,14 @@ export function usePropertyToday(propertyId: string) {
     return () => clearInterval(timer);
   }, []);
 
-  const [forecast, setForecast] = useState<LiveForecast | null>(null);
+  // The forecast in use, which spot/units it's for, when it was fetched, and
+  // whether it came from the saved snapshot (no live fetch has landed yet).
+  const [forecastState, setForecastState] = useState<{
+    key: string;
+    forecast: LiveForecast;
+    savedAt: number;
+    fromSnapshot: boolean;
+  } | null>(null);
   // Changes every 20 minutes; drives a forecast refresh (the cache expires on
   // the same schedule and at midnight).
   const weatherSlot = now ? Math.floor(now.getTime() / (20 * 60 * 1000)) : 0;
@@ -67,7 +79,7 @@ export function usePropertyToday(propertyId: string) {
     if (!weatherKey) {
       // Clear a stale forecast when the property has no weather point.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setForecast(null);
+      setForecastState(null);
       return;
     }
 
@@ -75,23 +87,39 @@ export function usePropertyToday(propertyId: string) {
     let active = true;
     const snapshotKey = `${weatherKey}|${tempUnit}|${windUnit}`;
 
-    // Show the last forecast for this spot right away (if it's from today and
-    // recent) so the verdict isn't blank while the fetch runs.
-    const snapshot = readForecastSnapshot(snapshotKey);
+    // Show the last forecast for this spot right away so the verdict isn't
+    // blank while the fetch runs (or when there's no signal at all). A
+    // forecast already showing for this spot is kept unless the snapshot is
+    // newer; another spot's forecast is dropped.
+    const snapshot = readForecastSnapshotEntry(snapshotKey);
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setForecast(snapshot);
+    setForecastState((prev) => {
+      const prevForSpot = prev && prev.key === snapshotKey ? prev : null;
+      if (snapshot && (!prevForSpot || snapshot.savedAt > prevForSpot.savedAt)) {
+        return { key: snapshotKey, ...snapshot, fromSnapshot: true };
+      }
+      return prevForSpot;
+    });
 
     fetchLiveForecast({ lat, lng }, { temperature: tempUnit, wind: windUnit }).then(
       (result) => {
         if (!active) return;
         if (result.status === "ok") {
-          setForecast(result.forecast);
-          writeForecastSnapshot(snapshotKey, result.forecast);
+          // One timestamp for both, so the next refresh doesn't mistake its
+          // own saved copy for a newer snapshot.
+          const savedAt = Date.now();
+          setForecastState({
+            key: snapshotKey,
+            forecast: result.forecast,
+            savedAt,
+            fromSnapshot: false,
+          });
+          writeForecastSnapshot(snapshotKey, result.forecast, savedAt);
           // Lets the "Follow daylight" theme track this property's day length.
           rememberSunTimes(result.forecast.sunriseIso, result.forecast.sunsetIso);
-        } else if (!snapshot) {
-          setForecast(null);
         }
+        // A failed fetch (no signal in the woods) never clears the forecast
+        // already showing; it ages out via usableForecast below.
       },
     );
 
@@ -101,6 +129,20 @@ export function usePropertyToday(propertyId: string) {
     // weatherSlot re-runs this every 20 minutes (and when the phone wakes
     // the minute tick), so wind and the cold-front cue stay current.
   }, [weatherKey, tempUnit, windUnit, weatherSlot]);
+
+  // Roll a held forecast forward past midnight (yesterday's day dropped) and
+  // let it lapse after the last day it covers.
+  const forecast = forecastState
+    ? now
+      ? usableForecast(forecastState.forecast, forecastState.savedAt, now.getTime())
+      : forecastState.forecast
+    : null;
+  // "Forecast as of 6:12 AM" when the call rests on a saved or aging forecast.
+  const forecastSavedAt = forecast && forecastState ? forecastState.savedAt : null;
+  const forecastAsOf =
+    forecast && forecastState && now
+      ? forecastAsOfLabel(forecastState.savedAt, now.getTime(), forecastState.fromSnapshot)
+      : null;
 
   // HYDRATION_SAFE_NOW on the server/first render so the rut ribbon's
   // "peak in N days" matches between server HTML and the client.
@@ -165,6 +207,8 @@ export function usePropertyToday(propertyId: string) {
     weatherPoint,
     weatherKey,
     forecast,
+    forecastSavedAt,
+    forecastAsOf,
     now,
     moon,
     seasonCtx,
