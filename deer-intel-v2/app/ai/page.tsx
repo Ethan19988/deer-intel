@@ -405,7 +405,7 @@ export default function AIPage() {
             <EmptyState
               illustration={<TargetIcon size={28} />}
               title="AI Scout isn't set up yet"
-              description="It needs an ANTHROPIC_API_KEY set on the server (see the README). Your saved data is fine, and Today's verdict and stand check keep working without it."
+              description="AI recommendations aren't turned on for this app yet. Your saved data is fine, and Today's verdict and stand check keep working without it."
             />
           ) : (
             <div style={scoutStyle}>

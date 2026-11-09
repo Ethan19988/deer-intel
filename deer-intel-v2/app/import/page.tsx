@@ -44,7 +44,7 @@ export default function ImportPage() {
       <PageHeader
         eyebrow="Import"
         title="Bring something in"
-        description="Everything stays on this device unless you've turned on cloud sync."
+        description="What you import is saved on this device unless you've turned on cloud sync. To read trail-cam photos, a resized copy of each one is sent to the AI photo reader."
         icon={<PlusIcon size={26} />}
       />
 

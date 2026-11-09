@@ -22,7 +22,11 @@ import {
   deerProfileStatusLabel,
   type DeerProfileSummary,
 } from "@/lib/deerProfiles";
-import type { DeerProfileTimeline } from "@/lib/deerProfileTimeline";
+import {
+  describeDeerTimeWindow,
+  formatDeerAge,
+  type DeerProfileTimeline,
+} from "@/lib/deerProfileTimeline";
 import type { DeerTravelIntelligence } from "@/lib/deerTravelIntelligence";
 import type { DeerProfile } from "@/types/deerProfile";
 import type { PhotoRecord } from "@/types/photo";
@@ -64,7 +68,7 @@ export default function DeerProfileCard({
               {deerProfileStatusLabel(summary.profile)}
             </Badge>
           ) : null}
-          <Badge>{summary.profile.estimatedAge || "Age unknown"}</Badge>
+          <Badge>{formatDeerAge(summary.profile.estimatedAge) || "Age unknown"}</Badge>
         </div>
       </header>
 
@@ -103,7 +107,7 @@ export default function DeerProfileCard({
             description="How this deer moves — where he goes and the winds he moves on"
             defaultOpen
           >
-            <DeerTravelPanel travel={travel} />
+            <DeerTravelPanel travel={travel} timeline={timeline} />
           </CollapsibleSection>
 
           <CollapsibleSection
@@ -136,7 +140,7 @@ function DeerTimeline({
   timeline: DeerProfileTimeline;
   travel: DeerTravelIntelligence;
 }) {
-  const usual = timeline.timeWindow;
+  const usual = describeDeerTimeWindow(timeline.timeWindow)?.line ?? "";
   const heading = travel.directedCount > 0 ? travel.heading.title : "";
 
   return (
@@ -150,9 +154,7 @@ function DeerTimeline({
 
       {usual || heading ? (
         <p style={timelineLineStyle}>
-          {usual
-            ? `Usually ${usual.label.toLowerCase()} (${usual.hours}) · ${usual.count} of ${usual.sampleSize} timed`
-            : null}
+          {usual || null}
           {usual && heading ? " · " : null}
           {heading || null}
         </p>
@@ -210,7 +212,18 @@ function KeyInsightsGrid({ insights }: { insights: ConditionInsight[] }) {
   );
 }
 
-function DeerTravelPanel({ travel }: { travel: DeerTravelIntelligence }) {
+function DeerTravelPanel({
+  travel,
+  timeline,
+}: {
+  travel: DeerTravelIntelligence;
+  timeline: DeerProfileTimeline;
+}) {
+  // Same source and threshold as the timeline line (timed photos plus tagged
+  // sits), so the two never disagree; travel's photo-only read is the fallback.
+  const timeWindow = describeDeerTimeWindow(timeline.timeWindow);
+  const whenHeMoves = timeWindow ?? travel.timeOfDay;
+
   return (
     <div style={intelligenceStackStyle}>
       {!travel.hasData ? (
@@ -231,7 +244,7 @@ function DeerTravelPanel({ travel }: { travel: DeerTravelIntelligence }) {
         />
         <ProfileDetail
           label="When He Moves"
-          value={`${travel.timeOfDay.title}. ${travel.timeOfDay.detail}`}
+          value={`${whenHeMoves.title}. ${whenHeMoves.detail}`}
         />
         <ProfileDetail
           label="Route"

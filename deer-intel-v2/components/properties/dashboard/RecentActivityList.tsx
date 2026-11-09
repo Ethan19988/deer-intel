@@ -13,8 +13,8 @@ export default function RecentActivityList({
   return (
     <div style={activityListStyle}>
       {activities.length > 0 ? (
-        activities.map((activity) => (
-          <ActivityRow key={`${activity.title}-${activity.description}`}>
+        activities.map((activity, index) => (
+          <ActivityRow key={`${index}-${activity.title}-${activity.description}`}>
             <div>
               <p style={activityTitleStyle}>{activity.title}</p>
               <p style={activityDescriptionStyle}>{activity.description}</p>
@@ -23,27 +23,15 @@ export default function RecentActivityList({
           </ActivityRow>
         ))
       ) : (
-        <>
-          <ActivityRow>
-            <div>
-              <p style={activityTitleStyle}>No activity yet</p>
-              <p style={activityDescriptionStyle}>
-                Add camera sites, map pins, stands, or hunts to start this
-                property&apos;s field history.
-              </p>
-            </div>
-            <Badge>Waiting</Badge>
-          </ActivityRow>
-          <ActivityRow>
-            <div>
-              <p style={activityTitleStyle}>Camera history</p>
-              <p style={activityDescriptionStyle}>
-                Camera checks and transmissions will appear here.
-              </p>
-            </div>
-            <Badge>Coming Soon</Badge>
-          </ActivityRow>
-        </>
+        <ActivityRow>
+          <div>
+            <p style={activityTitleStyle}>No activity yet</p>
+            <p style={activityDescriptionStyle}>
+              Map pins, logged sits, and camera checks on this property will
+              show up here.
+            </p>
+          </div>
+        </ActivityRow>
       )}
     </div>
   );

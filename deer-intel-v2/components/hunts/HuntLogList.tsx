@@ -20,6 +20,8 @@ type HuntLogListProps = {
   hunts: HuntLogEntry[];
   emptyDescription?: string;
   getPropertyName?: (propertyId: string) => string;
+  /** Lead each collapsed row with its property (when listing every property's sits). */
+  showPropertyName?: boolean;
   /** When given, each sit offers "Edit". */
   onEdit?: (hunt: HuntLogEntry) => void;
   /** When given, each sit offers "Delete" (with a confirm). */
@@ -31,8 +33,9 @@ type HuntLogListProps = {
 
 export default function HuntLogList({
   hunts,
-  emptyDescription = "No hunts logged yet.",
+  emptyDescription = "No sits logged yet.",
   getPropertyName,
+  showPropertyName = false,
   onEdit,
   onDelete,
   editingHuntId = null,
@@ -65,7 +68,11 @@ export default function HuntLogList({
             onClick={() => setExpandedHuntId(hunt.id)}
             style={rowButtonStyle}
           >
-            <span style={rowTextStyle}>{huntOneLineSummary(hunt)}</span>
+            <span style={rowTextStyle}>
+              {showPropertyName && getPropertyName
+                ? `${getPropertyName(hunt.propertyId)} · ${huntOneLineSummary(hunt)}`
+                : huntOneLineSummary(hunt)}
+            </span>
             {hunt.harvest || hunt.shotOpportunity ? (
               <Badge>{huntOutcomeLabel(hunt)}</Badge>
             ) : null}

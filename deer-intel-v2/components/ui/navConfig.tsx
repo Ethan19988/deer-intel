@@ -48,7 +48,7 @@ export const NAV_GROUPS: NavGroup[] = [
     links: [
       { href: "/cameras#add-camera", label: "Camera", icon: (s) => <CameraIcon size={s} /> },
       { href: "/stands#add-stand", label: "Stand", icon: (s) => <StandIcon size={s} /> },
-      { href: DROP_PIN_HREF, label: "Pin", icon: (s) => <MapPinIcon size={s} /> },
+      { href: DROP_PIN_HREF, label: "Scrape", icon: (s) => <MapPinIcon size={s} /> },
     ],
   },
   {

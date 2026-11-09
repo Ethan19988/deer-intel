@@ -82,6 +82,13 @@ export function huntOneLineSummary(hunt: HuntLogEntry) {
     .join(" · ");
 }
 
+/** Like countLabel but keeps zeros: "0 bucks", "1 doe". */
+function countWithZero(count: number, one: string, many: string) {
+  const value = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+
+  return `${value} ${value === 1 ? one : many}`;
+}
+
 function countLabel(count: number, one: string, many: string) {
   const value = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
 
@@ -117,12 +124,25 @@ export function formatHuntTimeRange(hunt: HuntLogEntry) {
 
 export function deerSeenSummary(hunt: HuntLogEntry) {
   const parts = [
-    `${hunt.bucks} bucks`,
-    `${hunt.does} does`,
-    `${hunt.fawns} fawns`,
+    countWithZero(hunt.bucks, "buck", "bucks"),
+    countWithZero(hunt.does, "doe", "does"),
+    countWithZero(hunt.fawns, "fawn", "fawns"),
   ];
 
   return parts.join(" / ");
+}
+
+/**
+ * The sits the History list shows: one property's, or every property's when
+ * `propertyId` is null/blank ("All properties").
+ */
+export function huntsForProperty(
+  hunts: HuntLogEntry[],
+  propertyId: string | null | undefined,
+) {
+  if (!propertyId) return hunts;
+
+  return hunts.filter((hunt) => hunt.propertyId === propertyId);
 }
 
 export function huntOutcomeLabel(hunt: HuntLogEntry) {

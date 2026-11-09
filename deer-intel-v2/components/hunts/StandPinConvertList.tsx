@@ -12,7 +12,7 @@ type StandPinConvertListProps = {
 
 const DEFAULT_TITLE = "Your map stands aren't stand sites yet";
 const DEFAULT_DESCRIPTION =
-  "Hunts are logged against stand sites, and these map pins haven't been saved as sites. Save one below and the hunt form opens with it selected — the pin stays on the map.";
+  "Sits are logged against stand sites, and these map pins haven't been saved as sites. Save one below and the sit form opens with it selected — the pin stays on the map.";
 
 /**
  * Shown on the Hunt Log when the map has stand-type pins that haven't been

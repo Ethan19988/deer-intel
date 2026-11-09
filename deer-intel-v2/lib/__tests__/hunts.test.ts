@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   deerSeenShort,
+  deerSeenSummary,
+  huntsForProperty,
   huntOneLineSummary,
   recentStandIds,
   sortHuntsNewestFirst,
@@ -77,5 +79,22 @@ describe("hunt history helpers", () => {
     ]);
     expect(recentStandIds(hunts, "p1", new Set(["s1", "s2", "s3"]), 1)).toEqual(["s2"]);
     expect(recentStandIds(hunts, "p3", new Set(["s1"]))).toEqual([]);
+  });
+
+  it("pluralizes the full deer-seen summary", () => {
+    expect(deerSeenSummary(hunt("h", { bucks: 1, does: 1, fawns: 1 }))).toBe(
+      "1 buck / 1 doe / 1 fawn",
+    );
+    expect(deerSeenSummary(hunt("h", { bucks: 0, does: 2, fawns: 0 }))).toBe(
+      "0 bucks / 2 does / 0 fawns",
+    );
+  });
+
+  it("filters history to one property, or keeps all when none is picked", () => {
+    const hunts = [hunt("a"), hunt("b", { propertyId: "p2" })];
+
+    expect(huntsForProperty(hunts, "p2").map((item) => item.id)).toEqual(["b"]);
+    expect(huntsForProperty(hunts, null)).toHaveLength(2);
+    expect(huntsForProperty(hunts, "")).toHaveLength(2);
   });
 });

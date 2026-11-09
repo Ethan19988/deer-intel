@@ -67,7 +67,7 @@ function MetaLine({ report }: { report: Report }) {
     <p style={metaStyle}>
       From {parts.join(", ")}
       {report.deerSeen > 0
-        ? ` · ${report.bucksSeen} bucks, ${report.deerSeen} deer seen`
+        ? ` · ${report.bucksSeen} ${report.bucksSeen === 1 ? "buck" : "bucks"}, ${report.deerSeen} deer seen`
         : ""}
     </p>
   );

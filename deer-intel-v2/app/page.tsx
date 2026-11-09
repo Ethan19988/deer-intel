@@ -239,8 +239,8 @@ export default function Home() {
               essentialsOnly
               emptyHint={
                 activeProperty
-                  ? "Add map pins or a camera location to this property to load live weather."
-                  : "Set up a property with map pins to load live weather."
+                  ? "Set this property's center point (Properties › Edit details) to load live weather. Map pins or a camera location work too."
+                  : "Add a property and set its center point to load live weather."
               }
             />
             <div style={instrumentsRowStyle}>

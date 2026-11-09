@@ -190,7 +190,7 @@ export default function PinImportPage() {
           icon={<MapPinIcon size={26} />}
           eyebrow="Import Pins"
           title="Import Pins from Other Apps"
-          description="Bring your saved waypoints in from onX Hunt, HuntStand, BaseMap, Spartan Forge, Garmin, or Google Earth. Export them as a GPX, KML, or KMZ file, upload it here, review the pins, and add them to a property. Everything stays on this device."
+          description="Bring your saved waypoints in from onX Hunt, HuntStand, BaseMap, Spartan Forge, Garmin, or Google Earth. Export them as a GPX, KML, or KMZ file, upload it here, review the pins, and add them to a property. Your file is read right here on this device — it is never uploaded."
           meta={
             <>
               <Badge variant="success">GPX / KML / KMZ</Badge>
