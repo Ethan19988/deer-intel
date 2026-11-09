@@ -286,6 +286,23 @@ export function putPhotoImage(id: string, blob: Blob): Promise<boolean> {
   );
 }
 
+/**
+ * Re-upload a photo whose cloud copy may be gone: another device deleted the
+ * record (removing the cloud image) while this one edited it, and the sync
+ * merge kept the edit (cloudSync.findResurrectedRecords, audit L8). Queued
+ * like putPhotoImage so it retries if the upload fails. Resolves false when
+ * the image isn't on this device (nothing to restore; the photo UI shows
+ * "Photo unavailable on this device") or cloud sync is off.
+ */
+export async function requeuePhotoUpload(id: string): Promise<boolean> {
+  if (!isCloudSyncConfigured()) return false;
+  const blob = await readLocalImage(id);
+  if (!blob) return false;
+  markPendingUpload(id);
+  void uploadAndTrack(id, blob);
+  return true;
+}
+
 // Read only the local (IndexedDB) copy — no cloud fallback. Used by the backup
 // sweep (to know what actually lives here) and by getPhotoImage.
 export function readLocalImage(id: string): Promise<Blob | null> {
