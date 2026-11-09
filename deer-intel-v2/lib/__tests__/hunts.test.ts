@@ -55,7 +55,7 @@ describe("hunt history helpers", () => {
       "Sun Nov 8 · PM · My Tree · 2 bucks, 1 doe",
     );
     expect(huntOneLineSummary(hunt("h", { startTime: "", endTime: "" }))).toBe(
-      "Sat Nov 8 · My Tree · nothing seen",
+      "Sun Nov 8 · My Tree · nothing seen",
     );
     expect(deerSeenShort({ bucks: 1, does: 0, fawns: 3 })).toBe("1 buck, 3 fawns");
   });
