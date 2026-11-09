@@ -448,10 +448,20 @@ function pieceAnchor(geom: Pt[][]): Pt | undefined {
   }
   if (maxX - minX < 40 || maxY - minY < 24 || a2 === 0) return undefined;
   const centroid = { x: cx / (3 * a2), y: cy / (3 * a2) };
-  if (pointInTileRing(centroid, best)) return centroid;
+  if (pointInTileRing(centroid, best)) return asTilePoint(centroid, best[0]);
   const avg = best.reduce((sum, p) => ({ x: sum.x + p.x, y: sum.y + p.y }), { x: 0, y: 0 });
   const fallback = { x: avg.x / best.length, y: avg.y / best.length };
-  return pointInTileRing(fallback, best) ? fallback : undefined;
+  return pointInTileRing(fallback, best) ? asTilePoint(fallback, best[0]) : undefined;
+}
+
+// protomaps' label dedup calls Point methods on an anchor (anchor.dist(...)),
+// so a computed anchor has to be a real Point like the tile's own vertices —
+// a plain {x, y} threw "anchor.dist is not a function" and dropped the label.
+function asTilePoint(point: Pt, like: Pt): Pt {
+  const made = Object.create(Object.getPrototypeOf(like)) as Pt;
+  made.x = point.x;
+  made.y = point.y;
+  return made;
 }
 
 type LabelLine = {
