@@ -35,6 +35,8 @@ type StandFormProps = {
   error?: string | null;
   /** Editing: the stand's saved map coordinates (as formatted in the form). */
   savedLocation?: { lat: string; lng: string } | null;
+  /** Editing: the stand's id, so "place it on the map" links the new pin to it. */
+  standId?: string;
 };
 
 // Add or edit a stand. Basics first (name, type, best time, location) so a
@@ -47,6 +49,7 @@ export default function StandForm({
   onCancel,
   error,
   savedLocation = null,
+  standId,
 }: StandFormProps) {
   function updateField<Field extends keyof StandFormValues>(
     field: Field,
@@ -113,6 +116,7 @@ export default function StandForm({
           onChange={(point) => onChange({ ...values, ...point })}
           savedOnMap={savedOnMap}
           allowClear={!savedLocation}
+          standId={standId}
         />
       </div>
 

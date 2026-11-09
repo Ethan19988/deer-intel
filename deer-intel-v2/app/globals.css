@@ -2126,10 +2126,11 @@ textarea {
     max-width: none !important;
   }
 
-  /* A brief, tap-to-dismiss line: across the full width just under the top
-     row, above the stepper and timeline button for its few seconds. */
+  /* A brief, tap-to-dismiss line across the full width, just below the top
+     row and the legal-light chip, for its few seconds. */
   .di-page-shell-bare .di-map-notice {
-    top: 4.25rem !important;
+    /* Under the legal-light chip (4.35rem, ~2rem tall), not on top of it. */
+    top: 6.85rem !important;
     left: 0.75rem !important;
     right: 0.75rem !important;
     z-index: 1300 !important;

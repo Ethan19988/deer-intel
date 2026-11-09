@@ -3287,17 +3287,26 @@ export default function HuntingMap() {
   // for that pin type, /map?draw=area starts drawing the hunt area. Handled once,
   // as soon as a property is selected, then stripped from the URL.
   const deepLinkHandledRef = useRef(false);
+  // /map?pin=Stand&stand=<id> (from a stand's edit form): the pin placed next
+  // is that stand's location — named after it, linked by sourcePinId — and the
+  // hunter is taken back to the stand.
+  const linkStandIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (deepLinkHandledRef.current || !selectedPropertyId) return;
     deepLinkHandledRef.current = true;
     const params = new URLSearchParams(window.location.search);
     const pin = params.get("pin");
     const draw = params.get("draw");
+    const standId = params.get("stand");
     if (!pin && !draw) return;
     window.history.replaceState(null, "", window.location.pathname);
     if (draw === "area") {
       startAreaDraw();
     } else if (pin && isSupportedPropertyPinType(pin)) {
+      linkStandIdRef.current =
+        pin === "Stand" && standId && state.stands.some((stand) => stand.id === standId)
+          ? standId
+          : null;
       placePinType(pin);
     }
     // Runs once per visit; the handlers only set state.
@@ -3305,6 +3314,7 @@ export default function HuntingMap() {
   }, [selectedPropertyId]);
 
   function cancelPinPlacement() {
+    linkStandIdRef.current = null;
     setIsPlacingPin(false);
     setPinBoxMessage("Pin placement canceled.");
   }
@@ -3460,6 +3470,26 @@ export default function HuntingMap() {
   }
 
   function createPinAtLocation(type: PinType, lat: number, lng: number) {
+    const linkStand =
+      type === "Stand" && linkStandIdRef.current
+        ? state.stands.find((stand) => stand.id === linkStandIdRef.current)
+        : undefined;
+    if (linkStand) {
+      linkStandIdRef.current = null;
+      const linkedPinId = addPin(type, lat, lng, linkStand.name);
+      if (!linkedPinId) return null;
+      updateDeerIntelStore((currentState) => ({
+        ...currentState,
+        stands: currentState.stands.map((stand) =>
+          stand.id === linkStand.id ? { ...stand, sourcePinId: linkedPinId } : stand,
+        ),
+      }));
+      setIsPlacingPin(false);
+      setPinBoxMessage(`${linkStand.name} placed.`);
+      window.location.assign(`/stands?stand=${encodeURIComponent(linkStand.id)}`);
+      return linkedPinId;
+    }
+
     const name = window.prompt(`Name or notes for this ${type}`, "");
 
     if (name === null) {
@@ -3987,12 +4017,16 @@ export default function HuntingMap() {
     isDrawingArea ||
     isPlanningRoute ||
     isTrackingBlood;
-  const scoutPanelYields = isNarrowViewport && mapModeLive;
+  // The open Assets sheet covers the bottom of a phone screen, where the
+  // Hunt Area button and the "On now" keys sit; they step aside until it closes.
+  const timelineYields = isNarrowViewport && mapModeLive;
+  const scoutPanelYields = timelineYields || (isNarrowViewport && isMobileAssetSheetOpen);
 
   // The "On now" keys sit in that same bottom-left slot on a phone and paint
   // over the mode pill too (aiming a stand showed only "…oints" and Cancel),
   // so they yield to a live mode as well.
-  const mapKeysHidden = isNarrowViewport && (scoutPanelOpen || mapModeLive);
+  const mapKeysHidden =
+    isNarrowViewport && (scoutPanelOpen || mapModeLive || isMobileAssetSheetOpen);
 
   return (
     <div className="di-map-layout" style={mapLayoutStyle}>
@@ -4840,7 +4874,7 @@ export default function HuntingMap() {
             />
           ) : null}
 
-          {!scoutPanelYields &&
+          {!timelineYields &&
           ((forecastStatus === "ok" && timelineViews.length > 0) ||
             (legalChip && !timelineOpen)) ? (
             <div

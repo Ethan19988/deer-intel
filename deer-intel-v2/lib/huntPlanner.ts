@@ -375,7 +375,17 @@ export type WindMatrixColumn = {
 export type WindMatrixRow = {
   stand: Stand;
   cells: StandWindStatus[];
+  /** True where the sit is the wrong time for the stand (a morning-only stand
+   * on an evening sit, or the reverse); those cells never count as good. */
+  offTime: boolean[];
 };
+
+/** A stand marked for mornings or evenings only doesn't fit the other sit. */
+export function standFitsSitPeriod(stand: Stand, period: SitPeriod): boolean {
+  if (stand.bestTime === "am") return period === "AM";
+  if (stand.bestTime === "pm") return period === "PM";
+  return true;
+}
 
 export type WindMatrix = {
   columns: WindMatrixColumn[];
@@ -415,14 +425,18 @@ export function buildWindMatrix(
     isPast: nextIndex > 0 && index < nextIndex,
   }));
 
-  const rows = stands.map((stand) => ({
-    stand,
-    cells: columns.map((column) =>
-      column.windCompass
-        ? getStandWindCheck(stand, column.windCompass, column.windText).status
-        : ("unknown" as StandWindStatus),
-    ),
-  }));
+  const rows = stands.map((stand) => {
+    const offTime = columns.map((column) => !standFitsSitPeriod(stand, column.period));
+    return {
+      stand,
+      cells: columns.map((column, index) =>
+        column.windCompass && !offTime[index]
+          ? getStandWindCheck(stand, column.windCompass, column.windText).status
+          : ("unknown" as StandWindStatus),
+      ),
+      offTime,
+    };
+  });
 
   return { columns, rows };
 }

@@ -243,6 +243,7 @@ export default function StandCard({
           <div style={editWrapStyle}>
             <StandForm
               mode="edit"
+              standId={stand.id}
               values={editValues}
               onChange={setEditValues}
               onSubmit={saveEdit}

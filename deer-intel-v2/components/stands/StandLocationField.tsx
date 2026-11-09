@@ -25,6 +25,7 @@ export default function StandLocationField({
   onChange,
   savedOnMap = false,
   allowClear = true,
+  standId,
 }: {
   lat: string;
   lng: string;
@@ -36,6 +37,8 @@ export default function StandLocationField({
    * location leaves its pin alone, so "Clear" would promise more than it does.
    */
   allowClear?: boolean;
+  /** A saved stand: "place it on the map" links the dropped pin straight to it. */
+  standId?: string;
 }) {
   const [gps, setGps] = useState<GpsState>({ status: "idle" });
   const [manualOpen, setManualOpen] = useState(false);
@@ -107,10 +110,24 @@ export default function StandLocationField({
       ) : (
         <p style={hintStyle}>
           Not set. Stand at the tree and tap Use my GPS, enter coordinates, or{" "}
-          <Link href="/map?pin=Stand" style={linkStyle}>
-            place it on the map
-          </Link>{" "}
-          later (name the pin the same as this stand to link them).
+          {standId ? (
+            <>
+              <Link
+                href={`/map?pin=Stand&stand=${encodeURIComponent(standId)}`}
+                style={linkStyle}
+              >
+                place it on the map
+              </Link>
+              .
+            </>
+          ) : (
+            <>
+              <Link href="/map?pin=Stand" style={linkStyle}>
+                place it on the map
+              </Link>{" "}
+              later (name the pin the same as this stand to link them).
+            </>
+          )}
         </p>
       )}
 

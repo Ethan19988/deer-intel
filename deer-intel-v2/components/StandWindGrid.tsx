@@ -96,8 +96,14 @@ export default function StandWindGrid({
                   {isPick ? <span style={pickTagStyle}>Pick</span> : null}
                 </span>
                 {row.cells.map((status, index) => {
-                  const cell = CELL[status];
                   const column = columns[index];
+                  const cell = row.offTime[index]
+                    ? {
+                        ...CELL.unknown,
+                        glyph: "–",
+                        label: column.period === "AM" ? "Evening stand" : "Morning stand",
+                      }
+                    : CELL[status];
                   return (
                     <span
                       key={column.key}
@@ -126,6 +132,11 @@ export default function StandWindGrid({
         <span style={{ ...legendDotStyle, ...CELL.marginal.style }}>~</span> off
         <span style={{ ...legendDotStyle, ...CELL.avoid.style }}>✕</span> wrong
         <span style={frontLegendStyle} /> front
+        {rows.some((row) => row.offTime.some(Boolean)) ? (
+          <>
+            <span style={{ ...legendDotStyle, ...CELL.unknown.style }}>–</span> other sit
+          </>
+        ) : null}
       </p>
     </section>
   );

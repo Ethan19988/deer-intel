@@ -257,3 +257,27 @@ describe("buildHuntWindows skips sits that are over", () => {
     expect(buildHuntWindows([today, tomorrow], stands)).toHaveLength(2);
   });
 });
+
+describe("buildWindMatrix best time", () => {
+  it("never counts a morning-only stand good on an evening sit", async () => {
+    const { buildWindMatrix, standFitsSitPeriod } = await import("@/lib/huntPlanner");
+    const stand = {
+      id: "s",
+      propertyId: "p",
+      name: "Morning Oak",
+      standType: "Ladder" as const,
+      bestWinds: "NW",
+      avoidWinds: "",
+      accessRouteNotes: "",
+      exitRouteNotes: "",
+      notes: "",
+      bestTime: "am" as const,
+    };
+    expect(standFitsSitPeriod(stand, "AM")).toBe(true);
+    expect(standFitsSitPeriod(stand, "PM")).toBe(false);
+    const day = { date: "2026-11-09", label: "Mon", morningWind: "NW", eveningWind: "NW", wind: "NW" };
+    const matrix = buildWindMatrix([day as never], [stand]);
+    expect(matrix.rows[0].cells).toEqual(["good", "unknown"]);
+    expect(matrix.rows[0].offTime).toEqual([false, true]);
+  });
+});
