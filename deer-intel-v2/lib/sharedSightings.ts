@@ -226,20 +226,43 @@ export async function contributeSightings(
   const sentSet = new Set(sent);
   const fresh = rows.filter((row) => !sentSet.has(row.source_key));
 
+  // Plain inserts, not upsert: the table deliberately has no SELECT policy,
+  // and Postgres checks SELECT policies for any INSERT … ON CONFLICT, so every
+  // upsert was rejected by row-level security (403). A duplicate (already
+  // shared from another device) fails the whole batch with 23505, so that
+  // batch is retried one row at a time, skipping the duplicates.
+  const markSent = (keys: string[]) => {
+    keys.forEach((key) => sentSet.add(key));
+    safeSet(SENT_PREFIX + userId, JSON.stringify([...sentSet]));
+  };
+
   for (let i = 0; i < fresh.length; i += CHUNK) {
     const chunk = fresh.slice(i, i + CHUNK);
     const { error } = await client
       .from(TABLE)
-      .upsert(
-        chunk.map((row) => ({ ...row, user_id: userId })),
-        { onConflict: "user_id,source_key", ignoreDuplicates: true },
-      );
-    if (error) break;
-    chunk.forEach((row) => sentSet.add(row.source_key));
-    safeSet(SENT_PREFIX + userId, JSON.stringify([...sentSet]));
+      .insert(chunk.map((row) => ({ ...row, user_id: userId })));
+    if (!error) {
+      markSent(chunk.map((row) => row.source_key));
+      continue;
+    }
+    if (error.code !== DUPLICATE_KEY) break;
+
+    let failed = false;
+    for (const row of chunk) {
+      const single = await client.from(TABLE).insert({ ...row, user_id: userId });
+      if (single.error && single.error.code !== DUPLICATE_KEY) {
+        failed = true;
+        break;
+      }
+      markSent([row.source_key]);
+    }
+    if (failed) break;
   }
   return fresh.length;
 }
+
+// Postgres unique_violation.
+const DUPLICATE_KEY = "23505";
 
 /** Turning sharing off removes everything this account contributed. */
 export async function withdrawSightings(client: SupabaseClient, userId: string) {
