@@ -124,6 +124,15 @@ export const NEAREST_STAND_MAX_YD = 300;
 export const STAND_COVER_YD = 150;
 /** Trail points closer than this are under the hunter; no meaningful bearing. */
 const SCENT_MIN_M = 20;
+/**
+ * How far downwind a trail counts as "in your scent" for a trail ambush.
+ * The walk-in check (lib/accessScent) uses 365 m because a bedded deer
+ * catching scent drifting in at 400 yd will slip out; a deer walking a trail
+ * reacts mainly when your scent crosses it inside ~150 m (≈160 yd) — beyond
+ * that the stream has spread and lifted. Using 365 m here meant no funnel
+ * with three trails fanning out ever had a workable side.
+ */
+export const AMBUSH_SCENT_REACH_M = 150;
 
 const METERS_TO_YARDS = 1.0936;
 const BEDDING_PIN_TYPES: PinType[] = ["Bedding", "Bedding Area"];
@@ -598,7 +607,7 @@ function windCheckAt(
   }
   const trail = samples.filter((sample) => {
     const meters = distanceMeters(point, sample);
-    return meters >= SCENT_MIN_M && meters <= SCENT_REACH_M;
+    return meters >= SCENT_MIN_M && meters <= Math.min(SCENT_REACH_M, AMBUSH_SCENT_REACH_M);
   });
 
   const hit = scentHitAt(point, trail, downwind, { bump: false });
