@@ -291,6 +291,8 @@ export function buildTodayVerdict(input: {
     pins,
     wind,
     today: localDateKey(now),
+    // A morning-only stand isn't the pick for an evening sit (and vice versa).
+    period,
   });
   // A light & variable wind has no dependable direction, so no stand can be
   // the "good wind" pick; every graded stand reads marginal instead.
