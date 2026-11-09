@@ -227,3 +227,33 @@ describe("bestSitsThisWeek", () => {
     ).toBe("Best next 3 days: Fri AM (1 stand)");
   });
 });
+
+describe("buildHuntWindows skips sits that are over", () => {
+  const today: ForecastDay = {
+    ...day("2024-11-05", "S 6 mph"),
+    morningWind: "NW 6 mph",
+    eveningWind: "S 6 mph",
+  };
+  const tomorrow: ForecastDay = {
+    ...day("2024-11-06", "S 6 mph"),
+    morningWind: "S 5 mph",
+    eveningWind: "S 6 mph",
+  };
+  const stands = [stand("Oak Ridge", "NW", "S")];
+
+  it("doesn't rank this morning's sit once the next sit is this evening", () => {
+    const windows = buildHuntWindows([today, tomorrow], stands, "2024-11-05-PM");
+    const first = windows.find((window) => window.date === "2024-11-05");
+    expect(first?.sits.map((sit) => sit.period)).toEqual(["PM"]);
+    expect(first?.goodStandNames).toEqual([]);
+  });
+
+  it("drops a day whose sits are all over", () => {
+    const windows = buildHuntWindows([today, tomorrow], stands, "2024-11-06-AM");
+    expect(windows.map((window) => window.date)).toEqual(["2024-11-06"]);
+  });
+
+  it("keeps everything without a next-sit key", () => {
+    expect(buildHuntWindows([today, tomorrow], stands)).toHaveLength(2);
+  });
+});
