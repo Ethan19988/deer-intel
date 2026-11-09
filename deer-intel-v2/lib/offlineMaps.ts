@@ -615,6 +615,8 @@ async function loadPackTile(
     if (!archive) {
       archive = openPmtilesArchive(source.url);
       archives.set(source.url, archive);
+      // A failed open isn't cached: the retry pass opens the archive again.
+      archive.catch(() => archives.delete(source.url));
     }
     // getZxy returns the decompressed MVT bytes, or undefined where the
     // archive has no tile (no parcels there) — saved as an empty tile.
