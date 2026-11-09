@@ -66,7 +66,7 @@ function featureCoords(feature: TerrainMovementFeature): LatLng[] {
   return feature.polygon;
 }
 
-function extentContains(extent: TerrainExtent, point: Point): boolean {
+export function extentContains(extent: TerrainExtent, point: Point): boolean {
   return (
     point.lat >= extent.minLat &&
     point.lat <= extent.maxLat &&
