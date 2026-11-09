@@ -106,7 +106,7 @@ export default function HitListPage() {
               <strong>Share my buck hit list with the party</strong>
               <span style={mutedBlockStyle}>
                 {activeParty
-                  ? `Your bucks and their movement patterns show up on every ${activeParty.name} member's hit list. Photos stay private to your device — this shares the card and stats only.`
+                  ? `Your bucks and their movement patterns show up on every ${activeParty.name} member's hit list. Shares each buck's card, stats and up to 4 thumbnail photos with your party.`
                   : "Pick an active party on the Party page first, then turn this on."}
               </span>
             </span>
