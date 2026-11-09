@@ -120,6 +120,7 @@ import CameraFacingCone from "@/components/map/CameraFacingCone";
 import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
 import TodaysPlayPanel from "@/components/map/TodaysPlayPanel";
 import FieldHud from "@/components/map/FieldHud";
+import LegalLightChip from "@/components/map/LegalLightChip";
 import {
   forecastSlotLabel,
   playsForWind,
@@ -1459,6 +1460,7 @@ export default function HuntingMap() {
     gps: true,
     compass: true,
     scaleBar: true,
+    edgeWarning: true,
   });
   // Whether the map is locked onto the live GPS location and recenters as the
   // hunter moves. Off by default so scouting a property from home doesn't yank
@@ -1624,6 +1626,10 @@ export default function HuntingMap() {
   );
   const bloodPathRef = useRef<HuntAreaPoint[]>(resumedBlood?.path ?? []);
   const bloodPropertyIdRef = useRef(resumedBlood?.propertyId ?? "");
+  // Finishing a trail with marks offers "Save to Hunt Log" before clearing.
+  const [bloodFinishing, setBloodFinishing] = useState(false);
+  const [bloodSaved, setBloodSaved] = useState(false);
+  const [bloodNote, setBloodNote] = useState("");
   const bloodStartedAtRef = useRef(resumedBlood?.startedAt ?? "");
   const [areaCoordInput, setAreaCoordInput] = useState("");
   const [areaPointMessage, setAreaPointMessage] = useState("");
@@ -2289,6 +2295,107 @@ export default function HuntingMap() {
   );
   const huntArea = selectedProperty?.huntArea;
   const hasHuntArea = huntAreaIsValid(huntArea);
+
+  // Live GPS fix from the location dot, for Guide me and the edge warning.
+  const [liveFix, setLiveFix] = useState<LiveLocation | null>(null);
+  // A short one-off line in the field HUD (guide arrival, trail saved, …).
+  const [fieldMessage, setFieldMessage] = useState("");
+  useEffect(() => {
+    if (!fieldMessage) return;
+    const timer = window.setTimeout(() => setFieldMessage(""), 6000);
+    return () => window.clearTimeout(timer);
+  }, [fieldMessage]);
+
+  // Guide me: walk to a pin with a heading-relative arrow. The map's compass
+  // heading is used when it's on; otherwise Guide me reads the compass itself
+  // (permission asked from the Guide me tap).
+  const [guideTarget, setGuideTarget] = useState<{
+    id: string;
+    label: string;
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [guideCompass, setGuideCompass] = useState(false);
+  const guideOwnHeading = useDeviceHeading(
+    Boolean(guideTarget) && guideCompass && liveHeading === null,
+  );
+  const fieldHeading = liveHeading ?? guideOwnHeading;
+  // Follow the pin if it's moved mid-walk; keep the saved spot if it's gone
+  // (e.g. after switching property).
+  const guidePoint = guideTarget
+    ? (mapAssets.find((asset) => asset.id === guideTarget.id) ?? guideTarget)
+    : null;
+  const activeGuide =
+    guidePoint && liveFix ? guideReading(liveFix, guidePoint, fieldHeading) : null;
+  const selectedFromYou =
+    selectedAsset && liveFix ? guideReading(liveFix, selectedAsset, fieldHeading) : null;
+
+  function stopGuide() {
+    setGuideTarget(null);
+    setGuideCompass(false);
+  }
+
+  function toggleGuide(asset: MapAsset) {
+    if (guideTarget?.id === asset.id) {
+      stopGuide();
+      return;
+    }
+    setGuideTarget({ id: asset.id, label: asset.label, lat: asset.lat, lng: asset.lng });
+    setFieldMessage("");
+    // Straight from the tap so iOS will show its compass prompt.
+    if (liveHeading === null) {
+      void requestCompassPermission().then((permission) => {
+        if (permission === "granted") setGuideCompass(true);
+      });
+    }
+  }
+
+  // Within GUIDE_ARRIVE_YARDS of the target: buzz and end the guide.
+  const guideArrived = Boolean(guideTarget && activeGuide?.arrived);
+  useEffect(() => {
+    if (!guideArrived || !guideTarget) return;
+    buzz([80, 60, 80]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFieldMessage(`You're at ${guideTarget.label}.`);
+    setGuideTarget(null);
+    setGuideCompass(false);
+  }, [guideArrived, guideTarget]);
+
+  // Hunt-area edge warning: only while following GPS on a property with a
+  // drawn hunt area (and the Layers toggle on). Hysteresis in nextEdgeAlert
+  // keeps it to one buzz per approach.
+  const edgeWarningOn =
+    mapTools.edgeWarning && mapTools.gps && followUser && hasHuntArea;
+  const edgeReading = useMemo(() => {
+    if (!edgeWarningOn || !liveFix || !huntArea) return null;
+    const edgeMeters = distanceToPolygonEdgeMeters(liveFix.lat, liveFix.lng, huntArea);
+    if (edgeMeters === null) return null;
+    return {
+      inside: pointInPolygon(liveFix.lat, liveFix.lng, huntArea),
+      edgeMeters,
+    };
+  }, [edgeWarningOn, liveFix, huntArea]);
+  const [edgeState, setEdgeState] = useState<EdgeAlertState>("off");
+  const edgeStateRef = useRef<EdgeAlertState>("off");
+  useEffect(() => {
+    const next = nextEdgeAlert(edgeStateRef.current, edgeReading);
+    edgeStateRef.current = next.state;
+    if (next.buzz) buzz([200, 100, 200]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEdgeState(next.state);
+  }, [edgeReading]);
+  const edgeLabel = edgeAlertLabel(edgeState, edgeReading?.edgeMeters ?? null);
+
+  // Legal shooting light from the same forecast the Today verdict uses.
+  const legalChip =
+    propertyToday.forecast && propertyToday.now
+      ? legalLightChip(
+          propertyToday.now,
+          propertyToday.forecast.sunriseIso,
+          propertyToday.forecast.sunsetIso,
+          propertyToday.forecast.utcOffsetSeconds,
+        )
+      : null;
   const draftAreaAcresLabel = formatHuntAreaAcres(draftAreaPoints);
   const savedAreaAcresLabel = formatHuntAreaAcres(huntArea);
   const currentPinBoxMessage = pinBoxDisabled
@@ -2754,6 +2861,9 @@ export default function HuntingMap() {
     setBloodRecovered(false);
     bloodPathRef.current = [];
     setBloodPath([]);
+    setBloodFinishing(false);
+    setBloodSaved(false);
+    setBloodNote("");
     setIsTrackingBlood(true);
     setLayersOpen(false);
   }
@@ -2814,6 +2924,63 @@ export default function HuntingMap() {
     setBloodRecovered(false);
     bloodPathRef.current = [];
     setBloodPath([]);
+    setBloodFinishing(false);
+    setBloodSaved(false);
+    setBloodNote("");
+  }
+
+  // Save the trail as a Hunt Log entry for its property, filed under the stand
+  // nearest the hit site (lib/bloodTrailHunt). Returns whether it saved.
+  function saveBloodTrailToLog(): boolean {
+    const propertyId = bloodPropertyIdRef.current || selectedPropertyId;
+    const started = new Date(bloodStartedAtRef.current);
+    const result = buildBloodTrailHunt({
+      id: createDeerIntelId("hunt"),
+      propertyId,
+      stands: state.stands,
+      pins: state.pins,
+      summary: {
+        marks: bloodPoints,
+        trailMeters: lineLengthMeters(bloodTrailPath),
+        recovered: bloodRecovered,
+      },
+      startedAt: Number.isNaN(started.getTime()) ? new Date() : started,
+      endedAt: new Date(),
+      windDirection:
+        liveWind?.fromCompass || propertyToday.forecast?.current.windDirection || "",
+      windSpeed: liveWind?.speedLabel || propertyToday.forecast?.current.windSpeed || "",
+    });
+
+    if (!result.ok) {
+      setBloodNote(result.reason);
+      return false;
+    }
+
+    const hunt = result.hunt;
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      hunts: [...currentState.hunts, hunt],
+    }));
+    buzz(14);
+    setBloodSaved(true);
+    setBloodNote(`Saved to the Hunt Log under ${result.standName}.`);
+    return true;
+  }
+
+  // Done on a trail with unsaved marks asks first: save it, or discard it.
+  function finishBloodTrail() {
+    if (bloodPoints.length > 0 && !bloodSaved) {
+      setBloodFinishing(true);
+      setBloodNote("");
+      return;
+    }
+    exitBloodTrail();
+  }
+
+  function saveAndExitBloodTrail() {
+    if (!saveBloodTrailToLog()) return;
+    exitBloodTrail();
+    setFieldMessage("Blood trail saved to the Hunt Log.");
   }
 
   // Other map modes used to end a blood trail silently. A trail with marks on
@@ -4312,10 +4479,12 @@ export default function HuntingMap() {
             <MapRotationController heading={mapBearing} />
             <UserLocationMarker
               // Blood trailing shows where you are against the trail.
-              enabled={mapTools.gps || isTrackingBlood}
+              // Guide me needs the live fix too.
+              enabled={mapTools.gps || isTrackingBlood || Boolean(guideTarget)}
               follow={mapTools.gps && followUser}
               heading={liveHeading}
               onUserPan={() => setFollowUser(false)}
+              onLocation={setLiveFix}
             />
             <PartyMembersLayer
               areas={
@@ -4624,26 +4793,44 @@ export default function HuntingMap() {
             />
           ) : null}
 
-          {forecastStatus === "ok" && timelineViews.length > 0 && !scoutPanelYields ? (
+          {!scoutPanelYields &&
+          ((forecastStatus === "ok" && timelineViews.length > 0) ||
+            (legalChip && !timelineOpen)) ? (
             <div
               className={
-                timelineOpen
+                timelineOpen && forecastStatus === "ok"
                   ? "di-movement-timeline-wrap di-movement-timeline-wrap--open"
-                  : "di-movement-timeline-wrap"
+                  : "di-movement-timeline-wrap di-movement-timeline-wrap--stack"
               }
             >
-              <MovementTimeline
-                open={timelineOpen}
-                onOpenChange={(open) => {
-                  setTimelineOpen(open);
-                  if (!open) setTimelineKey(null);
-                }}
-                slots={timelineViews}
-                selectedKey={timelineKey}
-                onSelect={setTimelineKey}
-              />
+              {legalChip && !timelineOpen ? <LegalLightChip chip={legalChip} /> : null}
+              {forecastStatus === "ok" && timelineViews.length > 0 ? (
+                <MovementTimeline
+                  open={timelineOpen}
+                  onOpenChange={(open) => {
+                    setTimelineOpen(open);
+                    if (!open) setTimelineKey(null);
+                  }}
+                  slots={timelineViews}
+                  selectedKey={timelineKey}
+                  onSelect={setTimelineKey}
+                />
+              ) : null}
             </div>
           ) : null}
+
+          <FieldHud
+            edgeLabel={edgeLabel}
+            edgeOutside={edgeState === "outside"}
+            guide={
+              guideTarget
+                ? { label: guideTarget.label, reading: activeGuide }
+                : null
+            }
+            onStopGuide={stopGuide}
+            message={fieldMessage}
+            onDismissMessage={() => setFieldMessage("")}
+          />
 
           {/* All three bottom-right cards share one column so they stack instead
               of piling on top of each other. On mobile the wrapper is display:
@@ -5032,13 +5219,15 @@ export default function HuntingMap() {
           {isTrackingBlood ? (
             <div className="di-area-pill di-map-mode-bar" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
-                {bloodPoints.length === 0
-                  ? "Tap the map to mark the hit site"
-                  : bloodRecovered
-                    ? "Recovered 🦌"
-                    : `Blood trail · ${bloodPoints.length} mark${
-                        bloodPoints.length === 1 ? "" : "s"
-                      }`}
+                {bloodFinishing
+                  ? "Save this trail to the Hunt Log?"
+                  : bloodPoints.length === 0
+                    ? "Tap the map to mark the hit site"
+                    : bloodRecovered
+                      ? "Recovered 🦌"
+                      : `Blood trail · ${bloodPoints.length} mark${
+                          bloodPoints.length === 1 ? "" : "s"
+                        }`}
               </span>
               {bloodTrailStats && bloodPoints.length >= 2 ? (
                 <span style={pendingWindNoteStyle}>
@@ -5049,6 +5238,50 @@ export default function HuntingMap() {
                   from hit
                 </span>
               ) : null}
+              {bloodNote ? (
+                <span
+                  style={{
+                    ...pendingWindNoteStyle,
+                    ...(bloodSaved ? pendingWindGoodStyle : pendingWindWarnStyle),
+                  }}
+                >
+                  {bloodNote}
+                </span>
+              ) : null}
+              {bloodFinishing ? (
+                <div
+                  style={{
+                    ...drawActionButtonRowStyle,
+                    flexWrap: "wrap",
+                    justifyContent: "center",
+                  }}
+                >
+                  <button
+                    type="button"
+                    style={drawPrimaryButtonStyle}
+                    onClick={saveAndExitBloodTrail}
+                  >
+                    Save to Hunt Log
+                  </button>
+                  <button
+                    type="button"
+                    style={drawSecondaryButtonStyle}
+                    onClick={exitBloodTrail}
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    style={drawSecondaryButtonStyle}
+                    onClick={() => {
+                      setBloodFinishing(false);
+                      setBloodNote("");
+                    }}
+                  >
+                    Back
+                  </button>
+                </div>
+              ) : (
               <div
                 style={{
                   ...drawActionButtonRowStyle,
@@ -5096,24 +5329,26 @@ export default function HuntingMap() {
                   >
                     Found!
                   </button>
+                ) : !bloodSaved ? (
+                  <button
+                    type="button"
+                    style={drawSecondaryButtonStyle}
+                    onClick={() => {
+                      saveBloodTrailToLog();
+                    }}
+                  >
+                    Save to Hunt Log
+                  </button>
                 ) : null}
                 <button
                   type="button"
                   style={drawPrimaryButtonStyle}
-                  onClick={() => {
-                    if (
-                      bloodPoints.length > 0 &&
-                      !bloodRecovered &&
-                      !window.confirm("Clear this blood trail? Its marks won't be kept.")
-                    ) {
-                      return;
-                    }
-                    exitBloodTrail();
-                  }}
+                  onClick={finishBloodTrail}
                 >
                   Done
                 </button>
               </div>
+              )}
             </div>
           ) : null}
 
@@ -5290,6 +5525,9 @@ export default function HuntingMap() {
                   ? startAim
                   : undefined
               }
+              fromYou={selectedFromYou}
+              guiding={guideTarget?.id === selectedAsset.id}
+              onToggleGuide={() => toggleGuide(selectedAsset)}
             />
           ) : null}
 

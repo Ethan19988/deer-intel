@@ -4,7 +4,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { ASSET_LAYERS, type AssetLayerId } from "@/lib/propertyMap";
 import { pinMarkerSvg } from "@/lib/mapPinIcon";
 
-export type MapToolId = "gps" | "compass" | "scaleBar";
+export type MapToolId = "gps" | "compass" | "scaleBar" | "edgeWarning";
 export type MapToolState = Record<MapToolId, boolean>;
 
 type MapLayerManagerProps = {
@@ -44,6 +44,8 @@ const MAP_TOOL_LABELS: Array<{ id: MapToolId; label: string }> = [
   { id: "gps", label: "GPS" },
   { id: "compass", label: "Compass" },
   { id: "scaleBar", label: "Scale Bar" },
+  // Banner + buzz near the hunt-area outline while following GPS.
+  { id: "edgeWarning", label: "Hunt area edge alert" },
 ];
 
 export default function MapLayerManager({

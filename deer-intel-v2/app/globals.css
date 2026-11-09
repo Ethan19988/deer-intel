@@ -2152,3 +2152,48 @@ textarea {
     max-height: calc(100dvh - 140px);
   }
 }
+
+/* ---- Map field HUD: Guide me, hunt-area edge, legal light (2026-11) ------
+   The legal-light chip rides in the movement-timeline wrap (above the toggle
+   on desktop, under it on a phone). The HUD (edge banner, Guide me arrow,
+   short confirmations) takes the top-left column beside it, so on a 390px
+   phone the two columns sit side by side without overlapping. */
+.di-movement-timeline-wrap--stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.di-field-hud {
+  position: absolute;
+  z-index: 1120;
+  top: 5rem;
+  left: 1rem;
+  display: grid;
+  gap: 0.4rem;
+  width: min(220px, calc(100% - 2rem));
+  pointer-events: auto;
+}
+
+@media (max-width: 720px) {
+  .di-page-shell-bare .di-movement-timeline-wrap--stack {
+    align-items: flex-end;
+  }
+
+  .di-page-shell-bare .di-movement-timeline-wrap--stack .di-map-legal-chip {
+    order: 1;
+  }
+
+  .di-page-shell-bare .di-field-hud {
+    top: 4.35rem;
+    left: 0.75rem;
+    width: min(220px, max(150px, calc(100% - 1.5rem - 212px)));
+  }
+}
+
+:root[data-theme="night"] .di-field-hud :is(p, section, button),
+:root[data-theme="night"] .di-map-legal-chip {
+  color: #ef8f7c !important;
+  border-color: #5a1d14 !important;
+}
