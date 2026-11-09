@@ -190,6 +190,7 @@ export default function Home() {
           phase={seasonCtx.phase}
           phaseLabel={seasonCtx.phaseLabel}
           daysToPeak={seasonCtx.daysToPeak}
+          propertyId={activePropertyId}
         />
 
         <StandCheckPanel
