@@ -49,20 +49,58 @@ function padTwo(value: number) {
   return String(value).padStart(2, "0");
 }
 
+/** Local "YYYY-MM-DD" for a date input. */
+export function formatDateInput(date: Date) {
+  return `${date.getFullYear()}-${padTwo(date.getMonth() + 1)}-${padTwo(date.getDate())}`;
+}
+
+/** Local "HH:MM" for a time input. */
+export function formatTimeInput(date: Date) {
+  return `${padTwo(date.getHours())}:${padTwo(date.getMinutes())}`;
+}
+
 /**
- * A fresh form for logging a sit right now: today's date and the current time
- * as the start, in local time. Most sits are logged from the stand or the truck,
- * so this saves picking a date on a phone keyboard every time.
+ * A fresh form with today's date, in local time, so there's no date to pick on
+ * a phone keyboard. By default the current time is the start ("logging a sit
+ * right now"); pass `startNow: false` for a sit logged after the fact, where
+ * In and Out are left for the hunter (see sitPeriodTimes) instead of guessed.
  */
 export function newHuntFormValues(
   now: Date = new Date(),
   keep: Partial<Pick<HuntFormValues, "propertyId" | "standId">> = {},
+  { startNow = true }: { startNow?: boolean } = {},
 ): HuntFormValues {
   return {
     ...EMPTY_HUNT_FORM_VALUES,
     ...keep,
-    date: `${now.getFullYear()}-${padTwo(now.getMonth() + 1)}-${padTwo(now.getDate())}`,
-    startTime: `${padTwo(now.getHours())}:${padTwo(now.getMinutes())}`,
+    date: formatDateInput(now),
+    startTime: startNow ? formatTimeInput(now) : "",
+  };
+}
+
+export type SitPeriod = "morning" | "evening";
+
+// Typical sit windows. When the hunter logs during or just after the window,
+// Out is "now"; otherwise it's the window's usual end.
+const SIT_PERIODS: Record<SitPeriod, { start: string; end: string; latest: string }> = {
+  morning: { start: "06:00", end: "10:00", latest: "13:00" },
+  evening: { start: "15:00", end: "18:00", latest: "21:00" },
+};
+
+/** Date and In/Out for a "This morning" / "This evening" quick pick. */
+export function sitPeriodTimes(
+  period: SitPeriod,
+  now: Date = new Date(),
+): Pick<HuntFormValues, "date" | "startTime" | "endTime"> {
+  const range = SIT_PERIODS[period];
+  const nowTime = formatTimeInput(now);
+  // "HH:MM" strings compare correctly as text.
+  const endsNow = nowTime > range.start && nowTime <= range.latest;
+
+  return {
+    date: formatDateInput(now),
+    startTime: range.start,
+    endTime: endsNow ? nowTime : range.end,
   };
 }
 
@@ -70,12 +108,19 @@ type CreateHuntFromValuesInput = {
   id: string;
   values: HuntFormValues;
   stands: Stand[];
+  /**
+   * When editing a saved sit whose stand has since been deleted, the name it
+   * was saved with. The sit keeps that stand id and name so it can still be
+   * saved, instead of failing silently.
+   */
+  fallbackStandName?: string;
 };
 
 export function createHuntFromValues({
   id,
   values,
   stands,
+  fallbackStandName,
 }: CreateHuntFromValuesInput): HuntLogEntry | null {
   const propertyId = values.propertyId.trim();
   const standId = values.standId.trim();
@@ -83,14 +128,19 @@ export function createHuntFromValues({
   const stand = stands.find(
     (item) => item.id === standId && item.propertyId === propertyId,
   );
+  // Only a stand that no longer exists anywhere falls back; a stand that
+  // belongs to another property is still a mismatch.
+  const standDeleted =
+    fallbackStandName !== undefined && !stands.some((item) => item.id === standId);
+  const standName = stand ? stand.name : standDeleted ? fallbackStandName : null;
 
-  if (!propertyId || !standId || !stand || !date) return null;
+  if (!propertyId || !standId || standName === null || !date) return null;
 
   return {
     id,
     propertyId,
     standId,
-    standName: stand.name,
+    standName,
     date,
     startTime: values.startTime.trim(),
     endTime: values.endTime.trim(),

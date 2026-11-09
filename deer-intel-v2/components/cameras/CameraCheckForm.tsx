@@ -1,8 +1,21 @@
-import type { CSSProperties, FormEvent } from "react";
+"use client";
+
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+} from "react";
 import Button from "@/components/ui/Button";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
+import CountStepper from "@/components/ui/CountStepper";
 import LiveWeatherFill from "@/components/weather/LiveWeatherFill";
-import type { CameraCheckFormValues } from "@/lib/cameraCheckFormValues";
+import {
+  EMPTY_CAMERA_CHECK_FORM_VALUES,
+  localDateInput,
+  type CameraCheckFormValues,
+} from "@/lib/cameraCheckFormValues";
 import type { WeatherPoint } from "@/lib/liveWeather";
 
 type CameraCheckFormProps = {
@@ -10,14 +23,41 @@ type CameraCheckFormProps = {
   weatherLocation?: WeatherPoint | null;
   onChange: (values: CameraCheckFormValues) => void;
   onSubmit: () => void;
+  /** When given, a Cancel button sits beside Save (used when editing). */
+  onCancel?: () => void;
+  submitLabel?: string;
 };
+
+// A save tap is ignored for this long after the last one, so a double-tap on a
+// phone can't log the same check twice before the parent resets the form.
+const RESUBMIT_GUARD_MS = 1200;
 
 export default function CameraCheckForm({
   values,
   weatherLocation = null,
   onChange,
   onSubmit,
+  onCancel,
+  submitLabel = "Save Camera Check",
 }: CameraCheckFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isBlankForm = isEmptyCheckForm(values);
+
+  // A fresh (or just-reset) form is dated today: most checks are logged at
+  // the camera. Only a fully blank form is filled, so editing never changes.
+  useEffect(() => {
+    if (isBlankForm) onChange({ ...values, date: localDateInput() });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBlankForm]);
+
+  useEffect(
+    () => () => {
+      if (submitTimerRef.current) clearTimeout(submitTimerRef.current);
+    },
+    [],
+  );
+
   function updateField<Field extends keyof CameraCheckFormValues>(
     field: Field,
     value: CameraCheckFormValues[Field],
@@ -30,6 +70,13 @@ export default function CameraCheckForm({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    submitTimerRef.current = setTimeout(
+      () => setIsSubmitting(false),
+      RESUBMIT_GUARD_MS,
+    );
     onSubmit();
   }
 
@@ -50,9 +97,7 @@ export default function CameraCheckForm({
           <label style={fieldStyle}>
             <span style={labelStyle}>Battery %</span>
             <input
-              type="number"
-              min="0"
-              max="100"
+              inputMode="numeric"
               placeholder="85"
               value={values.batteryPercent}
               onChange={(event) =>
@@ -65,9 +110,7 @@ export default function CameraCheckForm({
           <label style={fieldStyle}>
             <span style={labelStyle}>SD Card %</span>
             <input
-              type="number"
-              min="0"
-              max="100"
+              inputMode="numeric"
               placeholder="40"
               value={values.sdCardPercent}
               onChange={(event) =>
@@ -162,34 +205,34 @@ export default function CameraCheckForm({
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Wildlife Seen">
-        <div className="di-form-grid" style={formGridStyle}>
-          <CountField
+      <CollapsibleSection title="Wildlife Seen" defaultOpen>
+        <div style={countGridStyle}>
+          <CountStepper
             label="Bucks"
             value={values.bucks}
             onChange={(value) => updateField("bucks", value)}
           />
-          <CountField
+          <CountStepper
             label="Does"
             value={values.does}
             onChange={(value) => updateField("does", value)}
           />
-          <CountField
+          <CountStepper
             label="Fawns"
             value={values.fawns}
             onChange={(value) => updateField("fawns", value)}
           />
-          <CountField
+          <CountStepper
             label="Turkeys"
             value={values.turkeys}
             onChange={(value) => updateField("turkeys", value)}
           />
-          <CountField
+          <CountStepper
             label="Bears"
             value={values.bears}
             onChange={(value) => updateField("bears", value)}
           />
-          <CountField
+          <CountStepper
             label="Coyotes"
             value={values.coyotes}
             onChange={(value) => updateField("coyotes", value)}
@@ -221,34 +264,39 @@ export default function CameraCheckForm({
         </label>
       </CollapsibleSection>
 
-      <Button type="submit">Save Camera Check</Button>
+      <div style={actionsStyle}>
+        {onCancel ? (
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            Cancel
+          </Button>
+        ) : null}
+        <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
+          {isSubmitting ? "Saving" : submitLabel}
+        </Button>
+      </div>
     </form>
   );
 }
 
-function CountField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
+function isEmptyCheckForm(values: CameraCheckFormValues) {
   return (
-    <label style={fieldStyle}>
-      <span style={labelStyle}>{label}</span>
-      <input
-        type="number"
-        min="0"
-        placeholder="0"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        style={inputStyle}
-      />
-    </label>
-  );
+    Object.keys(EMPTY_CAMERA_CHECK_FORM_VALUES) as (keyof CameraCheckFormValues)[]
+  ).every((field) => values[field] === EMPTY_CAMERA_CHECK_FORM_VALUES[field]);
 }
+
+// Not di-form-grid: steppers fit two across on a phone, so keep the columns.
+const countGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(min(144px, 100%), 1fr))",
+  gap: "1rem",
+};
+
+const actionsStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: "0.75rem",
+  flexWrap: "wrap",
+};
 
 const formStyle: CSSProperties = {
   display: "grid",
