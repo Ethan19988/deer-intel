@@ -21,7 +21,12 @@ import OfflineMapsManager from "@/components/settings/OfflineMapsManager";
 import TerrainToolsManager from "@/components/settings/TerrainToolsManager";
 import { ICON_CREDITS } from "@/lib/pinGlyphs";
 import { useAuth, type BackupRestoreMode } from "@/components/auth/AuthProvider";
-import { saveDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
+import {
+  normalizeState,
+  saveDeerIntelStore,
+  useDeerIntelStore,
+} from "@/lib/deerIntelStore";
+import { downloadBlob } from "@/lib/downloadFile";
 import { backupLocalImages, usePendingPhotoUploadCount } from "@/lib/imageStore";
 import { saveRestoreUndo } from "@/lib/restoreUndo";
 import {
@@ -104,6 +109,8 @@ export default function SettingsPage() {
     files?: FullBackupFile[];
     // Undefined for records-only exports and older full backups.
     landTags?: LandTags;
+    // Records in the file that couldn't be read and will be skipped.
+    skipped: number;
   } | null>(null);
   // When signed in: does the restore replace the cloud copy too, or merge?
   const [restoreMode, setRestoreMode] = useState<BackupRestoreMode>("merge");
@@ -142,19 +149,12 @@ export default function SettingsPage() {
   }
 
   function downloadJson(payload: string | Blob, fileName: string) {
-    const blob =
+    downloadBlob(
       typeof payload === "string"
         ? new Blob([payload], { type: "application/json" })
-        : payload;
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+        : payload,
+      fileName,
+    );
   }
 
   function handleExport() {
@@ -248,32 +248,33 @@ export default function SettingsPage() {
       return;
     }
 
-    // A full backup nests the record state and carries inline photos.
-    if (isFullBackup(parsed)) {
-      setPendingImport({
-        state: parsed.state,
-        fileName: file.name,
-        images: parsed.images,
-        files: parsed.files,
-        landTags: backupLandTags(parsed),
-      });
-      return;
+    // A full backup nests the record state and carries inline photos. Either
+    // way the records go through the same normalizer as app start-up, so an
+    // older or partial backup (missing lists, odd fields) fills in defaults
+    // instead of crashing the confirm or saving malformed records.
+    const fullBackup = isFullBackup(parsed) ? parsed : null;
+    const rejected: Parameters<typeof normalizeState>[1] = [];
+    let normalized: DeerIntelState | null = null;
+    try {
+      normalized = normalizeState(fullBackup ? fullBackup.state : parsed, rejected);
+    } catch {
+      normalized = null;
     }
 
-    if (
-      !parsed ||
-      typeof parsed !== "object" ||
-      !Array.isArray((parsed as { properties?: unknown }).properties)
-    ) {
+    if (!normalized) {
       setImportError(
-        "That file doesn't look like a Deer Intel backup (no properties list found). Nothing was changed.",
+        "That file doesn't look like a Deer Intel backup we can read (no properties list found). Nothing was changed.",
       );
       return;
     }
 
     setPendingImport({
-      state: parsed as DeerIntelState,
+      state: normalized,
       fileName: file.name,
+      images: fullBackup?.images,
+      files: fullBackup?.files,
+      landTags: fullBackup ? backupLandTags(fullBackup) : undefined,
+      skipped: rejected?.length ?? 0,
     });
   }
 
@@ -293,6 +294,8 @@ export default function SettingsPage() {
       landTags: readAllLandTags(),
       at: new Date().toISOString(),
       fileName,
+      // Undo goes back the same way (a merge restore is undone as a merge).
+      mode,
     });
     const undoNote = undoSaved
       ? " You can undo this for 24 hours."
@@ -343,14 +346,22 @@ export default function SettingsPage() {
       parts.push(
         `restored ${photos.restored} of ${photos.total} photo${
           photos.total === 1 ? "" : "s"
-        }${photos.failed ? ` (${photos.failed} couldn't be restored)` : ""}`,
+        }${
+          photos.failed
+            ? ` (${photos.failed} couldn't be saved — your phone's storage may be full)`
+            : ""
+        }`,
       );
     }
     if (documents) {
       parts.push(
         `restored ${documents.restored} of ${documents.total} document${
           documents.total === 1 ? "" : "s"
-        }${documents.failed ? ` (${documents.failed} couldn't be restored)` : ""}`,
+        }${
+          documents.failed
+            ? ` (${documents.failed} couldn't be saved — your phone's storage may be full)`
+            : ""
+        }`,
       );
     }
 
@@ -785,9 +796,12 @@ export default function SettingsPage() {
             sent to Anthropic to generate the recommendation.
           </p>
           <p style={mutedTextStyle}>
-            Turn it off to keep AI Scout hidden and never send any data to
-            Anthropic — Today's verdict and stand check keep working either
-            way. Saved on this device only.
+            This switch also covers AI photo reading (the trail-cam stamp
+            and animal read when you add photos). Turn it off to keep AI
+            Scout hidden and stop sending any data or photos to Anthropic —
+            photo dates then come from the file and you pick the species;
+            Today&apos;s verdict and stand check keep working either way.
+            Saved on this device only.
           </p>
           <div style={aiScoutToggleRowStyle}>
             <span style={unitLabelStyle}>AI Scout recommendations</span>
@@ -861,7 +875,13 @@ export default function SettingsPage() {
                 (pendingImport.files?.length ?? 0) > 0
                   ? " and restore its photos and documents to this device"
                   : ""
-              }. You can undo it from Settings → Data for 24 hours.`
+              }.${
+                pendingImport.skipped > 0
+                  ? ` ${pendingImport.skipped} unreadable record${
+                      pendingImport.skipped === 1 ? "" : "s"
+                    } in the file will be skipped.`
+                  : ""
+              } You can undo it from Settings → Data for 24 hours.`
             : ""
         }
         confirmLabel="Replace Data"

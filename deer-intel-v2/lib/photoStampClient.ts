@@ -1,5 +1,6 @@
 "use client";
 
+import { readAiScoutEnabled } from "@/lib/aiScoutPreferences";
 import type { PhotoStampRead } from "@/lib/photoOptions";
 import { authHeaders } from "@/lib/supabaseClient";
 import type {
@@ -9,8 +10,9 @@ import type {
 
 // Client side of the photo reader. It uploads a downscaled copy of the whole
 // photo — the AI reads the printed info bar AND identifies the animal in the
-// frame — and only when the deployment has the AI key configured, checked once
-// per session and cached.
+// frame — and only when the deployment has the AI key configured (checked once
+// per session and cached) AND the hunter hasn't turned AI Scout off in
+// Settings. With the switch off, no photo ever leaves the device.
 
 // Longest edge sent to vision; enough to read stamp text and count points
 // without uploading multi-megabyte originals.
@@ -36,18 +38,20 @@ function isConfigured(): Promise<boolean> {
 }
 
 /**
- * Whether AI photo reading is on for this deployment — when it is, a resized
- * copy of each picked photo is sent to the AI service (used for the privacy
- * note next to the photo pickers).
+ * Whether AI photo reading is on — configured for this deployment and not
+ * switched off in Settings (AI Scout). When it is, a resized copy of each
+ * picked photo is sent to the AI service (used for the privacy note next to
+ * the photo pickers).
  */
-export function isPhotoReadingEnabled(): Promise<boolean> {
+export async function isPhotoReadingEnabled(): Promise<boolean> {
+  if (!readAiScoutEnabled()) return false;
   return isConfigured();
 }
 
 /**
  * Read a trail-cam photo: the date/time/temp/moon printed on its info bar plus
  * an identification of the animal in the frame. Returns null when reading is
- * unavailable or nothing was found — callers fall back to EXIF, the weather
+ * unavailable, switched off in Settings, or nothing was found — callers fall back to EXIF, the weather
  * lookup, and manual species entry.
  */
 export async function requestPhotoStamp(
@@ -55,6 +59,9 @@ export async function requestPhotoStamp(
   unit: "F" | "C",
   knownBucks: KnownBuckSummary[] = [],
 ): Promise<PhotoStampRead | null> {
+  // AI Scout switched off in Settings: never send the photo. Quietly null —
+  // callers fall back to EXIF and manual entry exactly as when unconfigured.
+  if (!readAiScoutEnabled()) return null;
   if (!(await isConfigured())) return null;
 
   const cropped = await prepareVisionImage(file).catch(() => null);

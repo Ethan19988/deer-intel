@@ -5,8 +5,9 @@ import { useSyncExternalStore } from "react";
 // Whether the hunter wants AI Scout's LLM recommendations. Device-local (its own
 // localStorage key, like the theme/units), defaulting to ON so behavior is
 // unchanged wherever ANTHROPIC_API_KEY is configured. Turning it off is a cost /
-// privacy control: no property data is ever sent to Anthropic while it's off,
-// regardless of the server key.
+// privacy control: no property data and no photos are sent to Anthropic while
+// it's off, regardless of the server key — it also covers AI photo reading
+// (lib/photoStampClient checks readAiScoutEnabled before every upload).
 const AI_SCOUT_STORAGE_KEY = "deer-intel:ai-scout-enabled";
 
 function readRaw(): string | null {

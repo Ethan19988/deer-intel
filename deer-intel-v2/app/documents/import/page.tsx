@@ -93,7 +93,7 @@ export default function DocumentImportPage() {
     );
     setError(
       failed > 0
-        ? `${failed} ${failed === 1 ? "file" : "files"} couldn't be saved — this browser may be blocking storage.`
+        ? `${failed} ${failed === 1 ? "file" : "files"} couldn't be saved — your phone's storage may be full (or this browser is blocking storage). Nothing was added for ${failed === 1 ? "it" : "them"}.`
         : "",
     );
   }
