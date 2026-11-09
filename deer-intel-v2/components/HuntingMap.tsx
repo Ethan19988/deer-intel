@@ -5822,7 +5822,11 @@ export default function HuntingMap() {
                   ? startAim
                   : undefined
               }
-              fromYou={selectedFromYou}
+              fromYou={
+                selectedFromYou?.withinAccuracy
+                  ? { ...selectedFromYou, headText: "Within GPS accuracy" }
+                  : selectedFromYou
+              }
               guiding={guideTarget?.id === selectedAsset.id}
               onToggleGuide={() => toggleGuide(selectedAsset)}
             />
