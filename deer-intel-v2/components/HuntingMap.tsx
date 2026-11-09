@@ -5402,7 +5402,9 @@ export default function HuntingMap() {
               />
             ) : null}
 
-            {showMovement ? (
+            {/* On a phone the outlook card steps aside while the Deer Routes
+                card is open — stacked, the two covered the whole map. */}
+            {showMovement && !(isNarrowViewport && routesOpen) ? (
               <MovementBadge
                 status={forecastStatus}
                 forecast={movementOutlook}

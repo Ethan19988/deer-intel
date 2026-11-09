@@ -141,11 +141,11 @@ function corridorNote(
 ): string {
   if (count === 0) {
     if (!hasBedding && !hasResources) {
-      return "Drop Bedding and Food/Water pins to predict travel corridors.";
+      return "Drop Bedding and Food/Water pins (or run a terrain read) to predict deer routes.";
     }
-    if (!hasBedding) return "Add Bedding pins to predict travel corridors.";
-    if (!hasResources) return "Add Food or Water pins to predict travel corridors.";
-    return "No bedding sits close enough to food/water for a corridor.";
+    if (!hasBedding) return "Add Bedding pins (or run a terrain read) to predict deer routes.";
+    if (!hasResources) return "Add Food or Water pins to predict deer routes.";
+    return "No bedding sits close enough to food or water for a route.";
   }
 
   const heading =
@@ -155,7 +155,7 @@ function corridorNote(
         ? "→ heading back to bedding now"
         : "→ two-way (no strong pull this hour)";
 
-  return `${count} corridor${count === 1 ? "" : "s"} ${heading}.`;
+  return `${count} deer route${count === 1 ? "" : "s"} ${heading}.`;
 }
 
 function ratingChipColor(rating: MovementRating): CSSProperties {
