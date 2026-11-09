@@ -598,8 +598,15 @@ function trailsPhrase(count: number): string {
  * (the path point nearest it): bed → there in the evening, food → there in the
  * morning.
  */
-function approachStretch(path: LatLng[], at: LatLng, period: "AM" | "PM"): LatLng[] {
-  if (path.length < 2) return path;
+function approachStretch(simplified: LatLng[], at: LatLng, period: "AM" | "PM"): LatLng[] {
+  if (simplified.length < 2) return simplified;
+  // Paths are simplified to their turns, so a straight trail is just two
+  // points; densify first so "nearest point" is really on the trail by you.
+  const path: LatLng[] = [];
+  for (let i = 0; i < simplified.length - 1; i += 1) {
+    path.push(...sampleLeg(simplified[i], simplified[i + 1]));
+  }
+  path.push(simplified[simplified.length - 1]);
   let nearest = 0;
   let best = Infinity;
   path.forEach((p, index) => {
