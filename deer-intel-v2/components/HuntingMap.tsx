@@ -127,6 +127,12 @@ import OfflineDownloadStatus from "@/components/map/OfflineDownloadStatus";
 import OfflineMapsPanel, {
   type OfflineStatus,
 } from "@/components/map/OfflineMapsPanel";
+import FieldPackCard, { type FieldPackStatus } from "@/components/map/FieldPackCard";
+import {
+  fieldPackSources,
+  runFieldPack,
+  useFieldPackRecord,
+} from "@/lib/fieldPack";
 import CameraFacingCone from "@/components/map/CameraFacingCone";
 import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
 import TodaysPlayPanel from "@/components/map/TodaysPlayPanel";
@@ -221,6 +227,7 @@ import { getStandWindCheck } from "@/lib/standWind";
 import {
   deleteOfflinePack,
   downloadOfflinePack,
+  isOfflineDownloadRunning,
   offlineMapsSupported,
   offlineQueryTrimNote,
   offlineVectorTrimNote,
@@ -1749,6 +1756,12 @@ export default function HuntingMap() {
   );
   const mapInstanceRef = useRef<LeafletMap | null>(null);
   const offlineControllerRef = useRef<AbortController | null>(null);
+  // "Get ready for the field" (lib/fieldPack): its progress and last result.
+  const fieldPackRecord = useFieldPackRecord();
+  const [fieldPackStatus, setFieldPackStatus] = useState<FieldPackStatus>({
+    phase: "idle",
+  });
+  const fieldPackControllerRef = useRef<AbortController | null>(null);
   const pendingOfflineRef = useRef<{
     bounds: OfflineMapBounds;
     sources: OfflineTileSource[];
@@ -3972,6 +3985,15 @@ export default function HuntingMap() {
   ) {
     setOfflineOrigin(origin);
 
+    // One download at a time: the field pack is saving tiles too.
+    if (fieldPackStatus.phase === "running") {
+      setOfflineStatus({
+        phase: "error",
+        message: "Wait for the field pack to finish, then try again.",
+      });
+      return;
+    }
+
     const plan = planOfflinePack(
       offlineTileSources,
       bounds,
@@ -4111,6 +4133,104 @@ export default function HuntingMap() {
     offlineControllerRef.current?.abort();
     pendingOfflineRef.current = null;
     setOfflineStatus({ phase: "idle" });
+  }
+
+  // "Get ready for the field": the hunt area (else the current view) as
+  // satellite + topo + what's on screen, plus forecast and pages — see
+  // lib/fieldPack.
+  const fieldPackTarget = hasHuntArea ? "hunt area" : "this view";
+  const fieldPackBlocked = !selectedProperty
+    ? "Pick a property first."
+    : offlineStatus.phase === "downloading"
+      ? "Wait for the map download to finish."
+      : !hasHuntArea && mapZoom < PARCEL_TILES_MIN_ZOOM
+        ? "Draw a hunt area, or zoom in to your ground — the view on screen is saved when there's no hunt area."
+        : "";
+
+  async function getReadyForField() {
+    if (fieldPackStatus.phase === "running" || fieldPackBlocked) return;
+    if (isOfflineDownloadRunning()) {
+      setFieldPackStatus({
+        phase: "error",
+        message: "A map download is already running. Try again when it finishes.",
+      });
+      return;
+    }
+
+    let bounds: OfflineMapBounds | null = null;
+    if (hasHuntArea && huntArea) {
+      bounds = boundsFromHuntArea(huntArea);
+    } else if (mapInstanceRef.current) {
+      const view = mapInstanceRef.current.getBounds();
+      bounds = {
+        south: view.getSouth(),
+        west: view.getWest(),
+        north: view.getNorth(),
+        east: view.getEast(),
+      };
+    }
+    if (!bounds) {
+      setFieldPackStatus({
+        phase: "error",
+        message: "The map isn't ready yet. Try again in a moment.",
+      });
+      return;
+    }
+
+    // Satellite: the imagery on screen when it's the Wayback layer, else the
+    // newest release. Listed first, so offline the map asks for this release.
+    const satelliteLayer = MAP_LAYER_BY_ID.satellite;
+    const latestRelease = waybackReleases[0]?.release;
+    const satellite: OfflineTileSource = {
+      url: selectedMapLayer.isWayback
+        ? baseTileUrl
+        : latestRelease
+          ? waybackTileUrl(latestRelease)
+          : satelliteLayer.url,
+      maxNativeZoom: satelliteLayer.maxNativeZoom ?? 19,
+    };
+    const topoLayer = MAP_LAYER_BY_ID.terrain;
+    const topo: OfflineTileSource = {
+      url: topoLayer.url,
+      maxNativeZoom: topoLayer.maxNativeZoom ?? 17,
+    };
+
+    const controller = new AbortController();
+    fieldPackControllerRef.current = controller;
+    setFieldPackStatus({ phase: "running", step: { step: "forecast" } });
+    try {
+      await runFieldPack(
+        {
+          propertyId: selectedPropertyId,
+          propertyName: selectedProperty?.name ?? "Map",
+          targetLabel: fieldPackTarget,
+          bounds,
+          sources: fieldPackSources(satellite, topo, offlineTileSources),
+          layerId: "satellite",
+          layerLabel: `${satelliteLayer.label} + ${topoLayer.label}`,
+          weatherPoint: resolvePropertyWeatherPoint(selectedProperty, propertyCameras, pins),
+          units,
+        },
+        (step) => setFieldPackStatus({ phase: "running", step }),
+        controller.signal,
+      );
+      setFieldPackStatus({ phase: "idle" });
+    } catch (error) {
+      setFieldPackStatus(
+        error instanceof DOMException && error.name === "AbortError"
+          ? { phase: "idle" }
+          : {
+              phase: "error",
+              message: "Couldn't finish the field pack. Check your connection and try again.",
+            },
+      );
+    } finally {
+      fieldPackControllerRef.current = null;
+    }
+  }
+
+  function cancelFieldPack() {
+    fieldPackControllerRef.current?.abort();
   }
 
   async function removeOfflinePack(id: string) {
@@ -5292,6 +5412,16 @@ export default function HuntingMap() {
                 onConfirm={confirmOfflineDownload}
                 onCancel={cancelOfflineDownload}
                 onDelete={removeOfflinePack}
+                fieldPackSection={
+                  <FieldPackCard
+                    status={fieldPackStatus}
+                    record={fieldPackRecord}
+                    blockedReason={fieldPackBlocked}
+                    targetLabel={fieldPackTarget}
+                    onRun={getReadyForField}
+                    onCancel={cancelFieldPack}
+                  />
+                }
               />
             }
             visibleAssetLayers={visibleAssetLayers}

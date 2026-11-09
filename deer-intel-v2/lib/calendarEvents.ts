@@ -1,5 +1,10 @@
 import type { DeerIntelState } from "@/types/deerIntelStore";
 import { formatWalkDistance, walkTrackDistanceMeters } from "@/lib/walkTrack";
+import {
+  SEASON_DIGEST,
+  seasonsFor,
+  type SeasonStateCode,
+} from "@/lib/seasonDates";
 
 // Everything the hunter marks that carries a date, folded into one timeline the
 // calendar can render. Building this season over season is how a property gets
@@ -9,7 +14,8 @@ export type CalendarEventKind =
   | "camera"
   | "sighting"
   | "pin"
-  | "walk";
+  | "walk"
+  | "season";
 
 export type CalendarEvent = {
   id: string;
@@ -33,6 +39,7 @@ export const CALENDAR_KINDS: CalendarEventKind[] = [
   "sighting",
   "pin",
   "walk",
+  "season",
 ];
 
 export const CALENDAR_KIND_META: Record<
@@ -44,6 +51,7 @@ export const CALENDAR_KIND_META: Record<
   sighting: { label: "Sightings", color: "#3b82c4" },
   pin: { label: "Map marks", color: "#9a7b1e" },
   walk: { label: "Walks", color: "#2a9d8f" },
+  season: { label: "Season dates", color: "#c0392b" },
 };
 
 /** Local YYYY-MM-DD for a Date (no timezone shift). */
@@ -218,4 +226,52 @@ export function groupEventsByDay(
   }
 
   return byDay;
+}
+
+// Official statewide deer-season openers and closers (lib/seasonDates) as
+// calendar events, so the hunter's own record sits against the legal season.
+// Not tied to a property (propertyId ""); the caller picks the states that
+// cover the properties in view.
+export function buildSeasonCalendarEvents(
+  states: SeasonStateCode[],
+): CalendarEvent[] {
+  const events: CalendarEvent[] = [];
+
+  for (const state of new Set(states)) {
+    const meta = `${state} statewide · ${SEASON_DIGEST[state].label}`;
+    for (const season of seasonsFor(state)) {
+      if (season.start === season.end) {
+        events.push({
+          id: `season-${season.id}`,
+          dayKey: season.start,
+          kind: "season",
+          title: `${season.label} (one day)`,
+          detail: season.notes,
+          meta,
+          propertyId: "",
+        });
+        continue;
+      }
+      events.push({
+        id: `season-${season.id}-open`,
+        dayKey: season.start,
+        kind: "season",
+        title: `${season.label} opens`,
+        detail: season.notes,
+        meta,
+        propertyId: "",
+      });
+      events.push({
+        id: `season-${season.id}-close`,
+        dayKey: season.end,
+        kind: "season",
+        title: `${season.label} — last day`,
+        detail: season.notes,
+        meta,
+        propertyId: "",
+      });
+    }
+  }
+
+  return events;
 }

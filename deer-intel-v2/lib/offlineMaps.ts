@@ -689,6 +689,16 @@ export const OFFLINE_DOWNLOAD_CHANGE_EVENT = "deer-intel:offline-download-change
 
 let runningDownloads = 0;
 let pruneDeferred = false;
+// Bumped by clearAllOfflineTiles. A download that started under an older
+// generation was writing into the cache that clear deleted, so it must not
+// record its pack as ready.
+let tileCacheGeneration = 0;
+// Downloads in flight, so clear-all can stop them and wait for their last
+// writes before it deletes the cache.
+const activeDownloads = new Set<{
+  controller: AbortController;
+  settled: Promise<unknown>;
+}>();
 
 export function isOfflineDownloadRunning(): boolean {
   return runningDownloads > 0;
@@ -725,10 +735,27 @@ export async function downloadOfflinePack(
     throw new Error("Offline maps aren't supported in this browser.");
   }
 
+  // An internal controller follows the caller's signal, and lets
+  // clearAllOfflineTiles stop this download too.
+  const controller = new AbortController();
+  const forwardAbort = () => controller.abort();
+  if (signal?.aborted) controller.abort();
+  else signal?.addEventListener("abort", forwardAbort, { once: true });
+
   setDownloadRunning(1);
+  const run = runOfflineDownload(
+    params,
+    onProgress,
+    controller.signal,
+    tileCacheGeneration,
+  );
+  const entry = { controller, settled: run.catch(() => undefined) };
+  activeDownloads.add(entry);
   try {
-    return await runOfflineDownload(params, onProgress, signal);
+    return await run;
   } finally {
+    activeDownloads.delete(entry);
+    signal?.removeEventListener("abort", forwardAbort);
     setDownloadRunning(-1);
   }
 }
@@ -736,7 +763,8 @@ export async function downloadOfflinePack(
 async function runOfflineDownload(
   params: Parameters<typeof downloadOfflinePack>[0],
   onProgress?: (progress: OfflineDownloadProgress) => void,
-  signal?: AbortSignal,
+  signal: AbortSignal | undefined,
+  generation: number,
 ): Promise<OfflineMapPack> {
   // First pack on this device: request persistent storage now, synchronously
   // inside the user's Download tap (Firefox prompts and wants the gesture).
@@ -790,7 +818,9 @@ async function runOfflineDownload(
     ),
   );
 
-  if (signal?.aborted) {
+  // Canceled — or every saved map was cleared mid-download, so the tiles went
+  // into a deleted cache and a pack record would claim tiles that aren't there.
+  if (signal?.aborted || generation !== tileCacheGeneration) {
     throw new DOMException("Download canceled", "AbortError");
   }
 
@@ -826,7 +856,8 @@ async function runOfflineDownload(
 // per tile by the cached tile layer, so it stays cheap and swallows errors.
 // Memoized cache handle: the map asks for this once per tile on the offline
 // path, and reopening the cache on every tile is needless work on the zoom hot
-// path. The handle stays valid for the session.
+// path. clearAllOfflineTiles drops it when it deletes the cache, so later
+// lookups open the new cache rather than reading the deleted one.
 let offlineTileCachePromise: Promise<Cache> | null = null;
 
 function openOfflineTileCache(): Promise<Cache> {
@@ -984,10 +1015,23 @@ export async function deleteOfflinePack(id: string): Promise<void> {
   await pruneOrphanTiles(remaining);
 }
 
+// Delete every saved map. A running download is stopped first and its last
+// writes awaited (it would otherwise keep writing into the deleted cache and
+// then record its pack as ready); the generation bump makes sure it can't.
 export async function clearAllOfflineTiles(): Promise<void> {
+  tileCacheGeneration += 1;
+  const running = [...activeDownloads];
+  for (const download of running) download.controller.abort();
+  await Promise.all(running.map((download) => download.settled));
+
   writeOfflinePacks([]);
+  // Nothing is left to prune.
+  pruneDeferred = false;
   if (offlineCachesSupported()) {
+    offlineTileCachePromise = null;
     await caches.delete(OFFLINE_TILE_CACHE);
+    // Again, in case a lookup reopened the old cache while it was deleting.
+    offlineTileCachePromise = null;
   }
 }
 
@@ -1029,6 +1073,11 @@ function writeOfflinePacks(packs: OfflineMapPack[]): void {
   packsCache = packs;
   offlineTileTotal = packs.reduce((total, pack) => total + pack.tileCount, 0);
   notifyPackListeners();
+}
+
+/** Every saved pack on this device (fresh from storage). */
+export function listOfflinePacks(): OfflineMapPack[] {
+  return readOfflinePacks();
 }
 
 function saveOfflinePackRecord(pack: OfflineMapPack): void {

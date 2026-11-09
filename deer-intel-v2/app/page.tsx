@@ -12,6 +12,7 @@ import WindCompass from "@/components/weather/WindCompass";
 import MoonPhaseCard from "@/components/weather/MoonPhaseCard";
 import Barometer from "@/components/weather/Barometer";
 import RutRibbon from "@/components/season/RutRibbon";
+import SeasonRemindersCard from "@/components/season/SeasonRemindersCard";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
 import StandWindGrid from "@/components/StandWindGrid";
 import BestSitsLine from "@/components/stands/BestSitsLine";
@@ -165,6 +166,7 @@ export default function Home() {
           checks={propertyCameraChecks}
           now={now}
         />
+        <SeasonRemindersCard now={now} point={weatherPoint} />
 
         {activeProperty ? (
           <SetupChecklist

@@ -1,3 +1,4 @@
+import { buckSitPlanLine, buildBuckSitPlan } from "@/lib/buckSitPlan";
 import { getDeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
 import { isActiveDeerProfile } from "@/lib/deerProfiles";
 import {
@@ -8,10 +9,12 @@ import {
 import { getPhotoBuckNames, getPhotoDeerProfileIds, photoRecordTime } from "@/lib/photos";
 import type { Camera } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
+import type { ForecastDay } from "@/lib/liveWeather";
 import type { DeerProfile } from "@/types/deerProfile";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { MapPin } from "@/types/mapPin";
 import type { PhotoRecord } from "@/types/photo";
+import type { Stand } from "@/types/stand";
 
 // One slide per buck on the hit list for the Today slideshow: the buck's
 // newest photo plus the facts that matter when deciding to hunt him.
@@ -25,6 +28,9 @@ export type HitListSlide = {
   usualTime: string | null;
   sightings: number;
   href: string;
+  /** "Best: Tue PM · Oak Flat" from lib/buckSitPlan; null without a pick
+   * (or when no stands / forecast were passed in). */
+  bestSit: string | null;
 };
 
 function newest(photos: PhotoRecord[]): PhotoRecord | undefined {
@@ -49,6 +55,11 @@ export function buildHitListSlides(input: {
   cameraChecks: CameraCheck[];
   hunts: HuntLogEntry[];
   pins: MapPin[];
+  /** Optional: with stands and the forecast, each buck gets a best-sit line. */
+  stands?: Stand[];
+  forecastDays?: ForecastDay[];
+  /** usePropertyToday's activeSitKey, so sits already over are skipped. */
+  nextSitKey?: string;
 }): HitListSlide[] {
   const { propertyId, propertyName, profiles, photos, cameras } = input;
   const cameraName = (id: string) => cameras.find((camera) => camera.id === id)?.name;
@@ -64,6 +75,22 @@ export function buildHitListSlides(input: {
     });
     if (!timeWindow || timeWindow.sampleSize < MIN_TIMED_FOR_PATTERN) return null;
     return describeDeerTimeWindow(timeWindow)?.title ?? null;
+  };
+  const propertyStands = (input.stands ?? []).filter((stand) => stand.propertyId === propertyId);
+  const bestSitOf = (profile: DeerProfile): string | null => {
+    if (propertyStands.length === 0 || !input.forecastDays?.length) return null;
+    return buckSitPlanLine(
+      buildBuckSitPlan({
+        profile,
+        photoRecords: propertyPhotos,
+        hunts: input.hunts,
+        cameras: input.cameras,
+        stands: propertyStands,
+        pins: input.pins,
+        forecastDays: input.forecastDays,
+        nextSitKey: input.nextSitKey,
+      }),
+    );
   };
 
   const slides: HitListSlide[] = propertyProfiles
@@ -101,6 +128,7 @@ export function buildHitListSlides(input: {
         usualTime: usualTimeOf(profile),
         sightings: intel.sightingCount,
         href: `/hit-list?buck=${encodeURIComponent(profile.id)}`,
+        bestSit: bestSitOf(profile),
       };
     });
 
@@ -134,6 +162,7 @@ export function buildHitListSlides(input: {
       usualTime: null,
       sightings: hisPhotos.length,
       href: "/hit-list",
+      bestSit: null,
     });
   }
 

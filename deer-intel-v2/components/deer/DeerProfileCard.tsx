@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import BuckSitPlanBlock from "@/components/deer/BuckSitPlanBlock";
 import PhotoRecordList from "@/components/photos/PhotoRecordList";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
@@ -12,6 +13,7 @@ import {
   SunIcon,
   SunriseIcon,
 } from "@/components/ui/FieldIcons";
+import type { BuckSitPlan } from "@/lib/buckSitPlan";
 import type {
   ConditionInsight,
   DeerConditionInsights,
@@ -39,6 +41,8 @@ type DeerProfileCardProps = {
   photos: PhotoRecord[];
   deerProfiles: DeerProfile[];
   timeline: DeerProfileTimeline;
+  /** "Best sits for <name>" (lib/buckSitPlan); omitted for harvested/retired bucks. */
+  sitPlan?: BuckSitPlan;
   /** Edit / harvested / merge / delete controls, under the header. */
   actions?: ReactNode;
 };
@@ -51,6 +55,7 @@ export default function DeerProfileCard({
   photos,
   deerProfiles,
   timeline,
+  sitPlan,
   actions,
 }: DeerProfileCardProps) {
   const status = deerProfileStatus(summary.profile);
@@ -84,6 +89,13 @@ export default function DeerProfileCard({
           </div>
         ) : null}
       </section>
+
+      {sitPlan ? (
+        <BuckSitPlanBlock
+          name={summary.profile.nickname.trim() || "this buck"}
+          plan={sitPlan}
+        />
+      ) : null}
 
       {conditions.hasData ? (
         <section style={groupStyle}>
