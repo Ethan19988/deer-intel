@@ -41,8 +41,12 @@ export function standPoint(stand: Stand, pins: MapPin[]): Point | null {
   return { lat: pin.lat, lng: pin.lng };
 }
 
-/** Up to 2 located cameras within 800 yd of `point`, nearest first. */
-export function nearestCameras(point: Point, cameras: Camera[]): AiScoutNearbyCamera[] {
+/** Located cameras within `radiusYd` of `point`, nearest first. */
+export function camerasNear(
+  point: Point,
+  cameras: Camera[],
+  radiusYd = STAND_CAMERA_RADIUS_YD,
+): Array<{ camera: Camera; yards: number }> {
   return cameras
     .filter(
       (camera): camera is Camera & { latitude: number; longitude: number } =>
@@ -52,12 +56,18 @@ export function nearestCameras(point: Point, cameras: Camera[]): AiScoutNearbyCa
         Number.isFinite(camera.longitude),
     )
     .map((camera) => ({
-      name: camera.name,
+      camera: camera as Camera,
       yards: yardsBetween(point, { lat: camera.latitude, lng: camera.longitude }),
     }))
-    .filter((camera) => camera.yards <= STAND_CAMERA_RADIUS_YD)
-    .sort((a, b) => a.yards - b.yards)
-    .slice(0, MAX_STAND_CAMERAS);
+    .filter((entry) => entry.yards <= radiusYd)
+    .sort((a, b) => a.yards - b.yards);
+}
+
+/** Up to 2 located cameras within 800 yd of `point`, nearest first. */
+export function nearestCameras(point: Point, cameras: Camera[]): AiScoutNearbyCamera[] {
+  return camerasNear(point, cameras)
+    .slice(0, MAX_STAND_CAMERAS)
+    .map(({ camera, yards }) => ({ name: camera.name, yards }));
 }
 
 /** Up to 3 terrain picks whose anchor is within 400 yd of `point`, nearest first. */

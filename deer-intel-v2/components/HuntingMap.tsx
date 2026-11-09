@@ -3366,6 +3366,8 @@ export default function HuntingMap() {
   }
 
   function toggleMapTool(toolId: MapToolId) {
+    // A tap on the alert toggles also unlocks the beep for iOS.
+    if (toolId === "alertSound" || toolId === "edgeWarning") unlockAlertSound();
     setMapTools((currentTools) => ({
       ...currentTools,
       [toolId]: !currentTools[toolId],

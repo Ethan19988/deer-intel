@@ -1,11 +1,18 @@
-// The conditions one tracked deer moves best on, read straight from the weather
-// on his linked trail-cam photos: the single wind, temperature band, time of
-// day, and humidity band that account for the biggest share of his sightings.
-// Only photos explicitly linked to the profile count — the same rule the travel
-// and intelligence reads follow, so a stand decision never rides on a guess.
+// The conditions one tracked deer has shown up in, read from the weather on his
+// linked trail-cam photos: the single wind, temperature band, part of the day,
+// humidity band and moon phase that account for the biggest share of his
+// VISITS. Only photos explicitly linked to the profile count — the same rule
+// the travel and intelligence reads follow.
+//
+// Honesty rules: a burst of photos is one visit (photos on the same camera
+// within 10 minutes collapse), it takes 5 distinct visits before a dimension
+// says anything, and "seen mostly on SW winds" is only called a preference when
+// it beats how often that condition shows up on all deer visits to the same
+// cameras. Without that baseline the wording stays soft.
 
 import { trustedPhotoDate } from "@/lib/photoDateTime";
 import { photoLinksProfile } from "@/lib/photos";
+import { DEFAULT_SUN_POINT, sunTimesFor, type SunTimes } from "@/lib/standStats";
 import { toEightWind } from "@/lib/travelDirection";
 import type { DeerProfile } from "@/types/deerProfile";
 import type { PhotoRecord } from "@/types/photo";
@@ -21,14 +28,26 @@ export type ConditionInsight = {
   kind: ConditionKind;
   /** Dimension name, e.g. "Wind". */
   label: string;
-  /** The dominant value for the dimension, e.g. "SW", "40–49°", "Mornings". */
+  /**
+   * The dominant value, worded for what the data can support, e.g.
+   * "Seen mostly on SW winds", "Favors SW winds", "Around dawn".
+   */
   value: string;
-  /** Share of sightings with data for this dimension that fell in `value`. */
+  /** Share of visits with data for this dimension that fell in the top bucket. */
   percent: number;
-  /** How many of those sightings landed on the top value. */
+  /** How many of those visits landed on the top bucket. */
   count: number;
-  /** How many linked sightings carried data for this dimension. */
+  /** How many distinct visits carried data for this dimension. */
   sampleSize: number;
+  /** The raw top bucket, e.g. "SW winds", "40–49°", "Around dawn". */
+  bucket: string;
+  /**
+   * Share of ALL deer visits to the same cameras in that bucket (0-100), when
+   * there are enough of them to compare; null when there's no baseline.
+   */
+  baselinePercent: number | null;
+  /** One plain-language line on how much to trust it. */
+  note: string;
 };
 
 export type DeerConditionInsights = {
@@ -37,36 +56,55 @@ export type DeerConditionInsights = {
   hasData: boolean;
 };
 
-// One photo is a coincidence, not a pattern — a dimension needs at least this
-// many linked sightings with data before it earns an insight.
-const MIN_SIGHTINGS = 2;
+/** Distinct visits a dimension needs before it earns an insight. */
+export const MIN_VISITS = 5;
+/** Photos on one camera this close together are one visit. */
+export const VISIT_GAP_MS = 10 * 60_000;
+/** Baseline visits (all deer, same cameras) needed to compare against. */
+const MIN_BASELINE_VISITS = 15;
+/** How much more often than the baseline before it reads as a preference. */
+const PREFERENCE_LIFT = 1.3;
 
 type DeerConditionInput = {
   profile: DeerProfile;
   photoRecords: PhotoRecord[];
+  /** Sun times for a date (StatsContext.sunFor); defaults to central PA. */
+  sunFor?: (dateKey: string) => SunTimes | null;
 };
+
+type Read = (photo: PhotoRecord) => string;
 
 export function getDeerConditionInsights({
   profile,
   photoRecords,
+  sunFor,
 }: DeerConditionInput): DeerConditionInsights {
-  const linked = photoRecords.filter((photo) =>
-    photoLinksProfile(photo, profile.id),
+  const linked = collapseVisits(
+    photoRecords.filter((photo) => photoLinksProfile(photo, profile.id)),
   );
+  // Baseline: every deer visit to the cameras this buck used (him included).
+  const cameraIds = new Set(linked.map((photo) => photo.cameraSiteId));
+  const baseline = collapseVisits(
+    photoRecords.filter(
+      (photo) => cameraIds.has(photo.cameraSiteId) && isDeerPhoto(photo),
+    ),
+  );
+  const sun = sunResolver(sunFor);
+  const timeValue: Read = (photo) => timeOfDayValue(photo, sun);
 
-  const winds = collect(linked, windValue);
-  const temps = collect(linked, temperatureValue);
-  const times = collect(linked, timeValue);
-  const humidities = collect(linked, humidityValue);
-  const moons = collect(linked, moonValue);
+  const dims: Array<[ConditionKind, string, Read, boolean]> = [
+    ["wind", "Wind", windValue, true],
+    ["temperature", "Temperature", temperatureValue, true],
+    // Time of day IS the deer-activity signal; no weather baseline applies.
+    ["time", "Time of Day", timeValue, false],
+    ["humidity", "Humidity", humidityValue, true],
+    ["moon", "Moon Phase", moonValue, true],
+  ];
 
-  const insights = [
-    buildInsight("wind", "Wind", winds),
-    buildInsight("temperature", "Temperature", temps),
-    buildInsight("time", "Time of Day", times),
-    buildInsight("humidity", "Humidity", humidities),
-    buildInsight("moon", "Moon Phase", moons),
-  ]
+  const insights = dims
+    .map(([kind, label, read, compare]) =>
+      buildInsight(kind, label, collect(linked, read), compare ? collect(baseline, read) : null),
+    )
     .filter((insight): insight is ConditionInsight => insight !== null)
     // Lead with the strongest signal; break ties on the larger sample.
     .sort(
@@ -77,10 +115,48 @@ export function getDeerConditionInsights({
   return { insights, hasData: insights.length > 0 };
 }
 
-function collect(
-  photos: PhotoRecord[],
-  read: (photo: PhotoRecord) => string,
-): string[] {
+/**
+ * One photo per visit: photos on the same camera within VISIT_GAP_MS of the
+ * previous one (a burst, or a buck milling in front of the lens) collapse to
+ * the first. Date-only photos collapse per camera per day.
+ */
+export function collapseVisits(photos: PhotoRecord[]): PhotoRecord[] {
+  const timed: Array<{ photo: PhotoRecord; time: number }> = [];
+  const dateOnly = new Map<string, PhotoRecord>();
+  for (const photo of photos) {
+    const raw = trustedPhotoDate(photo).trim();
+    const time = /T\d{2}:\d{2}/.test(raw) ? Date.parse(raw) : NaN;
+    if (Number.isFinite(time)) {
+      timed.push({ photo, time });
+    } else {
+      const key = `${photo.cameraSiteId}|${raw.slice(0, 10)}`;
+      if (!dateOnly.has(key)) dateOnly.set(key, photo);
+    }
+  }
+  timed.sort(
+    (a, b) =>
+      a.photo.cameraSiteId.localeCompare(b.photo.cameraSiteId) || a.time - b.time,
+  );
+  const visits: PhotoRecord[] = [];
+  let lastCamera = "";
+  let lastTime = -Infinity;
+  for (const { photo, time } of timed) {
+    if (photo.cameraSiteId !== lastCamera || time - lastTime > VISIT_GAP_MS) {
+      visits.push(photo);
+    }
+    lastCamera = photo.cameraSiteId;
+    lastTime = time;
+  }
+  return [...visits, ...dateOnly.values()];
+}
+
+function isDeerPhoto(photo: PhotoRecord): boolean {
+  if (photo.buckName?.trim() || photo.deerProfileId) return true;
+  const species = (photo.species ?? "").toLowerCase();
+  return ["deer", "buck", "doe", "fawn", "whitetail"].some((term) => species.includes(term));
+}
+
+function collect(photos: PhotoRecord[], read: Read): string[] {
   return photos.map(read).filter(Boolean);
 }
 
@@ -88,20 +164,61 @@ function buildInsight(
   kind: ConditionKind,
   label: string,
   values: string[],
+  baselineValues: string[] | null,
 ): ConditionInsight | null {
-  if (values.length < MIN_SIGHTINGS) return null;
+  if (values.length < MIN_VISITS) return null;
 
   const top = topEntry(countBy(values));
 
   if (!top.key) return null;
 
+  const percent = Math.round((top.count / values.length) * 100);
+  const hasBaseline = baselineValues !== null && baselineValues.length >= MIN_BASELINE_VISITS;
+  const baselinePercent = hasBaseline
+    ? Math.round(
+        (baselineValues.filter((value) => value === top.key).length / baselineValues.length) * 100,
+      )
+    : null;
+
+  let value: string;
+  let note: string;
+  if (baselineValues === null) {
+    value = top.key;
+    note = `${top.count} of ${values.length} visits.`;
+  } else if (baselinePercent === null) {
+    value = `Seen mostly on ${top.key}`;
+    note = `Not enough other deer visits on these cameras to tell whether ${top.key} is a preference or just the most common condition.`;
+  } else if (baselinePercent > 0 && percent / baselinePercent >= PREFERENCE_LIFT) {
+    value = `Favors ${top.key}`;
+    note = `${percent}% of his visits vs ${baselinePercent}% of all deer visits on these cameras.`;
+  } else {
+    value = `Seen mostly on ${top.key}`;
+    note = `${top.key} is also the most common condition on these cameras (${baselinePercent}% of all deer visits) — no clear preference.`;
+  }
+
   return {
     kind,
     label,
-    value: top.key,
-    percent: Math.round((top.count / values.length) * 100),
+    value,
+    percent,
     count: top.count,
     sampleSize: values.length,
+    bucket: top.key,
+    baselinePercent,
+    note,
+  };
+}
+
+function sunResolver(
+  sunFor: DeerConditionInput["sunFor"],
+): (dateKey: string) => SunTimes | null {
+  if (sunFor) return sunFor;
+  const cache = new Map<string, SunTimes | null>();
+  return (dateKey) => {
+    if (!cache.has(dateKey)) {
+      cache.set(dateKey, sunTimesFor(dateKey, DEFAULT_SUN_POINT.lat, DEFAULT_SUN_POINT.lng));
+    }
+    return cache.get(dateKey) ?? null;
   };
 }
 
@@ -124,22 +241,31 @@ function temperatureValue(photo: PhotoRecord): string {
   return `${low}–${low + 9}°`;
 }
 
-function timeValue(photo: PhotoRecord): string {
+/**
+ * Sun-relative part of the day on the photo's own date: within 60 min before to
+ * 90 min after sunrise is "Around dawn", 90 min before to 60 min after sunset
+ * "Around dusk", daylight between is "Midday", the rest "After dark".
+ */
+function timeOfDayValue(
+  photo: PhotoRecord,
+  sunFor: (dateKey: string) => SunTimes | null,
+): string {
   const raw = trustedPhotoDate(photo).trim();
 
   // A date without a clock time can't be placed in a part of the day.
   if (!/T\d{2}:\d{2}/.test(raw)) return "";
 
-  const hour = new Date(raw).getHours();
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "";
+  const minutes = date.getHours() * 60 + date.getMinutes();
+  const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const sun = sunFor(dateKey);
+  if (!sun) return "";
 
-  if (Number.isNaN(hour)) return "";
-
-  // The same daybreaks the travel time-of-day read uses.
-  if (hour >= 5 && hour <= 10) return "Mornings";
-  if (hour >= 11 && hour <= 14) return "Middays";
-  if (hour >= 15 && hour <= 20) return "Evenings";
-
-  return "Nights";
+  if (minutes >= sun.sunrise - 60 && minutes <= sun.sunrise + 90) return "Around dawn";
+  if (minutes >= sun.sunset - 90 && minutes <= sun.sunset + 60) return "Around dusk";
+  if (minutes > sun.sunrise && minutes < sun.sunset) return "Midday";
+  return "After dark";
 }
 
 function humidityValue(photo: PhotoRecord): string {
