@@ -106,7 +106,9 @@ export default function PhotoUploadField({
       const stored = await putPhotoImage(newImageId, processed.blob);
 
       if (!stored) {
-        throw new Error("This browser blocked saving the photo.");
+        throw new Error(
+          "Couldn't save the photo — your phone's storage may be full. Free up some space and try again.",
+        );
       }
 
       if (imageId && imageId !== newImageId) {

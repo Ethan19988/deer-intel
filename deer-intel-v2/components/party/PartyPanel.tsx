@@ -7,6 +7,8 @@ import Card from "@/components/ui/Card";
 import Section from "@/components/ui/Section";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useActiveParty } from "@/components/party/PartyProvider";
+import { useDeerIntelStore } from "@/lib/deerIntelStore";
+import { PARTY_TEXT_LIMITS } from "@/lib/partyLimits";
 import { usePartyLocations, usePartyPins, usePartyRoster } from "@/lib/useParty";
 import type { Party } from "@/types/party";
 
@@ -29,6 +31,8 @@ export default function PartyPanel() {
     setSharingEnabled,
     pinSharingEnabled,
     setPinSharingEnabled,
+    pinSharePropertyId,
+    setPinSharePropertyId,
     loading,
     error,
     createParty,
@@ -181,6 +185,8 @@ export default function PartyPanel() {
           <PinSharingControls
             pinSharingEnabled={pinSharingEnabled}
             setPinSharingEnabled={setPinSharingEnabled}
+            pinSharePropertyId={pinSharePropertyId}
+            setPinSharePropertyId={setPinSharePropertyId}
           />
           <SharedPinsSummary party={activeParty} selfId={user?.id ?? null} />
         </Section>
@@ -198,6 +204,7 @@ export default function PartyPanel() {
                   value={partyName}
                   onChange={(e) => setPartyName(e.target.value)}
                   placeholder="Moore Hill Crew"
+                  maxLength={PARTY_TEXT_LIMITS.partyName}
                 />
               </label>
               <label style={labelStyle}>
@@ -207,6 +214,7 @@ export default function PartyPanel() {
                   value={createDisplayName}
                   onChange={(e) => setCreateDisplayName(e.target.value)}
                   placeholder="Dad"
+                  maxLength={PARTY_TEXT_LIMITS.displayName}
                 />
               </label>
               <Button type="submit" disabled={busy} fullWidth>
@@ -224,8 +232,8 @@ export default function PartyPanel() {
                   style={{ ...inputStyle, textTransform: "uppercase", letterSpacing: "0.15em" }}
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                  placeholder="K7P2QX"
-                  maxLength={6}
+                  placeholder="K7P2QXM4HD"
+                  maxLength={PARTY_TEXT_LIMITS.inviteCode}
                 />
               </label>
               <label style={labelStyle}>
@@ -235,6 +243,7 @@ export default function PartyPanel() {
                   value={joinDisplayName}
                   onChange={(e) => setJoinDisplayName(e.target.value)}
                   placeholder="Sam"
+                  maxLength={PARTY_TEXT_LIMITS.displayName}
                 />
               </label>
               <Button type="submit" variant="secondary" disabled={busy} fullWidth>
@@ -337,10 +346,15 @@ function SharingControls({
 function PinSharingControls({
   pinSharingEnabled,
   setPinSharingEnabled,
+  pinSharePropertyId,
+  setPinSharePropertyId,
 }: {
   pinSharingEnabled: boolean;
   setPinSharingEnabled: (on: boolean) => void;
+  pinSharePropertyId: string | null;
+  setPinSharePropertyId: (propertyId: string) => void;
 }) {
+  const { properties } = useDeerIntelStore();
   return (
     <Card style={{ marginBottom: "0.75rem" }}>
       <label style={{ display: "flex", gap: "0.7rem", alignItems: "flex-start", cursor: "pointer" }}>
@@ -353,13 +367,32 @@ function PinSharingControls({
         <span>
           <strong>Share my map pins with this party</strong>
           <span style={{ display: "block", marginTop: "0.35rem", color: "var(--text-muted)", fontSize: "0.9rem", lineHeight: 1.5 }}>
-            Your pins — cameras, stands, scrapes, sightings — show up on every
-            party member&rsquo;s map, and update as you add or move them. Turn
-            this off to pull them all back down. You always see everyone
-            else&rsquo;s shared pins regardless of this switch.
+            One property&rsquo;s pins — cameras, stands, scrapes, sightings —
+            show up on every party member&rsquo;s map with their names, and
+            update as you add or move them. Your pin notes stay private. This
+            switch applies on all your devices; turn it off to pull them all
+            back down. You always see everyone else&rsquo;s shared pins
+            regardless of this switch.
           </span>
         </span>
       </label>
+      {properties.length > 0 ? (
+        <label style={{ ...labelStyle, marginTop: "0.75rem", marginBottom: 0 }}>
+          Property to share
+          <select
+            style={inputStyle}
+            value={pinSharePropertyId ?? ""}
+            onChange={(e) => setPinSharePropertyId(e.target.value)}
+          >
+            {pinSharePropertyId ? null : <option value="">Choose a property</option>}
+            {properties.map((property) => (
+              <option key={property.id} value={property.id}>
+                {property.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
     </Card>
   );
 }

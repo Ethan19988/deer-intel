@@ -1,5 +1,7 @@
 "use client";
 
+import { deleteIdbDatabase, runIdbTransaction } from "@/lib/idbTransaction";
+
 // Attached documents (PDFs, images, and any other file the hunter uploads) can
 // be several megabytes each, far past the localStorage quota that holds the
 // rest of the app state. Their bytes live in IndexedDB instead, keyed by a
@@ -24,63 +26,82 @@ function openDatabase(): Promise<IDBDatabase | null> {
 
   if (!databasePromise) {
     databasePromise = new Promise((resolve) => {
-      const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+      try {
+        const request = window.indexedDB.open(DB_NAME, DB_VERSION);
 
-      request.onupgradeneeded = () => {
-        const database = request.result;
+        request.onupgradeneeded = () => {
+          const database = request.result;
 
-        if (!database.objectStoreNames.contains(STORE_NAME)) {
-          database.createObjectStore(STORE_NAME);
-        }
-      };
+          if (!database.objectStoreNames.contains(STORE_NAME)) {
+            database.createObjectStore(STORE_NAME);
+          }
+        };
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => {
+        request.onsuccess = () => {
+          const database = request.result;
+          // Let Clear All (deleteDatabase) proceed instead of being blocked.
+          database.onversionchange = () => {
+            database.close();
+            databasePromise = null;
+          };
+          // The browser can close a connection (e.g. iOS backgrounding); open
+          // a fresh one next time instead of failing every later write.
+          database.onclose = () => {
+            databasePromise = null;
+          };
+          resolve(database);
+        };
+        request.onerror = () => {
+          databasePromise = null;
+          resolve(null);
+        };
+      } catch {
         databasePromise = null;
         resolve(null);
-      };
+      }
     });
   }
 
   return databasePromise;
 }
 
+// Resolves on transaction commit; `ok` is false when IndexedDB is unavailable
+// or the write was rejected/aborted (e.g. storage full).
 function runTransaction<Result>(
   mode: IDBTransactionMode,
   work: (store: IDBObjectStore) => IDBRequest<Result>,
-): Promise<Result | null> {
-  return openDatabase().then(
-    (database) =>
-      new Promise((resolve) => {
-        if (!database) {
-          resolve(null);
-          return;
-        }
-
-        try {
-          const transaction = database.transaction(STORE_NAME, mode);
-          const request = work(transaction.objectStore(STORE_NAME));
-
-          request.onsuccess = () => resolve(request.result ?? null);
-          request.onerror = () => resolve(null);
-        } catch {
-          resolve(null);
-        }
-      }),
+): Promise<{ ok: boolean; value: Result | null }> {
+  return openDatabase().then((database) =>
+    runIdbTransaction(database, STORE_NAME, mode, work),
   );
 }
 
-/** Store a file's bytes. Returns false when the browser blocked the write. */
+/**
+ * Close this tab's connection and delete the whole DB_NAME database (Clear
+ * All). Resolves true once deleted, false if the browser blocked or failed it.
+ */
+export async function deleteFileDatabase(): Promise<boolean> {
+  if (!hasIndexedDb()) return true;
+  const pending = databasePromise;
+  databasePromise = null;
+  const open = pending ? await pending : null;
+  open?.close();
+  return deleteIdbDatabase(DB_NAME);
+}
+
+/**
+ * Store a file's bytes. Resolves true once committed; false when IndexedDB is
+ * unavailable or the write was rejected (often storage full).
+ */
 export function putFile(id: string, blob: Blob): Promise<boolean> {
   return runTransaction("readwrite", (store) => store.put(blob, id)).then(
-    () => true,
-    () => false,
+    ({ ok }) => ok,
   );
 }
 
 export function getFile(id: string): Promise<Blob | null> {
   return runTransaction<Blob>("readonly", (store) => store.get(id)).then(
-    (value) => (value instanceof Blob ? value : null),
+    ({ value }) => (value instanceof Blob ? value : null),
   );
 }
 

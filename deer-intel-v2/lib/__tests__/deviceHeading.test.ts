@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_DECLINATION,
+  headingDelta,
   headingFromOrientation,
   magneticDeclination,
   magneticToTrue,
+  shouldEmitHeading,
 } from "@/lib/deviceHeading";
 import { guideReading } from "@/lib/fieldGuide";
 
@@ -50,5 +52,24 @@ describe("Guide me with a corrected heading", () => {
     const declination = magneticDeclination(from.lat, from.lng);
     const trueHeading = magneticToTrue(-declination, declination);
     expect(guideReading(from, to, trueHeading).arrowRotation).toBe(0);
+  });
+});
+
+describe("heading throttle", () => {
+  it("measures the short way round", () => {
+    expect(headingDelta(359, 1)).toBe(2);
+    expect(headingDelta(10, 350)).toBe(20);
+    expect(headingDelta(90, 270)).toBe(180);
+    expect(headingDelta(45, 45)).toBe(0);
+  });
+
+  it("emits the first reading, then 2°+ turns at most every 250 ms", () => {
+    expect(shouldEmitHeading(null, 100, 0)).toBe(true);
+    const last = { heading: 100, at: 1_000 };
+    expect(shouldEmitHeading(last, 110, 1_100)).toBe(false); // too soon
+    expect(shouldEmitHeading(last, 101, 1_400)).toBe(false); // too small
+    expect(shouldEmitHeading(last, 102, 1_400)).toBe(true);
+    expect(shouldEmitHeading({ heading: 359, at: 0 }, 1, 500)).toBe(true); // wraps
+    expect(shouldEmitHeading({ heading: 359, at: 0 }, 0, 500)).toBe(false);
   });
 });

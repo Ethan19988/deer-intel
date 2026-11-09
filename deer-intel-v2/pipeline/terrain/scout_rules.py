@@ -60,9 +60,17 @@ MIN_SADDLE_AREA_M2 = 150.0
 # Smooth the DEM at this GROUND scale before reading saddle curvature, so a 1 m
 # DEM is read at hill scale instead of micro-relief.
 SADDLE_SMOOTH_M = 40.0
-# Keep only the strongest curvature candidates (percentile, not an absolute
-# cutoff — curvature magnitude depends heavily on cell size).
-SADDLE_PERCENTILE = 92.0
+# A saddle must curve at least this much along BOTH principal axes (1/m, read
+# on the DEM smoothed at SADDLE_SMOOTH_M). np.gradient divides by the cell size,
+# so this is a physical curvature, independent of DEM resolution: 2e-4 /m is
+# about 1 m of rise over 100 m from the saddle's low point (4 m over 200 m).
+# Flat or gently rolling ground never reaches it, so it can't manufacture
+# saddles the way a "top N%" cutoff did.
+SADDLE_MIN_CURV = 2.0e-4
+# Cap for very rugged ground: if more than this share of the valid area clears
+# SADDLE_MIN_CURV, keep only the strongest cells up to that share. (Clusters are
+# also capped at 200 and MAX_PER_KIND["pinch"] below.)
+SADDLE_MAX_AREA_FRACTION = 0.03
 
 # --- Bench (contour) travel corridors ---------------------------------------
 # Penn State collar deer bed high on steep slopes but TRAVEL the lower/mid
@@ -135,8 +143,10 @@ def compass(deg: float) -> str:
 
 
 def reciprocal_wind(aspect_deg: float) -> str:
-    """Best wind to hunt ground that FACES aspect_deg: wind from the opposite
-    side carries scent up and over, away from bedded/approaching deer."""
+    """The wind deer bed on for a slope that FACES aspect_deg: wind from the
+    uphill side, at their back, while they watch downhill. This is the DEER's
+    wind, not the hunter's — approaching from above on it blows scent straight
+    onto the beds."""
     return compass(aspect_deg + 180)
 
 
@@ -153,6 +163,15 @@ def thermal_note(aspect_deg: float | None = None) -> str:
     up = compass(aspect_deg + 180)
     return (f"Thermals: at dawn scent drains {down} (downhill); by midday it "
             f"rises {up} (upslope) — cross-check that against the wind.")
+
+
+# Draws: at dawn deer climb up out of the drainage from below, and falling
+# thermals carry scent DOWN it — so a stand at the lower end meets them with
+# your scent. Sit the upper part/side at first light; mid-afternoon the rising
+# thermal favors the lower end.
+DRAW_TIMING_NOTE = (" At first light sit the upper part or side of the draw so falling "
+                    "thermals carry scent down and away from deer coming up it; in the "
+                    "evening, mid-afternoon rising thermals favor the lower end.")
 
 
 def sample_road_dist(dist_road, transform, x, y):
@@ -320,7 +339,7 @@ def bench_centerlines(mask, dem, transform, to_wgs, min_area_m2, max_keep):
 
 
 # Crossings and funnels rank against the saddles rather than on an absolute
-# number. Saddle score is strength*1e6, so any constant picked here would either
+# number. Saddle score is 1000 + strength*1e4, so any constant picked here would either
 # bury them under every saddle or float them all above one, depending on a scale
 # that isn't knowable up front. Anchoring to a high saddle keeps them at the top
 # of the list while still interleaving with the strongest saddles.
@@ -778,14 +797,18 @@ def main():
     if dist_road is not None:
         refuge_mask &= dist_road >= FAR_FROM_ROAD_M
 
-    # Saddles: smooth the DEM, then find cells where curvature flips sign between
-    # the two axes (convex one way, concave the other) while sitting on a crest.
+    # Saddles: smooth the DEM, then find cells where the surface curves up one
+    # way and down the other (a negative Hessian determinant,
+    # fxx*fyy - fxy^2 < 0) while sitting on a crest. The cross term fxy is what
+    # catches saddles whose axes run diagonally (NE-SW / NW-SE); the old
+    # gxx*gyy < 0 test only saw ridges aligned with the grid.
     #
-    # Both the smoothing and the cutoff must be resolution-aware. Smoothing is
-    # done at a fixed GROUND scale (metres -> cells) so a 1 m DEM isn't read as
-    # micro-relief, and the cutoff is a percentile of the actual curvature rather
-    # than an absolute number — at 1 m the second derivatives are orders of
-    # magnitude smaller than at 10 m, so any fixed threshold rejects everything.
+    # Smoothing is done at a fixed GROUND scale (metres -> cells) so a 1 m DEM
+    # isn't read as micro-relief, and np.gradient divides by the cell size, so
+    # the curvatures are physical (1/m) and an absolute cutoff
+    # (SADDLE_MIN_CURV) works at any resolution. Strength is the smaller of the
+    # two principal curvature magnitudes: r - |mean|, where mean = (fxx+fyy)/2
+    # and r = sqrt(((fxx-fyy)/2)^2 + fxy^2); it's positive only on a saddle.
     # Each intermediate is a full-size raster, so free them as we go — at 1 m
     # over several tiles, holding them all at once is what OOMs the run.
     sigma_cells = max(SADDLE_SMOOTH_M / px, 1.0)
@@ -795,18 +818,28 @@ def main():
     gy, gx = np.gradient(sm, px, px)
     del sm
     gxx = np.gradient(gx, px, axis=1)
+    gxy = np.gradient(gx, px, axis=0)
     del gx
     gyy = np.gradient(gy, px, axis=0)
     del gy
 
-    prod = gxx * gyy
+    half_diff = (gxx - gyy) / 2.0
+    radius = np.sqrt(half_diff * half_diff + gxy * gxy)
+    del half_diff, gxy
+    mean_curv = np.abs((gxx + gyy) / 2.0)
     del gxx, gyy
-    candidate = valid & (prod < 0) & upper  # opposite curvature, up on a crest
-    strength = np.abs(prod)
-    del prod
-    if candidate.any():
-        cutoff = np.percentile(strength[candidate], SADDLE_PERCENTILE)
-        saddle_mask = candidate & (strength >= cutoff)
+    strength = radius - mean_curv  # min principal |curvature| on a saddle, else <= 0
+    del radius, mean_curv
+    # Opposite curvature on the two principal axes, strong enough to be a real
+    # gap rather than flat-ground noise, up on a crest.
+    candidate = valid & upper & (strength >= SADDLE_MIN_CURV)
+    n_cand = int(candidate.sum())
+    n_valid = int(valid.sum())
+    max_cells = int(SADDLE_MAX_AREA_FRACTION * n_valid)
+    if n_cand > max_cells > 0:
+        keep_pct = 100.0 * (1.0 - max_cells / n_cand)
+        cap = float(np.percentile(strength[candidate], keep_pct))
+        saddle_mask = candidate & (strength >= max(cap, SADDLE_MIN_CURV))
     else:
         saddle_mask = candidate
     del candidate
@@ -829,8 +862,9 @@ def main():
             f"{round(c['elev'] * 3.281)} ft, ~{c['slope']:.0f}° — thermal sun and a "
             "downhill escape; Penn State collar deer bed exactly this."
         )
-        note = (f"Beds hold a {wind} wind. Approach from the ridge above. "
-                + thermal_note(c["aspect"]))
+        note = (f"Deer bed here on a {wind} wind (wind at their back, eyes "
+                "downhill). Don't come in from above — hunt the exit trail on a "
+                "crosswind. " + thermal_note(c["aspect"]))
         cx, cy = c["geom"].representative_point().coords[0]
         lng, lat = to_wgs.transform(cx, cy)
         road_d = sample_road_dist(dist_road, transform, cx, cy)
@@ -846,7 +880,7 @@ def main():
         pick = {"kind": "bedding", "title": title, "lat": round(lat, 5),
                 "lng": round(lng, 5), "elevationFt": round(c["elev"] * 3.281),
                 "slopeDeg": round(c["slope"]), "aspect": compass(c["aspect"]),
-                "bestWind": wind, "reason": detail + (f" {sec_tag}" if sec_tag else ""),
+                "deerBedOnWind": wind, "reason": detail + (f" {sec_tag}" if sec_tag else ""),
                 "score": c["area"] / 1000 + c["slope"] + sec}
         if road_d is not None:
             pick["roadDistM"] = round(road_d)
@@ -915,7 +949,7 @@ def main():
         pick = {"kind": "pinch", "title": "Saddle crossing", "lat": round(s["lat"], 5),
                 "lng": round(s["lng"], 5), "elevationFt": round(s["elev"] * 3.281),
                 "bestWind": "crosswind", "reason": detail + (f" {sec_tag}" if sec_tag else ""),
-                "score": 1000 + s["strength"] * 1e6 + sec}
+                "score": 1000 + s["strength"] * 1e4 + sec}
         if road_d is not None:
             pick["roadDistM"] = round(road_d)
         picks.append(pick)
@@ -949,8 +983,9 @@ def main():
                 "traveling the lower slopes parallel to the ridge rather than "
                 "climbing over the top."
             ),
-            "windNote": ("Deer walk it into the wind; sit the downwind end, above or "
-                         "below the trail. " + thermal_note()),
+            "windNote": ("Deer often walk benches into the wind — set up on the "
+                         "downwind side of the bench trail on a crosswind. "
+                         + thermal_note()),
             "line": b["coords"],
         })
 
@@ -1049,7 +1084,7 @@ def main():
                 "title": "Draw travel corridor",
                 "detail": ("A drainage carrying bed-to-feed travel and your quietest, "
                            "lowest-scent way in."),
-                "windNote": thermal_note() + " Hunt the lower end at dawn, the upper end midday.",
+                "windNote": thermal_note() + DRAW_TIMING_NOTE,
                 "line": coords,
             })
 
@@ -1095,8 +1130,9 @@ def main():
                 detail = (f"Where a {via} crosses a drainage — deer funnel through the "
                           "low gap to get across, with reliable water right there. One of "
                           "the highest-odds stands on the property.")
-                wind = ("Sit the downwind bank. Morning thermals sink into the "
-                        "drainage, so hunt the low end at first light. " + thermal_note())
+                wind = ("Sit the downwind bank on a crosswind. Morning thermals sink "
+                        "down the drainage, so at first light sit above the crossing "
+                        "or off to the side, not below it. " + thermal_note())
                 features_out.append({
                     "id": f"{args.name}-xing-{k}", "kind": "pinch",
                     "title": "Water crossing", "detail": detail,

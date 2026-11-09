@@ -327,7 +327,12 @@ class HoldingLabelSymbolizer {
     const role = roleOf(feature, this.getState());
     const { color, tag } = roleStyle(role);
     const namePx = role === "selected" ? NAME_SELECTED_PX : NAME_PX;
-    const acresText = ownerAcresText(Number(feature.props.acres) || 0).toUpperCase();
+    // County acres; "~X (mapped)" from the shape when the county lists none,
+    // "at least" on a holding where some parcels had no acres.
+    const acresText = ownerAcresText(Number(feature.props.acres) || 0, {
+      mappedAcres: Number(feature.props.mac) || 0,
+      atLeast: feature.props.alb === 1,
+    }).toUpperCase();
 
     const nameFont = `400 ${namePx}px ${labelFonts.display}`;
     const smallFont = (px: number) => `400 ${px}px ${labelFonts.mono}`;
@@ -512,6 +517,8 @@ function makeLabelDraw(lines: LabelLine[], textHeight: number, turn = 0) {
 export type ParcelTileOwnerPick = {
   ownerName: string;
   acres: number;
+  /** Area measured from the parcel's shape, when the county lists no acres. */
+  mappedAcres?: number;
   isPublic: boolean;
   /** Previous owner, when the tiles saw this parcel change hands. */
   previousOwner?: string;
@@ -1128,6 +1135,9 @@ export default function ParcelTilesLayer({
             best = {
               ownerName,
               acres,
+              ...(Number(pick.feature.props.mac) > 0
+                ? { mappedAcres: Number(pick.feature.props.mac) }
+                : {}),
               isPublic: pick.feature.props.pub === 1,
               ...(prev ? { previousOwner: prev, changedMonth: chg } : {}),
               ...(recordUrl ? { recordUrl } : {}),

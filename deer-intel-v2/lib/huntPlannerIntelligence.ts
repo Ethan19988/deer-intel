@@ -2,6 +2,8 @@ import { getCameraIntelligenceSummary } from "@/lib/cameraIntelligence";
 import { formatCameraCheckDate } from "@/lib/cameraChecks";
 import { sortHuntsChronologically } from "@/lib/hunts";
 import { getStandIntelligenceSummary } from "@/lib/standIntelligence";
+import { getStandWindCheck } from "@/lib/standWind";
+import { camerasNear, standPoint } from "@/lib/aiScoutSpatial";
 import type { Camera } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { DeerProfile } from "@/types/deerProfile";
@@ -51,6 +53,13 @@ type HuntPlannerIntelligenceInput = {
   photoRecords: PhotoRecord[];
   pins: MapPin[];
   now?: Date;
+  /**
+   * Forecast wind (compass point) and speed for the next sit, e.g. from
+   * usePropertyToday's verdict. Stands are only scored on wind when it's known;
+   * a saved "best wind" alone says nothing about today.
+   */
+  sitWind?: string;
+  sitWindSpeed?: string;
 };
 
 export function getHuntPlannerIntelligence({
@@ -63,6 +72,8 @@ export function getHuntPlannerIntelligence({
   photoRecords,
   pins,
   now = new Date(),
+  sitWind,
+  sitWindSpeed,
 }: HuntPlannerIntelligenceInput): HuntPlannerIntelligence {
   const cameraSummary = getCameraIntelligenceSummary({
     cameras,
@@ -83,7 +94,7 @@ export function getHuntPlannerIntelligence({
     }),
     hunts: getStandHunts({ stand, propertyId: property.id, hunts }),
   }));
-  const latestCameraActivity = getLatestCameraActivity({ cameras, cameraChecks });
+  const nearbyActivity = getNearbyCameraActivity({ stands, cameras, cameraChecks, pins, now });
   const hasWindData = stands.some((stand) => stand.bestWinds.trim());
 
   return {
@@ -95,10 +106,12 @@ export function getHuntPlannerIntelligence({
     bestStandCandidates: getBestStandCandidates({
       propertyId: property.id,
       standSummaries,
-      latestCameraActivity,
+      nearbyActivity,
       cameraSummary,
       photoRecords,
       now,
+      sitWind,
+      sitWindSpeed,
     }),
     standsNotHuntedRecently: getStandsNotHuntedRecently({
       propertyId: property.id,
@@ -108,8 +121,7 @@ export function getHuntPlannerIntelligence({
     standsWithRecentCameraActivity: getStandsWithRecentCameraActivity({
       propertyId: property.id,
       stands,
-      latestCameraActivity,
-      now,
+      nearbyActivity,
     }),
     standsWithGoodWindNotes: getStandsWithGoodWindNotes(property.id, stands),
     recentBuckAreas: getRecentBuckAreas({
@@ -139,17 +151,21 @@ type StandSummary = {
 function getBestStandCandidates({
   propertyId,
   standSummaries,
-  latestCameraActivity,
+  nearbyActivity,
   cameraSummary,
   photoRecords,
   now,
+  sitWind,
+  sitWindSpeed,
 }: {
   propertyId: string;
   standSummaries: StandSummary[];
-  latestCameraActivity: PlannerCameraActivity | null;
+  nearbyActivity: Map<string, PlannerCameraActivity>;
   cameraSummary: ReturnType<typeof getCameraIntelligenceSummary>;
   photoRecords: PhotoRecord[];
   now: Date;
+  sitWind?: string;
+  sitWindSpeed?: string;
 }): HuntPlannerCandidate[] {
   return standSummaries
     .map(({ stand, intelligence, hunts }) => {
@@ -162,9 +178,23 @@ function getBestStandCandidates({
       const reasons: string[] = [];
       let score = 0;
 
-      if (stand.bestWinds.trim()) {
-        score += 3;
-        reasons.push(`Good for ${stand.bestWinds} wind`);
+      // Score the stand against the forecast wind for the next sit, not just
+      // for having a "best wind" saved.
+      if (stand.bestWinds.trim() || stand.avoidWinds.trim()) {
+        const wind = sitWind?.trim() ? getStandWindCheck(stand, sitWind, sitWindSpeed) : null;
+        if (!wind || wind.status === "unknown") {
+          if (stand.bestWinds.trim()) {
+            reasons.push(`Best on ${stand.bestWinds} — next sit's wind not loaded`);
+          }
+        } else if (wind.status === "good") {
+          score += 3;
+          reasons.push(`${wind.label} for the next sit`);
+        } else if (wind.status === "avoid") {
+          score -= 4;
+          reasons.push(`${wind.label} for the next sit`);
+        } else {
+          reasons.push(wind.calm ? "Light & variable wind for the next sit" : `${wind.label} for the next sit`);
+        }
       }
 
       if (daysSinceHunt === null) {
@@ -178,9 +208,13 @@ function getBestStandCandidates({
         reasons.push("Recently hunted");
       }
 
-      if (latestCameraActivity && daysSince(latestCameraActivity.date, now) <= RECENT_CAMERA_DAYS) {
+      // Only a camera actually near this stand (by map location) counts.
+      const activity = nearbyActivity.get(stand.id);
+      if (activity) {
         score += 2;
-        reasons.push("Recent camera activity nearby");
+        reasons.push(
+          `Deer on ${activity.cameraName} (${activity.yards} yd) ${formatCameraCheckDate(activity.date)}`,
+        );
       }
 
       if (observationCount > 0) {
@@ -251,25 +285,30 @@ function getStandsNotHuntedRecently({
 function getStandsWithRecentCameraActivity({
   propertyId,
   stands,
-  latestCameraActivity,
-  now,
+  nearbyActivity,
 }: {
   propertyId: string;
   stands: Stand[];
-  latestCameraActivity: PlannerCameraActivity | null;
-  now: Date;
+  nearbyActivity: Map<string, PlannerCameraActivity>;
 }): HuntPlannerItem[] {
-  if (!latestCameraActivity || daysSince(latestCameraActivity.date, now) > RECENT_CAMERA_DAYS) {
-    return [];
-  }
-
-  return stands.slice(0, 4).map((stand) => ({
-    id: stand.id,
-    title: stand.name,
-    detail: `${latestCameraActivity.cameraName} had deer activity on ${formatCameraCheckDate(latestCameraActivity.date)}.`,
-    href: `/properties/${propertyId}/assets/${stand.id}`,
-    badge: "Camera Activity",
-  }));
+  return stands
+    .flatMap((stand) => {
+      const activity = nearbyActivity.get(stand.id);
+      return activity ? [{ stand, activity }] : [];
+    })
+    .sort(
+      (left, right) =>
+        dateInputTime(right.activity.date) - dateInputTime(left.activity.date) ||
+        left.activity.yards - right.activity.yards,
+    )
+    .slice(0, 4)
+    .map(({ stand, activity }) => ({
+      id: stand.id,
+      title: stand.name,
+      detail: `${activity.cameraName} (${activity.yards} yd away) had deer activity on ${formatCameraCheckDate(activity.date)}.`,
+      href: `/properties/${propertyId}/assets/${stand.id}`,
+      badge: "Camera Activity",
+    }));
 }
 
 function getStandsWithGoodWindNotes(
@@ -396,26 +435,54 @@ function getAreasNeedingMoreScouting({
 type PlannerCameraActivity = {
   cameraName: string;
   date: string;
+  yards: number;
 };
 
-function getLatestCameraActivity({
+/**
+ * Per stand: the most recent deer check (last RECENT_CAMERA_DAYS days) on a
+ * camera within 800 yd of it, by map location. Stands or cameras without a
+ * location get nothing — no "activity nearby" claim we can't back up.
+ */
+export function getNearbyCameraActivity({
+  stands,
   cameras,
   cameraChecks,
+  pins,
+  now,
 }: {
+  stands: Stand[];
   cameras: Camera[];
   cameraChecks: CameraCheck[];
-}): PlannerCameraActivity | null {
-  const cameraNameById = new Map(cameras.map((camera) => [camera.id, camera.name]));
-  const latestCheck = [...cameraChecks]
-    .filter((check) => check.bucks + check.does + check.fawns > 0)
-    .sort((left, right) => dateInputTime(right.date) - dateInputTime(left.date))[0];
+  pins: MapPin[];
+  now: Date;
+}): Map<string, PlannerCameraActivity> {
+  const latestByCamera = new Map<string, CameraCheck>();
+  for (const check of cameraChecks) {
+    if (check.bucks + check.does + check.fawns <= 0) continue;
+    if (daysSince(check.date, now) > RECENT_CAMERA_DAYS) continue;
+    const current = latestByCamera.get(check.cameraId);
+    if (!current || dateInputTime(check.date) > dateInputTime(current.date)) {
+      latestByCamera.set(check.cameraId, check);
+    }
+  }
 
-  if (!latestCheck) return null;
+  const out = new Map<string, PlannerCameraActivity>();
+  if (latestByCamera.size === 0) return out;
 
-  return {
-    cameraName: cameraNameById.get(latestCheck.cameraId) ?? "Camera site",
-    date: latestCheck.date,
-  };
+  for (const stand of stands) {
+    const point = standPoint(stand, pins);
+    if (!point) continue;
+    let best: PlannerCameraActivity | null = null;
+    for (const { camera, yards } of camerasNear(point, cameras)) {
+      const check = latestByCamera.get(camera.id);
+      if (!check) continue;
+      if (!best || dateInputTime(check.date) > dateInputTime(best.date)) {
+        best = { cameraName: camera.name, date: check.date, yards };
+      }
+    }
+    if (best) out.set(stand.id, best);
+  }
+  return out;
 }
 
 function getStandHunts({

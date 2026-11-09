@@ -1,7 +1,13 @@
 -- Deer Intel — security + performance hardening for the Supabase schema
 --
 -- Run this once in your Supabase project's SQL editor, AFTER schema.sql,
--- terrain-backend.sql and parties.sql. It is safe to re-run.
+-- terrain-backend.sql and parties.sql. It is safe to re-run: the policies
+-- below already include the later fixes from fixes-2026-10.sql (removed
+-- members lose write access) and fixes-2026-11-second-pass.sql (stale live
+-- dots are hidden), so re-running this file doesn't undo them.
+--
+-- !! If you re-run parties.sql, re-run this file, fixes-2026-10.sql and
+-- !! fixes-2026-11-second-pass.sql after it, in that order.
 --
 -- Clears the Supabase advisor warnings:
 --   * Signed-out (anon) callers could execute the party SECURITY DEFINER
@@ -77,14 +83,18 @@ alter policy "Members can update their own membership" on public.party_members
 alter policy "Members can leave, owner can remove" on public.party_members
   using (user_id = (select auth.uid()) or public.is_party_owner(party_id, (select auth.uid())));
 
--- member_locations
+-- member_locations (a dot older than 2 minutes is hidden from everyone but
+-- its owner — see fixes-2026-11-second-pass.sql)
 alter policy "Members can read party locations" on public.member_locations
-  using (public.is_party_member(party_id, (select auth.uid())));
+  using (
+    public.is_party_member(party_id, (select auth.uid()))
+    and (user_id = (select auth.uid()) or updated_at > now() - interval '2 minutes')
+  );
 alter policy "Members can insert their own location" on public.member_locations
   with check (user_id = (select auth.uid()) and public.is_party_member(party_id, (select auth.uid())));
 alter policy "Members can update their own location" on public.member_locations
-  using (user_id = (select auth.uid()))
-  with check (user_id = (select auth.uid()));
+  using (user_id = (select auth.uid()) and public.is_party_member(party_id, (select auth.uid())))
+  with check (user_id = (select auth.uid()) and public.is_party_member(party_id, (select auth.uid())));
 alter policy "Members can delete their own location" on public.member_locations
   using (user_id = (select auth.uid()));
 
@@ -94,8 +104,8 @@ alter policy "Members can read party pins" on public.party_pins
 alter policy "Members can add their own party pins" on public.party_pins
   with check (created_by = (select auth.uid()) and public.is_party_member(party_id, (select auth.uid())));
 alter policy "Members can update their own party pins" on public.party_pins
-  using (created_by = (select auth.uid()))
-  with check (created_by = (select auth.uid()));
+  using (created_by = (select auth.uid()) and public.is_party_member(party_id, (select auth.uid())))
+  with check (created_by = (select auth.uid()) and public.is_party_member(party_id, (select auth.uid())));
 alter policy "Members remove own pins, owner any" on public.party_pins
   using (created_by = (select auth.uid()) or public.is_party_owner(party_id, (select auth.uid())));
 
@@ -105,8 +115,8 @@ alter policy "Members can read party bucks" on public.party_bucks
 alter policy "Members can add their own party bucks" on public.party_bucks
   with check (created_by = (select auth.uid()) and public.is_party_member(party_id, (select auth.uid())));
 alter policy "Members can update their own party bucks" on public.party_bucks
-  using (created_by = (select auth.uid()))
-  with check (created_by = (select auth.uid()));
+  using (created_by = (select auth.uid()) and public.is_party_member(party_id, (select auth.uid())))
+  with check (created_by = (select auth.uid()) and public.is_party_member(party_id, (select auth.uid())));
 alter policy "Members remove own bucks, owner any" on public.party_bucks
   using (created_by = (select auth.uid()) or public.is_party_owner(party_id, (select auth.uid())));
 
@@ -116,8 +126,8 @@ alter policy "Members can read buck photos" on public.party_buck_photos
 alter policy "Members can add their own buck photos" on public.party_buck_photos
   with check (created_by = (select auth.uid()) and public.is_party_member(party_id, (select auth.uid())));
 alter policy "Members can update their own buck photos" on public.party_buck_photos
-  using (created_by = (select auth.uid()))
-  with check (created_by = (select auth.uid()));
+  using (created_by = (select auth.uid()) and public.is_party_member(party_id, (select auth.uid())))
+  with check (created_by = (select auth.uid()) and public.is_party_member(party_id, (select auth.uid())));
 alter policy "Members remove own buck photos, owner any" on public.party_buck_photos
   using (created_by = (select auth.uid()) or public.is_party_owner(party_id, (select auth.uid())));
 

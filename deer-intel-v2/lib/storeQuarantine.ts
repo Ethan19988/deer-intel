@@ -1,5 +1,6 @@
 "use client";
 
+import { downloadBlob } from "@/lib/downloadFile";
 import { useSyncExternalStore } from "react";
 import { readStorageValue, writeStorageValue } from "@/lib/storage";
 
@@ -285,12 +286,6 @@ export function dismissCorruptStoreNotice(hash: string): void {
 /** Download text as a .json file (browser only). */
 export function downloadTextFile(text: string, fileName: string): void {
   if (typeof document === "undefined") return;
-  const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Shared helper: revokes the URL later so iOS Safari can finish saving.
+  downloadBlob(new Blob([text], { type: "application/json" }), fileName);
 }

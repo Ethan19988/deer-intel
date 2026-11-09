@@ -64,6 +64,12 @@ export default function OfflineMapsPanel({
         the map.
       </p>
 
+      <p style={hintStyle}>
+        <strong>iPhone:</strong> maps saved in Safari aren&apos;t shared with the
+        Home Screen app (or the other way round). Download them from the one
+        you&apos;ll open in the field.
+      </p>
+
       <OfflineDownloadStatus
         status={status}
         onConfirm={onConfirm}

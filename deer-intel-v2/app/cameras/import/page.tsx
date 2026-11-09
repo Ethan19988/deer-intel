@@ -59,6 +59,7 @@ import {
   deerCountFor,
 } from "@/lib/photoOptions";
 import { readPhotoDateTimeInput } from "@/lib/photoExif";
+import { readAiScoutEnabled } from "@/lib/aiScoutPreferences";
 import { requestPhotoStamp } from "@/lib/photoStampClient";
 import { COMPASS_16, frameDirectionToHeading } from "@/lib/travelDirection";
 import { useUnitPreferences } from "@/lib/units";
@@ -274,14 +275,22 @@ export default function CameraImportPage() {
         .join(" — "),
     }));
 
+    // AI Scout switched off in Settings: requestPhotoStamp returns null without
+    // sending anything, so say why the species/stamp fields come back blank.
+    const aiReadingOff = !readAiScoutEnabled();
+    // Photos whose picture couldn't be saved (storage full / blocked).
+    let storageFailures = 0;
+
     // Store each image (resized, in IndexedDB) and read its EXIF capture time.
     // This must all happen now — the File objects are not kept once staged.
     const nextDrafts = await Promise.all(
       files.map(async (file) => {
-        const [exifDate, storedImage] = await Promise.all([
+        const [exifDate, storeResult] = await Promise.all([
           readPhotoDateTimeInput(file),
           storeImportImage(file),
         ]);
+        const storedImage = storeResult === "storage-failed" ? null : storeResult;
+        if (storeResult === "storage-failed") storageFailures += 1;
         // The AI read identifies the animal and which way it moved through the
         // frame, and its printed-stamp read is the capture time (checked
         // against EXIF in resolveImportCaptureTime). So it runs on every photo.
@@ -326,7 +335,9 @@ export default function CameraImportPage() {
           // Seed the notes with what the AI saw so it lands on the record; the
           // hunter can edit or clear it on the draft card.
           notes: stamp?.animalNotes || IMPORTED_NOTE,
-          selected: true,
+          // A photo whose picture couldn't be saved starts unselected so it
+          // never becomes a picture-less record without the hunter choosing.
+          selected: storeResult !== "storage-failed",
           stampedTemperature: stamp?.temperature ?? "",
           stampedWindDirection: stamp?.windDirection ?? "",
           stampedWindSpeed: stamp?.windSpeed ?? "",
@@ -370,6 +381,12 @@ export default function CameraImportPage() {
           : "") +
         (repeatCount > 0
           ? ` ${repeatCount} already imported (or already staged) — left unselected.`
+          : "") +
+        (storageFailures > 0
+          ? ` Couldn't save ${storageFailures === 1 ? "the photo" : `${storageFailures} photos`} — your phone's storage may be full. ${storageFailures === 1 ? "It was" : "They were"} left unselected; free up space and pick ${storageFailures === 1 ? "it" : "them"} again.`
+          : "") +
+        (aiReadingOff
+          ? " AI photo reading is off (Settings → AI Scout), so dates come from the files and species need picking by hand."
           : ""),
     );
   }
@@ -1023,21 +1040,28 @@ function moonLabelForDate(photoDate: string): string {
 }
 
 // Resize and persist one imported file's image so the saved Photo Record shows
-// the actual picture. Returns null when the browser blocks storage — the record
-// then saves as metadata-only instead of failing the whole import.
+// the actual picture. Returns "storage-failed" when the write didn't commit
+// (storage full / blocked) and null when the image couldn't be processed — the
+// draft then has no image instead of pointing at a missing one.
 async function storeImportImage(
   file: File,
-): Promise<{ imageId: string; width: number; height: number } | null> {
+): Promise<{ imageId: string; width: number; height: number } | "storage-failed" | null> {
+  let processed: Awaited<ReturnType<typeof processImageFile>>;
   try {
-    const processed = await processImageFile(file);
+    processed = await processImageFile(file);
+  } catch {
+    return null;
+  }
+
+  try {
     const imageId = createDeerIntelId("image");
     const stored = await putPhotoImage(imageId, processed.blob);
 
-    if (!stored) return null;
+    if (!stored) return "storage-failed";
 
     return { imageId, width: processed.width, height: processed.height };
   } catch {
-    return null;
+    return "storage-failed";
   }
 }
 

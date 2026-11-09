@@ -1,4 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  ACCOUNT_SETTING,
+  readAccountSetting,
+  writeAccountSetting,
+} from "@/lib/accountSettings";
 import { localDateKey } from "@/lib/standPressure";
 import type { HourlyActivity } from "@/lib/hourlyActivity";
 import { isBuckRecord, isTimedDeerPhoto } from "@/lib/hourlyActivity";
@@ -37,7 +42,11 @@ export type SightingRow = {
 
 export type RegionalActivity = HourlyActivity & { contributors: number; regionLabel: string };
 
-// --- Consent (per account, on this device) --------------------------------------
+// --- Consent (per account, synced across the account's devices) -----------------
+// The choice is an account setting (lib/accountSettings), carried in the cloud
+// row, so turning sharing off on one device stops every device. The older
+// per-device localStorage key is kept as a cache / fallback for choices made
+// before the setting synced.
 
 function safeGet(key: string): string | null {
   try {
@@ -56,15 +65,34 @@ function safeSet(key: string, value: string) {
 }
 
 export function readSharingChoice(userId: string): SharingChoice {
+  const synced = readAccountSetting(userId, ACCOUNT_SETTING.shareSightings)?.value;
+  if (synced === "on" || synced === "off") {
+    const cached = safeGet(CONSENT_PREFIX + userId);
+    if (cached !== synced) {
+      safeSet(CONSENT_PREFIX + userId, synced);
+      // Turned off on another device (which withdrew this account's rows):
+      // forget what this device sent so turning it back on resends them.
+      if (synced === "off") safeSet(SENT_PREFIX + userId, "[]");
+    }
+    return synced;
+  }
   const value = safeGet(CONSENT_PREFIX + userId);
   return value === "on" || value === "off" ? value : "unasked";
 }
 
 export function writeSharingChoice(userId: string, choice: "on" | "off") {
   safeSet(CONSENT_PREFIX + userId, choice);
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("deer-intel:sharing-changed"));
-  }
+  // Also dispatches "deer-intel:sharing-changed" for listeners.
+  writeAccountSetting(userId, ACCOUNT_SETTING.shareSightings, choice);
+}
+
+// Uploads only run for the account whose data is on this device, once its
+// cloud sync has settled (AuthProvider sets this). Null blocks every upload,
+// e.g. while another account's data is on the device.
+let uploadAccountId: string | null = null;
+
+export function setSightingsUploadAccount(userId: string | null) {
+  uploadAccountId = userId;
 }
 
 // --- Pure helpers -----------------------------------------------------------------
@@ -187,6 +215,8 @@ export async function contributeSightings(
   userId: string,
   rows: SightingRow[],
 ): Promise<number> {
+  if (!userId || uploadAccountId !== userId) return 0;
+  if (readSharingChoice(userId) !== "on") return 0;
   let sent: string[] = [];
   try {
     sent = JSON.parse(safeGet(SENT_PREFIX + userId) ?? "[]");

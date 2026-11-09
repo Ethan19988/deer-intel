@@ -74,7 +74,10 @@ export async function GET(request: Request) {
   const set = analyzeTerrain(
     grid,
     areaName,
-    `Live ${fetched.resolution} terrain read · Penn State rules`,
+    // Name the real sample spacing: the grid is 20×20 points ~30–120 m apart
+    // (sized to the hunt area), read from a 10 m or 90 m elevation source — so
+    // it is not a "10 m terrain read".
+    `Live terrain read · ${fetched.resolution} elevation sampled every ~${Math.round(geom.spacingM)} m · Penn State rules`,
   );
 
   if (cache.size >= MAX_CACHED_READS) {

@@ -68,6 +68,15 @@ export function toWind8(raw: string | undefined | null): Wind8 | null {
   return COMPASS_8[Math.round(normalized / 45) % 8];
 }
 
+/**
+ * A real sit, not a blood-trail recovery saved from the map. Recoveries are
+ * filed under the nearest stand for the record but must not count as sits,
+ * hours or pressure on it.
+ */
+export function isSitHunt(hunt: Pick<HuntLogEntry, "kind">): boolean {
+  return hunt.kind !== "blood-trail";
+}
+
 /** The 16-wind point a sit was logged on (hunt field first, then snapshot). */
 export function huntWindPoint(hunt: HuntLogEntry): string | null {
   return (
@@ -490,7 +499,9 @@ export function buildStandStats(
   hunts: HuntLogEntry[],
   ctx: StatsContext,
 ): StandStats {
-  const records = huntsForStand(stand, hunts).map((hunt) => toSitRecord(hunt, ctx));
+  const records = huntsForStand(stand, hunts.filter(isSitHunt)).map((hunt) =>
+    toSitRecord(hunt, ctx),
+  );
   return buildStatsFromRecords(records, stand.id, stand.name);
 }
 
@@ -509,7 +520,7 @@ export function buildPropertyStandStats(
   hunts: HuntLogEntry[],
   ctx: StatsContext,
 ): PropertyStandStats {
-  const records = hunts.map((hunt) => toSitRecord(hunt, ctx));
+  const records = hunts.filter(isSitHunt).map((hunt) => toSitRecord(hunt, ctx));
   const nameById = new Map(stands.map((stand) => [stand.id, stand.name]));
   const groups = new Map<string, { name: string; records: SitRecord[] }>();
 

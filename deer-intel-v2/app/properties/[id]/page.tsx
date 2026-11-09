@@ -173,6 +173,9 @@ export default function PropertyWorkspacePage() {
     hunts: propertyHunts,
     photoRecords: propertyPhotoRecords,
     pins: propertyPins,
+    // Grade stands on the next sit's wind, the same one Today uses.
+    sitWind: today.verdict?.wind,
+    sitWindSpeed: today.verdict?.windSpeed,
   });
   const latestHunt = getLatestByDate(propertyHunts, (hunt) => hunt.date);
   const latestCameraCheck = getLatestByDate(

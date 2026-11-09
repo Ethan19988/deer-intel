@@ -9,7 +9,8 @@ const METERS_PER_FOOT = 0.3048;
 
 // The smallest move (in meters) that counts as a new step on the trail. GPS
 // wanders a few meters even while you stand still; ignoring sub-threshold moves
-// keeps a parked track from creeping and smooths out the drawn line.
+// keeps a parked track from creeping and smooths out the drawn line. This is
+// the floor: lib/gpsFix acceptTrackFix raises it to 0.7 × the fix accuracy.
 export const MIN_TRACK_POINT_METERS = 5;
 
 // Great-circle distance between two lat/lng points, in meters. Accurate to well

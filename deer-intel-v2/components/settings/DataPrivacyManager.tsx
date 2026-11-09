@@ -12,24 +12,10 @@ import {
   type SharingChoice,
 } from "@/lib/sharedSightings";
 import { clearRestoreUndo } from "@/lib/restoreUndo";
+import { deleteFileDatabase } from "@/lib/fileStore";
+import { deleteImageDatabase } from "@/lib/imageStore";
+import { personalDataKeysIn } from "@/lib/localDataKeys";
 import { getSupabaseClient } from "@/lib/supabaseClient";
-import { CORRUPT_STATE_KEY_PREFIX } from "@/lib/storeQuarantine";
-
-// localStorage keys that hold the hunter's saved records. Kept in sync with
-// lib/deerIntelStore (state + legacy properties) and lib/cloudSync (sync meta,
-// device owner).
-// Cleared schema-agnostically (remove + reload) so this never has to construct a
-// state object as the store's shape evolves.
-const RECORD_STORAGE_KEYS = [
-  "deer-intel:state",
-  "deer-intel:properties",
-  "deer-intel:sync-meta",
-  "deer-intel:device-owner",
-  // Set-aside copies kept by lib/storeQuarantine and lib/restoreUndo.
-  "deer-intel:quarantine",
-  "deer-intel:corrupt-state-index",
-  "deer-intel:restore-undo",
-];
 
 type DataPrivacyManagerProps = {
   recordCount: number;
@@ -41,6 +27,8 @@ export default function DataPrivacyManager({
   cloudActive,
 }: DataPrivacyManagerProps) {
   const [confirmClear, setConfirmClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [clearError, setClearError] = useState<string | null>(null);
   const { user } = useAuth();
   const [sharing, setSharing] = useState<SharingChoice>("unasked");
 
@@ -61,14 +49,34 @@ export default function DataPrivacyManager({
   }
 
   async function handleClearAll() {
+    setConfirmClear(false);
+    setClearing(true);
+    setClearError(null);
+
+    // Photos and documents first (IndexedDB). If the browser won't delete
+    // them (usually another Deer Intel tab holding them open), stop before
+    // touching the records so nothing is left half-cleared.
+    const [imagesDeleted, filesDeleted] = await Promise.all([
+      deleteImageDatabase(),
+      deleteFileDatabase(),
+    ]);
+
+    if (!imagesDeleted || !filesDeleted) {
+      setClearing(false);
+      setClearError(
+        "Couldn't delete the saved photos and documents — close any other Deer Intel tabs or windows and try again. Nothing else was deleted.",
+      );
+      return;
+    }
+
     try {
-      for (const key of RECORD_STORAGE_KEYS) {
-        window.localStorage.removeItem(key);
-      }
-      // Damaged-save copies are stored under timestamped keys.
-      for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
+      const keys: string[] = [];
+      for (let i = 0; i < window.localStorage.length; i += 1) {
         const key = window.localStorage.key(i);
-        if (key?.startsWith(CORRUPT_STATE_KEY_PREFIX)) window.localStorage.removeItem(key);
+        if (key) keys.push(key);
+      }
+      for (const key of personalDataKeysIn(keys)) {
+        window.localStorage.removeItem(key);
       }
     } catch {
       // Ignore storage failures; the reload below still lands on whatever the
@@ -135,8 +143,9 @@ export default function DataPrivacyManager({
             USGS, and OpenStreetMap tile servers.
           </li>
           <li>
-            <strong>AI Scout:</strong> only if enabled, property context is sent
-            to Anthropic to generate recommendations.
+            <strong>AI Scout:</strong> only if enabled, property context (and a
+            resized copy of each trail-cam photo for AI photo reading) is sent
+            to Anthropic.
           </li>
         </ul>
       </div>
@@ -145,7 +154,9 @@ export default function DataPrivacyManager({
         <p style={dangerHeadingStyle}>Danger zone</p>
         <p style={mutedStyle}>
           Permanently delete the {recordCount.toLocaleString()}{" "}
-          {recordCount === 1 ? "record" : "records"} saved in this browser.
+          {recordCount === 1 ? "record" : "records"} saved in this browser,
+          plus the photos, documents, land tags and unsaved drafts stored with
+          them.
           Export a backup first if you might want this data again — this
           can&apos;t be undone.
           {cloudActive
@@ -157,10 +168,16 @@ export default function DataPrivacyManager({
             type="button"
             variant="danger"
             onClick={() => setConfirmClear(true)}
+            disabled={clearing}
           >
-            Clear All Local Data
+            {clearing ? "Deleting…" : "Clear All Local Data"}
           </Button>
         </div>
+        {clearError ? (
+          <p style={errorStyle} role="alert">
+            {clearError}
+          </p>
+        ) : null}
       </div>
 
       <ConfirmDialog
@@ -168,11 +185,11 @@ export default function DataPrivacyManager({
         title="Delete all local data?"
         description={`This permanently deletes the ${recordCount.toLocaleString()} ${
           recordCount === 1 ? "record" : "records"
-        } saved in this browser (properties, cameras, stands, hunts, deer, pins, and photos).${
+        } saved in this browser — properties, cameras, stands, hunts, deer, pins, land tags, walks and blood trails — plus every photo and document file stored on this device, unsaved drafts, and saved AI Scout answers.${
           cloudActive
-            ? " You're signed in to cloud sync, so this data will re-download from your cloud backup on reload — sign out first if you want this device to stay empty."
+            ? " You're signed in to cloud sync, so your records and backed-up photos will re-download from your cloud backup on reload — sign out first if you want this device to stay empty."
             : " This can't be undone unless you have a backup."
-        } Offline map tiles and your app preferences are not affected.`}
+        } Kept: downloaded offline map areas (public map imagery, not your records), your sign-in, and app preferences like theme, units and alerts.`}
         confirmLabel="Delete Everything"
         confirmVariant="danger"
         onConfirm={handleClearAll}
@@ -247,6 +264,13 @@ const dangerHeadingStyle: CSSProperties = {
   fontWeight: 850,
   textTransform: "uppercase",
   letterSpacing: "0.03em",
+};
+
+const errorStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--danger-text)",
+  fontSize: "0.9rem",
+  lineHeight: 1.5,
 };
 
 const mutedStyle: CSSProperties = {

@@ -16,7 +16,7 @@ type ScoutPicksPanelProps = {
 
 const metersToYards = (m: number): number => Math.round(m * 1.0936);
 
-// The strongest nearby camera's counts, zeros omitted — the confirmation detail.
+// The strongest nearby camera's counts this + last season, zeros omitted.
 function confirmCounts(c: { bucks: number; does: number; fawns: number }): string {
   const parts: string[] = [];
   if (c.bucks) parts.push(`${c.bucks} ${c.bucks === 1 ? "buck" : "bucks"}`);
@@ -123,7 +123,7 @@ export default function ScoutPicksPanel({
                     ) : null}
                     {pick.confirmation ? (
                       <span style={confirmStyle}>
-                        ✓ Confirmed · {pick.confirmation.cameraName}{" "}
+                        📷 Camera activity nearby · {pick.confirmation.cameraName}{" "}
                         {metersToYards(pick.confirmation.distanceM)} yd
                         {confirmCounts(pick.confirmation)}
                       </span>
@@ -163,7 +163,7 @@ export default function ScoutPicksPanel({
           })}
           <p style={footStyle}>
             {confirmedCount > 0
-              ? `✓ ${confirmedCount} confirmed by your cameras · `
+              ? `📷 ${confirmedCount} with camera activity nearby · `
               : ""}
             {set.source}
           </p>

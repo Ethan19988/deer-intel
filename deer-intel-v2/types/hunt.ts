@@ -23,4 +23,8 @@ export type HuntLogEntry = {
   // Tracked bucks (deer profile ids) seen in person on this sit. Optional:
   // older sits predate buck tagging.
   deerProfileIds?: string[];
+  // What the entry records. Absent on regular sits (and every older entry);
+  // "blood-trail" for a recovery saved from the map, which sit counts, stand
+  // stats and pressure leave out.
+  kind?: "sit" | "blood-trail";
 };

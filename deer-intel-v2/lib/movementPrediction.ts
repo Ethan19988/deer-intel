@@ -9,6 +9,7 @@ import { trustedPhotoDate } from "@/lib/photoDateTime";
 import type { PhotoRecord } from "@/types/photo";
 import { clockToMinutes } from "@/lib/windViz";
 import { scoreMovement } from "@/lib/movementModel";
+import { DEFAULT_SUN_POINT, sunTimesFor, type SunTimes } from "@/lib/standStats";
 import type { RutPhase } from "@/lib/seasonCalendar";
 
 export type LatLng = { lat: number; lng: number };
@@ -182,14 +183,76 @@ export type PropertyMovementSignal = {
 const MIN_SAMPLE_FOR_SIGNAL = 8;
 const MIN_SAMPLE_FOR_FULL = 20;
 
+/** Sun times (local minutes) for a "YYYY-MM-DD" date, e.g. StatsContext.sunFor. */
+export type SunForDate = (dateKey: string) => SunTimes | null;
+
+function localDateKeyOf(time: number): string {
+  const d = new Date(time);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Sunrise/sunset for the day a photo was taken. A photo from early October has
+ * a sunrise ~40 minutes earlier than one from late November (and a DST change
+ * between), so binning every old photo against TODAY's sun mislabels dawn and
+ * dusk shots. With `sunFor` (the property's StatsContext) that is used
+ * directly; otherwise the NOAA model at central PA is calibrated to today's
+ * real sunrise/sunset (the date comes from `sunriseISO`, else today), which absorbs the
+ * property's longitude and most of its latitude difference.
+ */
+export function photoSunResolver(
+  sunriseISO: string,
+  sunsetISO: string,
+  sunFor?: SunForDate,
+  now: () => number = Date.now,
+): (photoTime: number) => { sunriseMin: number; sunsetMin: number } {
+  const todaySunrise = clockToMinutes(sunriseISO) ?? 6 * 60;
+  const todaySunset = clockToMinutes(sunsetISO) ?? 20 * 60;
+  const fixed = { sunriseMin: todaySunrise, sunsetMin: todaySunset };
+
+  let resolve: SunForDate | null = sunFor ?? null;
+  if (!resolve) {
+    // A "6:52 AM" label (what the map passes) carries no date: it's today's.
+    const refDate =
+      /^(\d{4}-\d{2}-\d{2})/.exec(sunriseISO ?? "")?.[1] ?? localDateKeyOf(now());
+    const model = refDate
+      ? sunTimesFor(refDate, DEFAULT_SUN_POINT.lat, DEFAULT_SUN_POINT.lng)
+      : null;
+    if (model && clockToMinutes(sunriseISO) !== null && clockToMinutes(sunsetISO) !== null) {
+      const riseShift = todaySunrise - model.sunrise;
+      const setShift = todaySunset - model.sunset;
+      resolve = (dateKey) => {
+        const sun = sunTimesFor(dateKey, DEFAULT_SUN_POINT.lat, DEFAULT_SUN_POINT.lng);
+        return sun ? { sunrise: sun.sunrise + riseShift, sunset: sun.sunset + setShift } : null;
+      };
+    }
+  }
+  if (!resolve) return () => fixed;
+
+  const cache = new Map<string, { sunriseMin: number; sunsetMin: number }>();
+  const lookup = resolve;
+  return (photoTime) => {
+    const key = localDateKeyOf(photoTime);
+    let hit = cache.get(key);
+    if (!hit) {
+      const sun = lookup(key);
+      hit = sun ? { sunriseMin: sun.sunrise, sunsetMin: sun.sunset } : fixed;
+      cache.set(key, hit);
+    }
+    return hit;
+  };
+}
+
 export function propertyMovementSignal(
   photos: PropertyPhotoTiming[],
   period: MovementPeriod,
   sunriseISO: string,
   sunsetISO: string,
+  sunFor?: SunForDate,
 ): PropertyMovementSignal {
   const sunriseMin = clockToMinutes(sunriseISO) ?? 6 * 60;
   const sunsetMin = clockToMinutes(sunsetISO) ?? 20 * 60;
+  const sunOn = photoSunResolver(sunriseISO, sunsetISO, sunFor);
 
   const counts: Record<MovementPeriod, number> = {
     dawn: 0,
@@ -201,10 +264,11 @@ export function propertyMovementSignal(
 
   for (const photo of photos) {
     if (!isDeerTiming(photo)) continue;
-    const minutes = photoLocalMinutes(trustedPhotoDate(photo));
-    if (minutes === null) continue;
+    const taken = photoLocalTime(trustedPhotoDate(photo));
+    if (taken === null) continue;
     sampleSize += 1;
-    counts[classifyPeriodByMinutes(minutes, sunriseMin, sunsetMin)] += 1;
+    const sun = sunOn(taken.time);
+    counts[classifyPeriodByMinutes(taken.minutes, sun.sunriseMin, sun.sunsetMin)] += 1;
   }
 
   if (sampleSize < MIN_SAMPLE_FOR_SIGNAL) {
@@ -271,12 +335,12 @@ function isDeerTiming(photo: PropertyPhotoTiming): boolean {
 }
 
 /** Minutes past local midnight for a photo, or null if it has no real time. */
-function photoLocalMinutes(date: string): number | null {
+function photoLocalTime(date: string): { time: number; minutes: number } | null {
   if (!date || /^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
   const time = Date.parse(date);
   if (Number.isNaN(time)) return null;
   const parsed = new Date(time);
-  return parsed.getHours() * 60 + parsed.getMinutes();
+  return { time, minutes: parsed.getHours() * 60 + parsed.getMinutes() };
 }
 
 // --- Seasonal windows --------------------------------------------------------
@@ -448,7 +512,7 @@ export function resolveSeasonalPhotos<T extends PhotoLike>(
     (photo) => photoPhase(photo.photoDate, shift) === phase,
   );
   const usable = inPhase.filter(
-    (photo) => isDeerTiming(photo) && photoLocalMinutes(trustedPhotoDate(photo)) !== null,
+    (photo) => isDeerTiming(photo) && photoLocalTime(trustedPhotoDate(photo)) !== null,
   ).length;
 
   if (usable >= minPhaseSamples) {
@@ -632,9 +696,10 @@ export function corridorEvidence(
   sunriseISO: string,
   sunsetISO: string,
   radiusM = 300,
+  sunFor?: SunForDate,
 ): Record<string, CorridorEvidence> {
-  const sunriseMin = clockToMinutes(sunriseISO) ?? 6 * 60;
-  const sunsetMin = clockToMinutes(sunsetISO) ?? 20 * 60;
+  // Each photo is binned against its own day's sun, not today's.
+  const sunOn = photoSunResolver(sunriseISO, sunsetISO, sunFor);
 
   const hitsByCamera = new Map<
     string,
@@ -642,14 +707,15 @@ export function corridorEvidence(
   >();
   for (const photo of photos) {
     if (!isDeerTiming(photo)) continue;
-    const minutes = photoLocalMinutes(trustedPhotoDate(photo));
-    if (minutes === null) continue;
+    const taken = photoLocalTime(trustedPhotoDate(photo));
+    if (taken === null) continue;
+    const sun = sunOn(taken.time);
     const record = hitsByCamera.get(photo.cameraSiteId) ?? {
       periodHits: 0,
       totalHits: 0,
     };
     record.totalHits += 1;
-    if (classifyPeriodByMinutes(minutes, sunriseMin, sunsetMin) === period) {
+    if (classifyPeriodByMinutes(taken.minutes, sun.sunriseMin, sun.sunsetMin) === period) {
       record.periodHits += 1;
     }
     hitsByCamera.set(photo.cameraSiteId, record);

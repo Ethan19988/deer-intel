@@ -1,4 +1,8 @@
-import { getPaParcelProviderByCounty } from "@/parcelProviders/pa";
+import { stripCareOf } from "@/lib/ownerLabel";
+import {
+  getPaParcelProviderByCounty,
+  type PaCountyParcelProvider,
+} from "@/parcelProviders/pa";
 import type {
   CountyParcelProvider,
   ParcelLookupCounty,
@@ -158,7 +162,7 @@ export async function lookupPaCountyAtPoint(
 }
 
 async function queryParcelOwnerProvider(
-  provider: CountyParcelProvider,
+  provider: PaCountyParcelProvider,
   lat: number,
   lng: number,
 ) {
@@ -178,10 +182,18 @@ async function queryParcelOwnerProvider(
 
   if (!attributes) return null;
 
-  // Every owner field joined, the same way the tile build joins them
-  // (scripts/fetch-parcels-geojson.mjs joinFields), so a co-owned parcel's
-  // county name matches the name printed on the map.
-  const ownerName = joinOwnerFields(attributes, provider.ownerFieldNames);
+  // Owner fields combined the way the tile build combines them
+  // (scripts/fetch-parcels-geojson.mjs: joinFields, or `a || b` for alternate
+  // forms of one name), with any care-of contact cut as the build cuts it, so
+  // the card's name matches the name printed on the map.
+  const joined = joinOwnerFields(
+    attributes,
+    provider.ownerFieldNames,
+    provider.ownerFieldMode ?? "join",
+  );
+  // PA DEP marks a name cut at 50 characters with a trailing "*" (the build's
+  // depOwner drops it too).
+  const ownerName = joined ? stripCareOf(joined.replace(/\s*\*+$/, "")) || undefined : undefined;
 
   if (!ownerName) return null;
 
@@ -288,16 +300,21 @@ function isSubset(a: Set<string>, b: Set<string>): boolean {
 }
 
 /**
- * Join every non-empty owner field with single spaces, matching the tile
- * build's joinFields: blanks skipped, whitespace collapsed. Some counties list
- * two fields that are alternative forms of ONE name (York's OWNER_FULL /
- * OWN_NAME1, which the build reads as `a || b`); a field whose words are all
- * in an earlier one, or that contains all of an earlier one's words, is that
- * kind of alternate and is skipped, so the first form wins as in the build.
+ * Combine a provider's owner fields.
+ *
+ * "join" (default): every non-empty field joined with single spaces, matching
+ * the tile build's joinFields (blanks skipped, whitespace collapsed). As a
+ * safety net, a field whose words are all in an earlier one (or that contains
+ * all of an earlier one's words) is taken as an alternate form and skipped.
+ *
+ * "first": the first non-empty field only — for counties whose fields are
+ * alternative forms of ONE name (York's OWNER_FULL / OWN_NAME1, Indiana's
+ * NAME_EXT / truncated SHORT_NAME), which the build reads as `a || b`.
  */
 export function joinOwnerFields(
   attributes: Record<string, unknown>,
   fieldNames: string[],
+  mode: "join" | "first" = "join",
 ): string | undefined {
   const parts: string[] = [];
   const partWords: Set<string>[] = [];
@@ -307,6 +324,7 @@ export function joinOwnerFields(
     if (typeof raw === "string") value = raw.trim();
     else if (typeof raw === "number" && Number.isFinite(raw)) value = String(raw);
     if (!value) continue;
+    if (mode === "first") return value.replace(/\s+/g, " ");
     const words = nameWordSet(value);
     if (partWords.some((seen) => isSubset(words, seen) || isSubset(seen, words))) continue;
     parts.push(value);

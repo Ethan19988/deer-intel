@@ -99,13 +99,23 @@ import {
 } from "@/lib/landTags";
 import { OWNER_NEAR_KM, distanceKm } from "@/lib/parcelTileMath";
 import {
+  bloodTrailNeedsResumePrompt,
   clearActiveBloodTrail,
   clearActiveWalk,
   readActiveBloodTrail,
   readActiveWalk,
+  resumeWhenLabel,
   saveActiveBloodTrail,
   saveActiveWalk,
+  type ActiveBloodTrail,
 } from "@/lib/activeFieldSession";
+import {
+  acceptTrackFix,
+  isGpsLost,
+  MAX_TRACK_FIX_ACCURACY_M,
+  type TrackFix,
+} from "@/lib/gpsFix";
+import { playAlertSound, unlockAlertSound, type AlertSoundKind } from "@/lib/alertSound";
 import MapSearchBar from "@/components/map/MapSearchBar";
 import GoldenHourFrame from "@/components/map/GoldenHourFrame";
 import WindFlowOverlay from "@/components/map/WindFlowOverlay";
@@ -138,10 +148,14 @@ import {
 } from "@/lib/accessScent";
 import { usePropertyToday } from "@/lib/usePropertyToday";
 import {
+  EDGE_TRACKER_OFF,
   edgeAlertLabel,
+  formatGuideDistance,
   guideReading,
+  METERS_PER_YARD,
   nextEdgeAlert,
-  type EdgeAlertState,
+  nextGuideArrival,
+  type EdgeTracker,
 } from "@/lib/fieldGuide";
 import { distanceToPolygonEdgeMeters, pointInPolygon } from "@/lib/geofence";
 import { legalLightChip } from "@/lib/legalLight";
@@ -170,6 +184,7 @@ import {
 } from "@/lib/deviceHeading";
 import {
   acceptPathFix,
+  MIN_PATH_STEP_M,
   bloodTrailLine,
   lineLengthMeters,
   searchedSinceLastMark,
@@ -440,6 +455,25 @@ function buzz(pattern: number | number[]) {
   ) {
     navigator.vibrate(pattern);
   }
+}
+
+// One watchPosition reading as a fix for the jitter / speed filter (lib/gpsFix).
+function trackFixFromPosition(position: GeolocationPosition): TrackFix {
+  const { latitude, longitude, accuracy, speed } = position.coords;
+  return {
+    lat: latitude,
+    lng: longitude,
+    accuracy: Number.isFinite(accuracy) ? accuracy : null,
+    timestamp: Number.isFinite(position.timestamp) ? position.timestamp : Date.now(),
+    speed: typeof speed === "number" && Number.isFinite(speed) ? speed : null,
+  };
+}
+
+// The last stored point of a resumed walk / trail as a filter anchor (its
+// accuracy and time weren't kept, so only the distance step applies).
+function lastPointAsFix(points: Array<{ lat: number; lng: number }>): TrackFix | null {
+  const last = points[points.length - 1];
+  return last ? { lat: last.lat, lng: last.lng, accuracy: null, timestamp: null } : null;
 }
 
 // Directional assets: a stand you sit and a camera you aim both point a way and
@@ -961,6 +995,8 @@ function MapControlButtons({
   // Dragging the map releases follow (and with it the turn) to look around; a
   // GPS tap then snaps back onto you, still heading-up.
   function handleGpsTap() {
+    // Straight from the tap, so iOS lets the edge alert beep later.
+    unlockAlertSound();
     if (compassOn && !isFollowing) {
       startFollow();
       return;
@@ -1490,6 +1526,7 @@ export default function HuntingMap() {
     compass: true,
     scaleBar: true,
     edgeWarning: true,
+    alertSound: true,
   });
   // Whether the map is locked onto the live GPS location and recenters as the
   // hunter moves. Off by default so scouting a property from home doesn't yank
@@ -1520,6 +1557,11 @@ export default function HuntingMap() {
   );
   const trackPropertyIdRef = useRef(resumedWalk?.propertyId ?? "");
   const trackStartedAtRef = useRef(resumedWalk?.startedAt ?? "");
+  // Last fix accepted onto the walk (accuracy + time) for the jitter filter;
+  // a resumed walk restarts from its last point with nothing else known.
+  const walkLastFixRef = useRef<TrackFix | null>(
+    lastPointAsFix(resumedWalk?.points ?? []),
+  );
   const [parcelLayerState, setParcelLayerState] =
     useState<ParcelBoundaryLoadState | null>(null);
   // Parcel picked by tapping the Land Owners overlay (owner read straight from
@@ -1639,7 +1681,15 @@ export default function HuntingMap() {
   // a dot at each blood find as you track, and flag recovery when the deer is
   // found. Kept in storage while it runs (lib/activeFieldSession) so a tab
   // reload or an accidental close doesn't lose the hit site; cleared on Done.
-  const [resumedBlood] = useState(() => readActiveBloodTrail());
+  // A trail saved recently (a reload mid-track) resumes on its own; one left
+  // a while — backed out overnight — or past its keep limit is offered with
+  // Resume / Discard instead, never silently dropped.
+  const [storedBlood] = useState(() => readActiveBloodTrail());
+  const resumedBlood =
+    storedBlood && !bloodTrailNeedsResumePrompt(storedBlood) ? storedBlood : null;
+  const [bloodResumeOffer, setBloodResumeOffer] = useState<ActiveBloodTrail | null>(() =>
+    storedBlood && bloodTrailNeedsResumePrompt(storedBlood) ? storedBlood : null,
+  );
   const [isTrackingBlood, setIsTrackingBlood] = useState(() => Boolean(resumedBlood));
   const [bloodPoints, setBloodPoints] = useState<BloodMark[]>(
     () => resumedBlood?.points ?? [],
@@ -1660,6 +1710,13 @@ export default function HuntingMap() {
   const [bloodSaved, setBloodSaved] = useState(false);
   const [bloodNote, setBloodNote] = useState("");
   const bloodStartedAtRef = useRef(resumedBlood?.startedAt ?? "");
+  // When "Found!" was tapped, and the wind when the trail began — both for
+  // the Hunt Log entry, both kept with the stored session.
+  const bloodRecoveredAtRef = useRef(resumedBlood?.recoveredAt ?? "");
+  const bloodStartWindRef = useRef<ActiveBloodTrail["startWind"]>(resumedBlood?.startWind);
+  // Last fix accepted onto the walked path (accuracy + time), for the jitter
+  // and speed filter. Unknown after a resume.
+  const bloodLastFixRef = useRef<TrackFix | null>(lastPointAsFix(resumedBlood?.path ?? []));
   const [areaCoordInput, setAreaCoordInput] = useState("");
   const [areaPointMessage, setAreaPointMessage] = useState("");
   const [showCoordEntry, setShowCoordEntry] = useState(false);
@@ -2328,6 +2385,8 @@ export default function HuntingMap() {
 
   // Live GPS fix from the location dot, for Guide me and the edge warning.
   const [liveFix, setLiveFix] = useState<LiveLocation | null>(null);
+  // Why the dot never shows (location refused for this site), or null.
+  const [locationError, setLocationError] = useState<string | null>(null);
   // A short one-off line in the field HUD (guide arrival, trail saved, …).
   const [fieldMessage, setFieldMessage] = useState("");
   useEffect(() => {
@@ -2335,6 +2394,17 @@ export default function HuntingMap() {
     const timer = window.setTimeout(() => setFieldMessage(""), 6000);
     return () => window.clearTimeout(timer);
   }, [fieldMessage]);
+
+  // Edge and arrival alerts: vibrate where the phone can (not iPhone) and,
+  // with "Alert sound" on, a short beep (unlocked by the GPS / Guide me tap).
+  const alertSoundOnRef = useRef(mapTools.alertSound);
+  useEffect(() => {
+    alertSoundOnRef.current = mapTools.alertSound;
+  }, [mapTools.alertSound]);
+  const fieldAlert = useCallback((kind: AlertSoundKind, pattern: number[]) => {
+    buzz(pattern);
+    if (alertSoundOnRef.current) playAlertSound(kind);
+  }, []);
 
   // Guide me: walk to a pin with a heading-relative arrow. The map's compass
   // heading is used when it's on; otherwise Guide me reads the compass itself
@@ -2364,6 +2434,17 @@ export default function HuntingMap() {
   const selectedFromYou =
     selectedAsset && liveFix ? guideReading(liveFix, selectedAsset, fieldHeading) : null;
 
+  // "GPS lost": no fix for 30 s while a field tool depends on one. Checked on
+  // a slow tick (fixes themselves re-render the map anyway).
+  const [gpsClock, setGpsClock] = useState(() => Date.now());
+  const needsGpsClock = Boolean(guideTarget) || (mapTools.edgeWarning && mapTools.gps);
+  useEffect(() => {
+    if (!needsGpsClock) return;
+    const timer = window.setInterval(() => setGpsClock(Date.now()), 5000);
+    return () => window.clearInterval(timer);
+  }, [needsGpsClock]);
+  const gpsLost = liveFix !== null && isGpsLost(liveFix.receivedAt, Math.max(gpsClock, liveFix.receivedAt));
+
   function stopGuide() {
     setGuideTarget(null);
     setGuideCompass(false);
@@ -2374,6 +2455,8 @@ export default function HuntingMap() {
       stopGuide();
       return;
     }
+    // Straight from the tap so iOS will play the arrival beep later.
+    unlockAlertSound();
     setGuideTarget({ id: asset.id, label: asset.label, lat: asset.lat, lng: asset.lng });
     setFieldMessage("");
     // Straight from the tap so iOS will show its compass prompt.
@@ -2384,22 +2467,37 @@ export default function HuntingMap() {
     }
   }
 
-  // Within GUIDE_ARRIVE_YARDS of the target: buzz and end the guide.
-  const guideArrived = Boolean(guideTarget && activeGuide?.arrived);
+  // Arrival: two good fixes in a row inside the arrival radius (15 yd, wider
+  // for a looser fix — see nextGuideArrival). Counted per fix, not per render;
+  // fixes worse than ±30 m are ignored. Then alert and end the guide.
+  const guideArrivalStreakRef = useRef(0);
   useEffect(() => {
-    if (!guideArrived || !guideTarget) return;
-    buzz([80, 60, 80]);
+    guideArrivalStreakRef.current = 0;
+  }, [guideTarget?.id]);
+  useEffect(() => {
+    if (!guideTarget || !guidePoint || !liveFix) return;
+    const reading = guideReading(liveFix, guidePoint, null);
+    const next = nextGuideArrival(guideArrivalStreakRef.current, reading, liveFix.accuracy);
+    guideArrivalStreakRef.current = next.streak;
+    if (!next.arrived) return;
+    guideArrivalStreakRef.current = 0;
+    fieldAlert("arrive", [80, 60, 80]);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFieldMessage(`You're at ${guideTarget.label}.`);
     setGuideTarget(null);
     setGuideCompass(false);
-  }, [guideArrived, guideTarget]);
+    // Only a new fix counts: guidePoint/guideTarget changes don't re-run it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveFix]);
 
-  // Hunt-area edge warning: only while following GPS on a property with a
-  // drawn hunt area (and the Layers toggle on). Hysteresis in nextEdgeAlert
-  // keeps it to one buzz per approach.
+  // Hunt-area edge warning: whenever the GPS tool is on and there's a recent
+  // fix on a property with a drawn hunt area (and the Layers toggle on) —
+  // not tied to follow, so panning to look around doesn't silence it.
+  // nextEdgeAlert keeps it to one alert per approach, ignores fixes worse
+  // than ±30 m, and turning it back on next to the line doesn't count as a
+  // new approach.
   const edgeWarningOn =
-    mapTools.edgeWarning && mapTools.gps && followUser && hasHuntArea;
+    mapTools.edgeWarning && mapTools.gps && hasHuntArea && liveFix !== null && !gpsLost;
   const edgeReading = useMemo(() => {
     if (!edgeWarningOn || !liveFix || !huntArea) return null;
     const edgeMeters = distanceToPolygonEdgeMeters(liveFix.lat, liveFix.lng, huntArea);
@@ -2407,17 +2505,19 @@ export default function HuntingMap() {
     return {
       inside: pointInPolygon(liveFix.lat, liveFix.lng, huntArea),
       edgeMeters,
+      accuracy: liveFix.accuracy,
     };
   }, [edgeWarningOn, liveFix, huntArea]);
-  const [edgeState, setEdgeState] = useState<EdgeAlertState>("off");
-  const edgeStateRef = useRef<EdgeAlertState>("off");
+  const [edgeTracker, setEdgeTracker] = useState<EdgeTracker>(EDGE_TRACKER_OFF);
+  const edgeTrackerRef = useRef<EdgeTracker>(EDGE_TRACKER_OFF);
   useEffect(() => {
-    const next = nextEdgeAlert(edgeStateRef.current, edgeReading);
-    edgeStateRef.current = next.state;
-    if (next.buzz) buzz([200, 100, 200]);
+    const next = nextEdgeAlert(edgeTrackerRef.current, edgeReading);
+    edgeTrackerRef.current = next.tracker;
+    if (next.buzz) fieldAlert("edge", [200, 100, 200]);
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEdgeState(next.state);
-  }, [edgeReading]);
+    setEdgeTracker(next.tracker);
+  }, [edgeReading, fieldAlert]);
+  const edgeState = edgeTracker.state;
   const edgeLabel = edgeAlertLabel(edgeState, edgeReading?.edgeMeters ?? null);
 
   // Legal shooting light from the same forecast the Today verdict uses.
@@ -2632,24 +2732,24 @@ export default function HuntingMap() {
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
+        const fix = trackFixFromPosition(position);
+        // Skip poor fixes (they draw zigzags you never walked), the wander of
+        // a GPS while you stand still (scaled to its accuracy) and jumps no
+        // one on foot could make — see lib/gpsFix.
+        if (
+          !acceptTrackFix(walkLastFixRef.current, fix, {
+            baseMinStepM: MIN_TRACK_POINT_METERS,
+          })
+        ) {
+          return;
+        }
+        walkLastFixRef.current = fix;
         const point: WalkTrackPoint = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          at: new Date().toISOString(),
+          lat: fix.lat,
+          lng: fix.lng,
+          at: new Date(fix.timestamp ?? Date.now()).toISOString(),
         };
-
-        setActiveTrackPoints((currentPoints) =>
-          // Skip poor fixes (they draw zigzags you never walked) and the
-          // few-meter wander of a GPS while you stand still.
-          acceptPathFix(
-            currentPoints,
-            point,
-            position.coords.accuracy,
-            MIN_TRACK_POINT_METERS,
-          )
-            ? [...currentPoints, point]
-            : currentPoints,
-        );
+        setActiveTrackPoints((currentPoints) => [...currentPoints, point]);
       },
       () => {
         // Hold the trail on a transient error (a brief signal drop, a denied
@@ -2677,6 +2777,8 @@ export default function HuntingMap() {
     saveActiveBloodTrail({
       propertyId: bloodPropertyIdRef.current,
       startedAt: bloodStartedAtRef.current || new Date().toISOString(),
+      ...(bloodRecoveredAtRef.current ? { recoveredAt: bloodRecoveredAtRef.current } : {}),
+      ...(bloodStartWindRef.current ? { startWind: bloodStartWindRef.current } : {}),
       points: bloodPoints,
       path: bloodPath,
       recovered: bloodRecovered,
@@ -2685,7 +2787,14 @@ export default function HuntingMap() {
 
   // Recording a walk or a blood trail keeps the screen on — a locked phone
   // pauses GPS and the trail would jump in a straight line across the gap.
-  useWakeLock(isTracking || (isTrackingBlood && !bloodRecovered));
+  // So does Guide me, and following with the edge alert on: a sleeping
+  // phone can't warn you or say you've arrived.
+  useWakeLock(
+    isTracking ||
+      (isTrackingBlood && !bloodRecovered) ||
+      Boolean(guideTarget) ||
+      (mapTools.edgeWarning && mapTools.gps && followUser && hasHuntArea),
+  );
 
   // While blood-trailing, record the path walked so the trail between finds
   // follows the ground you actually covered. Poor fixes and standing-still
@@ -2696,12 +2805,12 @@ export default function HuntingMap() {
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
-        const fix = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        };
-        if (!acceptPathFix(bloodPathRef.current, fix, position.coords.accuracy)) return;
-        bloodPathRef.current = [...bloodPathRef.current, fix];
+        const fix = trackFixFromPosition(position);
+        if (!acceptTrackFix(bloodLastFixRef.current, fix, { baseMinStepM: MIN_PATH_STEP_M })) {
+          return;
+        }
+        bloodLastFixRef.current = fix;
+        bloodPathRef.current = [...bloodPathRef.current, { lat: fix.lat, lng: fix.lng }];
         setBloodPath(bloodPathRef.current);
       },
       () => {
@@ -2725,6 +2834,7 @@ export default function HuntingMap() {
 
     trackPropertyIdRef.current = selectedPropertyId;
     trackStartedAtRef.current = new Date().toISOString();
+    walkLastFixRef.current = null;
     setActiveTrackPoints([]);
     setTrackMessage("");
     setIsTracking(true);
@@ -2883,6 +2993,54 @@ export default function HuntingMap() {
     setRoutePoints([]);
   }
 
+  // The wind right now for a Hunt Log entry (live wind first, then Today's
+  // forecast; both in the Settings unit), or null with none known.
+  function currentWindForLog(): { direction: string; speed: string } | null {
+    const direction =
+      liveWind?.fromCompass || propertyToday.forecast?.current.windDirection || "";
+    const speed = liveWindSpeedLabel || propertyToday.forecast?.current.windSpeed || "";
+    return direction || speed ? { direction, speed } : null;
+  }
+
+  // Pick a stored trail back up (the resume prompt's Resume).
+  function resumeBloodTrail(trail: ActiveBloodTrail) {
+    setIsPlacingPin(false);
+    setMovingPin(null);
+    setPendingPin(null);
+    setAimingTarget(null);
+    setIsDrawingArea(false);
+    exitRoutePlan();
+    bloodPropertyIdRef.current = trail.propertyId;
+    bloodStartedAtRef.current = trail.startedAt;
+    bloodRecoveredAtRef.current = trail.recoveredAt ?? "";
+    bloodStartWindRef.current = trail.startWind;
+    bloodPathRef.current = trail.path;
+    bloodLastFixRef.current = lastPointAsFix(trail.path);
+    setBloodPath(trail.path);
+    setBloodPoints(trail.points);
+    setBloodRecovered(trail.recovered);
+    setBloodFinishing(false);
+    setBloodSaved(false);
+    setBloodNote(
+      trail.propertyId && trail.propertyId !== selectedPropertyId
+        ? "This trail was started on another property."
+        : "",
+    );
+    setBloodResumeOffer(null);
+    setIsTrackingBlood(true);
+  }
+
+  function discardStoredBloodTrail() {
+    if (
+      (bloodResumeOffer?.points.length ?? 0) > 0 &&
+      !window.confirm("Discard this blood trail? Its marks will be cleared.")
+    ) {
+      return;
+    }
+    clearActiveBloodTrail();
+    setBloodResumeOffer(null);
+  }
+
   // Blood-trail / recovery mode (ephemeral). First mark is the hit site.
   function startBloodTrail() {
     if (!selectedPropertyId) return;
@@ -2895,6 +3053,11 @@ export default function HuntingMap() {
     exitRoutePlan();
     bloodPropertyIdRef.current = selectedPropertyId;
     bloodStartedAtRef.current = new Date().toISOString();
+    bloodRecoveredAtRef.current = "";
+    bloodStartWindRef.current = currentWindForLog() ?? undefined;
+    bloodLastFixRef.current = null;
+    // Starting fresh replaces any trail that was waiting to be resumed.
+    setBloodResumeOffer(null);
     setBloodPoints([]);
     setBloodRecovered(false);
     bloodPathRef.current = [];
@@ -2922,29 +3085,49 @@ export default function HuntingMap() {
   }
 
   function undoBloodPoint() {
+    bloodRecoveredAtRef.current = "";
     setBloodRecovered(false);
     setBloodPoints((current) => current.slice(0, -1));
   }
 
   // "Drop here": mark where you're standing. Uses a fresh fix and adds it to the
-  // walked path too, so the trail runs right through the mark.
+  // walked path too, so the trail runs right through the mark. A loose fix asks
+  // first — a ±40 yd mark can put the next search in the wrong draw.
   function addBloodPointFromLocation() {
-    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setBloodNote("This device can't share a location — tap the map to mark instead.");
+      return;
+    }
     if (bloodRecovered) return;
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const fix = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        };
-        if (acceptPathFix(bloodPathRef.current, fix, null, 0.5)) {
-          bloodPathRef.current = [...bloodPathRef.current, fix];
+        const fix = trackFixFromPosition(position);
+        if (typeof fix.accuracy === "number" && fix.accuracy > MAX_TRACK_FIX_ACCURACY_M) {
+          const yards = Math.round(fix.accuracy / METERS_PER_YARD / 5) * 5;
+          if (!window.confirm(`GPS is only good to ±${yards} yd here. Mark anyway?`)) {
+            setBloodNote("Not marked — wait for a better fix or tap the map.");
+            return;
+          }
+        }
+        // On the path only when it's a usable fix; the mark goes down regardless.
+        if (acceptPathFix(bloodPathRef.current, fix, fix.accuracy, 0.5)) {
+          bloodPathRef.current = [...bloodPathRef.current, { lat: fix.lat, lng: fix.lng }];
+          bloodLastFixRef.current = fix;
           setBloodPath(bloodPathRef.current);
         }
+        setBloodNote("");
         addBloodPoint(fix.lat, fix.lng);
       },
-      undefined,
+      (error) => {
+        setBloodNote(
+          error.code === 1
+            ? "Location is off for this site — turn it on in Settings › Safari › Location, or tap the map to mark."
+            : error.code === 3
+              ? "No GPS fix yet — try again in the open, or tap the map to mark."
+              : "Couldn't get your location — tap the map to mark instead.",
+        );
+      },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
     );
   }
@@ -2952,11 +3135,15 @@ export default function HuntingMap() {
   function markRecovery() {
     if (bloodPoints.length === 0) return;
     buzz([14, 60, 14]);
+    bloodRecoveredAtRef.current = new Date().toISOString();
     setBloodRecovered(true);
   }
 
   function exitBloodTrail() {
     clearActiveBloodTrail();
+    bloodRecoveredAtRef.current = "";
+    bloodStartWindRef.current = undefined;
+    bloodLastFixRef.current = null;
     setIsTrackingBlood(false);
     setBloodPoints([]);
     setBloodRecovered(false);
@@ -2972,6 +3159,13 @@ export default function HuntingMap() {
   function saveBloodTrailToLog(): boolean {
     const propertyId = bloodPropertyIdRef.current || selectedPropertyId;
     const started = new Date(bloodStartedAtRef.current);
+    // The wind when the trail began if it was saved then; otherwise now's,
+    // flagged in the notes as save-time wind.
+    const startWind = bloodStartWindRef.current;
+    const wind = startWind ?? currentWindForLog();
+    const recoveredAt = bloodRecoveredAtRef.current
+      ? new Date(bloodRecoveredAtRef.current)
+      : null;
     const result = buildBloodTrailHunt({
       id: createDeerIntelId("hunt"),
       propertyId,
@@ -2984,10 +3178,10 @@ export default function HuntingMap() {
       },
       startedAt: Number.isNaN(started.getTime()) ? new Date() : started,
       endedAt: new Date(),
-      windDirection:
-        liveWind?.fromCompass || propertyToday.forecast?.current.windDirection || "",
-      // Both sources in the Settings unit (Today's forecast is fetched in it).
-      windSpeed: liveWindSpeedLabel || propertyToday.forecast?.current.windSpeed || "",
+      recoveredAt,
+      windDirection: wind?.direction ?? "",
+      windSpeed: wind?.speed ?? "",
+      windAtSaveTime: !startWind,
     });
 
     if (!result.ok) {
@@ -3023,12 +3217,17 @@ export default function HuntingMap() {
   }
 
   // Other map modes used to end a blood trail silently. A trail with marks on
-  // it now only ends when you say so. Returns false to cancel the other action.
+  // it that isn't in the Hunt Log yet — recovered or not — only ends when you
+  // say so. Returns false to cancel the other action.
   function leaveBloodTrail(): boolean {
-    if (isTrackingBlood && bloodPoints.length > 0 && !bloodRecovered) {
-      if (!window.confirm("End the blood trail? Its marks will be cleared.")) {
-        return false;
-      }
+    // Not tracking: nothing to end (and a stored trail waiting on the resume
+    // prompt must not be cleared by switching property or drawing).
+    if (!isTrackingBlood) return true;
+    if (bloodPoints.length > 0 && !bloodSaved) {
+      const question = bloodRecovered
+        ? "End the blood trail? The recovery isn't saved to the Hunt Log — its marks will be cleared. (Cancel, then Save to Hunt Log to keep it.)"
+        : "End the blood trail? Its marks will be cleared.";
+      if (!window.confirm(question)) return false;
     }
     exitBloodTrail();
     return true;
@@ -3167,6 +3366,8 @@ export default function HuntingMap() {
   }
 
   function toggleMapTool(toolId: MapToolId) {
+    // A tap on the alert toggles also unlocks the beep for iOS.
+    if (toolId === "alertSound" || toolId === "edgeWarning") unlockAlertSound();
     setMapTools((currentTools) => ({
       ...currentTools,
       [toolId]: !currentTools[toolId],
@@ -4566,6 +4767,7 @@ export default function HuntingMap() {
               heading={liveHeading}
               onUserPan={() => setFollowUser(false)}
               onLocation={setLiveFix}
+              onLocationError={setLocationError}
             />
             <PartyMembersLayer
               areas={
@@ -4905,12 +5107,28 @@ export default function HuntingMap() {
             edgeOutside={edgeState === "outside"}
             guide={
               guideTarget
-                ? { label: guideTarget.label, reading: activeGuide }
+                ? { label: guideTarget.label, reading: activeGuide, gpsLost }
                 : null
             }
             onStopGuide={stopGuide}
             message={fieldMessage}
             onDismissMessage={() => setFieldMessage("")}
+            notice={locationError}
+            onDismissNotice={() => setLocationError(null)}
+            resumePrompt={
+              bloodResumeOffer && !isTrackingBlood
+                ? {
+                    text: `Resume the blood trail from ${resumeWhenLabel(
+                      bloodResumeOffer.startedAt,
+                      new Date(gpsClock),
+                    )}? ${bloodResumeOffer.points.length} mark${
+                      bloodResumeOffer.points.length === 1 ? "" : "s"
+                    }${bloodResumeOffer.recovered ? ", recovered" : ""}.`,
+                    onResume: () => resumeBloodTrail(bloodResumeOffer),
+                    onDiscard: discardStoredBloodTrail,
+                  }
+                : null
+            }
           />
 
           {/* All three bottom-right cards share one column so they stack instead
@@ -5606,7 +5824,11 @@ export default function HuntingMap() {
                   ? startAim
                   : undefined
               }
-              fromYou={selectedFromYou}
+              fromYou={
+                selectedFromYou?.withinAccuracy
+                  ? { ...selectedFromYou, headText: "Within GPS accuracy" }
+                  : selectedFromYou
+              }
               guiding={guideTarget?.id === selectedAsset.id}
               onToggleGuide={() => toggleGuide(selectedAsset)}
             />
@@ -5621,7 +5843,11 @@ export default function HuntingMap() {
                   : tileOwnerPick.isPublic
                     ? "Public"
                     : "Private"
-              } · ${ownerAcresText(tileOwnerPick.acres) || "acres not listed"}`}
+              } · ${
+                ownerAcresText(tileOwnerPick.acres, {
+                  mappedAcres: tileOwnerPick.mappedAcres,
+                }) || "acres not listed"
+              }`}
               recordUrl={tileOwnerPick.recordUrl ?? null}
               lines={countyRecordLines(tileOwnerDetail, tileOwnerPick.ownerName)}
               previousOwner={
@@ -5647,14 +5873,22 @@ export default function HuntingMap() {
                   : undefined
               }
               distanceLabel={
-                tileOwnerAt && terrainPoint
-                  ? `${(
+                // From your live fix when there is one, else the property center.
+                tileOwnerAt && liveFix
+                  ? `${formatGuideDistance(
                       distanceBetweenMeters(
-                        { ...terrainPoint, at: "" },
+                        { lat: liveFix.lat, lng: liveFix.lng, at: "" },
                         { ...tileOwnerAt, at: "" },
-                      ) / 1609.34
-                    ).toFixed(1)} mi from ${selectedProperty?.name ?? "your property"}`
-                  : null
+                      ),
+                    )} from you`
+                  : tileOwnerAt && terrainPoint
+                    ? `${formatGuideDistance(
+                        distanceBetweenMeters(
+                          { ...terrainPoint, at: "" },
+                          { ...tileOwnerAt, at: "" },
+                        ),
+                      )} from ${selectedProperty?.name ?? "your property"}`
+                    : null
               }
               onClose={() => {
                 setTileOwnerPick(null);

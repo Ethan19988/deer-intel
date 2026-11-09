@@ -25,6 +25,7 @@ import type { PhotoRecord } from "@/types/photo";
 import type { HeroPhoto } from "@/components/TodayVerdictHero";
 import type { StripPhoto } from "@/components/CameraPhotoStrip";
 import { buildStripPhotos } from "@/lib/photoStrip";
+import { isSitHunt } from "@/lib/standStats";
 
 // Fixed pre-mount clock; any constant works. Keeps the server render and the
 // first client render identical, then the real clock takes over.
@@ -41,7 +42,10 @@ export function usePropertyToday(propertyId: string) {
   const cameras = state.cameras.filter((camera) => camera.propertyId === propertyId);
   const stands = state.stands.filter((stand) => stand.propertyId === propertyId);
   const pins = state.pins.filter((pin) => pin.propertyId === propertyId);
-  const hunts = state.hunts.filter((hunt) => hunt.propertyId === propertyId);
+  // Sits only: a blood-trail recovery saved from the map isn't stand pressure.
+  const hunts = state.hunts.filter(
+    (hunt) => hunt.propertyId === propertyId && isSitHunt(hunt),
+  );
   const photoRecords = state.photoRecords.filter((photo) => photo.propertyId === propertyId);
 
   const weatherPoint = resolvePropertyWeatherPoint(property ?? null, cameras, pins);
@@ -57,11 +61,19 @@ export function usePropertyToday(propertyId: string) {
   useEffect(() => {
     // Intentional client-only seed: `now` starts null so server and first
     // client render match, then the real clock is set on mount and ticked
-    // each minute.
+    // each minute. Phones pause timers in the background, so coming back to
+    // the app ticks it right away instead of showing a stale call for a minute.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setNow(new Date());
     const timer = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(timer);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") setNow(new Date());
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   // The forecast in use, which spot/units it's for, when it was fetched, and

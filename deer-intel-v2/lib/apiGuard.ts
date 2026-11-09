@@ -78,7 +78,28 @@ function bearerToken(request: Request): string | null {
   return match ? match[1] : null;
 }
 
-async function verifySupabaseUser(token: string): Promise<string | null> {
+export type VerifiedUser = { id: string; emailConfirmed: boolean };
+
+/**
+ * Read the caller from Supabase's /auth/v1/user response: their id, and
+ * whether their email address is confirmed (email_confirmed_at, or the older
+ * confirmed_at). Exported for tests.
+ */
+export function parseSupabaseUser(data: unknown): VerifiedUser | null {
+  if (!data || typeof data !== "object") return null;
+  const user = data as { id?: unknown; email_confirmed_at?: unknown; confirmed_at?: unknown };
+  if (typeof user.id !== "string" || !user.id) return null;
+  const confirmed = (value: unknown) => typeof value === "string" && value.length > 0;
+  return {
+    id: user.id,
+    emailConfirmed: confirmed(user.email_confirmed_at) || confirmed(user.confirmed_at),
+  };
+}
+
+export const EMAIL_NOT_CONFIRMED_MESSAGE =
+  "Confirm your email address to use this feature. Check your inbox for the confirmation link.";
+
+async function verifySupabaseUser(token: string): Promise<VerifiedUser | null> {
   try {
     const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: { apikey: SUPABASE_ANON_KEY, authorization: `Bearer ${token}` },
@@ -87,9 +108,7 @@ async function verifySupabaseUser(token: string): Promise<string | null> {
 
     if (!response.ok) return null;
 
-    const data = (await response.json()) as { id?: unknown };
-
-    return typeof data.id === "string" ? data.id : null;
+    return parseSupabaseUser(await response.json());
   } catch {
     return null;
   }
@@ -209,11 +228,14 @@ export async function guardPaidRoute(
 
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     token = bearerToken(request);
-    const userId = token ? await verifySupabaseUser(token) : null;
+    const verified = token ? await verifySupabaseUser(token) : null;
 
-    if (!userId) return fail("Sign in to use this feature.", 401);
+    if (!verified) return fail("Sign in to use this feature.", 401);
+    // Paid calls need a confirmed email, so throwaway sign-ups can't spend
+    // the API key.
+    if (!verified.emailConfirmed) return fail(EMAIL_NOT_CONFIRMED_MESSAGE, 403);
 
-    identity = userId;
+    identity = verified.id;
   } else if (REQUIRE_AUTH) {
     // Sign-in is required but the server can't check it: fail closed rather
     // than letting anyone spend the API key.

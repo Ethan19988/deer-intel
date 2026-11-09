@@ -184,7 +184,7 @@ export default function SeasonReportView({
               </div>
             ) : (
               <p style={mutedStyle}>
-                No photos linked to a buck profile or named buck this season.
+                No bucks linked to a photo or tagged on a sit this season.
               </p>
             )}
           </Block>
@@ -228,7 +228,7 @@ function whenLine(buck: SeasonReport["bucks"][number]): string {
   }
   if (buck.peakHourLabel) parts.push(`peak ${buck.peakHourLabel}`);
   if (buck.topPhase) parts.push(buck.topPhase.toLowerCase());
-  if (buck.sitMentions) parts.push(`${buck.sitMentions} sit note${buck.sitMentions === 1 ? "" : "s"}`);
+  if (buck.sitMentions) parts.push(`${buck.sitMentions} sit${buck.sitMentions === 1 ? "" : "s"}`);
   return parts.join(" · ") || "—";
 }
 

@@ -11,6 +11,7 @@
 // Everything stays inert when Supabase isn't configured or nobody is signed in,
 // exactly like the rest of the cloud-sync layer.
 
+import { extentContains, terrainSetExtent } from "@/lib/terrainMovementData";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { TerrainMovementSet } from "@/lib/terrainMovement";
 import type { HuntAreaPoint } from "@/types/property";
@@ -174,6 +175,10 @@ export async function resolveStoredTerrainSet(
   const sets = await fetchStoredSets();
   let best: { set: TerrainMovementSet; km: number } | null = null;
   for (const s of sets) {
+    // Same rule as the built-in sets: only a set whose own features cover the
+    // point, so a property near (not on) a generated tract doesn't borrow it.
+    const extent = terrainSetExtent(s.set);
+    if (!extent || !extentContains(extent, point)) continue;
     const km = haversineKm(point, { lat: s.center[0], lng: s.center[1] });
     if (km <= MATCH_RADIUS_KM && (!best || km < best.km)) best = { set: s.set, km };
   }

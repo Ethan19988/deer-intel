@@ -29,11 +29,23 @@ function compass(deg: number): string {
   return DIRS[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
 }
 
-/** Best wind to hunt ground that faces `aspect`: wind from the opposite side
- * carries scent up and over, away from bedded/approaching deer. */
-function reciprocalWind(aspect: number): string {
+/** The wind deer bed on for ground that faces `aspect` (downhill): wind from
+ * the uphill side, at their back, while they watch downhill. This is the DEER's
+ * wind — coming in from above on it blows scent straight onto the beds. */
+function deerBedWind(aspect: number): string {
   return compass(aspect + 180);
 }
+
+/** Wind note for a bed: the wind deer pick it on, and how NOT to approach. */
+export function bedWindNote(wind: string): string {
+  return `Deer bed here on a ${wind} wind (wind at their back, eyes downhill). Don't come in from above — hunt the exit trail on a crosswind.`;
+}
+
+export const BENCH_WIND_NOTE =
+  "Deer often walk benches into the wind — set up on the downwind side of the bench trail on a crosswind.";
+
+export const DRAW_WIND_NOTE =
+  "At first light sit the upper part or side of the draw so falling thermals carry scent down and away from deer coming up it; in the evening, mid-afternoon rising thermals favor the lower end.";
 
 type Cell = {
   i: number;
@@ -43,10 +55,37 @@ type Cell = {
   e: number;
   slope: number;
   aspect: number;
-  curvEW: number;
-  curvNS: number;
+  /** Second derivatives in 1/m (independent of grid spacing). */
+  fxx: number;
+  fyy: number;
+  fxy: number;
   lap: number;
 };
+
+// Curvature cutoffs in 1/m. They were tuned as raw second differences (metres)
+// on the default 70 m live grid, so they're that number / 70². Dividing by the
+// spacing² keeps a 30 m or 120 m read (hunt-area-sized grids) on the same
+// physical scale instead of flagging far more/fewer cells as the spacing moves.
+const REF_SPACING_M = 70;
+const PER_REF = 1 / (REF_SPACING_M * REF_SPACING_M);
+/** Both principal curvatures of a saddle must be at least this strong. */
+export const SADDLE_MIN_CURV = 0.6 * PER_REF;
+const SPUR_CURV = 0.4 * PER_REF;
+const DRAW_LAP = 1.0 * PER_REF;
+const BENCH_MAX_LAP = 2.5 * PER_REF;
+
+/**
+ * Saddle strength from the Hessian: the smaller of the two principal-curvature
+ * magnitudes when they have opposite signs (det = fxx·fyy − fxy² < 0), else 0.
+ * Rotation-invariant, so a saddle whose axes run NE–SW counts the same as one
+ * aligned with the grid (the old curvEW·curvNS < 0 test missed those).
+ */
+export function saddleStrength(fxx: number, fyy: number, fxy: number): number {
+  if (fxx * fyy - fxy * fxy >= 0) return 0;
+  const mean = (fxx + fyy) / 2;
+  const radius = Math.hypot((fxx - fyy) / 2, fxy);
+  return Math.max(0, radius - Math.abs(mean));
+}
 
 const M_TO_FT = 3.28084;
 const SOUTH_MIN = 120;
@@ -70,15 +109,21 @@ export function analyzeTerrain(
     for (let j = 1; j < cols - 1; j += 1) {
       const e = z[i]?.[j];
       if (!Number.isFinite(e)) continue;
+      // Every derivative below reads the full 3x3 neighbourhood; one missing
+      // sample would turn slope into NaN ("Steep sanctuary ~NaN°"), so skip.
+      if (!neighbourhoodFinite(z, i, j)) continue;
+      const s2 = spacingM * spacingM;
       const dzdx = (z[i][j + 1] - z[i][j - 1]) / (2 * spacingM);
       const dzdy = (z[i + 1][j] - z[i - 1][j]) / (2 * spacingM);
       const slope = (Math.atan(Math.hypot(dzdx, dzdy)) * 180) / Math.PI;
       const aspect = (((Math.atan2(-dzdx, -dzdy) * 180) / Math.PI) % 360 + 360) % 360;
-      const curvEW = z[i][j + 1] + z[i][j - 1] - 2 * e;
-      const curvNS = z[i + 1][j] + z[i - 1][j] - 2 * e;
+      const fxx = (z[i][j + 1] + z[i][j - 1] - 2 * e) / s2;
+      const fyy = (z[i + 1][j] + z[i - 1][j] - 2 * e) / s2;
+      const fxy =
+        (z[i + 1][j + 1] - z[i + 1][j - 1] - z[i - 1][j + 1] + z[i - 1][j - 1]) / (4 * s2);
       const cell: Cell = {
         i, j, lat: cellLat(i), lng: cellLng(j), e, slope, aspect,
-        curvEW, curvNS, lap: curvEW + curvNS,
+        fxx, fyy, fxy, lap: fxx + fyy,
       };
       cells.push(cell);
       if (!summit || e > summit.e) summit = cell;
@@ -91,14 +136,11 @@ export function analyzeTerrain(
   const upperThird = sorted[Math.floor(sorted.length * 0.66)];
   const isSouth = (a: number) => a >= SOUTH_MIN && a <= SOUTH_MAX;
 
+  // Absolute curvature floor (not a top-N%), so flat ground yields no saddles.
   const saddles = cells
-    .filter(
-      (c) =>
-        c.curvEW * c.curvNS < 0 &&
-        Math.min(Math.abs(c.curvEW), Math.abs(c.curvNS)) > 0.6 &&
-        c.e >= median,
-    )
-    .map((c) => ({ c, score: Math.min(Math.abs(c.curvEW), Math.abs(c.curvNS)) }))
+    .filter((c) => c.e >= median)
+    .map((c) => ({ c, score: saddleStrength(c.fxx, c.fyy, c.fxy) }))
+    .filter((s) => s.score >= SADDLE_MIN_CURV)
     .sort((a, b) => b.score - a.score);
 
   const beds = cells
@@ -111,13 +153,13 @@ export function analyzeTerrain(
     .sort((a, b) => b.score - a.score);
 
   const spurs = cells
-    .filter((c) => c.curvEW < -0.4 && c.curvNS < -0.4 && c.slope >= 8 && c.e < summit.e - 2)
-    .map((c) => ({ c, score: -(c.curvEW + c.curvNS) + c.slope * 0.2 }))
+    .filter((c) => c.fxx < -SPUR_CURV && c.fyy < -SPUR_CURV && c.slope >= 8 && c.e < summit.e - 2)
+    .map((c) => ({ c, score: -c.lap / PER_REF + c.slope * 0.2 }))
     .sort((a, b) => b.score - a.score);
 
   const draws = cells
-    .filter((c) => c.lap > 1.0 && c.e <= median)
-    .map((c) => ({ c, score: c.lap + (median - c.e) * 0.05 }))
+    .filter((c) => c.lap > DRAW_LAP && c.e <= median)
+    .map((c) => ({ c, score: c.lap / PER_REF + (median - c.e) * 0.05 }))
     .sort((a, b) => b.score - a.score);
 
   // Bench travel: gentle ground sitting in an otherwise-steep neighbourhood, in
@@ -140,7 +182,7 @@ export function analyzeTerrain(
   const benches = cells
     .filter(
       (c) =>
-        c.slope <= 12 && c.e <= elevCut && Math.abs(c.lap) < 2.5 &&
+        c.slope <= 12 && c.e <= elevCut && Math.abs(c.lap) < BENCH_MAX_LAP &&
         nbhdSlope(c) >= 15,
     )
     .map((c) => ({ c, score: nbhdSlope(c) - c.slope }))
@@ -198,7 +240,7 @@ export function analyzeTerrain(
       detail: south
         ? `A ${compass(c.aspect)}-facing bench near ${Math.round(c.e * M_TO_FT)} ft, ~${Math.round(c.slope)}° — the warm, sunny side deer favor for thermal gain, with an open slope below for early warning.`
         : `A spur nose off the high ground (~${Math.round(c.e * M_TO_FT)} ft) — bucks bed here to watch two draws and read swirling thermals.`,
-      windNote: `Beds hold a ${reciprocalWind(c.aspect)} wind. Approach from the high side above them.`,
+      windNote: bedWindNote(deerBedWind(c.aspect)),
       polygon: box(c),
     });
   }
@@ -229,7 +271,7 @@ export function analyzeTerrain(
       kind: "travel",
       title: `Bench trail (${Math.round(c.e * M_TO_FT)} ft)`,
       detail: `A near-level shelf on a steep hillside — deer sidehill along benches like this at a constant elevation to save energy, traveling the lower slopes parallel to the ridge rather than climbing over the top.`,
-      windNote: "Deer walk it into the wind; sit the downwind end, above or below the trail.",
+      windNote: BENCH_WIND_NOTE,
       line: contourLine(c),
     });
   }
@@ -242,15 +284,17 @@ export function analyzeTerrain(
       kind: "travel",
       title: "Draw travel corridor",
       detail: `A drainage dropping toward the low ground — a natural bed-to-feed travel line and a quiet, low-scent way in.`,
-      windNote: "Morning thermals fall downhill — hunt the lower end at first light.",
+      windNote: DRAW_WIND_NOTE,
       line: fallLine(c),
     });
   }
 
   // Refuge (up to 4): the steepest blocks.
-  for (const c of [...cells].sort((a, b) => b.slope - a.slope)) {
+  // Cells are all finite now, but sort NaN-safe anyway (NaN sinks to the end).
+  const bySlope = [...cells].sort((a, b) => finiteOr(b.slope) - finiteOr(a.slope));
+  for (const c of bySlope) {
     if (kindCount("refuge") >= 4) break;
-    if (c.slope < 18 || !farEnough(c)) continue;
+    if (!Number.isFinite(c.slope) || c.slope < 18 || !farEnough(c)) continue;
     used.push(c);
     features.push({
       id: `t-refuge-${c.i}-${c.j}`,
@@ -264,6 +308,19 @@ export function analyzeTerrain(
   if (features.length === 0) return null;
 
   return { areaName, center: summit ? [round(summit.lat), round(summit.lng)] : center, source, features };
+}
+
+function neighbourhoodFinite(z: number[][], i: number, j: number): boolean {
+  for (let di = -1; di <= 1; di += 1) {
+    for (let dj = -1; dj <= 1; dj += 1) {
+      if (!Number.isFinite(z[i + di]?.[j + dj])) return false;
+    }
+  }
+  return true;
+}
+
+function finiteOr(value: number, fallback = -Infinity): number {
+  return Number.isFinite(value) ? value : fallback;
 }
 
 function round(value: number): number {

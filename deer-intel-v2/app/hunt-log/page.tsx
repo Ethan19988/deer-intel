@@ -274,7 +274,11 @@ export default function HuntLogPage() {
     if (!updatedHunt) return;
 
     updateDeerIntelStore((currentState) =>
-      updateHuntInState(currentState, updatedHunt),
+      updateHuntInState(
+        currentState,
+        // Keep a blood-trail entry a blood trail (it isn't counted as a sit).
+        editingHunt?.kind ? { ...updatedHunt, kind: editingHunt.kind } : updatedHunt,
+      ),
     );
     cancelEditingHunt();
   }

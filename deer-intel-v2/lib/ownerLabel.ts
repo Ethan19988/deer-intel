@@ -5,13 +5,37 @@
 // with up to two decimals (trailing zeros trimmed) and the word "acre(s)"
 // spelled out — "0.21 acres", "1.03 acres", "12 acres". Empty when there's no
 // usable acreage to show.
-export function ownerAcresText(acres: number): string {
-  if (!(acres > 0)) return "";
-  const rounded = acres >= 100 ? acres.toFixed(0) : acres.toFixed(2);
-  const trimmed = rounded.includes(".")
-    ? rounded.replace(/\.?0+$/, "")
-    : rounded;
-  return `${trimmed} ${trimmed === "1" ? "acre" : "acres"}`;
+//
+// The tiles can also carry `mac` (mapped acres: the polygon's own area, for a
+// parcel or holding the county gives no acreage for) and, on holding labels,
+// `alb: 1` (some parcel had no county acreage, so `acres` is a lower bound).
+// Pass them as options: no county acres + mapped -> "~12 acres (mapped)";
+// a lower-bound total -> "at least 40 acres".
+export function ownerAcresText(
+  acres: number,
+  options: { mappedAcres?: number; atLeast?: boolean } = {},
+): string {
+  const fmt = (value: number) => {
+    const rounded = value >= 100 ? value.toFixed(0) : value.toFixed(2);
+    const trimmed = rounded.includes(".")
+      ? rounded.replace(/\.?0+$/, "")
+      : rounded;
+    return `${trimmed} ${trimmed === "1" ? "acre" : "acres"}`;
+  };
+  const mapped = Number(options.mappedAcres) || 0;
+  if (!(acres > 0)) return mapped > 0 ? `~${fmt(mapped)} (mapped)` : "";
+  return options.atLeast ? `at least ${fmt(acres)}` : fmt(acres);
+}
+
+// Drop a care-of contact folded into an owner name ("SMITH TRUST C/O MR & MRS
+// JONES" -> "SMITH TRUST"), plus the "&"/comma it leaves dangling. MUST behave
+// like stripCareOf in scripts/fetch-parcels-geojson.mjs, which cleans the tile
+// names; the live owner lookup uses this one so the two names match.
+export function stripCareOf(owner: string): string {
+  const name = String(owner ?? "").trim().replace(/\s+/g, " ");
+  const cut = name.replace(/\s*\bC\/O\b.*$/i, "").replace(/[\s,&]+$/, "").trim();
+  // A name that is nothing but a care-of line keeps the contact, not nothing.
+  return cut || name.replace(/^C\/O\b[\s,]*/i, "").trim();
 }
 
 // The owner name as printed on the map: county records carry legal suffixes
@@ -26,11 +50,12 @@ export function ownerDisplayName(owner: string): string {
   return name.replace(/[\s,&]+$/, "") || owner.trim().toUpperCase();
 }
 
-// Government / public land, by name. Mirrors the tile build's
-// PUBLIC_OWNER_PATTERN (scripts/fetch-parcels-geojson.mjs), which sets the
-// tiles' `pub` flag, so a parcel whose flag is missing still reads as public.
-const PUBLIC_OWNER_PATTERN =
-  /\b(COMMONWEALTH|STATE GAME LAND|GAME COMMISSION|DCNR|BUREAU OF FOREST|STATE FOREST|STATE PARK|UNITED STATES|U ?S ?A\b|FEDERAL|NATIONAL PARK|FOREST SERVICE|FISH (AND|&) BOAT|COUNTY OF|TOWNSHIP OF|BOROUGH OF|MUNICIPAL|SCHOOL DISTRICT|AUTHORITY|DEPARTMENT OF)/i;
+// Government / public land, by name (PA and MD). MUST stay identical to the
+// tile build's PUBLIC_OWNER_PATTERN (scripts/fetch-parcels-geojson.mjs), which
+// sets the tiles' `pub` flag, so a parcel whose flag is missing still reads as
+// public; lib/__tests__/parcelOwnerFields.test.ts checks the two match.
+export const PUBLIC_OWNER_PATTERN =
+  /\b(COMMONWEALTH|STATE GAME LAND|GAME COMMISSION|DCNR|BUREAU OF FOREST|STATE FOREST|STATE PARK|UNITED STATES|U ?S ?A\b|FEDERAL|NATIONAL PARK|FOREST SERVICE|FISH (AND|&) BOAT|COUNTY OF|TOWNSHIP OF|BOROUGH OF|MUNICIPAL|SCHOOL DISTRICT|BOARD OF EDUCATION|AUTHORITY|DEP(ARTMEN)?T\.? OF|STATE OF MARYLAND|COUNTY,? (OF )?MARYLAND\b|COMMISSIONERS|SUPERVISORS|MAYOR (AND|&) (CITY )?COUNCIL)/i;
 
 export function isPublicOwnerName(owner: string): boolean {
   return PUBLIC_OWNER_PATTERN.test(owner);

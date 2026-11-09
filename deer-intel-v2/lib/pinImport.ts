@@ -173,6 +173,48 @@ function isValidLatLng(lat: number, lng: number): boolean {
   );
 }
 
+/**
+ * One coordinate from a GPX attribute or KML tuple part. Missing or blank
+ * values are NaN (never 0 — Number("") is 0, which would drop a pin on the
+ * equator or prime meridian instead of skipping it).
+ */
+export function parseCoordinate(raw: string | null | undefined): number {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return Number.NaN;
+  return Number.parseFloat(trimmed);
+}
+
+/**
+ * The first "lng,lat[,alt]" tuple of a KML <coordinates> value, or null when
+ * it's missing or unreadable. Spaces around the commas ("-77.1, 40.2") are
+ * normalized first, so they aren't mistaken for the whitespace that separates
+ * tuples.
+ */
+export function parseKmlCoordinates(
+  coordinates: string,
+): { lat: number; lng: number } | null {
+  const normalized = coordinates.trim().replace(/\s*,\s*/g, ",");
+  if (!normalized) return null;
+
+  const firstTuple = normalized.split(/\s+/)[0] ?? "";
+  const [lngRaw, latRaw] = firstTuple.split(",");
+  const lat = parseCoordinate(latRaw);
+  const lng = parseCoordinate(lngRaw);
+
+  return isValidLatLng(lat, lng) ? { lat, lng } : null;
+}
+
+/** A GPX <wpt>'s lat/lon attributes, or null when either is missing/invalid. */
+export function parseGpxLatLng(
+  latAttr: string | null,
+  lonAttr: string | null,
+): { lat: number; lng: number } | null {
+  const lat = parseCoordinate(latAttr);
+  const lng = parseCoordinate(lonAttr);
+
+  return isValidLatLng(lat, lng) ? { lat, lng } : null;
+}
+
 function textContent(parent: Element, tagName: string): string {
   // Match on local name so namespaced KML tags (e.g. gx:*) still resolve.
   const nodes = parent.getElementsByTagName(tagName);
@@ -195,10 +237,11 @@ function parseGpxWaypoints(doc: Document): ImportedWaypoint[] {
 
   for (let index = 0; index < nodes.length; index += 1) {
     const node = nodes[index];
-    const lat = Number(node.getAttribute("lat"));
-    const lng = Number(node.getAttribute("lon"));
+    const point = parseGpxLatLng(node.getAttribute("lat"), node.getAttribute("lon"));
 
-    if (!isValidLatLng(lat, lng)) continue;
+    if (!point) continue;
+
+    const { lat, lng } = point;
 
     const name = textContent(node, "name");
     const description =
@@ -236,12 +279,11 @@ function parseKmlWaypoints(doc: Document): ImportedWaypoint[] {
 
     // KML coordinates are "lng,lat[,alt]" and there can be several separated by
     // whitespace; a Point uses the first tuple.
-    const firstTuple = coordinates.split(/\s+/)[0] ?? "";
-    const [lngRaw, latRaw] = firstTuple.split(",");
-    const lat = Number(latRaw);
-    const lng = Number(lngRaw);
+    const point = parseKmlCoordinates(coordinates);
 
-    if (!isValidLatLng(lat, lng)) continue;
+    if (!point) continue;
+
+    const { lat, lng } = point;
 
     const name = textContent(placemark, "name");
     const description = textContent(placemark, "description");

@@ -1,6 +1,11 @@
 import { findStandLocation } from "@/lib/accessScent";
 import { degreesToCompass } from "@/lib/compass";
-import { createHuntFromValues, formatTimeInput, newHuntFormValues } from "@/lib/huntFormValues";
+import {
+  createHuntFromValues,
+  formatDateInput,
+  formatTimeInput,
+  newHuntFormValues,
+} from "@/lib/huntFormValues";
 import { distanceMeters, type LatLng } from "@/lib/movementPrediction";
 import { bearingBetween } from "@/lib/travelDirection";
 import type { HuntLogEntry } from "@/types/hunt";
@@ -77,6 +82,11 @@ export type BloodTrailHuntResult =
   | { ok: true; hunt: HuntLogEntry; standName: string }
   | { ok: false; reason: string };
 
+/** "2026-11-09 08:10" in local time — unambiguous across midnight. */
+function formatLocalStamp(date: Date): string {
+  return `${formatDateInput(date)} ${formatTimeInput(date)}`;
+}
+
 export function buildBloodTrailHunt(input: {
   id: string;
   propertyId: string;
@@ -85,8 +95,15 @@ export function buildBloodTrailHunt(input: {
   summary: BloodTrailSummary;
   startedAt: Date;
   endedAt: Date;
+  /** When "Found!" was tapped, if it was. */
+  recoveredAt?: Date | null;
   windDirection?: string;
   windSpeed?: string;
+  /**
+   * The wind came from the moment of saving, not the start of the trail
+   * (none was saved when it began) — said so in the notes.
+   */
+  windAtSaveTime?: boolean;
 }): BloodTrailHuntResult {
   const { id, propertyId, summary, startedAt, endedAt } = input;
   if (summary.marks.length === 0) {
@@ -106,17 +123,40 @@ export function buildBloodTrailHunt(input: {
     };
   }
 
+  // A hunt is one date with an in/out time. A trail left overnight and saved
+  // the next morning would read 18:50 → 08:10 on one date (a negative sit), so
+  // the entry stays on the start date, ends at 23:59, and the notes carry the
+  // real dates and times.
+  const crossesMidnight = formatDateInput(endedAt) !== formatDateInput(startedAt);
+  const extraNotes: string[] = [];
+  const recoveredAt =
+    input.recoveredAt && !Number.isNaN(input.recoveredAt.getTime()) ? input.recoveredAt : null;
+  if (summary.recovered && recoveredAt) {
+    extraNotes.push(`Recovered: ${formatLocalStamp(recoveredAt)}`);
+  }
+  if (crossesMidnight) {
+    extraNotes.push(
+      `Trail started ${formatLocalStamp(startedAt)}, saved ${formatLocalStamp(endedAt)}`,
+    );
+  }
+  if (input.windAtSaveTime && (input.windDirection || input.windSpeed)) {
+    extraNotes.push("Wind: at save time, not the shot");
+  }
+
   const values = {
     ...newHuntFormValues(startedAt, { propertyId, standId: nearest.stand.id }),
-    endTime: formatTimeInput(endedAt),
+    endTime: crossesMidnight ? "23:59" : formatTimeInput(endedAt),
     windDirection: input.windDirection ?? "",
     windSpeed: input.windSpeed ?? "",
     shotOpportunity: "Yes" as const,
     harvest: summary.recovered ? ("Yes" as const) : ("No" as const),
-    notes: bloodTrailNotes(summary),
+    notes: [bloodTrailNotes(summary), ...extraNotes].join("\n"),
   };
-  const hunt = createHuntFromValues({ id, values, stands });
-  if (!hunt) return { ok: false, reason: "Couldn't build a Hunt Log entry for this trail." };
+  const built = createHuntFromValues({ id, values, stands });
+  if (!built) return { ok: false, reason: "Couldn't build a Hunt Log entry for this trail." };
 
+  // Tagged so sit counts, stand stats and pressure leave it out — a
+  // recovery isn't a sit.
+  const hunt: HuntLogEntry = { ...built, kind: "blood-trail" };
   return { ok: true, hunt, standName: nearest.stand.name };
 }

@@ -205,7 +205,7 @@ function KeyInsightsGrid({ insights }: { insights: ConditionInsight[] }) {
           icon={INSIGHT_ICON[insight.kind]}
           label={`${insight.label} · ${insight.value}`}
           value={`${insight.percent}%`}
-          detail={`${insight.count} of ${insight.sampleSize} sightings`}
+          detail={insight.note || `${insight.count} of ${insight.sampleSize} visits`}
         />
       ))}
     </div>

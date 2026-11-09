@@ -9,8 +9,17 @@ import { NO_COUNTER_ROTATE_CLASS } from "@/lib/leafletRotation";
 export type LiveLocation = {
   lat: number;
   lng: number;
+  /** Reported accuracy radius, meters. */
   accuracy: number;
+  /** When the device took the fix (GeolocationPosition.timestamp, ms). */
+  timestamp: number;
+  /** When the page received it (Date.now(), ms) — for "GPS lost". */
+  receivedAt: number;
 };
+
+/** Shown when the browser refuses location for this site. */
+export const LOCATION_DENIED_MESSAGE =
+  "Location is off for this site — turn it on in Settings › Safari › Location (or your browser's site settings).";
 
 // A pulsing "blue dot" that shows the hunter's live GPS position on the map,
 // updated continuously via watchPosition — the same live-location dot you get
@@ -25,6 +34,7 @@ export default function UserLocationMarker({
   heading,
   onUserPan,
   onLocation,
+  onLocationError,
 }: {
   enabled: boolean;
   follow: boolean;
@@ -35,6 +45,11 @@ export default function UserLocationMarker({
   /** Every accepted fix (and null when the dot turns off), for map features
    * that need the live position — Guide me, the hunt-area edge warning. */
   onLocation?: (location: LiveLocation | null) => void;
+  /**
+   * A message when location is refused (null once a fix arrives again), so
+   * the map can say why the dot never shows instead of failing silently.
+   */
+  onLocationError?: (message: string | null) => void;
 }) {
   const [location, setLocation] = useState<LiveLocation | null>(null);
   // While a zoom gesture is running, hold off on recentering. On iOS Safari a
@@ -46,9 +61,11 @@ export default function UserLocationMarker({
   // Newest fix, read by the zoomend handler without re-subscribing the events.
   const latestLocationRef = useRef<LiveLocation | null>(null);
   const onLocationRef = useRef(onLocation);
+  const onLocationErrorRef = useRef(onLocationError);
   useEffect(() => {
     onLocationRef.current = onLocation;
-  }, [onLocation]);
+    onLocationErrorRef.current = onLocationError;
+  }, [onLocation, onLocationError]);
   useEffect(() => {
     latestLocationRef.current = location;
     onLocationRef.current?.(location);
@@ -85,15 +102,22 @@ export default function UserLocationMarker({
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
+        onLocationErrorRef.current?.(null);
         setLocation({
           lat: position.coords.latitude,
           lng: position.coords.longitude,
           accuracy: position.coords.accuracy,
+          timestamp: Number.isFinite(position.timestamp) ? position.timestamp : Date.now(),
+          receivedAt: Date.now(),
         });
       },
-      () => {
+      (error) => {
         // Keep the last known dot rather than flashing it off on a transient
-        // error (a brief signal drop, a denied one-off read, etc.).
+        // error (a brief signal drop, a timeout). A refusal is different:
+        // nothing will ever arrive, so say how to turn it on.
+        if (error.code === 1 /* PERMISSION_DENIED */) {
+          onLocationErrorRef.current?.(LOCATION_DENIED_MESSAGE);
+        }
       },
       { enableHighAccuracy: true, maximumAge: 5_000, timeout: 15_000 },
     );

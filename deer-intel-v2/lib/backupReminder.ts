@@ -28,17 +28,26 @@ export type BackupReminderStatus = {
 
 // The total saved records across every list — the same tally the Settings data
 // tab shows. One home for it so the reminder and the settings summary agree.
-export function countRecords(state: DeerIntelState): number {
-  return (
-    state.properties.length +
-    state.cameras.length +
-    state.cameraChecks.length +
-    state.stands.length +
-    state.pins.length +
-    state.hunts.length +
-    state.photoRecords.length +
-    state.deerProfiles.length
-  );
+// Missing lists count as empty, so an older or partial state (an undo
+// snapshot, a backup being previewed) never throws.
+const RECORD_LISTS = [
+  "properties",
+  "cameras",
+  "cameraChecks",
+  "stands",
+  "pins",
+  "hunts",
+  "photoRecords",
+  "deerProfiles",
+  "walkTracks",
+  "documents",
+] as const satisfies readonly (keyof DeerIntelState)[];
+
+export function countRecords(state: Partial<DeerIntelState>): number {
+  return RECORD_LISTS.reduce((total, list) => {
+    const items = state[list];
+    return total + (Array.isArray(items) ? items.length : 0);
+  }, 0);
 }
 
 function parse(raw: string | null): LastBackup {

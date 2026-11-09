@@ -4,7 +4,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { ASSET_LAYERS, type AssetLayerId } from "@/lib/propertyMap";
 import { pinMarkerSvg } from "@/lib/mapPinIcon";
 
-export type MapToolId = "gps" | "compass" | "scaleBar" | "edgeWarning";
+export type MapToolId = "gps" | "compass" | "scaleBar" | "edgeWarning" | "alertSound";
 export type MapToolState = Record<MapToolId, boolean>;
 
 type MapLayerManagerProps = {
@@ -46,6 +46,8 @@ const MAP_TOOL_LABELS: Array<{ id: MapToolId; label: string }> = [
   { id: "scaleBar", label: "Scale Bar" },
   // Banner + buzz near the hunt-area outline while following GPS.
   { id: "edgeWarning", label: "Hunt area edge alert" },
+  // Short beep with the edge and Guide me arrival alerts (iPhone can't vibrate).
+  { id: "alertSound", label: "Alert sound" },
 ];
 
 export default function MapLayerManager({
@@ -214,6 +216,11 @@ export default function MapLayerManager({
                     />
                   ))}
                 </div>
+                <p style={toolNoteStyle}>
+                  iPhone can&apos;t vibrate from a web app: edge and arrival alerts
+                  there are the beep and the on-screen banner (the beep is muted
+                  when the ringer switch is on silent).
+                </p>
               </section>
 
               {offlineSection ? (
@@ -710,4 +717,11 @@ const switchKnobStyle: CSSProperties = {
 
 const activeSwitchKnobStyle: CSSProperties = {
   transform: "translateX(16px)",
+};
+
+const toolNoteStyle: CSSProperties = {
+  margin: "0.5rem 0 0",
+  color: "var(--text-muted)",
+  fontSize: "0.74rem",
+  lineHeight: 1.35,
 };

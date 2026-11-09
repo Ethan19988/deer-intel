@@ -141,7 +141,10 @@ export type BuckSighting = {
   peakHourLabel: string | null;
   /** Rut phase with the most photos of him. */
   topPhase: string | null;
-  /** Times he was logged on a sit (by name in the sit notes). */
+  /**
+   * Sits he was logged on: tagged on the sit (hunt.deerProfileIds) or named
+   * in its notes, each sit counted once.
+   */
   sitMentions: number;
 };
 
@@ -249,8 +252,28 @@ function buildBuckSightings(
     name: string;
     profileId?: string;
     photos: SeasonPhoto[];
+    // Season sits this buck was tagged on.
+    taggedSits: HuntLogEntry[];
   };
   const groups = new Map<string, Acc>();
+
+  // Sits tagged with a buck profile. A buck seen only from the stand (no
+  // photo) still gets a row.
+  for (const hunt of hunts) {
+    for (const id of new Set(hunt.deerProfileIds ?? [])) {
+      const profile = profileById.get(id);
+      if (!profile) continue;
+      const acc = groups.get(profile.id) ?? {
+        key: profile.id,
+        name: profile.nickname,
+        profileId: profile.id,
+        photos: [],
+        taggedSits: [],
+      };
+      acc.taggedSits.push(hunt);
+      groups.set(profile.id, acc);
+    }
+  }
 
   for (const entry of photos) {
     const keys = new Map<string, { name: string; profileId?: string }>();
@@ -266,7 +289,13 @@ function buildBuckSightings(
       }
     }
     for (const [key, meta] of keys) {
-      const acc = groups.get(key) ?? { key, name: meta.name, profileId: meta.profileId, photos: [] };
+      const acc = groups.get(key) ?? {
+        key,
+        name: meta.name,
+        profileId: meta.profileId,
+        photos: [],
+        taggedSits: [],
+      };
       acc.photos.push(entry);
       groups.set(key, acc);
     }
@@ -296,17 +325,26 @@ function buildBuckSightings(
       }
       const topPhase = [...phaseCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
       const needle = acc.name.trim().toLowerCase();
-      const sitMentions = needle.length >= 3
-        ? hunts.filter((hunt) => (hunt.notes || "").toLowerCase().includes(needle)).length
-        : 0;
+      const sitIds = new Set(acc.taggedSits.map((hunt) => hunt.id));
+      if (needle.length >= 3) {
+        for (const hunt of hunts) {
+          if ((hunt.notes || "").toLowerCase().includes(needle)) sitIds.add(hunt.id);
+        }
+      }
+      const sitMentions = sitIds.size;
+      // "Seen" spans his photos and the sits he was tagged on.
+      const seenDates = [
+        ...sorted.map((entry) => entry.dateKey),
+        ...acc.taggedSits.map((hunt) => hunt.date.slice(0, 10)),
+      ].sort();
 
       return {
         key: acc.key,
         name: acc.name,
         profileId: acc.profileId,
         photos: sorted.length,
-        firstSeen: sorted[0].dateKey,
-        lastSeen: sorted[sorted.length - 1].dateKey,
+        firstSeen: seenDates[0],
+        lastSeen: seenDates[seenDates.length - 1],
         sites: [...siteCounts.entries()]
           .map(([cameraId, count]) => ({
             cameraId,
@@ -320,7 +358,10 @@ function buildBuckSightings(
         sitMentions,
       } satisfies BuckSighting;
     })
-    .sort((a, b) => b.photos - a.photos || a.name.localeCompare(b.name));
+    .sort(
+      (a, b) =>
+        b.photos - a.photos || b.sitMentions - a.sitMentions || a.name.localeCompare(b.name),
+    );
 }
 
 function buildPhaseActivity(
@@ -511,7 +552,11 @@ export function buildSeasonReport(
   ctx: StatsContext,
 ): SeasonReport {
   const season = seasonWindow(seasonYear);
-  const hunts = input.hunts.filter((hunt) => hunt.date && inSeason(hunt.date, season));
+  // Saved blood trails are recovery records, not sits (they'd double-count the
+  // sit the shot came from).
+  const hunts = input.hunts.filter(
+    (hunt) => hunt.kind !== "blood-trail" && hunt.date && inSeason(hunt.date, season),
+  );
   const checks = input.cameraChecks.filter((check) => check.date && inSeason(check.date, season));
   const photos = seasonPhotos(input.photos, season, ctx);
 
