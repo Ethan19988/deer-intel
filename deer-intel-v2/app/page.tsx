@@ -14,6 +14,8 @@ import Barometer from "@/components/weather/Barometer";
 import RutRibbon from "@/components/season/RutRibbon";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
 import StandWindGrid from "@/components/StandWindGrid";
+import BestSitsLine from "@/components/stands/BestSitsLine";
+import CameraAttentionLine from "@/components/cameras/CameraAttentionLine";
 import BuckSlideshow from "@/components/BuckSlideshow";
 import DeerHoursChart from "@/components/DeerHoursChart";
 import {
@@ -158,6 +160,11 @@ export default function Home() {
           moon={moon}
           pressure={forecast?.pressure}
         />
+        <CameraAttentionLine
+          cameras={propertyCameras}
+          checks={propertyCameraChecks}
+          now={now}
+        />
 
         {activeProperty ? (
           <SetupChecklist
@@ -187,6 +194,11 @@ export default function Home() {
           check={verdict.check}
           wind={verdict.wind}
           whenLabel={verdict.periodLabel}
+        />
+        <BestSitsLine
+          days={forecast?.days ?? []}
+          stands={propertyStands}
+          activeKey={activeSitKey}
         />
         <StandWindGrid
           days={forecast?.days ?? []}

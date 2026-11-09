@@ -27,6 +27,7 @@ import {
   formatCameraCheckDate,
   latestCheckForCamera,
 } from "@/lib/cameraChecks";
+import { getCameraHealth } from "@/lib/cameraHealth";
 import { dateInputTime, photoRecordTime } from "@/lib/photos";
 import { useAddFormRequest } from "@/lib/useAddFormRequest";
 import { buildStripPhotos } from "@/lib/photoStrip";
@@ -154,6 +155,7 @@ export default function CamerasPage() {
                   camera={camera}
                   onEdit={editCamera}
                   latestCheck={latestCheckForCamera(propertyChecks, camera.id)}
+                  issues={getCameraHealth(camera, propertyChecks).issues}
                   photoRecords={propertyPhotos.filter(
                     (photo) => photo.cameraSiteId === camera.id,
                   )}

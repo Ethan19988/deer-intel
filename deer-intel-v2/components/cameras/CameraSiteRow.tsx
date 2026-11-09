@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useState, type CSSProperties } from "react";
 import QuickCameraCheck from "@/components/cameras/QuickCameraCheck";
+import Badge from "@/components/ui/Badge";
 import { lastCheckedLabel } from "@/lib/cameraChecks";
+import type { CameraHealthIssue } from "@/lib/cameraHealth";
 import { isBuckRecord } from "@/lib/hourlyActivity";
 import { getPhotoBuckNames, photoRecordTime } from "@/lib/photos";
 import { photoDateLabel } from "@/lib/photoStrip";
@@ -19,12 +21,15 @@ export default function CameraSiteRow({
   camera,
   photoRecords,
   latestCheck = null,
+  issues = [],
   onEdit,
 }: {
   camera: Camera;
   photoRecords: PhotoRecord[];
   /** This camera's newest check, for the "Checked today" line. */
   latestCheck?: CameraCheck | null;
+  /** Why this camera needs a visit (lib/cameraHealth), most urgent first. */
+  issues?: CameraHealthIssue[];
   onEdit: (camera: Camera) => void;
 }) {
   const [isChecking, setIsChecking] = useState(false);
@@ -42,6 +47,8 @@ export default function CameraSiteRow({
       ? ["Last photo", lastPhoto.species || "Deer", photoDateLabel(lastPhoto)]
       : ["No photos yet"];
   if (!active) meta.unshift("Inactive");
+  const topIssue = issues[0];
+  const issueTitle = issues.map((issue) => issue.label).join(" · ");
 
   return (
     <li id={`camera-${camera.id}`} style={itemStyle}>
@@ -52,7 +59,20 @@ export default function CameraSiteRow({
             style={{ ...dotStyle, ...(active ? dotActiveStyle : null) }}
           />
           <span style={textStyle}>
-            <span style={nameStyle}>{camera.name}</span>
+            <span style={nameRowStyle}>
+              <span style={nameStyle}>{camera.name}</span>
+              {topIssue ? (
+                <Badge
+                  variant={URGENT_ISSUES.has(topIssue.kind) ? "danger" : "warning"}
+                  style={chipStyle}
+                  title={`Needs a visit: ${issueTitle}`}
+                  aria-label={`Needs a visit: ${issueTitle}`}
+                >
+                  {topIssue.label}
+                  {issues.length > 1 ? ` +${issues.length - 1}` : ""}
+                </Badge>
+              ) : null}
+            </span>
             <span style={metaStyle}>{meta.filter(Boolean).join(" · ")}</span>
             <span style={metaStyle}>{lastCheckedLabel(latestCheck)}</span>
           </span>
@@ -82,6 +102,27 @@ export default function CameraSiteRow({
     </li>
   );
 }
+
+// The camera has stopped recording (or will on the next trigger).
+const URGENT_ISSUES = new Set<CameraHealthIssue["kind"]>([
+  "batteryDead",
+  "sdMissing",
+  "sdFull",
+]);
+
+const nameRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.5rem",
+  minWidth: 0,
+};
+
+const chipStyle: CSSProperties = {
+  flex: "none",
+  padding: "0.2rem 0.4rem",
+  fontSize: "0.62rem",
+  whiteSpace: "nowrap",
+};
 
 const itemStyle: CSSProperties = {
   borderBottom: "1px solid var(--border)",
@@ -125,6 +166,7 @@ const textStyle: CSSProperties = {
 };
 
 const nameStyle: CSSProperties = {
+  minWidth: 0,
   overflow: "hidden",
   color: "var(--text)",
   fontSize: "1.02rem",
