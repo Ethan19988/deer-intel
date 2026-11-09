@@ -789,12 +789,16 @@ async function runOfflineDownload(
   };
 
   let cursor = 0;
+  // Tiles that failed on the first pass (a dropped range request, a busy tile
+  // server) get one more try at the end before they count as missed.
+  const retry: typeof tiles = [];
 
   async function worker() {
     while (cursor < tiles.length) {
       if (signal?.aborted) return;
 
-      const [key, tile] = tiles[cursor];
+      const entry = tiles[cursor];
+      const [key, tile] = entry;
       cursor += 1;
 
       try {
@@ -803,7 +807,8 @@ async function runOfflineDownload(
         );
       } catch {
         if (signal?.aborted) return;
-        progress.failed += 1;
+        retry.push(entry);
+        continue;
       }
 
       progress.completed += 1;
@@ -817,6 +822,20 @@ async function runOfflineDownload(
       worker,
     ),
   );
+
+  for (const [key, tile] of retry) {
+    if (signal?.aborted) break;
+    try {
+      progress.bytes += await fetchAndStoreTile(cache, key, () =>
+        loadPackTile(tile, archives, signal),
+      );
+    } catch {
+      if (signal?.aborted) break;
+      progress.failed += 1;
+    }
+    progress.completed += 1;
+    onProgress?.({ ...progress });
+  }
 
   // Canceled — or every saved map was cleared mid-download, so the tiles went
   // into a deleted cache and a pack record would claim tiles that aren't there.
