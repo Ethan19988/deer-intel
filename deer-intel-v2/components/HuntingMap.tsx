@@ -5432,7 +5432,7 @@ export default function HuntingMap() {
               <DeerRoutesPanel
                 status={deerRoutesStatus}
                 plan={deerRoutePlan}
-                onSelect={flyToTerrainPick}
+                onSelect={(point) => flyToTerrainPick([point.lat, point.lng])}
                 open={routesOpen}
                 onOpenChange={openRoutes}
               />
