@@ -17,9 +17,15 @@ export type BloodMark = LatLngPoint & {
 // trail that you never walked.
 export const MAX_FIX_ACCURACY_M = 25;
 // Ignore moves smaller than this — standing still, the fix wanders a few meters.
+// The live path filter (lib/gpsFix acceptTrackFix) raises it with the fix
+// accuracy and drops jumps faster than a walk; this is its floor.
 export const MIN_PATH_STEP_M = 3;
 
-/** Should this fix be added to the walked path? */
+/**
+ * Should this fix be added to the walked path? A plain accuracy + distance
+ * check, used for a deliberate "Drop here" mark; live tracking uses
+ * acceptTrackFix.
+ */
 export function acceptPathFix(
   path: LatLngPoint[],
   fix: LatLngPoint,
