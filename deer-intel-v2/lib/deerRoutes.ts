@@ -691,11 +691,27 @@ function funnelSetup(
       };
     }
   }
+  // Not on this wind — say which winds it does work on, so the hunter knows
+  // when to come back to it.
+  const good = EIGHT_WINDS.filter(([, deg]) => {
+    const alt: SitWind = { fromDeg: deg, label: "", period: sitWind.period };
+    const altDown = (deg + 180) % 360;
+    return [0, 90, -90, 45, -45, 135, -135].some((turn) => {
+      const spot = offsetPoint(point, (((altDown + turn) % 360) + 360) % 360, SETUP_OFFSET_M);
+      return windCheckAt(spot, routes, alt, point).ok;
+    });
+  }).map(([label]) => label);
   return {
     ok: false,
-    note: `No spot within bow range keeps scent off ${trailsPhrase(routes.length)} on a ${sitWind.label} wind — save it for another wind`,
+    note: good.length
+      ? `No spot keeps scent off ${trailsPhrase(routes.length)} on a ${sitWind.label} wind — works on ${good.join(", ")}`
+      : `No spot within bow range keeps scent off ${trailsPhrase(routes.length)} on any wind — trails come in from every side`,
   };
 }
+
+const EIGHT_WINDS: Array<[string, number]> = [
+  ["N", 0], ["NE", 45], ["E", 90], ["SE", 135], ["S", 180], ["SW", 225], ["W", 270], ["NW", 315],
+];
 
 // ---- Funnels ---------------------------------------------------------------
 
