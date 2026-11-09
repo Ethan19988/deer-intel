@@ -3,6 +3,7 @@ import { useState, type CSSProperties } from "react";
 import { formatCoordinate } from "@/lib/propertyMap";
 import type { MapAsset, MapAssetRoute } from "@/lib/propertyMap";
 import { PROPERTY_ASSET_PIN_TYPES, type MapPin, type PinType } from "@/types/mapPin";
+import { FOOD_KINDS, isFoodPinType } from "@/components/map/deerRoutesView";
 
 type PinUpdates = {
   name: string;
@@ -10,6 +11,8 @@ type PinUpdates = {
   notes: string;
   lat: number;
   lng: number;
+  /** What a Food pin grows; "" clears it (and it's dropped for other types). */
+  foodKind: string;
 };
 
 type MapAssetInfoCardProps = {
@@ -66,6 +69,7 @@ export default function MapAssetInfoCard({
   const [draftName, setDraftName] = useState(pin?.name ?? "");
   const [draftType, setDraftType] = useState<PinType>(pin?.type ?? "Stand");
   const [draftNotes, setDraftNotes] = useState(pin?.notes ?? "");
+  const [draftFoodKind, setDraftFoodKind] = useState(pin?.foodKind ?? "");
   const [draftLat, setDraftLat] = useState("");
   const [draftLng, setDraftLng] = useState("");
 
@@ -81,6 +85,7 @@ export default function MapAssetInfoCard({
     setDraftName(pin.name);
     setDraftType(pin.type);
     setDraftNotes(pin.notes);
+    setDraftFoodKind(pin.foodKind ?? "");
     setDraftLat(String(pin.lat));
     setDraftLng(String(pin.lng));
     setActionMessage("");
@@ -107,6 +112,7 @@ export default function MapAssetInfoCard({
       notes: draftNotes.trim(),
       lat,
       lng,
+      foodKind: isFoodPinType(draftType) ? draftFoodKind : "",
     });
     setIsEditingPin(false);
     setActionMessage("Pin updated.");
@@ -173,6 +179,35 @@ export default function MapAssetInfoCard({
               ))}
             </select>
           </label>
+          {isFoodPinType(draftType) ? (
+            <div style={editFieldStyle}>
+              <span style={infoLabelStyle} id="pin-food-kind-label">
+                Food
+              </span>
+              <div
+                role="radiogroup"
+                aria-labelledby="pin-food-kind-label"
+                style={chipRowStyle}
+              >
+                {FOOD_KINDS.map((kind) => {
+                  const selected = draftFoodKind === kind;
+                  return (
+                    <button
+                      key={kind}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      style={selected ? chipSelectedStyle : chipStyle}
+                      // Tapping the picked chip again clears it.
+                      onClick={() => setDraftFoodKind(selected ? "" : kind)}
+                    >
+                      {kind}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           <label style={editFieldStyle}>
             <span style={infoLabelStyle}>Notes</span>
             <textarea
@@ -248,6 +283,9 @@ export default function MapAssetInfoCard({
 
           <div style={detailsStyle}>
             <InfoLine label="Property" value={propertyName} />
+            {pin?.foodKind && isFoodPinType(pin.type) ? (
+              <InfoLine label="Food" value={pin.foodKind} />
+            ) : null}
             <InfoLine label="Notes" value={asset.description || "No notes yet."} />
             <InfoLine
               label="GPS"
@@ -527,6 +565,31 @@ const editInputStyle: CSSProperties = {
   background: "rgba(255, 255, 255, 0.08)",
   color: "#f1f5ef",
   fontSize: "0.94rem",
+};
+
+const chipRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.4rem",
+};
+
+const chipStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 0.7rem",
+  border: "1px solid rgba(255, 255, 255, 0.24)",
+  borderRadius: "var(--radius-sm)",
+  background: "rgba(255, 255, 255, 0.06)",
+  color: "#d8e2d6",
+  fontSize: "0.84rem",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const chipSelectedStyle: CSSProperties = {
+  ...chipStyle,
+  border: "1px solid #6f9a4f",
+  background: "#24391c",
+  color: "#f1f5ef",
 };
 
 const actionsStyle: CSSProperties = {

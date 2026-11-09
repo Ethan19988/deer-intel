@@ -5,6 +5,11 @@ import { LAND_COVER_LEGEND } from "@/lib/propertyMap";
 import { TERRAIN_STYLE, type TerrainKind } from "@/lib/terrainMovement";
 import { PERIOD_HEAT_LINE } from "@/lib/deerHeat";
 import type { MovementPeriod } from "@/lib/movementPrediction";
+import {
+  FUNNEL_COLOR,
+  ROUTE_CAMERA_COLOR,
+  ROUTE_COLOR,
+} from "@/components/map/deerRoutesView";
 
 // A live "what's on" card for the map overlays that don't already have their own
 // dedicated badge (wind and movement have those). Each overlay contributes a
@@ -20,6 +25,8 @@ type MapLegendProps = {
   showLandcover: boolean;
   showDeerHeat: boolean;
   showCameraHeat: boolean;
+  /** The Movement layer's terrain routes are drawing. */
+  showRoutes?: boolean;
   period: MovementPeriod;
   /** Parcel lines are drawing (zoomed in far enough): show the land key. */
   showLand?: boolean;
@@ -49,6 +56,7 @@ export default function MapLegend({
   showLandcover,
   showDeerHeat,
   showCameraHeat,
+  showRoutes = false,
   period,
   showLand = false,
   open = true,
@@ -66,6 +74,42 @@ export default function MapLegend({
           <div style={swatchRowStyle}>
             <span style={rampStyle} aria-hidden="true" />
             <span style={swatchLabelStyle}>cooler → hotter odds</span>
+          </div>
+        </div>
+      ),
+    });
+  }
+
+  if (showRoutes) {
+    sections.push({
+      key: "routes",
+      node: (
+        <div style={sectionStyle}>
+          <p style={titleStyle}>Deer Movement</p>
+          <p style={takeawayStyle}>{ROUTE_PERIOD_LINE[period]}</p>
+          <div style={swatchRowsStyle}>
+            <div style={swatchRowStyle}>
+              <span
+                style={{ ...routeSwatchStyle, background: ROUTE_COLOR }}
+                aria-hidden="true"
+              />
+              <span style={swatchLabelStyle}>Deer routes (predicted)</span>
+            </div>
+            <div style={swatchRowStyle}>
+              <span style={funnelSwatchStyle} aria-hidden="true" />
+              <span style={swatchLabelStyle}>Funnel</span>
+            </div>
+            <div style={swatchRowStyle}>
+              <span
+                style={{
+                  ...routeSwatchStyle,
+                  background: ROUTE_CAMERA_COLOR,
+                  boxShadow: `0 0 0 3px ${ROUTE_CAMERA_COLOR}33`,
+                }}
+                aria-hidden="true"
+              />
+              <span style={swatchLabelStyle}>Camera-backed</span>
+            </div>
           </div>
         </div>
       ),
@@ -376,6 +420,30 @@ const landKeyStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: "0.25rem 0.7rem",
+};
+
+// Arrows follow deer: back to bed at dawn, out to food at dusk.
+const ROUTE_PERIOD_LINE: Record<MovementPeriod, string> = {
+  dawn: "Arrows: deer heading back to bed.",
+  dusk: "Arrows: deer heading out to food.",
+  midday: "Midday: deer mostly bedded.",
+  night: "Night: deer on food, no set direction.",
+};
+
+const routeSwatchStyle: CSSProperties = {
+  flex: "0 0 auto",
+  width: "18px",
+  height: "4px",
+  borderRadius: "2px",
+};
+
+const funnelSwatchStyle: CSSProperties = {
+  flex: "0 0 auto",
+  width: "12px",
+  height: "12px",
+  border: `3px solid ${FUNNEL_COLOR}`,
+  borderRadius: "999px",
+  boxSizing: "border-box",
 };
 
 const landSwatchStyle: CSSProperties = {

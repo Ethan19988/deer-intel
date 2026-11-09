@@ -48,4 +48,7 @@ export type MapPin = {
   notes: string;
   /** Compass point a camera pin's lens looks toward (e.g. "NW"); "" unset. */
   facingDirection?: string;
+  /** What a Food pin grows (e.g. "White oak acorns"); feeds the deer-route
+   * planner's food weighting. Unset on other pins. */
+  foodKind?: string;
 };
