@@ -35,7 +35,8 @@ export default function ConditionsStrip({
   return (
     <div style={stripStyle}>
       <Tile
-        label="Wind"
+        // Current wind, not the sit wind the hero above it names.
+        label="Wind now"
         icon={
           windFrom !== null ? (
             // Arrow points where the wind is blowing TO (where your scent goes).

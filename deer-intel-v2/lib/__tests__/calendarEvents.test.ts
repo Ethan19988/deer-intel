@@ -31,8 +31,17 @@ describe("toDayKey", () => {
     expect(toDayKey("2024-11-01")).toBe("2024-11-01");
   });
 
-  it("takes the date portion of an ISO timestamp", () => {
-    expect(toDayKey("2024-11-01T17:30:00Z")).toBe("2024-11-01");
+  it("buckets an ISO timestamp on its local date", () => {
+    // 6:30 PM EST on Nov 8 is already Nov 9 in UTC.
+    const value = "2026-11-08T23:30:00.000Z";
+    const local = new Date(value);
+    const expected = `${local.getFullYear()}-${String(local.getMonth() + 1).padStart(2, "0")}-${String(local.getDate()).padStart(2, "0")}`;
+    expect(toDayKey(value)).toBe(expected);
+    if (local.getTimezoneOffset() === 300) expect(toDayKey(value)).toBe("2026-11-08");
+  });
+
+  it("buckets a local timestamp without a zone on its own date", () => {
+    expect(toDayKey("2024-11-01T17:30:00")).toBe("2024-11-01");
   });
 
   it("returns null for an unreadable value", () => {
@@ -59,7 +68,7 @@ describe("buildCalendarEvents", () => {
     propertyId: "p1",
     type: "Scrape",
     name: "Fence scrape",
-    createdAt: "2024-11-01T08:00:00Z",
+    createdAt: "2024-11-01T12:00:00Z",
     lat: 0,
     lng: 0,
   } as unknown as MapPin;
@@ -68,7 +77,7 @@ describe("buildCalendarEvents", () => {
     id: "ph1",
     propertyId: "p2",
     cameraSiteId: "c9",
-    photoDate: "2024-11-02T18:00:00Z",
+    photoDate: "2024-11-02T12:00:00Z",
     species: "Buck",
   } as unknown as PhotoRecord;
 

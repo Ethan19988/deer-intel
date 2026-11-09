@@ -17,6 +17,11 @@ type TodayVerdictHeroProps = {
   photo: HeroPhoto | null;
   /** Rendered photo URL, for previews/tests; normally loaded from the store. */
   photoUrlOverride?: string | null;
+  /**
+   * "Forecast as of 6:12 AM" when the call rests on a saved or aging forecast
+   * (e.g. no signal in the woods); omitted when the forecast is fresh.
+   */
+  forecastAsOf?: string | null;
 };
 
 /** Display URL for a stored photo (just the picture if it's an app screenshot). */
@@ -68,6 +73,7 @@ export default function TodayVerdictHero({
   propertyName,
   photo,
   photoUrlOverride,
+  forecastAsOf,
 }: TodayVerdictHeroProps) {
   const storedUrl = useStoredPhotoUrl(
     photoUrlOverride === undefined ? photo?.imageId : undefined,
@@ -105,6 +111,8 @@ export default function TodayVerdictHero({
           ))}
         </ul>
       ) : null}
+
+      {forecastAsOf ? <p style={asOfStyle}>{forecastAsOf}</p> : null}
 
       {daylight ? (
         <div style={lightWrapStyle}>
@@ -201,6 +209,15 @@ const detailStyle: CSSProperties = {
   color: "rgba(246, 240, 220, 0.9)",
   fontSize: "1.05rem",
   lineHeight: 1.45,
+};
+
+const asOfStyle: CSSProperties = {
+  margin: 0,
+  color: "rgba(246, 240, 220, 0.7)",
+  fontFamily: "var(--font-mono), ui-monospace, monospace",
+  fontSize: "0.72rem",
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
 };
 
 const chipListStyle: CSSProperties = {
