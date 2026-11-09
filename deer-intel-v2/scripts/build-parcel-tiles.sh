@@ -54,19 +54,32 @@ fetch_county() {
   # A single county service can hiccup mid-stream (large counties occasionally
   # trip an undici assertion), so retry each a few times. One county that stays
   # down is skipped with a warning rather than aborting the whole build.
-  local attempt
+  local attempt status
   for attempt in 1 2 3; do
+    # Each attempt is capped (COUNTY_TIMEOUT seconds, default 2 h — Maryland's
+    # statewide layer is the slowest) so one stuck county can't run the job
+    # into the workflow time limit and lose every other county's work.
     if NODE_USE_ENV_PROXY="${NODE_USE_ENV_PROXY:-1}" \
         PARCEL_HISTORY_IN="$HISTORY_IN" PARCEL_HISTORY_OUT="$HISTORY_OUT" \
+        timeout --kill-after=60 "${COUNTY_TIMEOUT:-7200}" \
         node "$HERE/fetch-parcels-geojson.mjs" "$county" "$ndjson" "$labels" \
         2> >(tee "$errlog" >&2); then
       touch "$WORK/$county.ok"
       return 0
+    else
+      status=$?
+    fi
+    # Timed out (124, or 137 after the kill): a second try would just eat the
+    # rest of the job's time, so give up on this county now.
+    if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+      echo "   $county timed out after ${COUNTY_TIMEOUT:-7200}s; not retrying"
+      echo "FAILED: timed out" >> "$errlog"
+      break
     fi
     echo "   attempt $attempt for $county failed; retrying in 10s"
     sleep 10
   done
-  echo "WARNING: giving up on $county after 3 attempts; excluding it"
+  echo "WARNING: giving up on $county; excluding it"
   # A GitHub annotation (not just a log line) so a dropped county shows on
   # the run summary instead of silently vanishing from the map.
   local reason
