@@ -1,8 +1,16 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type CSSProperties,
+  type SetStateAction,
+} from "react";
 import HuntLogForm from "@/components/hunts/HuntLogForm";
 import HuntLogList from "@/components/hunts/HuntLogList";
+import SitInProgress from "@/components/hunts/SitInProgress";
+import Button from "@/components/ui/Button";
 import Link from "next/link";
 import EmptyState from "@/components/ui/EmptyState";
 import { StandIcon } from "@/components/ui/FieldIcons";
@@ -23,7 +31,18 @@ import {
   createHuntFromValues,
   EMPTY_HUNT_FORM_VALUES,
   newHuntFormValues,
+  type HuntFormValues,
 } from "@/lib/huntFormValues";
+import { recentStandIds } from "@/lib/hunts";
+import {
+  clearSitDraft,
+  endSitDraft,
+  readSitDraft,
+  resumeSitDraft,
+  saveSitDraft,
+  startSitDraft,
+  type SitDraft,
+} from "@/lib/sitDraft";
 import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { createStandFromPin, findStandForPin, getStandPins } from "@/lib/standPins";
 import type { HuntLogEntry } from "@/types/hunt";
@@ -37,6 +56,9 @@ export default function HuntLogPage() {
   // a half-typed new sit on the Log tab isn't lost.
   const [editingHuntId, setEditingHuntId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState(EMPTY_HUNT_FORM_VALUES);
+  // A sit started with "Start sit" and not yet saved. Mirrored to
+  // localStorage on every change so an iOS tab reload doesn't lose it.
+  const [draft, setDraft] = useState<SitDraft | null>(null);
   const hasStands = state.stands.length > 0;
   const standPins = getStandPins(state.pins);
   const weatherLocation = resolvePropertyWeatherPoint(
@@ -47,6 +69,21 @@ export default function HuntLogPage() {
       (camera) => camera.propertyId === huntValues.propertyId,
     ),
     state.pins.filter((pin) => pin.propertyId === huntValues.propertyId),
+  );
+
+  // Stand ids from this property's latest sits that still exist, newest first.
+  const lastStandIds = useCallback(
+    (propertyId: string) =>
+      recentStandIds(
+        state.hunts,
+        propertyId,
+        new Set(
+          state.stands
+            .filter((stand) => stand.propertyId === propertyId)
+            .map((stand) => stand.id),
+        ),
+      ),
+    [state.hunts, state.stands],
   );
 
   useEffect(() => {
@@ -65,37 +102,123 @@ export default function HuntLogPage() {
     const standMatchesProperty = state.stands.some(
       (stand) => stand.id === standId && stand.propertyId === propertyId,
     );
+    // No stand in the link: default to the last stand sat on this property.
+    const defaultStandId = standMatchesProperty
+      ? standId
+      : (lastStandIds(propertyId)[0] ?? "");
 
     let didCancel = false;
 
     queueMicrotask(() => {
       if (didCancel) return;
 
-      // Default to "logging a sit right now" (today, current time). Set after
-      // mount rather than in useState so the server render and the first
-      // client render agree.
+      // Today's date with In/Out left to the hunter: "Start sit" stamps In
+      // when the sit is live, and a sit logged afterwards picks its times.
+      // Set after mount rather than in useState so the server render and the
+      // first client render agree.
       setHuntValues((currentValues) =>
         newHuntFormValues(
           new Date(),
           propertyExists
-            ? {
-                propertyId,
-                standId: standMatchesProperty ? standId : "",
-              }
+            ? { propertyId, standId: defaultStandId }
             : {
                 propertyId: currentValues.propertyId,
                 standId: currentValues.standId,
               },
+          { startNow: false },
         ),
       );
 
+      setDraft(readSitDraft());
       setLoadedUrlDefaults(true);
     });
 
     return () => {
       didCancel = true;
     };
-  }, [loadedUrlDefaults, state.properties, state.stands, state.selectedPropertyId]);
+  }, [
+    loadedUrlDefaults,
+    state.properties,
+    state.stands,
+    state.selectedPropertyId,
+    lastStandIds,
+  ]);
+
+  // Keep the stored draft in step with every change (counts, review edits).
+  // Clearing goes through clearSitDraft explicitly.
+  useEffect(() => {
+    if (draft) saveSitDraft(draft);
+  }, [draft]);
+
+  function freshHuntValues(keep: Pick<HuntFormValues, "propertyId" | "standId">) {
+    return newHuntFormValues(new Date(), keep, { startNow: false });
+  }
+
+  function startSit() {
+    const stand = state.stands.find((item) => item.id === huntValues.standId);
+    if (!huntValues.propertyId || !stand) return;
+
+    // Carries whatever the form already has (weather auto-filled for now,
+    // counts, notes); the date and In become now.
+    setDraft(startSitDraft(huntValues, stand.name, new Date()));
+  }
+
+  function updateDraftCount(field: "bucks" | "does" | "fawns", value: string) {
+    setDraft((current) =>
+      current ? { ...current, values: { ...current.values, [field]: value } } : current,
+    );
+  }
+
+  // The review form edits the draft's values in place, so a reload during
+  // review comes back to the same filled-in form.
+  const updateDraftValues = useCallback(
+    (action: SetStateAction<HuntFormValues>) => {
+      setDraft((current) => {
+        if (!current) return current;
+        const values =
+          typeof action === "function" ? action(current.values) : action;
+        return { ...current, values };
+      });
+    },
+    [],
+  );
+
+  function endSit() {
+    setDraft((current) => (current ? endSitDraft(current, new Date()) : current));
+  }
+
+  function backToSit() {
+    setDraft((current) => (current ? resumeSitDraft(current) : current));
+  }
+
+  function discardSit() {
+    clearSitDraft();
+    setDraft(null);
+  }
+
+  function saveDraftSit() {
+    if (!draft) return;
+
+    const newHunt = createHuntFromValues({
+      id: createDeerIntelId("hunt"),
+      values: draft.values,
+      stands: state.stands,
+      // The stand may have been deleted while the sit ran; keep its name.
+      fallbackStandName: draft.standName,
+    });
+
+    if (!newHunt) return;
+
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      hunts: [...currentState.hunts, newHunt],
+    }));
+    clearSitDraft();
+    setDraft(null);
+    setHuntValues(
+      freshHuntValues({ propertyId: newHunt.propertyId, standId: newHunt.standId }),
+    );
+  }
 
   function saveHunt() {
     const newHunt = createHuntFromValues({
@@ -111,12 +234,13 @@ export default function HuntLogPage() {
       hunts: [...currentState.hunts, newHunt],
     }));
     setHuntValues(
-      newHuntFormValues(new Date(), {
-        propertyId: newHunt.propertyId,
-        standId: newHunt.standId,
-      }),
+      freshHuntValues({ propertyId: newHunt.propertyId, standId: newHunt.standId }),
     );
   }
+
+  const editingHunt = editingHuntId
+    ? (state.hunts.find((hunt) => hunt.id === editingHuntId) ?? null)
+    : null;
 
   function startEditingHunt(hunt: HuntLogEntry) {
     setEditValues(huntFormValuesFromHunt(hunt));
@@ -135,6 +259,8 @@ export default function HuntLogPage() {
       id: editingHuntId,
       values: editValues,
       stands: state.stands,
+      // If this sit's stand has since been deleted, keep its saved stand.
+      fallbackStandName: editingHunt?.standName ?? "",
     });
 
     if (!updatedHunt) return;
@@ -206,12 +332,52 @@ export default function HuntLogPage() {
 
   const canLogOrConvert = hasStands || standPins.length > 0;
 
+  const draftWeatherLocation = draft
+    ? resolvePropertyWeatherPoint(
+        state.properties.find((property) => property.id === draft.values.propertyId),
+        state.cameras.filter((camera) => camera.propertyId === draft.values.propertyId),
+        state.pins.filter((pin) => pin.propertyId === draft.values.propertyId),
+      )
+    : null;
+  const canStartSit = Boolean(
+    huntValues.propertyId &&
+      state.stands.some(
+        (stand) =>
+          stand.id === huntValues.standId &&
+          stand.propertyId === huntValues.propertyId,
+      ),
+  );
+
   const logTab = (
     <section style={formCardStyle} aria-label="Log a sit">
-      {canLogOrConvert && !loadedUrlDefaults ? (
-        // One frame while today's date, time, and property fill in, instead of
-        // a form that flashes blank fields.
+      {(canLogOrConvert || draft) && !loadedUrlDefaults ? (
+        // One frame while today's date, property, and any running sit load,
+        // instead of a form that flashes blank fields.
         <div style={{ minHeight: "28rem" }} aria-busy="true" />
+      ) : draft && !draft.endedAt ? (
+        <SitInProgress
+          draft={draft}
+          onCountChange={updateDraftCount}
+          onEnd={endSit}
+          onDiscard={discardSit}
+        />
+      ) : draft ? (
+        <>
+          <p style={reviewEyebrowStyle}>Review sit · {draft.standName || "Stand"}</p>
+          <HuntLogForm
+            values={draft.values}
+            properties={state.properties}
+            stands={state.stands}
+            weatherLocation={draftWeatherLocation}
+            getPropertyName={getPropertyName}
+            getRecentStandIds={lastStandIds}
+            missingStandName={draft.standName}
+            onChange={updateDraftValues}
+            onSubmit={saveDraftSit}
+            onCancel={backToSit}
+            cancelLabel="Back to sit"
+          />
+        </>
       ) : canLogOrConvert ? (
         <HuntLogForm
           values={huntValues}
@@ -220,9 +386,30 @@ export default function HuntLogPage() {
           standPins={standPins}
           weatherLocation={weatherLocation}
           getPropertyName={getPropertyName}
+          getRecentStandIds={lastStandIds}
           onConvertPin={convertPinToStand}
           onChange={setHuntValues}
           onSubmit={saveHunt}
+          showPeriodChips
+          submitVariant="secondary"
+          afterStand={
+            <div style={startSitStyle}>
+              <Button
+                type="button"
+                fullWidth
+                disabled={!canStartSit}
+                onClick={startSit}
+                style={startSitButtonStyle}
+              >
+                Start sit
+              </Button>
+              <p style={startSitHintStyle}>
+                In the stand now? Start the sit, count deer as they come, and
+                end it when you climb down. Logging one from earlier? Fill in
+                the times below and save.
+              </p>
+            </div>
+          }
         />
       ) : (
         <EmptyState
@@ -266,6 +453,7 @@ export default function HuntLogPage() {
             onCancel={cancelEditingHunt}
             submitLabel="Save changes"
             autoFillWeather={false}
+            missingStandName={editingHunt?.standName || "Saved stand"}
           />
         ) : null
       }
@@ -293,4 +481,30 @@ export default function HuntLogPage() {
 
 const formCardStyle: CSSProperties = {
   maxWidth: "640px",
+};
+
+const reviewEyebrowStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--accent-2-text, var(--accent-2))",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.68rem",
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+};
+
+const startSitStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.5rem",
+};
+
+const startSitButtonStyle: CSSProperties = {
+  minHeight: "56px",
+  fontSize: "1.35rem",
+};
+
+const startSitHintStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text-muted)",
+  fontSize: "0.88rem",
+  lineHeight: 1.45,
 };

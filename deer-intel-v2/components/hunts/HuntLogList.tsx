@@ -9,8 +9,9 @@ import {
   deerSeenSummary,
   formatHuntDate,
   formatHuntTimeRange,
+  huntOneLineSummary,
   huntOutcomeLabel,
-  sortHuntsChronologically,
+  sortHuntsNewestFirst,
   yesNoLabel,
 } from "@/lib/hunts";
 import type { HuntLogEntry } from "@/types/hunt";
@@ -40,22 +41,45 @@ export default function HuntLogList({
   const [confirmingHunt, setConfirmingHunt] = useState<HuntLogEntry | null>(
     null,
   );
-  const chronologicalHunts = sortHuntsChronologically(hunts);
+  // One sit open at a time; each reads as a single line until tapped.
+  const [expandedHuntId, setExpandedHuntId] = useState<string | null>(null);
+  const newestFirstHunts = sortHuntsNewestFirst(hunts);
 
-  if (chronologicalHunts.length === 0) {
+  if (newestFirstHunts.length === 0) {
     return <EmptyState description={emptyDescription} />;
   }
 
   return (
     <div style={listStyle}>
-      {chronologicalHunts.map((hunt) =>
+      {newestFirstHunts.map((hunt) =>
         hunt.id === editingHuntId && editor ? (
           <Card key={hunt.id} as="article" variant="subtle">
             <p style={eyebrowStyle}>Editing sit</p>
             {editor}
           </Card>
+        ) : hunt.id !== expandedHuntId ? (
+          <button
+            key={hunt.id}
+            type="button"
+            aria-expanded={false}
+            onClick={() => setExpandedHuntId(hunt.id)}
+            style={rowButtonStyle}
+          >
+            <span style={rowTextStyle}>{huntOneLineSummary(hunt)}</span>
+            {hunt.harvest || hunt.shotOpportunity ? (
+              <Badge>{huntOutcomeLabel(hunt)}</Badge>
+            ) : null}
+          </button>
         ) : (
           <Card key={hunt.id} as="article" variant="subtle">
+            <button
+              type="button"
+              aria-expanded={true}
+              onClick={() => setExpandedHuntId(null)}
+              style={collapseButtonStyle}
+            >
+              {huntOneLineSummary(hunt)}
+            </button>
             <div style={headerStyle}>
               <div>
                 <p style={eyebrowStyle}>{hunt.standName || "Stand"}</p>
@@ -150,7 +174,47 @@ function HuntDetail({ label, value }: { label: string; value: string }) {
 
 const listStyle: CSSProperties = {
   display: "grid",
-  gap: "1rem",
+  gap: "0.5rem",
+};
+
+const rowButtonStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  width: "100%",
+  minHeight: "52px",
+  padding: "0.6rem 0.9rem",
+  borderRadius: "var(--radius)",
+  border: "1px solid var(--border)",
+  background: "var(--surface)",
+  color: "var(--text)",
+  fontSize: "0.95rem",
+  textAlign: "left",
+  cursor: "pointer",
+  touchAction: "manipulation",
+};
+
+const rowTextStyle: CSSProperties = {
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const collapseButtonStyle: CSSProperties = {
+  display: "block",
+  width: "100%",
+  minHeight: "44px",
+  margin: "0 0 0.75rem",
+  padding: "0 0 0.5rem",
+  border: 0,
+  borderBottom: "1px solid var(--border)",
+  background: "transparent",
+  color: "var(--text-muted)",
+  fontSize: "0.9rem",
+  textAlign: "left",
+  cursor: "pointer",
 };
 
 const headerStyle: CSSProperties = {

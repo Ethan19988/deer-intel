@@ -14,8 +14,10 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: "#f6f4ec",
-    theme_color: "#2f7d43",
+    // Match the dark tokens (--bg in globals.css, viewport themeColor in the
+    // layout) so the splash screen and status bar don't flash light/green.
+    background_color: "#0b0d0b",
+    theme_color: "#0b0d0b",
     orientation: "portrait",
     categories: ["sports", "navigation", "utilities"],
     icons: [

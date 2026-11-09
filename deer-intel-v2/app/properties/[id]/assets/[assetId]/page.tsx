@@ -752,7 +752,7 @@ function StandWorkspace({
           href={`/hunt-log?propertyId=${propertyId}&standId=${stand.id}`}
           style={editLinkStyle}
         >
-          Log hunt
+          Log sit
         </Link>
       </div>
 

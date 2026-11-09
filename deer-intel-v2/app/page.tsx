@@ -13,7 +13,6 @@ import MoonPhaseCard from "@/components/weather/MoonPhaseCard";
 import Barometer from "@/components/weather/Barometer";
 import RutRibbon from "@/components/season/RutRibbon";
 import HuntConditionAlerts from "@/components/HuntConditionAlerts";
-import ColdFrontBanner from "@/components/ColdFrontBanner";
 import StandWindGrid from "@/components/StandWindGrid";
 import BuckSlideshow from "@/components/BuckSlideshow";
 import DeerHoursChart from "@/components/DeerHoursChart";
@@ -40,7 +39,7 @@ import { countRecords } from "@/lib/backupReminder";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
 import { getHuntPlannerSummary } from "@/lib/huntPlanner";
 import { HYDRATION_SAFE_NOW, usePropertyToday } from "@/lib/usePropertyToday";
-import type { SitPeriodKey } from "@/lib/todayVerdict";
+import { sitWindLabel } from "@/lib/todayVerdict";
 
 // Below this many of your own timed photos, the regional pattern is shown.
 const OWN_PHOTOS_FOR_CHART = 15;
@@ -142,25 +141,7 @@ export default function Home() {
         verdict={verdict}
         now={now}
       />
-      <BackupReminderBanner
-        currentRecordCount={countRecords(state)}
-        nowMs={now ? now.getTime() : null}
-      />
-      <ColdFrontBanner
-        propertyName={activeProperty?.name ?? "this property"}
-        pressure={forecast?.pressure}
-      />
-      {activeProperty ? (
-        <SetupChecklist
-          propertyName={activeProperty.name}
-          items={buildSetupChecklist({
-            property: activeProperty,
-            stands: propertyStands,
-            cameras: propertyCameras,
-            pins: propertyPins,
-          })}
-        />
-      ) : null}
+      {/* The stand call leads; the cold front rides on the hero's chip. */}
       <TodayVerdictHero
         verdict={verdict}
         propertyName={activeProperty?.name ?? "Your ground"}
@@ -176,6 +157,22 @@ export default function Home() {
           conditions={forecast?.current.weather}
           moon={moon}
           pressure={forecast?.pressure}
+        />
+
+        {activeProperty ? (
+          <SetupChecklist
+            propertyName={activeProperty.name}
+            items={buildSetupChecklist({
+              property: activeProperty,
+              stands: propertyStands,
+              cameras: propertyCameras,
+              pins: propertyPins,
+            })}
+          />
+        ) : null}
+        <BackupReminderBanner
+          currentRecordCount={countRecords(state)}
+          nowMs={now ? now.getTime() : null}
         />
 
         <BuckSlideshow slides={hitListSlides} />
@@ -195,6 +192,7 @@ export default function Home() {
           days={forecast?.days ?? []}
           stands={propertyStands}
           activeKey={activeSitKey}
+          pickStandId={verdict.check.pick?.stand.id}
         />
 
         <DeerHoursChart
@@ -223,8 +221,10 @@ export default function Home() {
             description="Forecast, wind compass, moon, barometer, and movement score"
             variant="bare"
           >
+            {/* Wind, moon and pressure show once, in the instruments below. */}
             <LiveWeatherPanel
               point={weatherPoint}
+              essentialsOnly
               emptyHint={
                 activeProperty
                   ? "Add map pins or a camera location to this property to load live weather."
@@ -236,9 +236,10 @@ export default function Home() {
               <WindCompass
                 wind={verdict.wind}
                 windSpeed={verdict.windSpeed}
-                label={SIT_WIND_LABEL[verdict.period]}
+                label={sitWindLabel(verdict.period)}
                 currentWind={currentWind}
                 stands={propertyStands}
+                showStands={false}
               />
               <MoonPhaseCard />
               <Barometer pressure={forecast?.pressure} />
@@ -257,13 +258,6 @@ export default function Home() {
     </PageShell>
   );
 }
-
-// Which sit the wind dial is reading, matching the verdict's period.
-const SIT_WIND_LABEL: Record<SitPeriodKey, string> = {
-  morning: "Morning sit wind",
-  evening: "Tonight's sit wind",
-  tomorrow: "Tomorrow AM sit wind",
-};
 
 /** Fractional local hour from an Open-Meteo "YYYY-MM-DDTHH:MM" time. */
 function isoHour(iso: string | undefined): number | undefined {

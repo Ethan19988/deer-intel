@@ -343,6 +343,8 @@ export type WindMatrixColumn = {
   /** The sit's forecast wind string, e.g. "NW 8 mph" (its speed grades calm). */
   windText: string;
   isFront: boolean;
+  /** The sit is already over (it comes before the next sit's column). */
+  isPast: boolean;
 };
 
 export type WindMatrixRow = {
@@ -355,8 +357,17 @@ export type WindMatrix = {
   rows: WindMatrixRow[];
 };
 
-export function buildWindMatrix(days: ForecastDay[], stands: Stand[]): WindMatrix {
-  const columns: WindMatrixColumn[] = days.flatMap((day) =>
+/**
+ * `nextSitKey` is the column key of the next sit ("YYYY-MM-DD-AM"/"-PM", as
+ * usePropertyToday's activeSitKey); every column before it is marked past, so
+ * this morning's sit reads as done by the afternoon. Without it, none are.
+ */
+export function buildWindMatrix(
+  days: ForecastDay[],
+  stands: Stand[],
+  nextSitKey?: string,
+): WindMatrix {
+  const sitColumns = days.flatMap((day) =>
     (
       [
         ["AM", day.morningWind ?? day.wind],
@@ -371,6 +382,13 @@ export function buildWindMatrix(days: ForecastDay[], stands: Stand[]): WindMatri
       isFront: day.pressureTrend === "falling",
     })),
   );
+  const nextIndex = nextSitKey
+    ? sitColumns.findIndex((column) => column.key === nextSitKey)
+    : -1;
+  const columns: WindMatrixColumn[] = sitColumns.map((column, index) => ({
+    ...column,
+    isPast: nextIndex > 0 && index < nextIndex,
+  }));
 
   const rows = stands.map((stand) => ({
     stand,

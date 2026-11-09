@@ -5,6 +5,7 @@ import {
   type CSSProperties,
   type Dispatch,
   type FormEvent,
+  type ReactNode,
   type SetStateAction,
 } from "react";
 import Button from "@/components/ui/Button";
@@ -12,9 +13,11 @@ import StandPinConvertList from "@/components/hunts/StandPinConvertList";
 import LiveWeatherFill, {
   type WeatherFillInfo,
 } from "@/components/weather/LiveWeatherFill";
-import type {
-  HuntFormValues,
-  YesNoValue,
+import {
+  sitPeriodTimes,
+  type HuntFormValues,
+  type SitPeriod,
+  type YesNoValue,
 } from "@/lib/huntFormValues";
 import { getConvertibleStandPins } from "@/lib/standPins";
 import {
@@ -43,12 +46,31 @@ type HuntLogFormProps = {
   submitLabel?: string;
   /** When given (editing), shows a Cancel button beside Save. */
   onCancel?: () => void;
+  /** Cancel button text; "Cancel" by default. */
+  cancelLabel?: string;
   /**
    * Fill the weather on its own and refresh it when the date or start time
    * changes (fields typed by hand are kept). Off when editing a saved sit, so
    * opening one never rewrites its recorded weather.
    */
   autoFillWeather?: boolean;
+  /**
+   * Stand ids from the property's latest sits, newest first. The first few
+   * show as big tap buttons above the select, and the first is picked when
+   * the property changes.
+   */
+  getRecentStandIds?: (propertyId: string) => string[];
+  /**
+   * The saved stand name when editing a sit whose stand was deleted, so the
+   * select still shows it and Save keeps it.
+   */
+  missingStandName?: string;
+  /** Show "This morning" / "This evening" quick picks for In/Out. */
+  showPeriodChips?: boolean;
+  /** Rendered right after the stand picker (the "Start sit" action). */
+  afterStand?: ReactNode;
+  /** Save button style; "primary" (blaze) unless another action leads. */
+  submitVariant?: "primary" | "secondary";
 };
 
 // How long Save stays locked after a tap, so a double-tap can't log twice.
@@ -66,7 +88,13 @@ export default function HuntLogForm({
   onSubmit,
   submitLabel = "Save sit",
   onCancel,
+  cancelLabel = "Cancel",
   autoFillWeather = true,
+  getRecentStandIds,
+  missingStandName,
+  showPeriodChips = false,
+  afterStand = null,
+  submitVariant = "primary",
 }: HuntLogFormProps) {
   // What the last automatic weather fill wrote, field by field. A field still
   // matching it is the fill's to refresh; one the hunter changed is theirs.
@@ -128,6 +156,14 @@ export default function HuntLogForm({
       ? getConvertibleStandPins(standPins, stands, values.propertyId)
       : [];
   const canSave = Boolean(values.propertyId && values.standId && values.date);
+  const recentStands = (getRecentStandIds?.(values.propertyId) ?? [])
+    .map((id) => availableStands.find((stand) => stand.id === id))
+    .filter((stand): stand is Stand => Boolean(stand))
+    .slice(0, 3);
+  // Editing a sit whose stand was deleted: keep it selectable by its saved name.
+  const showMissingStand =
+    Boolean(missingStandName && values.standId) &&
+    !availableStands.some((stand) => stand.id === values.standId);
 
   function updateField<Field extends keyof HuntFormValues>(
     field: Field,
@@ -147,8 +183,14 @@ export default function HuntLogForm({
     onChange({
       ...values,
       propertyId,
-      standId: standStillBelongsToProperty ? values.standId : "",
+      standId: standStillBelongsToProperty
+        ? values.standId
+        : (getRecentStandIds?.(propertyId)[0] ?? ""),
     });
+  }
+
+  function applyPeriod(period: SitPeriod) {
+    onChange({ ...values, ...sitPeriodTimes(period, new Date()) });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -213,17 +255,47 @@ export default function HuntLogForm({
           </label>
         ) : null}
 
+        {recentStands.length > 0 ? (
+          <div style={fieldStyle}>
+            <span style={labelStyle}>Recent stands</span>
+            <div style={chipRowStyle}>
+              {recentStands.map((stand) => {
+                const selected = stand.id === values.standId;
+                return (
+                  <button
+                    key={stand.id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => updateField("standId", stand.id)}
+                    style={{ ...chipStyle, ...(selected ? chipOnStyle : null) }}
+                  >
+                    {stand.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
         <label style={fieldStyle}>
           <span style={labelStyle}>Stand</span>
           <select
             value={values.standId}
             onChange={(event) => updateField("standId", event.target.value)}
             style={inputStyle}
-            disabled={!values.propertyId || availableStands.length === 0}
+            disabled={
+              !values.propertyId ||
+              (availableStands.length === 0 && !showMissingStand)
+            }
           >
             <option value="">
               {values.propertyId ? "Choose stand" : "Choose property first"}
             </option>
+            {showMissingStand ? (
+              <option value={values.standId}>
+                {missingStandName} (deleted)
+              </option>
+            ) : null}
             {availableStands.map((stand) => (
               <option key={stand.id} value={stand.id}>
                 {stand.name}
@@ -249,6 +321,8 @@ export default function HuntLogForm({
         ) : null}
       </div>
 
+      {afterStand ? <div style={rowStyle}>{afterStand}</div> : null}
+
       <div style={{ ...rowStyle, ...timeGridStyle }}>
         <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
           <span style={labelStyle}>Date</span>
@@ -259,6 +333,24 @@ export default function HuntLogForm({
             style={inputStyle}
           />
         </label>
+        {showPeriodChips ? (
+          <div style={{ ...chipRowStyle, gridColumn: "1 / -1" }}>
+            <button
+              type="button"
+              onClick={() => applyPeriod("morning")}
+              style={chipStyle}
+            >
+              This morning
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPeriod("evening")}
+              style={chipStyle}
+            >
+              This evening
+            </button>
+          </div>
+        ) : null}
         <label style={fieldStyle}>
           <span style={labelStyle}>In</span>
           <input
@@ -401,11 +493,12 @@ export default function HuntLogForm({
             onClick={onCancel}
             style={saveStyle}
           >
-            Cancel
+            {cancelLabel}
           </Button>
         ) : null}
         <Button
           type="submit"
+          variant={submitVariant}
           disabled={!canSave || submitting}
           style={saveStyle}
         >
@@ -426,6 +519,19 @@ function parseLocalDateTime(date: string, time: string): Date | null {
 
   if (!year || !month || !day) return null;
 
+  // No time picked yet on today's date: that's "now" (live conditions), not
+  // midnight — the after-the-fact form leaves In blank until it's chosen.
+  if (!time) {
+    const today = new Date();
+    if (
+      today.getFullYear() === year &&
+      today.getMonth() === month - 1 &&
+      today.getDate() === day
+    ) {
+      return null;
+    }
+  }
+
   const [hours, minutes] = (time || "").split(":").map(Number);
 
   return new Date(
@@ -439,7 +545,7 @@ function parseLocalDateTime(date: string, time: string): Date | null {
 
 // Big −/+ buttons beside the count: tapping is faster than the number keyboard
 // with cold hands in a stand, and the field still accepts typing.
-function CountField({
+export function CountField({
   label,
   value,
   onChange,
@@ -701,6 +807,29 @@ const checkBoxOnStyle: CSSProperties = {
   borderColor: "var(--accent)",
   background: "var(--accent)",
   color: "var(--on-accent, #0b0d0b)",
+};
+
+const chipRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.5rem",
+};
+
+const chipStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 1rem",
+  borderRadius: "var(--radius-sm)",
+  border: "1px solid var(--border-strong, var(--border))",
+  background: "transparent",
+  color: "var(--text)",
+  fontSize: "0.95rem",
+  cursor: "pointer",
+  touchAction: "manipulation",
+};
+
+const chipOnStyle: CSSProperties = {
+  borderColor: "var(--accent)",
+  background: "var(--accent-tint)",
 };
 
 const submitRowStyle: CSSProperties = {

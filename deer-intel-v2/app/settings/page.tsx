@@ -37,7 +37,11 @@ import {
   type FullBackupFile,
   type FullBackupImage,
 } from "@/lib/fullBackup";
-import { countRecords as recordCount, recordBackup } from "@/lib/backupReminder";
+import {
+  countRecords as recordCount,
+  recordBackup,
+  useLastBackup,
+} from "@/lib/backupReminder";
 import {
   setThemePreference,
   THEME_DESCRIPTIONS,
@@ -78,7 +82,8 @@ export default function SettingsPage() {
   const showSampleTerrain = useShowSampleTerrain();
   const seasonCalendar = useSeasonCalendar();
   const aiScoutEnabled = useAiScoutEnabled();
-  const { configured, status, user } = useAuth();
+  const { configured, status } = useAuth();
+  const lastBackup = useLastBackup();
   const cloudActive = configured && status === "signed-in";
   const totalRecords = recordCount(state);
   const pendingPhotoUploads = usePendingPhotoUploadCount();
@@ -347,10 +352,10 @@ export default function SettingsPage() {
     setPendingImport(null);
   }
 
-  // Settings are grouped into tabs rather than one long scroll: each tab is a
-  // self-contained area (look, alerts, data, offline, account) so a setting is
-  // a click away instead of a hunt down the page.
-  const displayTab = (
+  // Settings are grouped into four tabs that fit a phone: General (display,
+  // season, advanced), Data (backup, offline, import), Account (account, AI
+  // Scout, privacy) and Alerts. /settings?tab=<id> deep-links to one.
+  const generalTab = (
     <div style={settingsAccordionStyle}>
       <CollapsibleSection
         title="Theme"
@@ -428,8 +433,8 @@ export default function SettingsPage() {
         name="settings-general"
       >
           <p style={mutedTextStyle}>
-            Choose which base layer the map opens on. A shortcut link (like the
-            sidebar&apos;s LiDAR) still overrides it for that visit, and you can
+            Choose which base layer the map opens on. A link that opens the map
+            on a specific layer still overrides it for that visit, and you can
             always switch layers on the map. Saved on this device only.
           </p>
           <div style={mapLayerGridStyle}>
@@ -488,47 +493,9 @@ export default function SettingsPage() {
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Sample Terrain Reads"
-        description="Show the built-in Moore Hill & Sideling sample reads"
-        name="settings-general"
-      >
-          <p style={mutedTextStyle}>
-            Two example properties (Moore Hill, Sideling Hill) ship with a built-in
-            high-res terrain read. Leave this on to see them near those spots. Turn
-            it off and every property — including yours — only ever shows its own
-            read: the live read, or a 1 m set generated for it. Saved on this
-            device only.
-          </p>
-          <div style={optionGridStyle}>
-            <button
-              type="button"
-              aria-pressed={showSampleTerrain}
-              onClick={() => setShowSampleTerrain(!showSampleTerrain)}
-              style={{
-                ...optionButtonStyle,
-                ...(showSampleTerrain ? optionButtonActiveStyle : null),
-              }}
-            >
-              <span style={optionLabelStyle}>Show built-in sample terrain</span>
-              <span style={optionDescStyle}>
-                {showSampleTerrain
-                  ? "On — the Moore Hill & Sideling samples can appear near those spots"
-                  : "Off — only this property's own read is shown"}
-              </span>
-            </button>
-          </div>
-      </CollapsibleSection>
-
-    </div>
-  );
-
-  const seasonTab = (
-    <div style={settingsAccordionStyle}>
-      <CollapsibleSection
         title="Season & Rut Calendar"
         description="Season opener and rut peak for where you hunt"
-        name="settings-season"
-        defaultOpen
+        name="settings-general"
       >
           <p style={mutedTextStyle}>
             Set your season opener and local rut peak to see where you are in the
@@ -569,6 +536,64 @@ export default function SettingsPage() {
             }
           />
       </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Advanced"
+        description="Sample terrain, terrain tools, and credits"
+        name="settings-general"
+      >
+        <div style={settingsAccordionStyle}>
+          <CollapsibleSection
+            title="Sample Terrain Reads"
+            description="Show the built-in Moore Hill & Sideling sample reads"
+          >
+              <p style={mutedTextStyle}>
+                Two example properties (Moore Hill, Sideling Hill) ship with a built-in
+                high-res terrain read. Leave this on to see them near those spots. Turn
+                it off and every property — including yours — only ever shows its own
+                read: the live read, or a 1 m set generated for it. Saved on this
+                device only.
+              </p>
+              <div style={optionGridStyle}>
+                <button
+                  type="button"
+                  aria-pressed={showSampleTerrain}
+                  onClick={() => setShowSampleTerrain(!showSampleTerrain)}
+                  style={{
+                    ...optionButtonStyle,
+                    ...(showSampleTerrain ? optionButtonActiveStyle : null),
+                  }}
+                >
+                  <span style={optionLabelStyle}>Show built-in sample terrain</span>
+                  <span style={optionDescStyle}>
+                    {showSampleTerrain
+                      ? "On — the Moore Hill & Sideling samples can appear near those spots"
+                      : "Off — only this property's own read is shown"}
+                  </span>
+                </button>
+              </div>
+          </CollapsibleSection>
+          <TerrainToolsManager />
+          <Section eyebrow="About" title="Icon credits">
+            <Card as="div" variant="subtle">
+              <p style={mutedTextStyle}>
+                {ICON_CREDITS}{" "}
+                <a href="https://game-icons.net" target="_blank" rel="noreferrer">
+                  game-icons.net
+                </a>{" "}
+                ·{" "}
+                <a
+                  href="https://creativecommons.org/licenses/by/3.0/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  CC BY 3.0
+                </a>
+              </p>
+            </Card>
+          </Section>
+        </div>
+      </CollapsibleSection>
     </div>
   );
 
@@ -580,44 +605,12 @@ export default function SettingsPage() {
     </Section>
   );
 
-  const backupTab = (
+  const dataTab = (
     <>
-      <Section eyebrow="Storage" title="Current Data Setup">
-        <div style={settingsGridStyle}>
-          <Card as="article" variant="subtle">
-            <p style={eyebrowStyle}>Storage Mode</p>
-            <h2 style={cardTitleStyle}>
-              {cloudActive ? "Cloud Sync" : "This Browser"}
-            </h2>
-            <p style={mutedTextStyle}>
-              {cloudActive
-                ? `Signed in as ${user?.email ?? "your account"}. Data is saved locally and backed up to the cloud, syncing across your devices.`
-                : configured
-                  ? "Deer Intel is saved in this browser. Sign in below to back up your data and sync it across devices."
-                  : "Deer Intel is currently saved in local browser storage. No account, database, or cloud sync is connected yet."}
-            </p>
-          </Card>
-          <Card as="article" variant="subtle">
-            <p style={eyebrowStyle}>Active Property</p>
-            <h2 style={cardTitleStyle}>{selectedProperty?.name ?? "None yet"}</h2>
-            <p style={mutedTextStyle}>
-              The active property controls map assets, camera views, stand lists,
-              and intelligence summaries.
-            </p>
-          </Card>
-        </div>
-      </Section>
-
-      <Section eyebrow="Saved Data" title="Local Record Counts">
-        <Card as="div" variant="subtle">
-          <p style={recordCountsSummaryStyle}>
-            {state.properties.length} properties · {state.cameras.length} cameras
-            ({state.cameraChecks.length} checks) · {state.stands.length} stands ·{" "}
-            {state.hunts.length} hunts · {state.photoRecords.length} photos ·{" "}
-            {state.deerProfiles.length} deer profiles
-          </p>
-        </Card>
-      </Section>
+      <p style={recordCountsSummaryStyle}>
+        {totalRecords} record{totalRecords === 1 ? "" : "s"} · last backup{" "}
+        {lastBackup ? formatBackupDate(lastBackup.at) : "never"}
+      </p>
 
       <Section eyebrow="Backup" title="Export & Import Data">
         <Card as="div" variant="subtle">
@@ -732,15 +725,12 @@ export default function SettingsPage() {
         </Card>
       </Section>
 
+      <Section eyebrow="Offline" title="Offline Maps">
+        <Card as="div" variant="subtle">
+          <OfflineMapsManager />
+        </Card>
+      </Section>
     </>
-  );
-
-  const offlineTab = (
-    <Section eyebrow="Offline" title="Offline Maps">
-      <Card as="div" variant="subtle">
-        <OfflineMapsManager />
-      </Card>
-    </Section>
   );
 
   const accountTab = (
@@ -807,58 +797,15 @@ export default function SettingsPage() {
 
   return (
     <PageShell>
-      <Card as="section" variant="elevated" style={heroCardStyle}>
-        <PageHeader
-          icon={<GearIcon size={26} />}
-          eyebrow="Settings"
-          title="Deer Intel Settings"
-          description="Display, season dates, alerts, backups, offline maps, and your account, each on its own tab."
-          meta={
-            <>
-              <Badge variant="success">
-                {cloudActive ? "Cloud Sync On" : "Local Persistence"}
-              </Badge>
-              <Badge>{totalRecords} saved records</Badge>
-            </>
-          }
-        />
-      </Card>
+      <PageHeader icon={<GearIcon size={26} />} title="Settings" />
 
       <Tabs
+        urlParam="tab"
         items={[
-          { id: "display", label: "Display", content: displayTab },
-          { id: "season", label: "Season", content: seasonTab },
-          { id: "alerts", label: "Alerts", content: alertsTab },
-          { id: "backup", label: "Backup", content: backupTab },
-          { id: "offline", label: "Offline", content: offlineTab },
+          { id: "general", label: "General", content: generalTab },
+          { id: "data", label: "Data", content: dataTab },
           { id: "account", label: "Account", content: accountTab },
-          {
-            id: "advanced",
-            label: "Advanced",
-            content: (
-              <>
-                <TerrainToolsManager />
-                <Section eyebrow="About" title="Icon credits">
-                  <Card as="div" variant="subtle">
-                    <p style={mutedTextStyle}>
-                      {ICON_CREDITS}{" "}
-                      <a href="https://game-icons.net" target="_blank" rel="noreferrer">
-                        game-icons.net
-                      </a>{" "}
-                      ·{" "}
-                      <a
-                        href="https://creativecommons.org/licenses/by/3.0/"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        CC BY 3.0
-                      </a>
-                    </p>
-                  </Card>
-                </Section>
-              </>
-            ),
-          },
+          { id: "alerts", label: "Alerts", content: alertsTab },
         ]}
       />
 
@@ -889,6 +836,16 @@ export default function SettingsPage() {
       />
     </PageShell>
   );
+}
+
+function formatBackupDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "unknown";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function UnitSetting<T extends string>({
@@ -928,15 +885,6 @@ function UnitSetting<T extends string>({
     </div>
   );
 }
-
-// The PageHeader now carries the golden-hour band itself (di-section-hero), so
-// this wrapper card just passes through without its own surface/padding.
-const heroCardStyle: CSSProperties = {
-  padding: 0,
-  border: "none",
-  background: "transparent",
-  boxShadow: "none",
-};
 
 const unitSettingsStyle: CSSProperties = {
   display: "grid",
@@ -1047,12 +995,6 @@ const mapLayerOptionActiveStyle: CSSProperties = {
   color: "var(--accent-text)",
 };
 
-const settingsGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))",
-  gap: "1rem",
-};
-
 const optionGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))",
@@ -1093,7 +1035,7 @@ const optionDescStyle: CSSProperties = {
 };
 
 const recordCountsSummaryStyle: CSSProperties = {
-  margin: 0,
+  margin: "0 0 1rem",
   color: "var(--text-muted)",
   fontSize: "0.95rem",
   fontWeight: 600,
@@ -1103,21 +1045,6 @@ const recordCountsSummaryStyle: CSSProperties = {
 const settingsAccordionStyle: CSSProperties = {
   display: "grid",
   gap: "0.75rem",
-};
-
-const eyebrowStyle: CSSProperties = {
-  margin: 0,
-  color: "var(--accent-text)",
-  fontSize: "0.78rem",
-  fontWeight: 800,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-};
-
-const cardTitleStyle: CSSProperties = {
-  margin: "0.5rem 0 0",
-  fontSize: "1.4rem",
-  lineHeight: 1.2,
 };
 
 const mutedTextStyle: CSSProperties = {

@@ -23,6 +23,10 @@ import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { getCameraIntelligenceSummary } from "@/lib/cameraIntelligence";
+import {
+  formatCameraCheckDate,
+  latestCheckForCamera,
+} from "@/lib/cameraChecks";
 import { dateInputTime, photoRecordTime } from "@/lib/photos";
 import { useAddFormRequest } from "@/lib/useAddFormRequest";
 import { buildStripPhotos } from "@/lib/photoStrip";
@@ -149,6 +153,7 @@ export default function CamerasPage() {
                   key={camera.id}
                   camera={camera}
                   onEdit={editCamera}
+                  latestCheck={latestCheckForCamera(propertyChecks, camera.id)}
                   photoRecords={propertyPhotos.filter(
                     (photo) => photo.cameraSiteId === camera.id,
                   )}
@@ -176,7 +181,11 @@ export default function CamerasPage() {
         <StatCard
           label="Camera Checks"
           value={propertyChecks.length}
-          detail={`Latest: ${latestCheck?.date || "none yet"}`}
+          detail={`Latest: ${
+            latestCheck?.date
+              ? formatCameraCheckDate(latestCheck.date)
+              : "none yet"
+          }`}
           icon={<ClipboardIcon size={18} />}
           tone="green"
         />

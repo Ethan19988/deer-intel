@@ -9,6 +9,8 @@ type StandWindGridProps = {
   stands: Stand[];
   /** Column key ("YYYY-MM-DD-AM"/"-PM") of the next sit, highlighted. */
   activeKey?: string;
+  /** The verdict's picked stand; its row is highlighted. */
+  pickStandId?: string;
 };
 
 // Color plus a glyph, so the grid reads in glare and for color-blind eyes.
@@ -37,10 +39,16 @@ const CELL: Record<StandWindStatus, { glyph: string; label: string; style: CSSPr
 
 // Which stand works on which sit over the next few days: the forecast wind for
 // every morning and evening sit, graded against each stand's best/avoid winds.
-export default function StandWindGrid({ days, stands, activeKey }: StandWindGridProps) {
+export default function StandWindGrid({
+  days,
+  stands,
+  activeKey,
+  pickStandId,
+}: StandWindGridProps) {
   if (days.length === 0 || stands.length === 0) return null;
 
-  const { columns, rows } = buildWindMatrix(days, stands);
+  // Sits before the next one (e.g. this morning, by afternoon) are dimmed.
+  const { columns, rows } = buildWindMatrix(days, stands, activeKey);
   const gridTemplateColumns = `minmax(92px, 1.5fr) repeat(${columns.length}, minmax(32px, 1fr))`;
 
   return (
@@ -60,6 +68,7 @@ export default function StandWindGrid({ days, stands, activeKey }: StandWindGrid
                 role="columnheader"
                 style={{
                   ...colHeadStyle,
+                  ...(column.isPast ? pastStyle : null),
                   ...(column.key === activeKey ? activeHeadStyle : null),
                 }}
               >
@@ -75,31 +84,40 @@ export default function StandWindGrid({ days, stands, activeKey }: StandWindGrid
             ))}
           </div>
 
-          {rows.map((row) => (
-            <div key={row.stand.id} role="row" style={rowContentsStyle}>
-              <span role="rowheader" style={standNameStyle}>
-                {row.stand.name}
-              </span>
-              {row.cells.map((status, index) => {
-                const cell = CELL[status];
-                const column = columns[index];
-                return (
-                  <span
-                    key={column.key}
-                    role="cell"
-                    aria-label={`${row.stand.name}, ${column.dayLabel} ${column.period}: ${cell.label}`}
-                    style={{
-                      ...cellStyle,
-                      ...cell.style,
-                      ...(column.key === activeKey ? activeCellStyle : null),
-                    }}
-                  >
-                    {cell.glyph}
-                  </span>
-                );
-              })}
-            </div>
-          ))}
+          {rows.map((row) => {
+            const isPick = row.stand.id === pickStandId;
+            return (
+              <div key={row.stand.id} role="row" style={rowContentsStyle}>
+                <span
+                  role="rowheader"
+                  style={{ ...standNameStyle, ...(isPick ? pickNameStyle : null) }}
+                >
+                  {row.stand.name}
+                  {isPick ? <span style={pickTagStyle}>Pick</span> : null}
+                </span>
+                {row.cells.map((status, index) => {
+                  const cell = CELL[status];
+                  const column = columns[index];
+                  return (
+                    <span
+                      key={column.key}
+                      role="cell"
+                      aria-label={`${row.stand.name}, ${column.dayLabel} ${column.period}: ${cell.label}${column.isPast ? " (over)" : ""}`}
+                      style={{
+                        ...cellStyle,
+                        ...cell.style,
+                        ...(column.isPast ? pastStyle : null),
+                        ...(isPick && !column.isPast ? pickCellStyle : null),
+                        ...(column.key === activeKey ? activeCellStyle : null),
+                      }}
+                    >
+                      {cell.glyph}
+                    </span>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -222,6 +240,30 @@ const cellStyle: CSSProperties = {
   borderRadius: "var(--radius-sm)",
   fontSize: "0.95rem",
   fontWeight: 900,
+};
+
+// A sit that's already over stays readable but steps back.
+const pastStyle: CSSProperties = {
+  opacity: 0.35,
+};
+
+const pickNameStyle: CSSProperties = {
+  color: "var(--accent-text)",
+};
+
+const pickTagStyle: CSSProperties = {
+  display: "block",
+  marginTop: "0.1rem",
+  color: "var(--accent-text)",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.6rem",
+  fontWeight: 500,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+};
+
+const pickCellStyle: CSSProperties = {
+  borderWidth: "2px",
 };
 
 const activeCellStyle: CSSProperties = {

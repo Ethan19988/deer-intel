@@ -1,4 +1,5 @@
 import type { CameraCheck } from "@/types/cameraCheck";
+import type { DeerIntelState } from "@/types/deerIntelStore";
 import { dateInputTime } from "@/lib/photos";
 
 export type CameraCheckSummary = {
@@ -45,6 +46,74 @@ export function getCameraCheckSummary(
   );
 }
 
+/** The newest check for one camera, or null when it's never been checked. */
+export function latestCheckForCamera(
+  checks: CameraCheck[],
+  cameraId: string,
+): CameraCheck | null {
+  return getCameraCheckSummary(
+    checks.filter((check) => check.cameraId === cameraId),
+  ).latestCheck;
+}
+
+// Pure state transforms for adding, editing and deleting a camera check.
+// Callers pass these to updateDeerIntelStore so they run against the latest
+// state. Deleting is a plain removal: cloud sync reads a missing id as this
+// device's deletion.
+
+/** Append a check; no change when one with that id is already saved. */
+export function addCameraCheckToState(
+  state: DeerIntelState,
+  check: CameraCheck,
+): DeerIntelState {
+  if (state.cameraChecks.some((entry) => entry.id === check.id)) return state;
+
+  return { ...state, cameraChecks: [...state.cameraChecks, check] };
+}
+
+/** Replace the saved check with the same id; no change when it's gone. */
+export function updateCameraCheckInState(
+  state: DeerIntelState,
+  check: CameraCheck,
+): DeerIntelState {
+  if (!state.cameraChecks.some((entry) => entry.id === check.id)) return state;
+
+  return {
+    ...state,
+    cameraChecks: state.cameraChecks.map((entry) =>
+      entry.id === check.id ? check : entry,
+    ),
+  };
+}
+
+/**
+ * Remove a saved check by id; no change when it's already gone. Photos that
+ * were filed under it stay, detached from the check (like a photo moved to
+ * another camera), so deleting a typo'd check never deletes photos.
+ */
+export function deleteCameraCheckFromState(
+  state: DeerIntelState,
+  checkId: string,
+): DeerIntelState {
+  if (!state.cameraChecks.some((entry) => entry.id === checkId)) return state;
+
+  const hasLinkedPhotos = state.photoRecords.some(
+    (photo) => photo.cameraCheckId === checkId,
+  );
+
+  return {
+    ...state,
+    cameraChecks: state.cameraChecks.filter((entry) => entry.id !== checkId),
+    photoRecords: hasLinkedPhotos
+      ? state.photoRecords.map((photo) =>
+          photo.cameraCheckId === checkId
+            ? { ...photo, cameraCheckId: "" }
+            : photo,
+        )
+      : state.photoRecords,
+  };
+}
+
 export function formatCameraCheckDate(date: string | undefined) {
   if (!date) return "Not checked yet";
 
@@ -66,6 +135,28 @@ export function formatCameraCheckDate(date: string | undefined) {
     day: "numeric",
     year: "numeric",
   }).format(time);
+}
+
+/**
+ * Short "last checked" text for a camera row: "Checked today",
+ * "Checked yesterday", "Checked Nov 2, 2026", or "Never checked".
+ */
+export function lastCheckedLabel(
+  check: CameraCheck | null | undefined,
+  now: Date = new Date(),
+) {
+  if (!check?.date) return "Never checked";
+
+  const time = dateInputTime(check.date);
+  if (Number.isNaN(time)) return `Checked ${check.date}`;
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((today.getTime() - time) / 86_400_000);
+
+  if (days === 0) return "Checked today";
+  if (days === 1) return "Checked yesterday";
+
+  return `Checked ${formatCameraCheckDate(check.date)}`;
 }
 
 function checkTime(check: CameraCheck) {

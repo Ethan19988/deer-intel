@@ -2142,3 +2142,13 @@ textarea {
     bottom: calc(12.5rem + env(safe-area-inset-bottom)) !important;
   }
 }
+
+/* ---- Phone More menu: dynamic viewport height (phone-cleanup, 2026-11) ----
+   100vh on mobile Safari/Chrome includes the area behind the collapsing
+   browser toolbar, so the sheet's bottom links could sit off-screen. 100dvh
+   tracks the visible viewport; the 100vh rule above stays as the fallback. */
+@supports (height: 100dvh) {
+  .di-more-sheet {
+    max-height: calc(100dvh - 140px);
+  }
+}

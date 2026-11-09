@@ -25,6 +25,12 @@ type WindCompassProps = {
   /** Current wind direction, drawn as a rim marker only (not graded). */
   currentWind?: string;
   stands: Stand[];
+  /**
+   * Draw the per-stand dots and the "N stands OK" legend (default). Today
+   * turns this off: Stand check and the wind grid already show each stand's
+   * fit, so the dial there is just the sit wind.
+   */
+  showStands?: boolean;
 };
 
 function bearingOf(direction: string): number | null {
@@ -55,8 +61,10 @@ export default function WindCompass({
   windSpeed,
   label = "Sit wind",
   currentWind,
-  stands,
+  stands: allStands,
+  showStands = true,
 }: WindCompassProps) {
+  const stands = showStands ? allStands : [];
   const windBearing = wind ? bearingOf(wind) : null;
   const hasWind = Boolean(wind) && windBearing !== null;
   const currentBearing =
@@ -169,7 +177,7 @@ export default function WindCompass({
       </div>
 
       <div style={legendStyle}>
-        {stands.length === 0 ? (
+        {!showStands ? null : stands.length === 0 ? (
           <span style={legendItemStyle}>Add stands to read the wind</span>
         ) : isCalm ? (
           <span style={legendItemStyle}>

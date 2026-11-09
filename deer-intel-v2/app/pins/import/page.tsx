@@ -181,8 +181,8 @@ export default function PinImportPage() {
 
   return (
     <PageShell>
-      <Link href="/settings" style={backLinkStyle}>
-        Back to Settings
+      <Link href="/import" style={backLinkStyle}>
+        Back to Import
       </Link>
 
       <Card as="section" variant="elevated" style={heroCardStyle}>
