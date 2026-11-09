@@ -1,7 +1,9 @@
 -- Deer Intel — shared movement learning (opt-in, anonymous sighting facts)
 --
 -- Run this once in your Supabase project's SQL editor, AFTER schema.sql. It is
--- safe to re-run.
+-- safe to re-run: regional_movement() below already carries the stricter
+-- contributor rules from fixes-2026-10.sql §8 (5 established accounts), so
+-- re-running this file doesn't loosen them.
 --
 -- Only accounts that turn on "Share anonymous sightings" (asked on first
 -- sign-in, changeable in Settings) contribute. Each contributed row is one
@@ -12,8 +14,9 @@
 -- Privacy rules enforced here, not just in the app:
 --   * Nobody can read raw rows, including their own. The only read path is
 --     regional_movement(), which returns hourly totals for a region.
---   * regional_movement() returns nothing until a region has at least 3
---     distinct accounts and 30 rows, so one hunter's pattern can't be
+--   * regional_movement() returns nothing until a region has at least 5
+--     established accounts (confirmed email, 14+ days old) and 30 rows, so
+--     one hunter's pattern can't be
 --     picked out.
 --   * Turning sharing off deletes that account's rows (delete policy below);
 --     deleting the account removes them too (on delete cascade).
@@ -51,7 +54,10 @@ create policy "Users remove their own sightings"
   using ((select auth.uid()) = user_id);
 
 -- Hourly totals for a region since a date, or no rows while the region has
--- too few contributors to stay anonymous.
+-- too few contributors to stay anonymous. Contributors count only with a
+-- confirmed email and an account at least 14 days old (so a handful of
+-- throwaway accounts can't expose one real hunter's pattern), and a region
+-- needs 5 of them. Kept identical to fixes-2026-10.sql §8.
 create or replace function public.regional_movement(p_region text, p_since date)
 returns table (hour smallint, sightings integer, bucks integer, contributors integer)
 language plpgsql
@@ -60,7 +66,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  min_contributors constant integer := 3;
+  min_contributors constant integer := 5;
   min_sightings constant integer := 30;
   n_contributors integer;
   n_sightings integer;
@@ -72,7 +78,10 @@ begin
   select count(distinct s.user_id), count(*)
     into n_contributors, n_sightings
     from public.movement_sightings s
-   where s.region = p_region and s.sighting_date >= p_since;
+    join auth.users u on u.id = s.user_id
+   where s.region = p_region and s.sighting_date >= p_since
+     and u.email_confirmed_at is not null
+     and u.created_at < now() - interval '14 days';
 
   if n_contributors < min_contributors or n_sightings < min_sightings then
     return;
@@ -84,7 +93,10 @@ begin
            (count(*) filter (where s.is_buck))::integer,
            n_contributors
       from public.movement_sightings s
+      join auth.users u on u.id = s.user_id
      where s.region = p_region and s.sighting_date >= p_since
+       and u.email_confirmed_at is not null
+       and u.created_at < now() - interval '14 days'
      group by s.hour
      order by s.hour;
 end;

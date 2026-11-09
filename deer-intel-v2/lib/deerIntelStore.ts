@@ -744,15 +744,31 @@ function contentKey(record: Stamped): string {
  * arrives with a different stamp than before keeps it (the caller set it, e.g.
  * a copy from another device), and new records are left as they are. Returns
  * `next` itself when nothing needed stamping. Exported for tests.
+ *
+ * `incoming` (optional) is `next` before normalizing: a list or record that is
+ * the very same object as in `previous` is unchanged and skipped without
+ * comparing contents (most saves change one record of one collection).
  */
 export function stampRecordEdits(
   previous: DeerIntelState,
   next: DeerIntelState,
   now: string,
+  incoming?: DeerIntelState,
 ): DeerIntelState {
   let result: DeerIntelState | null = null;
 
   for (const key of STAMPED_COLLECTIONS) {
+    const previousList = (previous[key] ?? []) as unknown[];
+    const incomingList = incoming?.[key] as unknown[] | undefined;
+    if (incomingList === previousList) continue;
+    const untouched = new Set<unknown>();
+    if (Array.isArray(incomingList)) {
+      const previousRecords = new Set<unknown>(previousList);
+      for (const record of incomingList) {
+        if (previousRecords.has(record)) untouched.add((record as Stamped).id);
+      }
+    }
+
     const before = new Map<unknown, Stamped>();
     for (const record of (previous[key] ?? []) as Stamped[]) before.set(record.id, record);
     if (before.size === 0) continue;
@@ -760,7 +776,7 @@ export function stampRecordEdits(
     let changed = false;
     const list = ((next[key] ?? []) as Stamped[]).map((record) => {
       const old = before.get(record.id);
-      if (!old) return record;
+      if (!old || untouched.has(record.id)) return record;
       if (contentKey(record) === contentKey(old)) {
         if (record.updatedAt === undefined && old.updatedAt !== undefined) {
           changed = true;
@@ -1110,7 +1126,7 @@ export function saveDeerIntelStore(
   if (options.stampEdits !== false) skipStampUntil = 0;
   const normalizedState = skipStamp
     ? normalizedNext
-    : stampRecordEdits(getSnapshot(), normalizedNext, new Date().toISOString());
+    : stampRecordEdits(getSnapshot(), normalizedNext, new Date().toISOString(), nextState);
   memoryState = normalizedState;
   cachedStorage = null;
 

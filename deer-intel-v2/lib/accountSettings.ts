@@ -108,9 +108,7 @@ function writeStored(stored: StoredSettings) {
   try {
     window.localStorage.setItem(ACCOUNT_SETTINGS_STORAGE_KEY, JSON.stringify(stored));
   } catch {
-    // Storage full or blocked: the choice holds in memory for this session.
-    cachedRaw = JSON.stringify(stored);
-    cachedStored = stored;
+    // Storage full or blocked: the choice doesn't stick (like other settings).
   }
   window.dispatchEvent(new Event(ACCOUNT_SETTINGS_EVENT));
   // Older listeners for the sightings choice.

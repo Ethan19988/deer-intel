@@ -1,5 +1,13 @@
 -- Deer Intel — Parties (shared hunting groups) + geofenced live location
 --
+-- !! DO NOT RE-RUN this file on a database that already has parties. It
+-- !! re-creates the policies, invite codes and create/join functions in their
+-- !! ORIGINAL form, undoing hardening.sql, fixes-2026-10.sql and
+-- !! fixes-2026-11-second-pass.sql (membership checks, 10-character invite
+-- !! codes, the join rate limit, hidden stale dots). If you must re-run it,
+-- !! re-run hardening.sql, fixes-2026-10.sql and fixes-2026-11-second-pass.sql
+-- !! right after it, in that order.
+--
 -- Run this once in your Supabase project's SQL editor (Dashboard -> SQL Editor
 -- -> New query -> paste -> Run), the same way you ran supabase/schema.sql.
 --
