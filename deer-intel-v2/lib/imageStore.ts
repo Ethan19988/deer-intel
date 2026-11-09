@@ -12,6 +12,7 @@ import {
   removePendingId,
   retryDelayMs,
 } from "@/lib/photoUploadQueue";
+import { deleteIdbDatabase, runIdbTransaction } from "@/lib/idbTransaction";
 import { isCloudSyncConfigured } from "@/lib/supabaseClient";
 
 // Uploaded photos can be several megabytes each, which would quickly blow past
@@ -38,50 +39,62 @@ function openDatabase(): Promise<IDBDatabase | null> {
 
   if (!databasePromise) {
     databasePromise = new Promise((resolve) => {
-      const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+      try {
+        const request = window.indexedDB.open(DB_NAME, DB_VERSION);
 
-      request.onupgradeneeded = () => {
-        const database = request.result;
+        request.onupgradeneeded = () => {
+          const database = request.result;
 
-        if (!database.objectStoreNames.contains(STORE_NAME)) {
-          database.createObjectStore(STORE_NAME);
-        }
-      };
+          if (!database.objectStoreNames.contains(STORE_NAME)) {
+            database.createObjectStore(STORE_NAME);
+          }
+        };
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => {
+        request.onsuccess = () => {
+          const database = request.result;
+          // Let Clear All (deleteDatabase) proceed instead of being blocked.
+          database.onversionchange = () => {
+            database.close();
+            databasePromise = null;
+          };
+          resolve(database);
+        };
+        request.onerror = () => {
+          databasePromise = null;
+          resolve(null);
+        };
+      } catch {
         databasePromise = null;
         resolve(null);
-      };
+      }
     });
   }
 
   return databasePromise;
 }
 
+// Resolves on transaction commit; `ok` is false when IndexedDB is unavailable
+// or the write was rejected/aborted (e.g. storage full).
 function runTransaction<Result>(
   mode: IDBTransactionMode,
   work: (store: IDBObjectStore) => IDBRequest<Result>,
-): Promise<Result | null> {
-  return openDatabase().then(
-    (database) =>
-      new Promise((resolve) => {
-        if (!database) {
-          resolve(null);
-          return;
-        }
-
-        try {
-          const transaction = database.transaction(STORE_NAME, mode);
-          const request = work(transaction.objectStore(STORE_NAME));
-
-          request.onsuccess = () => resolve(request.result ?? null);
-          request.onerror = () => resolve(null);
-        } catch {
-          resolve(null);
-        }
-      }),
+): Promise<{ ok: boolean; value: Result | null }> {
+  return openDatabase().then((database) =>
+    runIdbTransaction(database, STORE_NAME, mode, work),
   );
+}
+
+/**
+ * Close this tab's connection and delete the whole DB_NAME database (Clear
+ * All). Resolves true once deleted, false if the browser blocked or failed it.
+ */
+export async function deleteImageDatabase(): Promise<boolean> {
+  if (!hasIndexedDb()) return true;
+  const pending = databasePromise;
+  databasePromise = null;
+  const open = pending ? await pending : null;
+  open?.close();
+  return deleteIdbDatabase(DB_NAME);
 }
 
 // --- Pending cloud uploads ---------------------------------------------------
@@ -239,9 +252,15 @@ export function usePendingPhotoUploadCount(): number {
   );
 }
 
+/**
+ * Save a photo locally. Resolves true only once the write has committed;
+ * false when IndexedDB is unavailable or the write was rejected (often the
+ * phone's storage is full) — callers must not create a record pointing at it.
+ */
 export function putPhotoImage(id: string, blob: Blob): Promise<boolean> {
   return runTransaction("readwrite", (store) => store.put(blob, id)).then(
-    () => {
+    ({ ok }) => {
+      if (!ok) return false;
       // Back up to the cloud without blocking the local save. Queued first so
       // an offline or signed-out save still uploads later.
       if (isCloudSyncConfigured()) {
@@ -250,7 +269,6 @@ export function putPhotoImage(id: string, blob: Blob): Promise<boolean> {
       }
       return true;
     },
-    () => false,
   );
 }
 
@@ -258,7 +276,7 @@ export function putPhotoImage(id: string, blob: Blob): Promise<boolean> {
 // sweep (to know what actually lives here) and by getPhotoImage.
 export function readLocalImage(id: string): Promise<Blob | null> {
   return runTransaction<Blob>("readonly", (store) => store.get(id)).then(
-    (value) => (value instanceof Blob ? value : null),
+    ({ value }) => (value instanceof Blob ? value : null),
   );
 }
 
@@ -291,7 +309,7 @@ export function deletePhotoImage(id: string): Promise<void> {
 export function getAllLocalImageIds(): Promise<string[]> {
   return runTransaction<IDBValidKey[]>("readonly", (store) =>
     store.getAllKeys(),
-  ).then((keys) => (Array.isArray(keys) ? keys.map(String) : []));
+  ).then(({ value: keys }) => (Array.isArray(keys) ? keys.map(String) : []));
 }
 
 /**
@@ -302,13 +320,13 @@ export function getAllLocalImageIds(): Promise<string[]> {
  */
 export function restoreLocalImage(id: string, blob: Blob): Promise<boolean> {
   return runTransaction("readwrite", (store) => store.put(blob, id)).then(
-    () => {
+    ({ ok }) => {
+      if (!ok) return false;
       // Queued so it reaches the cloud backup on the next sign-in even if the
       // caller's immediate backup can't run (signed out / offline).
       if (isCloudSyncConfigured()) markPendingUpload(id);
       return true;
     },
-    () => false,
   );
 }
 
