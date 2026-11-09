@@ -110,7 +110,7 @@ function huntEvent(hunt: HuntLogEntry): PropertyTimelineEvent {
   return {
     id: `hunt-${hunt.id}`,
     icon: "hunt",
-    title: "Hunt logged",
+    title: "Sit logged",
     dateLabel: formatTimelineDate(hunt.date),
     description: `${hunt.standName || "Stand"}: ${outcome}, ${deerSeen} deer seen`,
     time: timelineTime(

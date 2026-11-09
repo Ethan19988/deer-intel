@@ -319,7 +319,7 @@ function getRecentBuckAreas({
     .map((check) => ({
       id: check.id,
       title: cameraNameById.get(check.cameraId) ?? "Camera site",
-      detail: `${check.bucks} bucks on ${formatCameraCheckDate(check.date)}.`,
+      detail: `${check.bucks} ${check.bucks === 1 ? "buck" : "bucks"} on ${formatCameraCheckDate(check.date)}.`,
       href: `/properties/${propertyId}/assets/${check.cameraId}`,
       badge: "Buck Check",
     }));

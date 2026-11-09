@@ -179,7 +179,7 @@ function getRecentDeerActivityCard({
         description: `${deerCount(hunt)} deer seen from ${
           hunt.standName || "a stand"
         }.`,
-        value: hunt.standName || "Hunt observation",
+        value: hunt.standName || "Sit observation",
       })),
   ].sort((left, right) => dateTime(right.date) - dateTime(left.date));
 
