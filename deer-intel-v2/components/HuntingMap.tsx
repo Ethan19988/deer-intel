@@ -44,6 +44,15 @@ import MapLegend from "@/components/map/MapLegend";
 import CameraHeatLayer from "@/components/map/CameraHeatLayer";
 import DeerHeatLayer from "@/components/map/DeerHeatLayer";
 import ScoutPicksPanel from "@/components/map/ScoutPicksPanel";
+import DeerRoutesPanel from "@/components/map/DeerRoutesPanel";
+import {
+  cameraVisits,
+  routesAsCorridors,
+  sitWindFor,
+} from "@/components/map/deerRoutesView";
+import { useMovementGrid } from "@/lib/movementGridClient";
+import { buildDeerRoutePlan } from "@/lib/deerRoutes";
+import type { DeerRoutePlan } from "@/lib/movementGridTypes";
 import type { LatLng } from "@/lib/terrainMovement";
 import {
   boundsOfHuntArea,
@@ -148,6 +157,7 @@ import {
 } from "@/lib/mapPlay";
 import {
   downwindBearing,
+  findStandLocation,
   routeLegScent,
   SCENT_CONE_HALF_ANGLE,
   scentHitAt,
@@ -1667,15 +1677,31 @@ export default function HuntingMap() {
   // null = untouched, which follows the screen size.
   const [legendChoice, setLegendChoice] = useState<boolean | null>(null);
   const [picksChoice, setPicksChoice] = useState<boolean | null>(null);
+  // The Movement layer's Deer Routes card joins the same one-at-a-time rule.
+  const [routesChoice, setRoutesChoice] = useState<boolean | null>(null);
   const legendOpen = legendChoice ?? !isNarrowViewport;
   const picksOpen = picksChoice ?? !isNarrowViewport;
+  const routesOpen = routesChoice ?? !isNarrowViewport;
   const openLegend = (open: boolean) => {
     setLegendChoice(open);
-    if (open && isNarrowViewport) setPicksChoice(false);
+    if (open && isNarrowViewport) {
+      setPicksChoice(false);
+      setRoutesChoice(false);
+    }
   };
   const openPicks = (open: boolean) => {
     setPicksChoice(open);
-    if (open && isNarrowViewport) setLegendChoice(false);
+    if (open && isNarrowViewport) {
+      setLegendChoice(false);
+      setRoutesChoice(false);
+    }
+  };
+  const openRoutes = (open: boolean) => {
+    setRoutesChoice(open);
+    if (open && isNarrowViewport) {
+      setLegendChoice(false);
+      setPicksChoice(false);
+    }
   };
   const [isDrawingArea, setIsDrawingArea] = useState(false);
   const [draftAreaPoints, setDraftAreaPoints] = useState<HuntAreaPoint[]>([]);
@@ -2241,6 +2267,87 @@ export default function HuntingMap() {
         (evidence) => evidence.level === "hot",
       ).length,
     [corridorEvidenceById],
+  );
+
+  // Terrain-aware deer routes (Movement layer v2): the property's elevation +
+  // land-cover grid, walked from beds to food by lib/deerRoutes. Fetched only
+  // while the Movement layer is on. The straight-line pin corridors above stay
+  // as the fallback when the grid can't be read.
+  const movementGrid = useMovementGrid(
+    showMovement ? (selectedProperty ?? null) : null,
+  );
+  // Each saved stand's map location (its pin, via findStandLocation).
+  const routeStandLocations = useMemo(() => {
+    const locations: Record<string, { lat: number; lng: number }> = {};
+    for (const stand of propertyStands) {
+      const pin = findStandLocation(stand, pins);
+      if (pin) locations[stand.id] = { lat: pin.lat, lng: pin.lng };
+    }
+    return locations;
+  }, [propertyStands, pins]);
+  // Located cameras with this season's deer photos split AM / PM.
+  const routeCameras = useMemo(
+    () =>
+      cameraVisits(
+        propertyCameras,
+        state.photoRecords.filter((photo) => photo.propertyId === selectedPropertyId),
+        new Date(),
+      ),
+    [propertyCameras, state.photoRecords, selectedPropertyId],
+  );
+  // The next sit's wind — the same verdict wind Today's play ranks on.
+  const routeSitWind = useMemo(
+    () =>
+      propertyToday.forecast
+        ? sitWindFor(propertyToday.verdict.wind, propertyToday.verdict.period)
+        : undefined,
+    [propertyToday.forecast, propertyToday.verdict.wind, propertyToday.verdict.period],
+  );
+  const deerRoutePlan = useMemo<DeerRoutePlan | null>(() => {
+    if (!showMovement || !movementGrid.grid) return null;
+    try {
+      return buildDeerRoutePlan({
+        grid: movementGrid.grid,
+        terrain: terrainReview,
+        pins,
+        stands: propertyStands,
+        standLocations: routeStandLocations,
+        cameras: routeCameras,
+        sitWind: routeSitWind,
+        huntArea: selectedProperty?.huntArea,
+      });
+    } catch (error) {
+      // A planner bug must never take the map down; fall back to corridors.
+      console.error("Deer route plan failed", error);
+      return null;
+    }
+  }, [
+    showMovement,
+    movementGrid.grid,
+    terrainReview,
+    pins,
+    propertyStands,
+    routeStandLocations,
+    routeCameras,
+    routeSitWind,
+    selectedProperty?.huntArea,
+  ]);
+  // Panel status: a grid that loaded but couldn't be planned reads as an error.
+  const deerRoutesStatus = deerRoutePlan
+    ? "ready"
+    : movementGrid.status === "ready"
+      ? "error"
+      : movementGrid.status;
+  // Old straight-line corridors only when the grid failed.
+  const corridorFallback = deerRoutesStatus === "error";
+  // Deer Heat still takes the corridor shape: feed it the routes' endpoints
+  // when there are routes, else the pin corridors.
+  const heatCorridors = useMemo(
+    () =>
+      deerRoutePlan && deerRoutePlan.routes.length > 0
+        ? routesAsCorridors(deerRoutePlan.routes)
+        : movementCorridors,
+    [deerRoutePlan, movementCorridors],
   );
 
   const selectedAsset = mapAssets.find((asset) => asset.id === selectedAssetId);
@@ -3536,7 +3643,7 @@ export default function HuntingMap() {
   // A map long-press drops a draggable pin of the armed type at that spot; the
   // hunter then fine-tunes its position (drag the marker or tap a new spot) and
   // confirms. Ignored while another map mode owns taps.
-  function startPendingPinAt(lat: number, lng: number) {
+  function startPendingPinAt(lat: number, lng: number, type: PinType = pinType) {
     if (pinBoxDisabled || isPlacingPin || movingPin || aimingTarget) return;
     if (isPlanningRoute || isTrackingBlood) return;
 
@@ -3544,10 +3651,17 @@ export default function HuntingMap() {
     buzz(18);
     dismissUndoToast();
     setLayersOpen(false);
+    if (type !== pinType) setPinType(type);
     setPendingStep("place");
     setPendingFacing(null);
     setPendingPin({ lat, lng });
-    setPinBoxMessage(`Drag the ${pinType} to place it, then Confirm.`);
+    setPinBoxMessage(`Drag the ${type} to place it, then Confirm.`);
+  }
+
+  // A route funnel's "Drop stand pin here": the same press-and-hold placement
+  // flow, armed as a Stand at the funnel.
+  function dropStandPinAt(point: { lat: number; lng: number }) {
+    startPendingPinAt(point.lat, point.lng, "Stand");
   }
 
   function movePendingPin(lat: number, lng: number) {
@@ -3820,22 +3934,26 @@ export default function HuntingMap() {
       notes: string;
       lat: number;
       lng: number;
+      foodKind: string;
     },
   ) {
     updateDeerIntelStore((currentState) => ({
       ...currentState,
-      pins: currentState.pins.map((pin) =>
-        pin.id === pinId
-          ? {
-              ...pin,
-              name: updates.name,
-              type: updates.type,
-              notes: updates.notes,
-              lat: updates.lat,
-              lng: updates.lng,
-            }
-          : pin,
-      ),
+      pins: currentState.pins.map((pin) => {
+        if (pin.id !== pinId) return pin;
+        // foodKind only rides on Food pins; "" (or a type change) clears it.
+        const { foodKind: _previousFoodKind, ...rest } = pin;
+        void _previousFoodKind;
+        return {
+          ...rest,
+          name: updates.name,
+          type: updates.type,
+          notes: updates.notes,
+          lat: updates.lat,
+          lng: updates.lng,
+          ...(updates.foodKind ? { foodKind: updates.foodKind } : {}),
+        };
+      }),
     }));
   }
 
@@ -4800,9 +4918,20 @@ export default function HuntingMap() {
 
             {showMovement ? (
               <MovementLayer
-                corridors={movementCorridors}
+                plan={deerRoutePlan}
                 period={movementPeriod}
+                fallbackCorridors={corridorFallback ? movementCorridors : []}
                 evidenceById={corridorEvidenceById}
+                interactive={
+                  !isPlacingPin &&
+                  !isDrawingArea &&
+                  !movingPin &&
+                  !aimingTarget &&
+                  !pendingPin &&
+                  !isPlanningRoute &&
+                  !isTrackingBlood
+                }
+                onDropStand={pinBoxDisabled ? undefined : dropStandPinAt}
               />
             ) : null}
 
@@ -4813,7 +4942,7 @@ export default function HuntingMap() {
             {showDeerHeat ? (
               <DeerHeatLayer
                 set={terrainReview}
-                corridors={movementCorridors}
+                corridors={heatCorridors}
                 period={movementPeriod}
                 outlookScore={movementOutlook?.score ?? null}
                 tapEnabled={
@@ -5263,6 +5392,9 @@ export default function HuntingMap() {
                 showLandcover={showLandcover}
                 showDeerHeat={showDeerHeat}
                 showCameraHeat={showCameraHeat}
+                showRoutes={
+                  showMovement && (deerRoutePlan?.routes.length ?? 0) > 0
+                }
                 period={movementPeriod}
                 showLand={mapZoom >= PARCEL_TILES_MIN_ZOOM}
                 open={legendOpen}
@@ -5274,17 +5406,35 @@ export default function HuntingMap() {
               <MovementBadge
                 status={forecastStatus}
                 forecast={movementOutlook}
-                corridorCount={movementCorridors.length}
+                corridorCount={
+                  deerRoutePlan ? deerRoutePlan.routes.length : movementCorridors.length
+                }
                 direction={corridorDirection(movementPeriod)}
                 hasBedding={beddingPoints.length > 0}
                 hasResources={resourcePoints.length > 0}
                 personalized={movementOutlook?.personalized ?? false}
                 sampleSize={movementOutlook?.sampleSize ?? 0}
-                hotCorridorCount={hotCorridorCount}
+                hotCorridorCount={
+                  deerRoutePlan
+                    ? deerRoutePlan.routes.filter(
+                        (route) => (route.camera?.visits ?? 0) > 0,
+                      ).length
+                    : hotCorridorCount
+                }
                 phaseLabel={movementPhaseLabel(currentMovementPhase)}
                 phaseScoped={seasonalPhotos.scope === "phase"}
                 regionLabel={rutRegionLabel(propertyLatitude)}
                 rutShiftDays={rutShiftDays(propertyLatitude)}
+              />
+            ) : null}
+
+            {showMovement ? (
+              <DeerRoutesPanel
+                status={deerRoutesStatus}
+                plan={deerRoutePlan}
+                onSelect={flyToTerrainPick}
+                open={routesOpen}
+                onOpenChange={openRoutes}
               />
             ) : null}
 

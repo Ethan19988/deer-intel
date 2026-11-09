@@ -255,6 +255,11 @@ function normalizePin(value: unknown): MapPin | null {
     name: stringValue(value.name),
     notes: stringValue(value.notes),
     facingDirection: stringValue(value.facingDirection),
+    ...(typeof value.foodKind === "string" &&
+    value.foodKind.trim() &&
+    value.foodKind.trim().length <= 40
+      ? { foodKind: value.foodKind.trim() }
+      : {}),
   };
 }
 
