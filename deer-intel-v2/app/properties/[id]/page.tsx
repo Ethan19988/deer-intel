@@ -4,31 +4,22 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState, type CSSProperties } from "react";
 import HuntPlannerIntelligencePanel from "@/components/hunts/HuntPlannerIntelligencePanel";
-import DashboardCardLink from "@/components/properties/DashboardCardLink";
 import DashboardSection from "@/components/properties/DashboardSection";
 import InfoCard from "@/components/properties/dashboard/InfoCard";
+import PropertyDocumentsSection from "@/components/properties/dashboard/PropertyDocumentsSection";
 import PropertyIntelligenceSummary from "@/components/properties/dashboard/PropertyIntelligenceSummary";
-import PropertyHeader from "@/components/properties/dashboard/PropertyHeader";
 import PropertyTimeline from "@/components/properties/dashboard/PropertyTimeline";
 import RecentActivityList from "@/components/properties/dashboard/RecentActivityList";
 import WalkTracksSection from "@/components/properties/dashboard/WalkTracksSection";
-import WorkspaceIcon, {
-  type WorkspaceIconName,
-} from "@/components/properties/dashboard/WorkspaceIcon";
 import Card from "@/components/ui/Card";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import {
   TargetIcon,
 } from "@/components/ui/FieldIcons";
+import PageHeader from "@/components/ui/PageHeader";
 import PageShell from "@/components/ui/PageShell";
 import ColdFrontBanner from "@/components/ColdFrontBanner";
 import TodayVerdictHero from "@/components/TodayVerdictHero";
-import ConditionsStrip from "@/components/ConditionsStrip";
-import StandCheckPanel from "@/components/StandCheckPanel";
-import StandWindGrid from "@/components/StandWindGrid";
-import BuckSlideshow from "@/components/BuckSlideshow";
-import CameraPhotoStrip from "@/components/CameraPhotoStrip";
-import RutRibbon from "@/components/season/RutRibbon";
 import { usePropertyToday } from "@/lib/usePropertyToday";
 import Tabs from "@/components/ui/Tabs";
 import PropertyPatternReport from "@/components/properties/PropertyPatternReport";
@@ -37,8 +28,6 @@ import SeasonReportPanel from "@/components/insights/SeasonReportPanel";
 import { buildPropertyPatternReport } from "@/lib/propertyPatterns";
 import {
   activeCameraCount,
-  getAiConfidence,
-  getKnowledgeScore,
   getRecentActivity,
 } from "@/lib/propertyDashboard";
 import { getPropertyTimelineEvents } from "@/lib/propertyTimeline";
@@ -47,38 +36,7 @@ import { getHuntPlannerIntelligence } from "@/lib/huntPlannerIntelligence";
 import { getPropertyWeatherSummary } from "@/lib/weather";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import { dateInputTime } from "@/lib/photos";
-
-type DashboardModule = {
-  title: string;
-  description: string;
-  icon: WorkspaceIconName;
-  href: string;
-  badge: "Available" | "Coming Soon";
-};
-
-const INTELLIGENCE_MODULES: DashboardModule[] = [
-  {
-    title: "Hunt Planner",
-    description: "Review the simple property plan before choosing a sit.",
-    icon: "huntLog",
-    href: "#hunt-planner",
-    badge: "Available",
-  },
-  {
-    title: "AI Scout",
-    description: "Ask the assistant for a stand pick from this property's saved data.",
-    icon: "aiScout",
-    href: "/ai",
-    badge: "Available",
-  },
-  {
-    title: "Season Report",
-    description: "Stand success, best winds and times, tracked bucks, and what to change next year.",
-    icon: "analytics",
-    href: "/report",
-    badge: "Available",
-  },
-];
+import { formatDayWithAgo } from "@/lib/relativeDate";
 
 export default function PropertyWorkspacePage() {
   const params = useParams<{ id: string }>();
@@ -113,6 +71,9 @@ export default function PropertyWorkspacePage() {
   const propertyWalkTracks = state.walkTracks.filter(
     (track) => track.propertyId === params.id,
   );
+  const propertyDocuments = state.documents.filter(
+    (document) => document.propertyId === params.id,
+  );
   // Tonight on this ground: same forecast, verdict and hit list as Today.
   const today = usePropertyToday(params.id);
   // ?tab=plan / insights / report opens that tab directly.
@@ -136,6 +97,8 @@ export default function PropertyWorkspacePage() {
       map: "overview",
       "recent-activity": "overview",
       overview: "overview",
+      "saved-walks": "overview",
+      documents: "overview",
     };
 
     if (hash && hashTab[hash]) setActiveTab(hashTab[hash]);
@@ -175,15 +138,6 @@ export default function PropertyWorkspacePage() {
   const propertyId = property.id;
   const standCount = propertyStands.length;
   const deerProfileCount = propertyDeerProfiles.length;
-  const knowledgeScore = getKnowledgeScore({
-    property,
-    cameraCount: propertyCameras.length,
-    standCount,
-    huntCount: propertyHunts.length,
-    deerProfileCount,
-    pinCount: propertyPins.length,
-  });
-  const aiConfidence = getAiConfidence(knowledgeScore);
   const recentActivity = getRecentActivity({
     pins: propertyPins,
     hunts: propertyHunts,
@@ -220,6 +174,29 @@ export default function PropertyWorkspacePage() {
     (check) => check.date,
   );
 
+  const headerEyebrow =
+    [property.county, property.acres ? `${property.acres} acres` : ""]
+      .filter(Boolean)
+      .join(" · ") || "Property";
+
+  // Today shows whichever property is selected, so pin it to this one first.
+  function selectThisProperty() {
+    updateDeerIntelStore((currentState) =>
+      currentState.selectedPropertyId === propertyId
+        ? currentState
+        : { ...currentState, selectedPropertyId: propertyId },
+    );
+  }
+
+  // The "Saved walks" count opens the collapsible below instead of the map.
+  function openSavedWalks() {
+    const section = document.getElementById("saved-walks");
+    if (!(section instanceof HTMLDetailsElement)) return;
+
+    section.open = true;
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function deleteWalkTrack(trackId: string) {
     if (!window.confirm("Delete this saved walk?")) return;
 
@@ -234,13 +211,29 @@ export default function PropertyWorkspacePage() {
   return (
     <PageShell>
       <Link href="/properties" style={backTextLinkStyle}>
-        Back to Properties
+        ‹ Properties
       </Link>
 
-      <PropertyHeader
-        property={property}
-        knowledgeScore={knowledgeScore}
-        aiConfidence={aiConfidence}
+      <PageHeader
+        eyebrow={headerEyebrow}
+        title={property.name}
+        description={property.notes || undefined}
+        action={
+          <>
+            <Link href="/ai" className="di-link-btn">
+              AI Scout
+            </Link>
+            <Link href="/map" className="di-link-btn">
+              Map
+            </Link>
+            <Link
+              href={`/hunt-log?propertyId=${encodeURIComponent(propertyId)}`}
+              className="di-link-btn di-link-btn--primary"
+            >
+              Log sit
+            </Link>
+          </>
+        }
       />
 
       <Tabs
@@ -257,6 +250,8 @@ export default function PropertyWorkspacePage() {
         pressure={today.forecast?.pressure}
       />
 
+      {/* The sit call only; wind fit, conditions, hit list and rut phase
+          live on Today so they aren't repeated here. */}
       <TodayVerdictHero
         verdict={today.verdict}
         propertyName={property.name}
@@ -264,44 +259,9 @@ export default function PropertyWorkspacePage() {
         forecastAsOf={today.forecastAsOf}
       />
 
-      <ConditionsStrip
-        windDirection={today.forecast?.current.windDirection}
-        windSpeed={today.forecast?.current.windSpeed}
-        temperature={today.forecast?.current.temperature}
-        conditions={today.forecast?.current.weather}
-        moon={today.moon}
-        pressure={today.forecast?.pressure}
-      />
-
-      <DashboardCardLink
-        href="/map"
-        title="Open Property Map"
-        description="Layers, pins, wind, access routes, blood trail and offline maps for this property."
-        icon={<WorkspaceIcon name="map" />}
-        size="compact"
-        tone="primary"
-      />
-
-      <StandCheckPanel
-        check={today.verdict.check}
-        wind={today.verdict.wind}
-        whenLabel={today.verdict.periodLabel}
-      />
-      <StandWindGrid
-        days={today.forecast?.days ?? []}
-        stands={propertyStands}
-        activeKey={today.activeSitKey}
-      />
-
-      <BuckSlideshow slides={today.hitListSlides} />
-
-      <CameraPhotoStrip photos={today.stripPhotos} allHref="/cameras" />
-
-      <RutRibbon
-        phase={today.seasonCtx.phase}
-        phaseLabel={today.seasonCtx.phaseLabel}
-        daysToPeak={today.seasonCtx.daysToPeak}
-      />
+      <Link href="/" onClick={selectThisProperty} style={todayLinkStyle}>
+        Full conditions on Today ›
+      </Link>
 
       <nav aria-label="On this property" style={shortcutGridStyle}>
         {[
@@ -314,13 +274,23 @@ export default function PropertyWorkspacePage() {
           { href: "/hit-list", label: "Bucks", count: deerProfileCount },
           { href: "/hunt-log", label: "Sits logged", count: propertyHunts.length },
           { href: "/map", label: "Map pins", count: propertyPins.length },
-          { href: "/map", label: "Saved walks", count: propertyWalkTracks.length },
         ].map((item) => (
           <Link key={item.label} href={item.href} style={shortcutStyle}>
             <span style={shortcutCountStyle}>{item.count}</span>
             <span style={shortcutLabelStyle}>{item.label}</span>
           </Link>
         ))}
+        <a
+          href="#saved-walks"
+          onClick={(event) => {
+            event.preventDefault();
+            openSavedWalks();
+          }}
+          style={shortcutStyle}
+        >
+          <span style={shortcutCountStyle}>{propertyWalkTracks.length}</span>
+          <span style={shortcutLabelStyle}>Saved walks</span>
+        </a>
       </nav>
 
       <div style={detailDropdownStackStyle}>
@@ -332,8 +302,10 @@ export default function PropertyWorkspacePage() {
         </CollapsibleSection>
 
         <CollapsibleSection
+          id="saved-walks"
           title="Saved Walks"
           description="Trails you've recorded on this property"
+          style={anchorOffsetStyle}
         >
           <WalkTracksSection
             tracks={propertyWalkTracks}
@@ -348,6 +320,17 @@ export default function PropertyWorkspacePage() {
           <PropertyPatternReport report={patternReport} />
         </CollapsibleSection>
 
+        <CollapsibleSection
+          id="documents"
+          title="Documents"
+          description={
+            propertyDocuments.length > 0
+              ? `${propertyDocuments.length} saved on this device`
+              : "Leases, maps and permits for this property"
+          }
+        >
+          <PropertyDocumentsSection documents={propertyDocuments} />
+        </CollapsibleSection>
       </div>
               </div>
             ),
@@ -406,25 +389,9 @@ export default function PropertyWorkspacePage() {
 
         <CollapsibleSection
           title="Property Intelligence"
-          description="Summaries and advanced tools for this property"
+          description="What the saved data says about this property"
         >
           <PropertyIntelligenceSummary cards={intelligenceCards} />
-
-          <Card as="div" variant="subtle" style={advancedToolsStyle}>
-            <h3 style={summaryCardTitleStyle}>Advanced Tools</h3>
-            <div style={moduleGridStyle}>
-              {INTELLIGENCE_MODULES.map((module) => (
-                <DashboardCardLink
-                  key={module.title}
-                  href={module.href}
-                  title={module.title}
-                  description={module.description}
-                  badge={module.badge}
-                  icon={<WorkspaceIcon name={module.icon} />}
-                />
-              ))}
-            </div>
-          </Card>
         </CollapsibleSection>
       </div>
               </div>
@@ -492,9 +459,7 @@ function dateTime(date: string | undefined) {
 }
 
 function formatDateLabel(date: string | undefined) {
-  if (!date) return "None yet";
-
-  return date;
+  return formatDayWithAgo(date);
 }
 
 const notFoundCardStyle: CSSProperties = {
@@ -529,8 +494,29 @@ const backTextLinkStyle: CSSProperties = {
   minHeight: "44px",
   alignItems: "center",
   color: "var(--text-muted)",
-  fontWeight: 700,
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.75rem",
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
   textDecoration: "none",
+};
+
+const todayLinkStyle: CSSProperties = {
+  display: "inline-flex",
+  minHeight: "44px",
+  alignItems: "center",
+  justifySelf: "start",
+  color: "var(--accent-text)",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.8rem",
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  textDecoration: "none",
+};
+
+// Keep the opened section clear of the top edge when scrolled to.
+const anchorOffsetStyle: CSSProperties = {
+  scrollMarginTop: "1rem",
 };
 
 // Counts that jump to the full Cameras / Stands / Bucks / Hunt Log pages
@@ -598,28 +584,9 @@ const plannerIntelligenceWrapStyle: CSSProperties = {
   marginTop: "1rem",
 };
 
-const summaryCardTitleStyle: CSSProperties = {
-  margin: 0,
-  color: "var(--text)",
-  fontSize: "1.15rem",
-  lineHeight: 1.25,
-};
-
 const detailDropdownStackStyle: CSSProperties = {
   display: "grid",
   gap: "0.75rem",
   marginTop: "1.75rem",
-};
-
-const advancedToolsStyle: CSSProperties = {
-  display: "grid",
-  gap: "1rem",
-  marginTop: "1rem",
-};
-
-const moduleGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(240px, 100%), 1fr))",
-  gap: "1rem",
 };
 
