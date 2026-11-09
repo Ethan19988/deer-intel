@@ -23,6 +23,12 @@ type MapLegendProps = {
   period: MovementPeriod;
   /** Parcel lines are drawing (zoomed in far enough): show the land key. */
   showLand?: boolean;
+  /**
+   * Whether the keys are shown or folded down to the "On now" header. The map
+   * controls this so a phone shows one card at a time. Defaults to shown.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 // Matches the parcel tile styling (ParcelTilesLayer) and the hunt-area outline.
@@ -45,6 +51,8 @@ export default function MapLegend({
   showCameraHeat,
   period,
   showLand = false,
+  open = true,
+  onOpenChange,
 }: MapLegendProps) {
   const sections: Array<{ key: string; node: React.ReactNode }> = [];
 
@@ -176,15 +184,28 @@ export default function MapLegend({
 
   return (
     <div className="di-map-legend" style={wrapStyle} aria-label="Active map layers">
-      <div style={headerStyle}>
+      <button
+        type="button"
+        style={headerStyle}
+        aria-expanded={open}
+        onClick={() => onOpenChange?.(!open)}
+        disabled={!onOpenChange}
+      >
         <span style={liveDotStyle} aria-hidden="true" />
         <span style={headerLabelStyle}>On now</span>
-      </div>
-      {sections.map((section) => (
-        <div key={section.key} style={dividedSectionStyle}>
-          {section.node}
-        </div>
-      ))}
+        {onOpenChange ? (
+          <span style={headerToggleStyle}>
+            {open ? "▾" : `${sections.length} key${sections.length === 1 ? "" : "s"} ▸`}
+          </span>
+        ) : null}
+      </button>
+      {open
+        ? sections.map((section) => (
+            <div key={section.key} style={dividedSectionStyle}>
+              {section.node}
+            </div>
+          ))
+        : null}
     </div>
   );
 }
@@ -215,6 +236,23 @@ const headerStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: "0.4rem",
+  width: "100%",
+  padding: 0,
+  border: 0,
+  background: "transparent",
+  color: "inherit",
+  font: "inherit",
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const headerToggleStyle: CSSProperties = {
+  marginLeft: "auto",
+  color: "#cfe0cb",
+  fontSize: "0.64rem",
+  fontWeight: 800,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
 };
 
 const liveDotStyle: CSSProperties = {

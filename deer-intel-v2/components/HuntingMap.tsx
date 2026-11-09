@@ -1542,6 +1542,22 @@ export default function HuntingMap() {
   const [layersOpen, setLayersOpen] = useState(false);
   const [scoutOpen, setScoutOpen] = useState(false);
   const isNarrowViewport = useIsNarrowMapViewport();
+  // The bottom-left cards ("On now" keys and Scout Picks). On a phone they
+  // start folded and only one opens at a time, so the map stays visible; a
+  // wider screen shows both.
+  // null = untouched, which follows the screen size.
+  const [legendChoice, setLegendChoice] = useState<boolean | null>(null);
+  const [picksChoice, setPicksChoice] = useState<boolean | null>(null);
+  const legendOpen = legendChoice ?? !isNarrowViewport;
+  const picksOpen = picksChoice ?? !isNarrowViewport;
+  const openLegend = (open: boolean) => {
+    setLegendChoice(open);
+    if (open && isNarrowViewport) setPicksChoice(false);
+  };
+  const openPicks = (open: boolean) => {
+    setPicksChoice(open);
+    if (open && isNarrowViewport) setLegendChoice(false);
+  };
   const [isDrawingArea, setIsDrawingArea] = useState(false);
   const [draftAreaPoints, setDraftAreaPoints] = useState<HuntAreaPoint[]>([]);
   // Scent-safe access planning: tap out a walk-in route and each leg is checked
@@ -4549,6 +4565,8 @@ export default function HuntingMap() {
                 showCameraHeat={showCameraHeat}
                 period={movementPeriod}
                 showLand={mapZoom >= PARCEL_TILES_MIN_ZOOM}
+                open={legendOpen}
+                onOpenChange={openLegend}
               />
             ) : null}
 
@@ -4571,7 +4589,12 @@ export default function HuntingMap() {
             ) : null}
 
             {showTerrain ? (
-              <ScoutPicksPanel set={terrainReview} onSelect={flyToTerrainPick} />
+              <ScoutPicksPanel
+                set={terrainReview}
+                onSelect={flyToTerrainPick}
+                open={picksOpen}
+                onOpenChange={openPicks}
+              />
             ) : null}
           </div>
 

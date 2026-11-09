@@ -10,6 +10,8 @@ import { terrainPlaybook, type PlaybookTone } from "@/lib/terrainPlaybook";
 type ScoutPicksPanelProps = {
   set: TerrainMovementSet | null;
   onSelect: (point: LatLng) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 const metersToYards = (m: number): number => Math.round(m * 1.0936);
@@ -43,8 +45,20 @@ const TONE_COLOR: Record<PlaybookTone, string> = {
 // TerrainMovementSet the map draws, so the list and the map never disagree.
 // Tapping a pick flies the map to that spot. Dark card for legibility over the
 // satellite imagery; collapsible so it stays out of the way on a phone.
-export default function ScoutPicksPanel({ set, onSelect }: ScoutPicksPanelProps) {
-  const [open, setOpen] = useState(true);
+export default function ScoutPicksPanel({
+  set,
+  onSelect,
+  open: openProp,
+  onOpenChange,
+}: ScoutPicksPanelProps) {
+  // Controlled by the map when it passes `open` (a phone shows one card at a
+  // time); otherwise the panel keeps its own state.
+  const [openLocal, setOpenLocal] = useState(true);
+  const open = openProp ?? openLocal;
+  const setOpen = (next: boolean) => {
+    if (onOpenChange) onOpenChange(next);
+    else setOpenLocal(next);
+  };
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Grade the picks against the hunter's own trail-camera activity (local data).
@@ -72,7 +86,7 @@ export default function ScoutPicksPanel({ set, onSelect }: ScoutPicksPanelProps)
       <button
         type="button"
         style={headerStyle}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => setOpen(!open)}
         aria-expanded={open}
       >
         <span style={titleStyle}>Scout Picks · {set.areaName}</span>
