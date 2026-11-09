@@ -201,8 +201,8 @@ export async function fireNotification(
 
   const notificationOptions: NotificationOptions & { tag?: string } = {
     body,
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
+    icon: "/icons/icon-192.png?v=2",
+    badge: "/icons/icon-192.png?v=2",
     tag: key,
   };
 
