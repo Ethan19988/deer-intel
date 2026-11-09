@@ -931,7 +931,7 @@ const RESTORE_MODE_OPTIONS: {
     value: "merge",
     label: "Merge",
     description:
-      "Keep cloud records the backup doesn't have. Nothing is deleted from your other devices.",
+      "Keep cloud records the backup doesn't have. When a record is in both, the newer edit is kept (the cloud copy if that's unknown). Nothing is deleted from your other devices.",
   },
   {
     value: "replace",

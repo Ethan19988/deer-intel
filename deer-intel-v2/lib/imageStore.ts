@@ -158,6 +158,10 @@ async function uploadAndTrack(id: string, blob: Blob): Promise<boolean> {
 }
 
 let queueRun: Promise<void> | null = null;
+// Which queued ids belong to the signed-in account's records. Ids that don't
+// (another account's photos left on a shared device) stay queued but aren't
+// uploaded into this account.
+let belongsToAccount: (id: string) => boolean = () => true;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let failedRuns = 0;
 // True while startPhotoUploadQueue is running (signed in); retries stop
@@ -178,6 +182,7 @@ export function flushPendingPhotoUploads(): Promise<void> {
   queueRun = (async () => {
     let failed = 0;
     for (const id of [...readPendingUploads()]) {
+      if (!belongsToAccount(id)) continue;
       const blob = await readLocalImage(id);
       if (!blob) {
         clearPendingUpload(id);
@@ -206,8 +211,11 @@ export function flushPendingPhotoUploads(): Promise<void> {
  * Keep retrying queued uploads while signed in: now, when the connection comes
  * back, and when the app regains focus. Returns a cleanup function.
  */
-export function startPhotoUploadQueue(): () => void {
+export function startPhotoUploadQueue(
+  isAccountPhoto: (id: string) => boolean = () => true,
+): () => void {
   if (typeof window === "undefined") return () => undefined;
+  belongsToAccount = isAccountPhoto;
 
   const retry = () => {
     // A fresh trigger (online/focus) gets a fresh backoff.
@@ -229,6 +237,7 @@ export function startPhotoUploadQueue(): () => void {
     window.removeEventListener("focus", retry);
     document.removeEventListener("visibilitychange", onVisibility);
     queueActive = false;
+    belongsToAccount = () => true;
     if (retryTimer) {
       clearTimeout(retryTimer);
       retryTimer = null;

@@ -14,6 +14,7 @@ import type { Session } from "@supabase/supabase-js";
 import {
   createEmptyDeerIntelState,
   normalizeState,
+  readStateFromStorage,
   saveDeerIntelStore,
   skipNextRecordStamp,
   useDeerIntelStore,
@@ -619,7 +620,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // and again whenever the connection or the app comes back.
   useEffect(() => {
     if (!syncReady) return;
-    return startPhotoUploadQueue();
+    // Only photos referenced by this account's records upload; a previous
+    // account's queued photos on a shared device stay put.
+    return startPhotoUploadQueue((id) =>
+      readStateFromStorage().photoRecords.some(
+        (photo) => photo.imageId === id || photo.id === id,
+      ),
+    );
   }, [syncReady]);
 
   // Anonymous sightings upload only for the account whose data this is.

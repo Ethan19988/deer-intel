@@ -32,6 +32,8 @@ export const PERSONAL_DATA_KEYS: readonly string[] = [
   "deer-intel:last-backup",
   "deer-intel:backup-reminder-snoozed",
   "deer-intel:notified",
+  // Account-level settings cache (lib/accountSettings).
+  "deer-intel:account-settings",
 ];
 
 /** Key prefixes for per-property / per-account personal entries. */
@@ -42,6 +44,8 @@ export const PERSONAL_DATA_KEY_PREFIXES: readonly string[] = [
   "deer-intel:ai-scout-last:",
   // Sightings already shared, per account (lib/sharedSightings).
   "deer-intel:shared-keys:",
+  // Last-applied party sharing state per account (lib/partySharing).
+  "deer-intel:party-share-applied:",
 ];
 
 /**

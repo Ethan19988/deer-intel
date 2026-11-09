@@ -23,7 +23,7 @@ export const SHARING_DISCLOSURE =
 // sightings, then quietly contributes new timed deer photos while it's on.
 // Nothing is sent until the person chooses "Turn on".
 export default function SharedSightingsManager() {
-  const { user, configured } = useAuth();
+  const { user, configured, reconciled, accountSwitch } = useAuth();
   const state = useDeerIntelStore();
   const seasonPrefs = useSeasonCalendar();
   const [choice, setChoice] = useState<SharingChoice | null>(null);
@@ -44,7 +44,7 @@ export default function SharedSightingsManager() {
   const photoCount = state.photoRecords.length;
   useEffect(() => {
     const client = getSupabaseClient();
-    if (!user || choice !== "on" || !client) return;
+    if (!user || choice !== "on" || !client || !reconciled || accountSwitch) return;
     let cancelled = false;
 
     (async () => {
@@ -73,7 +73,7 @@ export default function SharedSightingsManager() {
     };
     // Re-run when photos are added, not on every unrelated state change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, choice, photoCount, state.properties.length]);
+  }, [user?.id, choice, photoCount, state.properties.length, reconciled, accountSwitch]);
 
   if (!configured || !user || choice !== "unasked") return null;
 
