@@ -762,7 +762,7 @@ export async function downloadOfflinePack(
 
 async function runOfflineDownload(
   params: Parameters<typeof downloadOfflinePack>[0],
-  onProgress?: (progress: OfflineDownloadProgress) => void,
+  onProgress: ((progress: OfflineDownloadProgress) => void) | undefined,
   signal: AbortSignal | undefined,
   generation: number,
 ): Promise<OfflineMapPack> {
