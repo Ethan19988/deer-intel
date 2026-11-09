@@ -119,8 +119,35 @@ import OfflineMapsPanel, {
 import CameraFacingCone from "@/components/map/CameraFacingCone";
 import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
 import TodaysPlayPanel from "@/components/map/TodaysPlayPanel";
+import FieldHud from "@/components/map/FieldHud";
+import {
+  forecastSlotLabel,
+  playsForWind,
+  playsFromCheckRows,
+  sitPlayLabel,
+  standAssetIds,
+  standsByPinId,
+} from "@/lib/mapPlay";
+import {
+  downwindBearing,
+  routeLegScent,
+  SCENT_CONE_HALF_ANGLE,
+  scentHitAt,
+} from "@/lib/accessScent";
+import { usePropertyToday } from "@/lib/usePropertyToday";
+import {
+  edgeAlertLabel,
+  guideReading,
+  nextEdgeAlert,
+  type EdgeAlertState,
+} from "@/lib/fieldGuide";
+import { distanceToPolygonEdgeMeters, pointInPolygon } from "@/lib/geofence";
+import { legalLightChip } from "@/lib/legalLight";
+import { buildBloodTrailHunt } from "@/lib/bloodTrailHunt";
 import { pinMarkerSvg } from "@/lib/mapPinIcon";
-import UserLocationMarker from "@/components/map/UserLocationMarker";
+import UserLocationMarker, {
+  type LiveLocation,
+} from "@/components/map/UserLocationMarker";
 import MapRotationController from "@/components/map/MapRotationController";
 import PartyMembersLayer from "@/components/map/PartyMembersLayer";
 import PartyPinsLayer from "@/components/map/PartyPinsLayer";
@@ -133,6 +160,7 @@ import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { useWakeLock } from "@/lib/useWakeLock";
+import { requestCompassPermission, subscribeHeading, useDeviceHeading } from "@/lib/deviceHeading";
 import {
   acceptPathFix,
   bloodTrailLine,
@@ -404,12 +432,6 @@ function buzz(pattern: number | number[]) {
   ) {
     navigator.vibrate(pattern);
   }
-}
-
-// Smallest angle between two compass bearings (0–180°).
-function angularDiff(a: number, b: number): number {
-  const diff = Math.abs(a - b) % 360;
-  return diff > 180 ? 360 - diff : diff;
 }
 
 // Directional assets: a stand you sit and a camera you aim both point a way and
@@ -901,7 +923,6 @@ function MapControlButtons({
   const map = useMap();
   const [heading, setHeading] = useState<number | null>(null);
   const [compassOn, setCompassOn] = useState(false);
-  const lastHeadingAtRef = useRef(0);
 
   function startFollow() {
     if (!navigator.geolocation) {
@@ -957,26 +978,14 @@ function MapControlButtons({
   async function enableCompass() {
     // iOS 13+ only delivers compass data after an explicit grant, and the
     // request has to come straight from this tap gesture.
-    const orientationApi = window.DeviceOrientationEvent as
-      | (typeof DeviceOrientationEvent & {
-          requestPermission?: () => Promise<"granted" | "denied" | "default">;
-        })
-      | undefined;
-
-    if (
-      orientationApi &&
-      typeof orientationApi.requestPermission === "function"
-    ) {
-      try {
-        const permission = await orientationApi.requestPermission();
-        if (permission !== "granted") {
-          alert("Compass permission was declined.");
-          return;
-        }
-      } catch {
-        alert("The compass isn't available on this device.");
-        return;
-      }
+    const permission = await requestCompassPermission();
+    if (permission === "denied") {
+      alert("Compass permission was declined.");
+      return;
+    }
+    if (permission === "unavailable") {
+      alert("The compass isn't available on this device.");
+      return;
     }
 
     setCompassOn(true);
@@ -995,48 +1004,15 @@ function MapControlButtons({
 
   const mapTurned = compassOn && headingUp && isFollowing;
 
-  // While the compass is on, follow the device's heading. Prefer iOS's
-  // true-north webkitCompassHeading; otherwise use an absolute-orientation
-  // event's alpha (relative deviceorientation isn't tied to north, so skip it).
+  // While the compass is on, follow the device's heading (lib/deviceHeading
+  // reads iOS's true-north heading or an absolute-orientation alpha).
   useEffect(() => {
     if (!compassOn) return;
 
-    function onOrientation(event: DeviceOrientationEvent) {
-      const now = Date.now();
-      if (now - lastHeadingAtRef.current < 80) return;
-
-      const iosHeading = (
-        event as DeviceOrientationEvent & { webkitCompassHeading?: number }
-      ).webkitCompassHeading;
-
-      let next: number | null = null;
-      if (typeof iosHeading === "number" && !Number.isNaN(iosHeading)) {
-        next = iosHeading;
-      } else if (event.absolute && typeof event.alpha === "number") {
-        next = 360 - event.alpha;
-      }
-
-      if (next === null) return;
-      lastHeadingAtRef.current = now;
-      const rounded = Math.round(((next % 360) + 360) % 360);
-      setHeading(rounded);
-      onHeadingChange(rounded);
-    }
-
-    window.addEventListener(
-      "deviceorientationabsolute",
-      onOrientation as EventListener,
-      true,
-    );
-    window.addEventListener("deviceorientation", onOrientation, true);
-    return () => {
-      window.removeEventListener(
-        "deviceorientationabsolute",
-        onOrientation as EventListener,
-        true,
-      );
-      window.removeEventListener("deviceorientation", onOrientation, true);
-    };
+    return subscribeHeading((next) => {
+      setHeading(next);
+      onHeadingChange(next);
+    });
   }, [compassOn, onHeadingChange]);
 
   const facingCardinal =
@@ -1847,19 +1823,21 @@ export default function HuntingMap() {
     [state.stands, selectedPropertyId],
   );
   // A stand *pin* carries a location; a saved Stand carries best/avoid winds.
-  // There's no hard link, so bridge them by matching the pin's label to a
-  // stand's name (case-insensitive). Matched cones get a good/avoid/marginal
-  // color from today's wind; unmatched ones stay neutral.
+  // They're linked through the stand's sourcePinId (else a name match) by
+  // lib/accessScent.findStandLocation, so a rename never drops the link.
+  // Matched cones get a good/avoid/marginal color from the map's wind;
+  // unmatched ones stay neutral.
+  const standByPinId = useMemo(
+    () => standsByPinId(propertyStands, pins),
+    [propertyStands, pins],
+  );
   const windStandPoints = useMemo<WindStandPoint[]>(() => {
     const currentWind = windData?.fromCompass;
-    const standByName = new Map(
-      propertyStands.map((stand) => [stand.name.trim().toLowerCase(), stand]),
-    );
 
     return visibleAssets
       .filter((asset) => asset.layerId === "stands")
       .map((asset) => {
-        const match = standByName.get(asset.label.trim().toLowerCase());
+        const match = asset.pinId ? standByPinId.get(asset.pinId) : undefined;
         const status = match
           ? getStandWindCheck(match, currentWind).status
           : "unknown";
@@ -1872,7 +1850,7 @@ export default function HuntingMap() {
           status,
         };
       });
-  }, [visibleAssets, propertyStands, windData?.fromCompass]);
+  }, [visibleAssets, standByPinId, windData?.fromCompass]);
   const windStatusSummary = useMemo(() => {
     let good = 0;
     let avoid = 0;
@@ -1888,43 +1866,50 @@ export default function HuntingMap() {
     return { good, avoid, matched };
   }, [windStandPoints]);
 
-  // "Today's play": rank the property's stands for the wind right now — good
-  // wind first, wrong wind last — so the answer to "where do I sit?" is one
-  // glance. Each stand is matched to its map pin (by name, like windStandPoints)
-  // so tapping a row flies there.
+  // "Today's play": the Today verdict's own ranking for the next sit (same
+  // forecast wind, pick and order as Today and Stands, via usePropertyToday).
+  // With a future timeline window picked, it ranks on that window's forecast
+  // wind instead — the same wind object labels and ranks it. Each stand links
+  // to its map pin through findStandLocation so tapping a row flies there.
+  const propertyToday = usePropertyToday(selectedPropertyId);
+  const standAssetIdMap = useMemo(
+    () => standAssetIds(propertyStands, pins, visibleAssets),
+    [propertyStands, pins, visibleAssets],
+  );
   const todaysPlay = useMemo(() => {
-    const currentWind = windData?.fromCompass;
-    const standAssetByName = new Map(
-      visibleAssets
-        .filter((asset) => asset.layerId === "stands")
-        .map((asset) => [asset.label.trim().toLowerCase(), asset]),
-    );
-    const order: Record<string, number> = {
-      good: 0,
-      marginal: 1,
-      unknown: 2,
-      avoid: 3,
-    };
+    if (showingFuture && selectedSlot) {
+      const slotWind = windData?.fromCompass || undefined;
+      return {
+        contextLabel: `${forecastSlotLabel(
+          selectedSlot,
+          forecastMeta?.sunriseISO,
+          forecastMeta?.sunsetISO,
+        )} · ${slotWind ?? "wind pending"}`,
+        plays: playsForWind(propertyStands, slotWind, standAssetIdMap),
+      };
+    }
 
-    return propertyStands
-      .map((stand) => {
-        const check = getStandWindCheck(stand, currentWind);
-        const asset = standAssetByName.get(stand.name.trim().toLowerCase());
-        return {
-          id: stand.id,
-          name: stand.name || "Unnamed stand",
-          standType: stand.standType,
-          status: check.status,
-          label: check.label,
-          accessNote: stand.accessRouteNotes.trim(),
-          assetId: asset?.id ?? null,
-        };
-      })
-      .sort(
-        (a, b) =>
-          order[a.status] - order[b.status] || a.name.localeCompare(b.name),
-      );
-  }, [propertyStands, visibleAssets, windData?.fromCompass]);
+    const { verdict, forecast } = propertyToday;
+    return {
+      contextLabel: forecast
+        ? sitPlayLabel(verdict.period, verdict.wind, verdict.calm)
+        : "",
+      plays: playsFromCheckRows(
+        verdict.check.rows,
+        verdict.check.pick?.stand.id ?? null,
+        standAssetIdMap,
+      ),
+    };
+  }, [
+    showingFuture,
+    selectedSlot,
+    windData?.fromCompass,
+    forecastMeta?.sunriseISO,
+    forecastMeta?.sunsetISO,
+    propertyStands,
+    standAssetIdMap,
+    propertyToday,
+  ]);
 
   // Movement prediction: corridors are bedding→food/water links from the
   // property's own pins; direction and the outlook rating come from the shared
@@ -2185,36 +2170,17 @@ export default function HuntingMap() {
       : "#7ec2ff";
   // Where your scent drifts from a pending stand/camera (downwind = opposite of
   // the wind's source), and whether that plume points at known bedding — the
-  // real question when picking a stand. Half-angle/range match the drawn cone.
-  const SCENT_CONE_HALF_ANGLE = 34;
-  const SCENT_RANGE_METERS = 400;
+  // real question when picking a stand. Cone and reach are lib/accessScent's,
+  // the same ones the stand pages grade with (no bump rule at the stand).
   const pendingScent = useMemo(() => {
     if (!pendingPin || !pendingWantsWind || !liveWind?.fromCompass) return null;
 
-    const fromDeg = compassToDegrees(liveWind.fromCompass);
-    if (fromDeg === null) return null;
+    const downwindDeg = downwindBearing(liveWind.fromCompass);
+    if (downwindDeg === null) return null;
 
-    const downwindDeg = (fromDeg + 180) % 360;
     const drift = degreesToCompass(downwindDeg);
-
-    const towardBedding = beddingPoints.some((bed) => {
-      const bearing = bearingBetween(
-        pendingPin.lat,
-        pendingPin.lng,
-        bed.lat,
-        bed.lng,
-      );
-      // Reuse the canonical distance helper (its point type carries an unused
-      // timestamp, so pass an empty one).
-      const meters = distanceBetweenMeters(
-        { lat: pendingPin.lat, lng: pendingPin.lng, at: "" },
-        { lat: bed.lat, lng: bed.lng, at: "" },
-      );
-      return (
-        meters <= SCENT_RANGE_METERS &&
-        angularDiff(bearing, downwindDeg) <= SCENT_CONE_HALF_ANGLE
-      );
-    });
+    const towardBedding =
+      scentHitAt(pendingPin, beddingPoints, downwindDeg, { bump: false }) !== null;
 
     const verdict =
       beddingPoints.length === 0
@@ -2241,40 +2207,40 @@ export default function HuntingMap() {
     }
     return best;
   }, [pendingPin, visibleAssets]);
-  // Per-point scent safety for a planned access route: a point is flagged when
-  // your scent there blows into bedding (bedding downwind within range) — the
-  // same test the pin's scent cone uses, applied along the walk-in.
+  // Scent safety for a planned access route, from lib/accessScent's sampler:
+  // each leg is checked every ~40 m (30° plume, 365 m reach, 60 m bump rule),
+  // exactly like a stand's walk in on the Stands pages. A leg is flagged when
+  // any point on it blows into (or walks onto) bedding; a tapped point is
+  // tinted when the problem is right there.
   const routeWindFrom = liveWind?.fromCompass;
   const routeSafety = useMemo(() => {
-    const fromDeg = routeWindFrom ? compassToDegrees(routeWindFrom) : null;
+    const scent =
+      beddingPoints.length > 0
+        ? routeLegScent(routePoints, beddingPoints, routeWindFrom)
+        : null;
 
-    if (fromDeg === null || beddingPoints.length === 0) {
+    if (!scent) {
       return {
         compromised: routePoints.map(() => false),
+        legUnsafe: routePoints.slice(0, -1).map(() => false),
         flagged: 0,
-        windKnown: fromDeg !== null,
+        windKnown: downwindBearing(routeWindFrom) !== null,
         hasBedding: beddingPoints.length > 0,
       };
     }
 
-    const downwindDeg = (fromDeg + 180) % 360;
-    const compromised = routePoints.map((point) =>
-      beddingPoints.some((bed) => {
-        const bearing = bearingBetween(point.lat, point.lng, bed.lat, bed.lng);
-        const meters = distanceBetweenMeters(
-          { lat: point.lat, lng: point.lng, at: "" },
-          { lat: bed.lat, lng: bed.lng, at: "" },
-        );
-        return (
-          meters <= SCENT_RANGE_METERS &&
-          angularDiff(bearing, downwindDeg) <= SCENT_CONE_HALF_ANGLE
-        );
-      }),
-    );
+    const legUnsafe = scent.legs.map((hit) => hit !== null);
+    const compromised = scent.vertices.map((hit) => hit !== null);
+    // A single tapped point has no legs yet; count it on its own.
+    const flagged =
+      routePoints.length === 1
+        ? compromised.filter(Boolean).length
+        : legUnsafe.filter(Boolean).length;
 
     return {
       compromised,
-      flagged: compromised.filter(Boolean).length,
+      legUnsafe,
+      flagged,
       windKnown: true,
       hasBedding: true,
     };
@@ -4436,9 +4402,7 @@ export default function HuntingMap() {
             {isPlanningRoute
               ? routePoints.slice(0, -1).map((point, index) => {
                   const next = routePoints[index + 1];
-                  const unsafe =
-                    routeSafety.compromised[index] ||
-                    routeSafety.compromised[index + 1];
+                  const unsafe = routeSafety.legUnsafe[index] ?? false;
 
                   return (
                     <Polyline
@@ -4788,8 +4752,8 @@ export default function HuntingMap() {
             playSection={
               selectedPropertyId ? (
                 <TodaysPlayPanel
-                  windFromCompass={liveWind?.fromCompass ?? ""}
-                  plays={todaysPlay}
+                  contextLabel={todaysPlay.contextLabel}
+                  plays={todaysPlay.plays}
                   onSelect={(assetId) => {
                     const asset = visibleAssets.find(
                       (candidate) => candidate.id === assetId,
@@ -5026,9 +4990,11 @@ export default function HuntingMap() {
                     : !routeSafety.hasBedding
                       ? "Add bedding pins to check scent"
                       : routeSafety.flagged > 0
-                        ? `⚠ ${routeSafety.flagged} spot${
-                            routeSafety.flagged === 1 ? "" : "s"
-                          } blow into bedding`
+                        ? routePoints.length === 1
+                          ? "⚠ This spot blows into bedding"
+                          : `⚠ ${routeSafety.flagged} leg${
+                              routeSafety.flagged === 1 ? "" : "s"
+                            } blow into bedding`
                         : "Scent-safe — clear of bedding"}
                 </span>
               ) : null}

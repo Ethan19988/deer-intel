@@ -220,6 +220,18 @@ export function clearSyncMeta(): void {
   }
 }
 
+/**
+ * Sync meta for "restore a backup, but merge it with the cloud": no merge base
+ * (so nothing missing from the backup counts as a deletion) and no known cloud
+ * version (so the next save can't simply overwrite the row — it conflicts,
+ * pulls the cloud copy and merges by record id, keeping records from both).
+ * Pending edits are flagged so a reconcile on the next sign-in pushes (merges)
+ * rather than pulling over the restored data.
+ */
+export function syncMetaForMergeRestore(userId: string): SyncMeta {
+  return { updatedAt: "", pendingLocalEdits: true, userId };
+}
+
 export function serializeState(state: SyncedState): string {
   return JSON.stringify(state);
 }

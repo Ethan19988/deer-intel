@@ -12,8 +12,8 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { useActiveParty } from "@/components/party/PartyProvider";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
 import { usePartyBucks, usePartyBuckPhotos, usePartyRoster } from "@/lib/useParty";
-import DeerProfilesSection from "@/components/properties/dashboard/DeerProfilesSection";
-import { getDeerProfileSummaries } from "@/lib/deerProfiles";
+import DeerProfilesSection from "@/components/deer/DeerProfilesSection";
+import { getDeerProfileSummaries, isActiveDeerProfile } from "@/lib/deerProfiles";
 import type { PartyBuck } from "@/types/party";
 
 type Stat = { label: string; value: string };
@@ -46,11 +46,15 @@ export default function HitListPage() {
     profiles: state.deerProfiles.filter((profile) => profile.propertyId === propertyId),
     photoRecords: propertyPhotos,
   });
+  // Harvested / retired bucks stay listed (collapsed) but aren't targets.
+  const activeCount = summaries.filter((summary) =>
+    isActiveDeerProfile(summary.profile),
+  ).length;
 
   return (
     <PageShell>
       <PageHeader
-        eyebrow={`Hit List · ${summaries.length} ${summaries.length === 1 ? "buck" : "bucks"}${property ? ` · ${property.name}` : ""}`}
+        eyebrow={`Hit List · ${activeCount} ${activeCount === 1 ? "buck" : "bucks"}${property ? ` · ${property.name}` : ""}`}
         title="Hit List"
         action={
           available ? (

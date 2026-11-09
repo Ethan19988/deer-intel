@@ -19,6 +19,7 @@ import {
   type SitPeriod,
   type YesNoValue,
 } from "@/lib/huntFormValues";
+import { isActiveDeerProfile } from "@/lib/deerProfiles";
 import { getConvertibleStandPins } from "@/lib/standPins";
 import {
   mergeWeatherFill,
@@ -26,6 +27,7 @@ import {
   type LiveWeatherFields,
   type WeatherPoint,
 } from "@/lib/liveWeather";
+import type { DeerProfile } from "@/types/deerProfile";
 import type { MapPin } from "@/types/mapPin";
 import type { Property } from "@/types/property";
 import type { Stand } from "@/types/stand";
@@ -71,6 +73,8 @@ type HuntLogFormProps = {
   afterStand?: ReactNode;
   /** Save button style; "primary" (blaze) unless another action leads. */
   submitVariant?: "primary" | "secondary";
+  /** Tracked bucks (any property); the chosen property's show as tap-to-tag chips. */
+  deerProfiles?: DeerProfile[];
 };
 
 // How long Save stays locked after a tap, so a double-tap can't log twice.
@@ -95,6 +99,7 @@ export default function HuntLogForm({
   showPeriodChips = false,
   afterStand = null,
   submitVariant = "primary",
+  deerProfiles = [],
 }: HuntLogFormProps) {
   // What the last automatic weather fill wrote, field by field. A field still
   // matching it is the fill's to refresh; one the hunter changed is theirs.
@@ -165,6 +170,34 @@ export default function HuntLogForm({
     Boolean(missingStandName && values.standId) &&
     !availableStands.some((stand) => stand.id === values.standId);
 
+  const taggedBuckIds = values.deerProfileIds ?? [];
+  // This property's live hit list, plus any buck already tagged on this sit
+  // (editing an old sit after he was harvested keeps him visible).
+  const taggableBucks = deerProfiles
+    .filter(
+      (profile) =>
+        profile.propertyId === values.propertyId &&
+        (isActiveDeerProfile(profile) || taggedBuckIds.includes(profile.id)),
+    )
+    .sort((left, right) => left.nickname.localeCompare(right.nickname));
+
+  function toggleBuck(profileId: string) {
+    onChange((current) => {
+      const ids = current.deerProfileIds ?? [];
+      const next = ids.includes(profileId)
+        ? ids.filter((id) => id !== profileId)
+        : [...ids, profileId];
+      const counted = Math.max(0, Math.floor(Number(current.bucks) || 0));
+
+      return {
+        ...current,
+        deerProfileIds: next,
+        // Tagging a buck means at least that many bucks were seen.
+        bucks: next.length > counted ? String(next.length) : current.bucks,
+      };
+    });
+  }
+
   function updateField<Field extends keyof HuntFormValues>(
     field: Field,
     value: HuntFormValues[Field],
@@ -183,6 +216,8 @@ export default function HuntLogForm({
     onChange({
       ...values,
       propertyId,
+      // Bucks are tracked per property; another property's tags don't carry.
+      deerProfileIds: propertyId === values.propertyId ? values.deerProfileIds : [],
       standId: standStillBelongsToProperty
         ? values.standId
         : (getRecentStandIds?.(propertyId)[0] ?? ""),
@@ -460,6 +495,28 @@ export default function HuntLogForm({
             onChange={(value) => updateField("fawns", value)}
           />
         </div>
+        {taggableBucks.length > 0 ? (
+          <div style={fieldStyle}>
+            <span style={labelStyle}>Bucks you recognized</span>
+            <div style={chipRowStyle} role="group" aria-label="Bucks you recognized">
+              {taggableBucks.map((profile) => {
+                const selected = taggedBuckIds.includes(profile.id);
+                return (
+                  <button
+                    key={profile.id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => toggleBuck(profile.id)}
+                    style={{ ...chipStyle, ...(selected ? chipOnStyle : null) }}
+                  >
+                    <span aria-hidden="true">{selected ? "✓ " : "+ "}</span>
+                    {profile.nickname}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div style={{ ...rowStyle, ...twoColStyle }}>

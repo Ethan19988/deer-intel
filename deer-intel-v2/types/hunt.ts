@@ -20,4 +20,7 @@ export type HuntLogEntry = {
   shotOpportunity: boolean;
   harvest: boolean;
   notes: string;
+  // Tracked bucks (deer profile ids) seen in person on this sit. Optional:
+  // older sits predate buck tagging.
+  deerProfileIds?: string[];
 };

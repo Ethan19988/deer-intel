@@ -44,9 +44,114 @@ function pinLabel(pin: MapPin): string {
   return pin.name?.trim() || pin.notes?.trim() || pin.type;
 }
 
-function angleDiff(a: number, b: number): number {
+/** Smallest angle between two compass bearings (0-180°). */
+export function angleDiff(a: number, b: number): number {
   const diff = Math.abs(a - b) % 360;
   return diff > 180 ? 360 - diff : diff;
+}
+
+/** Bearing scent drifts toward on a wind named for where it blows FROM. */
+export function downwindBearing(windCompass: string | undefined): number | null {
+  const windFrom = windCompass ? compassToDegrees(windCompass.toUpperCase()) : null;
+  return windFrom === null ? null : (windFrom + 180) % 360;
+}
+
+export type ScentHit<Bed extends LatLng = LatLng> = {
+  kind: "bump" | "scent";
+  meters: number;
+  bed: Bed;
+};
+
+/**
+ * Whether hit `a` is worse than `b`: a bump beats a scent plume, and within a
+ * kind the nearer bed wins.
+ */
+function worseHit(a: ScentHit<LatLng>, b: ScentHit<LatLng> | null): boolean {
+  if (!b) return true;
+  if (a.kind !== b.kind) return a.kind === "bump";
+  return a.meters < b.meters;
+}
+
+/**
+ * The worst problem a person standing at `point` causes on `beds`: within
+ * BUMP_DISTANCE_M is a bump whatever the wind (unless `bump` is false, e.g. at
+ * the stand itself, where you're already settled), and a bed inside the
+ * downwind cone within SCENT_REACH_M takes your scent. Null when clear.
+ */
+export function scentHitAt<Bed extends LatLng>(
+  point: LatLng,
+  beds: Bed[],
+  downwind: number,
+  { bump = true }: { bump?: boolean } = {},
+): ScentHit<Bed> | null {
+  let worst: ScentHit<Bed> | null = null;
+
+  for (const bed of beds) {
+    const meters = distanceMeters(point, bed);
+
+    if (bump && meters <= BUMP_DISTANCE_M) {
+      const hit: ScentHit<Bed> = { kind: "bump", meters, bed };
+      if (worseHit(hit, worst)) worst = hit;
+      continue;
+    }
+
+    if (meters > SCENT_REACH_M) continue;
+
+    const toBed = bearingBetween(point.lat, point.lng, bed.lat, bed.lng);
+    if (angleDiff(toBed, downwind) <= SCENT_CONE_HALF_ANGLE) {
+      const hit: ScentHit<Bed> = { kind: "scent", meters, bed };
+      if (worseHit(hit, worst)) worst = hit;
+    }
+  }
+
+  return worst;
+}
+
+/**
+ * Points every ~SAMPLE_STEP_M along a straight leg, starting at `from` and
+ * stopping short of `to` (the next leg, or the caller, adds it).
+ */
+export function sampleLeg(from: LatLng, to: LatLng): LatLng[] {
+  const steps = Math.max(1, Math.ceil(distanceMeters(from, to) / SAMPLE_STEP_M));
+  const points: LatLng[] = [];
+
+  for (let step = 0; step < steps; step += 1) {
+    const t = step / steps;
+    points.push({
+      lat: from.lat + (to.lat - from.lat) * t,
+      lng: from.lng + (to.lng - from.lng) * t,
+    });
+  }
+
+  return points;
+}
+
+/**
+ * Scent check for a hand-drawn walk (the map's access-route planner): each
+ * leg is sampled like a stand's walk in, and a leg is flagged when any point
+ * on it bumps or blows scent into a bed. Vertices are flagged on their own so
+ * the tapped points can be tinted too.
+ */
+export function routeLegScent<Bed extends LatLng>(
+  points: LatLng[],
+  beds: Bed[],
+  windCompass: string | undefined,
+): { legs: Array<ScentHit<Bed> | null>; vertices: Array<ScentHit<Bed> | null> } | null {
+  const downwind = downwindBearing(windCompass);
+  if (downwind === null) return null;
+
+  const vertices = points.map((point) => scentHitAt(point, beds, downwind));
+  const legs = points.slice(0, -1).map((from, index) => {
+    const to = points[index + 1];
+    let worst: ScentHit<Bed> | null = null;
+    for (const sample of [...sampleLeg(from, to), to]) {
+      const hit = scentHitAt(sample, beds, downwind);
+      if (hit && worseHit(hit, worst)) worst = hit;
+    }
+    return worst;
+  });
+
+  return { legs, vertices };
 }
 
 /** The map pin a stand sits on: the one it was promoted from, else a name match. */
@@ -98,17 +203,8 @@ export function buildAccessRoute(
   const route: RoutePoint[] = [];
 
   for (let index = 0; index < legs.length - 1; index += 1) {
-    const from = legs[index];
-    const to = legs[index + 1];
-    const steps = Math.max(1, Math.ceil(distanceMeters(from, to) / SAMPLE_STEP_M));
-
-    for (let step = 0; step < steps; step += 1) {
-      const t = step / steps;
-      route.push({
-        lat: from.lat + (to.lat - from.lat) * t,
-        lng: from.lng + (to.lng - from.lng) * t,
-        atStand: false,
-      });
+    for (const point of sampleLeg(legs[index], legs[index + 1])) {
+      route.push({ ...point, atStand: false });
     }
   }
 
@@ -122,9 +218,9 @@ export function getAccessScentCheck(
   propertyPins: MapPin[],
   windCompass: string | undefined,
 ): AccessScentCheck {
-  const windFrom = windCompass ? compassToDegrees(windCompass.toUpperCase()) : null;
+  const downwind = downwindBearing(windCompass);
 
-  if (windFrom === null) {
+  if (downwind === null) {
     return { status: "unknown", label: "Wind unknown", detail: "" };
   }
 
@@ -149,34 +245,13 @@ export function getAccessScentCheck(
   }
 
   const { route, startLabel } = buildAccessRoute(standPin, propertyPins);
-  const downwind = (windFrom + 180) % 360;
 
   // Closest problem wins: a bump beats a scent plume, nearer beats farther.
-  let worst: { kind: "bump" | "scent"; meters: number; bed: MapPin; atStand: boolean } | null =
-    null;
+  let worst: (ScentHit<MapPin> & { atStand: boolean }) | null = null;
 
   for (const point of route) {
-    for (const bed of beds) {
-      const meters = distanceMeters(point, bed);
-
-      if (meters <= BUMP_DISTANCE_M && !point.atStand) {
-        if (!worst || worst.kind !== "bump" || meters < worst.meters) {
-          worst = { kind: "bump", meters, bed, atStand: false };
-        }
-        continue;
-      }
-
-      if (meters > SCENT_REACH_M) continue;
-
-      const toBed = bearingBetween(point.lat, point.lng, bed.lat, bed.lng);
-
-      if (
-        angleDiff(toBed, downwind) <= SCENT_CONE_HALF_ANGLE &&
-        (!worst || (worst.kind === "scent" && meters < worst.meters))
-      ) {
-        worst = { kind: "scent", meters, bed, atStand: point.atStand };
-      }
-    }
+    const hit = scentHitAt(point, beds, downwind, { bump: !point.atStand });
+    if (hit && worseHit(hit, worst)) worst = { ...hit, atStand: point.atStand };
   }
 
   const wind = windCompass!.toUpperCase();

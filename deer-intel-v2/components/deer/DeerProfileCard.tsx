@@ -17,7 +17,12 @@ import type {
   DeerConditionInsights,
 } from "@/lib/deerConditionInsights";
 import type { DeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
-import type { DeerProfileSummary } from "@/lib/deerProfiles";
+import {
+  deerProfileStatus,
+  deerProfileStatusLabel,
+  type DeerProfileSummary,
+} from "@/lib/deerProfiles";
+import type { DeerProfileTimeline } from "@/lib/deerProfileTimeline";
 import type { DeerTravelIntelligence } from "@/lib/deerTravelIntelligence";
 import type { DeerProfile } from "@/types/deerProfile";
 import type { PhotoRecord } from "@/types/photo";
@@ -29,6 +34,9 @@ type DeerProfileCardProps = {
   conditions: DeerConditionInsights;
   photos: PhotoRecord[];
   deerProfiles: DeerProfile[];
+  timeline: DeerProfileTimeline;
+  /** Edit / harvested / merge / delete controls, under the header. */
+  actions?: ReactNode;
 };
 
 export default function DeerProfileCard({
@@ -38,7 +46,11 @@ export default function DeerProfileCard({
   conditions,
   photos,
   deerProfiles,
+  timeline,
+  actions,
 }: DeerProfileCardProps) {
+  const status = deerProfileStatus(summary.profile);
+
   return (
     <Card as="article" variant="subtle" style={cardStyle}>
       <header style={headerStyle}>
@@ -46,20 +58,21 @@ export default function DeerProfileCard({
           <p style={eyebrowStyle}>Deer Profile</p>
           <h3 style={titleStyle}>{summary.profile.nickname}</h3>
         </div>
-        <Badge>{summary.profile.estimatedAge || "Age unknown"}</Badge>
+        <div style={badgeRowStyle}>
+          {status !== "active" ? (
+            <Badge variant={status === "harvested" ? "success" : "default"}>
+              {deerProfileStatusLabel(summary.profile)}
+            </Badge>
+          ) : null}
+          <Badge>{summary.profile.estimatedAge || "Age unknown"}</Badge>
+        </div>
       </header>
 
+      {actions ? <div style={actionsStyle}>{actions}</div> : null}
+
       <section style={groupStyle}>
-        <p style={groupLabelStyle}>Overview</p>
-        <div style={overviewGridStyle}>
-          <ProfileDetail label="First Seen" value={summary.firstSeen} />
-          <ProfileDetail label="Last Seen" value={summary.lastSeen} />
-          <ProfileDetail label="Photos" value={String(summary.photoCount)} />
-          <ProfileDetail
-            label="Sightings"
-            value={String(summary.sightingCount)}
-          />
-        </div>
+        <p style={groupLabelStyle}>Timeline</p>
+        <DeerTimeline timeline={timeline} travel={travel} />
 
         {summary.profile.notes ? (
           <div style={overviewNotesStyle}>
@@ -113,6 +126,61 @@ export default function DeerProfileCard({
         </div>
       </section>
     </Card>
+  );
+}
+
+function DeerTimeline({
+  timeline,
+  travel,
+}: {
+  timeline: DeerProfileTimeline;
+  travel: DeerTravelIntelligence;
+}) {
+  const usual = timeline.timeWindow;
+  const heading = travel.directedCount > 0 ? travel.heading.title : "";
+
+  return (
+    <>
+      <dl style={timelineGridStyle}>
+        <TimelineStat label="First seen" value={timeline.firstSeen || "—"} />
+        <TimelineStat label="Last seen" value={timeline.lastSeen || "—"} />
+        <TimelineStat label="Camera hits" value={String(timeline.cameraHits)} />
+        <TimelineStat label="Sit sightings" value={String(timeline.sitSightings)} />
+      </dl>
+
+      {usual || heading ? (
+        <p style={timelineLineStyle}>
+          {usual
+            ? `Usually ${usual.label.toLowerCase()} (${usual.hours}) · ${usual.count} of ${usual.sampleSize} timed`
+            : null}
+          {usual && heading ? " · " : null}
+          {heading || null}
+        </p>
+      ) : null}
+
+      {timeline.cameras.length > 0 ? (
+        <ul style={cameraListStyle} aria-label="Cameras he's been on">
+          {timeline.cameras.map((camera) => (
+            <li key={camera.cameraId} style={cameraRowStyle}>
+              <span style={cameraNameStyle}>{camera.name}</span>
+              <span style={cameraMetaStyle}>
+                {camera.count} {camera.count === 1 ? "hit" : "hits"}
+                {camera.lastSeen ? ` · last ${camera.lastSeen}` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </>
+  );
+}
+
+function TimelineStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt style={timelineLabelStyle}>{label}</dt>
+      <dd style={timelineValueStyle}>{value}</dd>
+    </div>
   );
 }
 
@@ -301,6 +369,79 @@ const eyebrowStyle: CSSProperties = {
   textTransform: "uppercase",
 };
 
+const badgeRowStyle: CSSProperties = {
+  display: "flex",
+  gap: "0.4rem",
+  flexWrap: "wrap",
+};
+
+const actionsStyle: CSSProperties = {
+  marginTop: "1rem",
+};
+
+const timelineGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(110px, 100%), 1fr))",
+  gap: "0.75rem",
+  margin: "0.75rem 0 0",
+};
+
+const timelineLabelStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text-faint)",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.68rem",
+  letterSpacing: "0.07em",
+  textTransform: "uppercase",
+};
+
+const timelineValueStyle: CSSProperties = {
+  margin: "0.2rem 0 0",
+  color: "var(--text)",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.9rem",
+};
+
+const timelineLineStyle: CSSProperties = {
+  margin: "0.75rem 0 0",
+  color: "var(--text-muted)",
+  fontSize: "0.9rem",
+  lineHeight: 1.5,
+};
+
+const cameraListStyle: CSSProperties = {
+  display: "grid",
+  margin: "0.65rem 0 0",
+  padding: 0,
+  listStyle: "none",
+  borderTop: "1px solid var(--border)",
+};
+
+const cameraRowStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "baseline",
+  gap: "0.75rem",
+  padding: "0.45rem 0",
+  borderBottom: "1px solid var(--border)",
+};
+
+const cameraNameStyle: CSSProperties = {
+  color: "var(--text)",
+  fontSize: "0.9rem",
+  minWidth: 0,
+  overflowWrap: "anywhere",
+};
+
+const cameraMetaStyle: CSSProperties = {
+  flex: "none",
+  color: "var(--text-muted)",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.72rem",
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+};
+
 const titleStyle: CSSProperties = {
   margin: "0.2rem 0 0",
   fontSize: "1.25rem",
@@ -351,13 +492,6 @@ const insightsGridStyle: CSSProperties = {
   gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))",
   gap: "0.75rem",
   marginTop: "0.85rem",
-};
-
-const overviewGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(120px, 100%), 1fr))",
-  gap: "1rem",
-  marginTop: "0.75rem",
 };
 
 const overviewNotesStyle: CSSProperties = {
@@ -413,6 +547,8 @@ const detailLabelStyle: CSSProperties = {
 
 const detailValueStyle: CSSProperties = {
   margin: "0.25rem 0 0",
+  // Merged notes are separate paragraphs.
+  whiteSpace: "pre-line",
   color: "var(--text-muted)",
   lineHeight: 1.5,
 };

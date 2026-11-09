@@ -3,14 +3,66 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useStoragePersistenceFailed } from "@/lib/deerIntelStore";
+import {
+  dismissCorruptStoreNotice,
+  downloadTextFile,
+  readCorruptStateRaw,
+  releaseUnsavedCorruptState,
+  useCorruptStoreNotice,
+} from "@/lib/storeQuarantine";
 import { AlertIcon } from "@/components/ui/FieldIcons";
 
 // A slim, global alert shown only when a save couldn't be written to
 // localStorage (the device's storage is full). Without it, a failed save is
 // silent and the hunter loses the change on the next reload. It clears itself
 // automatically once a later save succeeds (e.g. after freeing space).
+//
+// It also reports a saved state that couldn't be read at all: the damaged
+// save was copied aside (lib/storeQuarantine) and is offered as a download.
 export default function StoragePersistenceBanner() {
   const failed = useStoragePersistenceFailed();
+  const corrupt = useCorruptStoreNotice();
+
+  if (corrupt) {
+    const raw = readCorruptStateRaw(corrupt);
+
+    const notice = corrupt;
+    const handleDownload = () => {
+      if (raw === null) return;
+      downloadTextFile(raw, `deer-intel-damaged-save-${notice.at.slice(0, 10)}.json`);
+      // Downloaded: the store may now save over the damaged original.
+      if (notice.unsaved) releaseUnsavedCorruptState();
+    };
+
+    return (
+      <div role="alert" style={bannerStyle}>
+        <span style={iconStyle} aria-hidden="true">
+          <AlertIcon size={20} />
+        </span>
+        <p style={textStyle}>
+          <strong>Your saved data couldn&apos;t be read.</strong>{" "}
+          {corrupt.unsaved
+            ? "This device is too full to keep a copy, so nothing will be saved until you download it."
+            : "The damaged save was set aside on this device so it isn't lost."}{" "}
+          Download it to keep a copy.
+        </p>
+        {raw !== null ? (
+          <button type="button" onClick={handleDownload} style={linkStyle}>
+            Download
+          </button>
+        ) : null}
+        {!corrupt.unsaved ? (
+          <button
+            type="button"
+            onClick={() => dismissCorruptStoreNotice(corrupt.hash)}
+            style={linkStyle}
+          >
+            Dismiss
+          </button>
+        ) : null}
+      </div>
+    );
+  }
 
   if (!failed) return null;
 
@@ -78,4 +130,5 @@ const linkStyle: CSSProperties = {
   fontWeight: 800,
   textDecoration: "none",
   whiteSpace: "nowrap",
+  cursor: "pointer",
 };

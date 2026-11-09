@@ -3,10 +3,16 @@
 import { useSyncExternalStore } from "react";
 import { huntAreaCentroid } from "@/lib/huntArea";
 import { readStorageValue, writeStorageValue } from "@/lib/storage";
+import {
+  backupCorruptState,
+  isCorruptStateUnsaved,
+  quarantineRecords,
+  type RejectedRecord,
+} from "@/lib/storeQuarantine";
 import { normalizeWeatherSnapshot } from "@/lib/weather";
 import type { Camera, CameraStatus, CameraType } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
-import type { DeerProfile } from "@/types/deerProfile";
+import type { DeerProfile, DeerProfileStatus } from "@/types/deerProfile";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 import type { DocumentRecord } from "@/types/document";
 import type { HuntLogEntry } from "@/types/hunt";
@@ -228,14 +234,12 @@ function normalizePin(value: unknown): MapPin | null {
   const type = PIN_TYPES.includes(value.type as PinType)
     ? (value.type as PinType)
     : null;
+  // Tolerant like every other coordinate here: a numeric string (an import or
+  // an older build) is still a location, not a reason to drop the pin.
+  const lat = optionalNumberValue(value.lat);
+  const lng = optionalNumberValue(value.lng);
 
-  if (
-    !id ||
-    !propertyId ||
-    !type ||
-    typeof value.lat !== "number" ||
-    typeof value.lng !== "number"
-  ) {
+  if (!id || !propertyId || !type || lat === undefined || lng === undefined) {
     return null;
   }
 
@@ -243,8 +247,8 @@ function normalizePin(value: unknown): MapPin | null {
     id,
     propertyId,
     type,
-    lat: value.lat,
-    lng: value.lng,
+    lat,
+    lng,
     createdAt: stringValue(value.createdAt),
     name: stringValue(value.name),
     notes: stringValue(value.notes),
@@ -433,8 +437,24 @@ function normalizeHunt(value: unknown): HuntLogEntry | null {
     ),
     harvest: booleanValue(value.harvest, legacyResultText.includes("harvest")),
     notes: stringValue(value.notes),
+    ...withOptional("deerProfileIds", optionalStringArrayValue(value.deerProfileIds)),
   };
 }
+
+// Spread helper: include an optional field only when it has a value, so
+// records without it keep the same shape (and cloud-sync fingerprint).
+function withOptional<Key extends string, Value>(
+  key: Key,
+  value: Value | undefined,
+): Partial<Record<Key, Value>> {
+  return value === undefined ? {} : ({ [key]: value } as Record<Key, Value>);
+}
+
+const DEER_PROFILE_STATUSES: readonly DeerProfileStatus[] = [
+  "active",
+  "harvested",
+  "retired",
+];
 
 function normalizePhotoRecord(value: unknown): PhotoRecord | null {
   if (!isRecord(value)) return null;
@@ -521,6 +541,13 @@ function normalizeDeerProfile(value: unknown): DeerProfile | null {
     firstSeen: stringValue(value.firstSeen),
     lastSeen: stringValue(value.lastSeen),
     notes: stringValue(value.notes),
+    ...withOptional(
+      "status",
+      DEER_PROFILE_STATUSES.includes(value.status as DeerProfileStatus)
+        ? (value.status as DeerProfileStatus)
+        : undefined,
+    ),
+    ...withOptional("statusDate", optionalStringValue(value.statusDate)),
   };
 }
 
@@ -608,58 +635,65 @@ function createState(properties: Property[]): DeerIntelState {
   };
 }
 
-function normalizeState(value: unknown): DeerIntelState | null {
+/**
+ * Normalize every entry of one list, collecting the ones that can't be read
+ * into `rejected` (instead of silently dropping them) so callers can set them
+ * aside in the quarantine.
+ */
+function normalizeList<T>(
+  collection: string,
+  value: unknown,
+  normalize: (item: unknown) => T | null,
+  rejected: RejectedRecord[] | undefined,
+): T[] {
+  if (!Array.isArray(value)) return [];
+
+  const items: T[] = [];
+  for (const item of value) {
+    const normalized = normalize(item);
+    if (normalized !== null) items.push(normalized);
+    else rejected?.push({ collection, record: item });
+  }
+  return items;
+}
+
+/**
+ * Turn whatever was saved (any older shape) into the current state. Records
+ * that can't be read are left out of the state; pass `rejected` to collect
+ * them. Exported for tests.
+ */
+export function normalizeState(
+  value: unknown,
+  rejected?: RejectedRecord[],
+): DeerIntelState | null {
   if (!isRecord(value)) return null;
   if (!Array.isArray(value.properties)) return null;
 
-  const properties = value.properties
-    .map(normalizeProperty)
-    .filter((property): property is Property => property !== null);
-  const pins = Array.isArray(value.pins)
-    ? value.pins
-        .map(normalizePin)
-        .filter((pin): pin is MapPin => pin !== null)
-    : [];
-  const cameras = Array.isArray(value.cameras)
-    ? value.cameras
-        .map(normalizeCamera)
-        .filter((camera): camera is Camera => camera !== null)
-    : [];
-  const cameraChecks = Array.isArray(value.cameraChecks)
-    ? value.cameraChecks
-        .map(normalizeCameraCheck)
-        .filter((check): check is CameraCheck => check !== null)
-    : [];
-  const stands = Array.isArray(value.stands)
-    ? value.stands
-        .map(normalizeStand)
-        .filter((stand): stand is Stand => stand !== null)
-    : [];
-  const hunts = Array.isArray(value.hunts)
-    ? value.hunts
-        .map(normalizeHunt)
-        .filter((hunt): hunt is HuntLogEntry => hunt !== null)
-    : [];
-  const photoRecords = Array.isArray(value.photoRecords)
-    ? value.photoRecords
-        .map(normalizePhotoRecord)
-        .filter((photo): photo is PhotoRecord => photo !== null)
-    : [];
-  const deerProfiles = Array.isArray(value.deerProfiles)
-    ? value.deerProfiles
-        .map(normalizeDeerProfile)
-        .filter((profile): profile is DeerProfile => profile !== null)
-    : [];
-  const walkTracks = Array.isArray(value.walkTracks)
-    ? value.walkTracks
-        .map(normalizeWalkTrack)
-        .filter((track): track is WalkTrack => track !== null)
-    : [];
-  const documents = Array.isArray(value.documents)
-    ? value.documents
-        .map(normalizeDocument)
-        .filter((document): document is DocumentRecord => document !== null)
-    : [];
+  const properties = normalizeList("properties", value.properties, normalizeProperty, rejected);
+  const pins = normalizeList("pins", value.pins, normalizePin, rejected);
+  const cameras = normalizeList("cameras", value.cameras, normalizeCamera, rejected);
+  const cameraChecks = normalizeList(
+    "cameraChecks",
+    value.cameraChecks,
+    normalizeCameraCheck,
+    rejected,
+  );
+  const stands = normalizeList("stands", value.stands, normalizeStand, rejected);
+  const hunts = normalizeList("hunts", value.hunts, normalizeHunt, rejected);
+  const photoRecords = normalizeList(
+    "photoRecords",
+    value.photoRecords,
+    normalizePhotoRecord,
+    rejected,
+  );
+  const deerProfiles = normalizeList(
+    "deerProfiles",
+    value.deerProfiles,
+    normalizeDeerProfile,
+    rejected,
+  );
+  const walkTracks = normalizeList("walkTracks", value.walkTracks, normalizeWalkTrack, rejected);
+  const documents = normalizeList("documents", value.documents, normalizeDocument, rejected);
   const selectedPropertyId = properties.some(
     (property) => property.id === value.selectedPropertyId,
   )
@@ -813,11 +847,19 @@ function removeUntouchedLegacyProperties(
   return { ...state, properties: remainingProperties, selectedPropertyId };
 }
 
+/** Normalize, setting aside (quarantining) any record that can't be read. */
+function normalizeAndQuarantine(value: unknown): DeerIntelState | null {
+  const rejected: RejectedRecord[] = [];
+  const state = normalizeState(value, rejected);
+  quarantineRecords(rejected);
+  return state;
+}
+
 function parseState(rawState: string | null): DeerIntelState | null {
   if (rawState === null) return null;
 
   try {
-    return normalizeState(JSON.parse(rawState));
+    return normalizeAndQuarantine(JSON.parse(rawState));
   } catch {
     return null;
   }
@@ -831,15 +873,22 @@ function parseLegacyProperties(rawProperties: string | null): Property[] | null 
 
     if (!Array.isArray(parsedProperties)) return null;
 
-    return parsedProperties
-      .map(normalizeProperty)
-      .filter((property): property is Property => property !== null);
+    const rejected: RejectedRecord[] = [];
+    const properties = normalizeList(
+      "properties",
+      parsedProperties,
+      normalizeProperty,
+      rejected,
+    );
+    quarantineRecords(rejected);
+    return properties;
   } catch {
     return null;
   }
 }
 
-function readStateFromStorage(): DeerIntelState {
+/** The saved state as read from localStorage (cached per raw value). Exported for tests. */
+export function readStateFromStorage(): DeerIntelState {
   if (typeof window === "undefined") return DEFAULT_STATE;
 
   const stateRaw = readStorageValue(STORAGE_KEY);
@@ -853,9 +902,16 @@ function readStateFromStorage(): DeerIntelState {
     return cachedStorage.state;
   }
 
-  const state =
-    parseState(stateRaw) ??
-    createState(parseLegacyProperties(legacyPropertiesRaw) ?? DEFAULT_PROPERTIES);
+  let state = parseState(stateRaw);
+
+  // A saved state that can't be read (broken JSON, or no properties list):
+  // copy the raw text aside before the first save can overwrite it, then
+  // start from an empty store. The UI offers the copy as a download.
+  if (state === null && stateRaw !== null) backupCorruptState(stateRaw);
+
+  state ??= createState(
+    parseLegacyProperties(legacyPropertiesRaw) ?? DEFAULT_PROPERTIES,
+  );
 
   cachedStorage = {
     stateRaw,
@@ -890,7 +946,10 @@ function subscribe(listener: () => void) {
       return;
     }
 
-    memoryState = null;
+    // While saves are failing (storage full), memoryState holds edits that
+    // never reached localStorage; dropping it would throw them away for
+    // another tab's copy. Keep it until a save succeeds again.
+    if (!storagePersistenceFailed) memoryState = null;
     cachedStorage = null;
     listener();
   }
@@ -908,14 +967,18 @@ export function useDeerIntelStore() {
 }
 
 export function saveDeerIntelStore(nextState: DeerIntelState): DeerIntelState {
-  const normalizedState = normalizeState(nextState) ?? DEFAULT_STATE;
+  const normalizedState = normalizeAndQuarantine(nextState) ?? DEFAULT_STATE;
   memoryState = normalizedState;
   cachedStorage = null;
 
   // The in-memory state above keeps the current session working; but if the
   // write fails (localStorage quota exhausted), the change won't survive a
   // reload. Track that so the UI can warn instead of silently losing data.
-  const persisted = writeStorageValue(STORAGE_KEY, JSON.stringify(normalizedState));
+  // A damaged save that couldn't be copied aside isn't overwritten until the
+  // hunter has downloaded it (see lib/storeQuarantine).
+  const persisted =
+    !isCorruptStateUnsaved(() => readStorageValue(STORAGE_KEY)) &&
+    writeStorageValue(STORAGE_KEY, JSON.stringify(normalizedState));
   setStoragePersistenceFailed(!persisted);
 
   notifyListeners();
