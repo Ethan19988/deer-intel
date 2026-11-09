@@ -500,6 +500,16 @@ function normalizePhotoRecord(value: unknown): PhotoRecord | null {
   const weatherSnapshot = isRecord(value.weatherSnapshot)
     ? normalizeWeatherSnapshot(value.weatherSnapshot)
     : undefined;
+  // Newer optional photo fields: kept only when they hold a known value, and
+  // added only when present so older records keep their exact shape.
+  const captureTimeSource = (
+    ["stamp", "exif", "stampDate", "filename", "file", "manual"] as const
+  ).find((source) => source === value.captureTimeSource);
+  const ageClass = (["1.5", "2.5", "3.5", "4.5+"] as const).find(
+    (option) => option === value.ageClass,
+  );
+  const deerCount = optionalNumberValue(value.deerCount);
+  const antlerPoints = optionalNumberValue(value.antlerPoints);
 
   return {
     id,
@@ -508,13 +518,28 @@ function normalizePhotoRecord(value: unknown): PhotoRecord | null {
     cameraCheckId,
     fileName,
     photoDate,
+    ...withOptional("captureTimeSource", captureTimeSource),
     species,
     deerProfileId: optionalStringValue(value.deerProfileId),
     buckName: optionalStringValue(value.buckName),
     deerProfileIds: optionalStringArrayValue(value.deerProfileIds),
     buckNames: optionalStringArrayValue(value.buckNames),
     travelDirection: optionalStringValue(value.travelDirection),
+    ...withOptional("frameDirection", optionalStringValue(value.frameDirection)),
     behavior: optionalStringValue(value.behavior),
+    ...withOptional(
+      "deerCount",
+      deerCount !== undefined && Number.isInteger(deerCount) && deerCount >= 1 && deerCount <= 50
+        ? deerCount
+        : undefined,
+    ),
+    ...withOptional("ageClass", ageClass),
+    ...withOptional(
+      "antlerPoints",
+      antlerPoints !== undefined && Number.isInteger(antlerPoints) && antlerPoints >= 1 && antlerPoints <= 40
+        ? antlerPoints
+        : undefined,
+    ),
     notes: stringValue(value.notes),
     createdAt: stringValue(value.createdAt, photoDate),
     imageId,

@@ -248,7 +248,7 @@ function getMostActiveCameraInsight(
 
   return {
     title: topStat.camera.name,
-    detail: `${topStat.score} activity records: ${topStat.checks.length} checks and ${topStat.photos.length} photo records.`,
+    detail: `${plural(topStat.score, "activity record")}: ${plural(topStat.checks.length, "check")} and ${plural(topStat.photos.length, "photo record")}.`,
     cameraId: topStat.camera.id,
     badge: "Most Active",
   };
@@ -510,9 +510,9 @@ function conditionDetail(kind: string, check: CameraCheck | null): string {
 
 function wildlifeSummary(check: CameraCheck) {
   const parts = [
-    check.bucks > 0 ? `${check.bucks} bucks` : "",
-    check.does > 0 ? `${check.does} does` : "",
-    check.fawns > 0 ? `${check.fawns} fawns` : "",
+    check.bucks > 0 ? plural(check.bucks, "buck") : "",
+    check.does > 0 ? plural(check.does, "doe") : "",
+    check.fawns > 0 ? plural(check.fawns, "fawn") : "",
   ].filter(Boolean);
 
   if (parts.length > 0) return parts.join(", ");
@@ -579,6 +579,10 @@ function dateHour(date: string) {
   return new Date(time).getHours();
 }
 
+
+function plural(count: number, noun: string) {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
 
 function formatDate(date: string | undefined) {
   if (!date) return "No date";
