@@ -5,7 +5,7 @@ export type AuthHeroItem = { icon: ReactNode; title: string; note: string };
 
 // The dark brand panel beside the sign-in and password-reset forms: the
 // DEER INTEL lockup, a condensed headline, and three short promises over faint
-// topo contour lines — the same forest-and-rust look as the app icon.
+// topo contour lines.
 export default function AuthHero({
   eyebrow,
   title,
