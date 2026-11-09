@@ -961,10 +961,18 @@ async function fetchJoinTable(slug, join) {
   return rows;
 }
 
+const REQUEST_TIMEOUT_MS = 120_000;
+
 async function fetchJson(url) {
   for (let attempt = 1; attempt <= 5; attempt += 1) {
     try {
-      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      // A county server that accepts the connection but never answers would
+      // otherwise hang this county (and the whole build) until the workflow's
+      // time limit, which publishes nothing. Give each request 2 minutes.
+      const res = await fetch(url, {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data && data.error) throw new Error(data.error.message || "service error");
