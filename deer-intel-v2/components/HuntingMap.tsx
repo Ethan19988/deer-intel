@@ -1351,7 +1351,16 @@ export default function HuntingMap() {
   const latestMapZoomRef = useRef(DEFAULT_MAP_ZOOM);
   // A ?layer= param (e.g. the sidebar's "LiDAR" shortcut) opens the map on that
   // base layer, and switches to it if it changes while the map is already open.
-  const requestedLayer = useSearchParams().get("layer");
+  const searchParams = useSearchParams();
+  const requestedLayer = searchParams.get("layer");
+  // A shareable "only these pins" view: /map?property=moore&show=setup opens
+  // that property showing just the pins whose name contains "setup", framed
+  // to fit them. "Show all" clears it.
+  const requestedShow = searchParams.get("show");
+  const requestedShowProperty = searchParams.get("property");
+  const [pinNameFilter, setPinNameFilter] = useState<string | null>(() =>
+    normalizePinNameFilter(requestedShow),
+  );
   const requestedLayerId =
     requestedLayer && requestedLayer in MAP_LAYER_BY_ID
       ? (requestedLayer as MapLayerId)
@@ -1939,10 +1948,12 @@ export default function HuntingMap() {
   // across unrelated re-renders instead of recomputing on every map click.
   const visibleAssets = useMemo(
     () =>
-      mapAssets.filter((asset) =>
-        asset.layerId === "other" ? true : visibleAssetLayers[asset.layerId],
-      ),
-    [mapAssets, visibleAssetLayers],
+      pinNameFilter
+        ? mapAssets.filter((asset) => assetMatchesPinFilter(asset, pinNameFilter))
+        : mapAssets.filter((asset) =>
+            asset.layerId === "other" ? true : visibleAssetLayers[asset.layerId],
+          ),
+    [mapAssets, visibleAssetLayers, pinNameFilter],
   );
   const assetClusters = useMemo(
     () => clusterPoints(visibleAssets, mapZoom, { keepSingle: selectedAssetId }),
@@ -2709,10 +2720,16 @@ export default function HuntingMap() {
     };
   });
 
-  const propertyFocus = useMemo(
-    () => propertyFocusTarget(selectedProperty, propertyCameras, pins),
-    [selectedProperty, propertyCameras, pins],
-  );
+  const propertyFocus = useMemo(() => {
+    if (pinNameFilter) {
+      const matched = mapAssets.filter((asset) =>
+        assetMatchesPinFilter(asset, pinNameFilter),
+      );
+      const framed = frameAssets(matched);
+      if (framed) return framed;
+    }
+    return propertyFocusTarget(selectedProperty, propertyCameras, pins);
+  }, [selectedProperty, propertyCameras, pins, pinNameFilter, mapAssets]);
 
   const focusedPropertyIdRef = useRef("");
 
@@ -3602,6 +3619,35 @@ export default function HuntingMap() {
     setIsPlacingPin(true);
     setPinBoxMessage(`Tap map to place ${type}`);
     setLayersOpen(false);
+  }
+
+  // ?property= picks the property for a shared "only these pins" link — by id,
+  // or by the start of its name ("moore", "sideling"). Applied once.
+  const showPropertyHandledRef = useRef(false);
+  useEffect(() => {
+    if (showPropertyHandledRef.current || !requestedShowProperty) return;
+    if (state.properties.length === 0) return;
+    showPropertyHandledRef.current = true;
+    const wanted = requestedShowProperty.trim().toLowerCase();
+    const match =
+      state.properties.find((property) => property.id === requestedShowProperty) ??
+      state.properties.find((property) =>
+        property.name.trim().toLowerCase().startsWith(wanted),
+      );
+    if (match && match.id !== selectedPropertyId) {
+      updateDeerIntelStore((currentState) => ({
+        ...currentState,
+        selectedPropertyId: match.id,
+      }));
+    }
+  }, [requestedShowProperty, state.properties, selectedPropertyId]);
+
+  function clearPinNameFilter() {
+    setPinNameFilter(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("show");
+    url.searchParams.delete("property");
+    window.history.replaceState(null, "", url.pathname + url.search);
   }
 
   // Deep links from Today's setup checklist: /map?pin=Bedding arms tap-to-place
@@ -5587,6 +5633,25 @@ export default function HuntingMap() {
             style={propertyLinesNoticeStyle}
           />
 
+          {pinNameFilter && !pendingPin && !isDrawingArea ? (
+            <div className="di-area-pill di-map-mode-bar" style={drawActionBarStyle}>
+              <span style={drawActionStatusStyle}>
+                {visibleAssets.length > 0
+                  ? `Showing only ${visibleAssets.length} “${pinNameFilter}” pin${visibleAssets.length === 1 ? "" : "s"}`
+                  : `No “${pinNameFilter}” pins on ${selectedProperty?.name ?? "this property"}`}
+              </span>
+              <div style={drawActionButtonRowStyle}>
+                <button
+                  type="button"
+                  style={drawSecondaryButtonStyle}
+                  onClick={clearPinNameFilter}
+                >
+                  Show all pins
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {pendingPin && !isDrawingArea ? (
             <div className="di-area-pill di-map-mode-bar" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
@@ -6873,3 +6938,44 @@ const drawDisabledButtonStyle: CSSProperties = {
   cursor: "not-allowed",
 };
 
+
+// ---- "Only these pins" links (?show=) -------------------------------------
+
+function normalizePinNameFilter(value: string | null): string | null {
+  const text = (value ?? "").trim().toLowerCase().slice(0, 60);
+  return text ? text : null;
+}
+
+function assetMatchesPinFilter(asset: MapAsset, filter: string): boolean {
+  return asset.source === "pin" && asset.label.toLowerCase().includes(filter);
+}
+
+/** Center + zoom that fits these assets on a phone-sized map, or null. */
+function frameAssets(
+  assets: Array<{ lat: number; lng: number }>,
+): { center: MapCenter; zoom: number } | null {
+  const points = assets.filter(
+    (asset) => Number.isFinite(asset.lat) && Number.isFinite(asset.lng),
+  );
+  if (points.length === 0) return null;
+  const lats = points.map((point) => point.lat);
+  const lngs = points.map((point) => point.lng);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const lat = (minLat + maxLat) / 2;
+  const lng = (minLng + maxLng) / 2;
+  const cosLat = Math.cos((lat * Math.PI) / 180);
+  const spanM = Math.max(
+    (maxLat - minLat) * 111_320,
+    (maxLng - minLng) * 111_320 * cosLat,
+    150,
+  );
+  // Fit the span (plus margin) into ~320 px — a phone's map width.
+  const zoom = Math.log2((156_543 * cosLat * 320) / (spanM * 1.4));
+  return {
+    center: [lat, lng] as MapCenter,
+    zoom: Math.max(12, Math.min(17, Math.floor(zoom))),
+  };
+}
