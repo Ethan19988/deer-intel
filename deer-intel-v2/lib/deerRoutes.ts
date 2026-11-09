@@ -613,6 +613,48 @@ function windCheckAt(
   };
 }
 
+/** A point `meters` from `from` on a compass bearing (flat-earth; fine at <100 m). */
+function offsetPoint(from: LatLng, bearingDeg: number, meters: number): LatLng {
+  const rad = (bearingDeg * Math.PI) / 180;
+  const dLat = (meters * Math.cos(rad)) / 111_320;
+  const dLng = (meters * Math.sin(rad)) / (111_320 * Math.cos((from.lat * Math.PI) / 180));
+  return { lat: from.lat + dLat, lng: from.lng + dLng };
+}
+
+const SETUP_OFFSET_M = 37; // ~40 yd: bow range off the trail
+
+/**
+ * Where to sit for a funnel on this wind. Sitting ON converging trails always
+ * puts some trail downwind, so instead look ~40 yd off the funnel in each
+ * direction and pick a spot whose scent clears every trail — preferring the
+ * downwind side (deer come to you, your scent goes away from them) and then a
+ * crosswind side.
+ */
+function funnelSetup(
+  point: LatLng,
+  routes: BuiltRoute[],
+  sitWind: SitWind,
+): { ok: boolean; note: string } {
+  const downwind = (((sitWind.fromDeg + 180) % 360) + 360) % 360;
+  // Downwind first, then the two crosswind sides, then the quartering ones.
+  const order = [0, 90, -90, 45, -45, 135, -135];
+  for (const turn of order) {
+    const bearing = (((downwind + turn) % 360) + 360) % 360;
+    const spot = offsetPoint(point, bearing, SETUP_OFFSET_M);
+    if (windCheckAt(spot, routes, sitWind).ok) {
+      const side = COMPASS_WORD[toEightWind(degreesToCompass(bearing))] ?? degreesToCompass(bearing);
+      return {
+        ok: true,
+        note: `Sit ~40 yd ${side} of the funnel — a ${sitWind.label} wind carries your scent away from ${trailsPhrase(routes.length)}`,
+      };
+    }
+  }
+  return {
+    ok: false,
+    note: `No spot within bow range keeps scent off ${trailsPhrase(routes.length)} on a ${sitWind.label} wind — save it for another wind`,
+  };
+}
+
 // ---- Funnels ---------------------------------------------------------------
 
 function funnelFeature(surface: CostSurface, cell: number): { label: string; bonus: number } {
@@ -787,9 +829,20 @@ export function buildDeerRoutePlan(input: DeerRoutePlanInput): DeerRoutePlan {
   }
 
   // Stand fits.
+  // Only stands on this grid: a stand saved under the wrong property (or far
+  // outside the area read) would otherwise read "181,122 yd to nearest route".
+  const gridMaxLat = grid.origin.lat + grid.rows * grid.cellLat;
+  const gridMaxLng = grid.origin.lng + grid.cols * grid.cellLng;
   const standPoints = stands
     .map((stand) => ({ stand, point: input.standLocations?.[stand.id] }))
-    .filter((entry): entry is { stand: Stand; point: LatLng } => Boolean(entry.point));
+    .filter((entry): entry is { stand: Stand; point: LatLng } => Boolean(entry.point))
+    .filter(
+      ({ point }) =>
+        point.lat >= grid.origin.lat &&
+        point.lat <= gridMaxLat &&
+        point.lng >= grid.origin.lng &&
+        point.lng <= gridMaxLng,
+    );
 
   const standFits: StandRouteFit[] = standPoints.map(({ stand, point }) => {
     const here = toXY(grid, point);
@@ -825,7 +878,7 @@ export function buildDeerRoutePlan(input: DeerRoutePlanInput): DeerRoutePlan {
       feature: found.feature,
       score: round2(found.score),
     };
-    if (sitWind) funnel.wind = windCheckAt(found.point, found.members, sitWind);
+    if (sitWind) funnel.wind = funnelSetup(found.point, found.members, sitWind);
 
     let nearest: { id: string; name: string; yards: number } | null = null;
     for (const { stand, point } of standPoints) {
