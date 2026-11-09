@@ -80,7 +80,7 @@ describe("getDeerProfileTimeline", () => {
 
   it("finds his most common time window from timed sightings", () => {
     // Evenings: two photos + the sit's 15:30 start; one morning; one date-only.
-    expect(timeline.timeWindow).toEqual({ label: "Evening", hours: "3–8 PM", count: 3, sampleSize: 4 });
+    expect(timeline.timeWindow).toMatchObject({ label: "Evening", hours: "3–8 PM", count: 3, sampleSize: 4, clear: true });
   });
 
   it("is empty for a buck with nothing linked", () => {
