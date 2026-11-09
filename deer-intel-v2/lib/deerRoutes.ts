@@ -17,14 +17,15 @@
 //      × land-cover × landform multipliers, + 8 m per metre climbed and 2 m per
 //      metre dropped. Landform bonuses: saddle 0.6, bench 0.7, draw 0.8. Land
 //      cover: forest 1, shrub/regen 0.85, woody wetland 1.15, marsh 2, barren 3,
-//      open fields (71/81/82) 5 — waived within 2 cells of a food/water
+//      open fields (71/81/82) 5 — waived within 2 cells of the route's own
 //      destination — developed 4–25, water and unknown elevation impassable.
 //   2. Beds: the top 6 terrain-read bedding features, Bedding pins, and up to
 //      two regen (52) patches. Destinations: Food/Water pins, up to 6 field
 //      edges (open food cells touching cover, spaced ≥200 m) and the same
 //      regen patches as browse. Pairs closer than 60 m or farther than 1.6 km
 //      are skipped.
-//   3. Dijkstra (8-neighbour, binary heap) from each bed; each bed is routed to
+//   3. Dijkstra (8-neighbour, binary heap), run in reverse from each
+//      destination so its field-edge waiver is its own; each bed is routed to
 //      its cheapest pin destination (hunter-verified food beats inferred food)
 //      plus the cheapest remaining destination. Strength = 0.35 efficiency
 //      (straight-line ÷ walking cost) + 0.25 shortness + 0.2 cover share +
@@ -56,10 +57,11 @@ import {
   isOpenFood,
   isPassable,
   landClassAt,
+  landMultForGoal,
   leastCostTree,
   treePath,
-  waiveOpenNear,
   type CostSurface,
+  type CostTree,
 } from "@/lib/deerRouteCost";
 import { pointInPolygon } from "@/lib/geofence";
 import { distanceMeters } from "@/lib/movementPrediction";
@@ -745,24 +747,31 @@ export function buildDeerRoutePlan(input: DeerRoutePlanInput): DeerRoutePlan {
   const dests = collectDests(surface, pins, regen, inArea);
   if (dests.length === 0) return emptyPlan([NOTE_NO_FOOD, ...notes]);
 
-  waiveOpenNear(surface, dests.map((dest) => dest.cell));
+  // One reverse search per destination (each with its own field-edge waiver)
+  // prices the walk from every bed to it.
+  const inRange = (bed: Bed, dest: Dest) => {
+    const meters = distanceMeters(bed.point, dest.point);
+    return meters >= MIN_PAIR_M && meters <= MAX_PAIR_M && dest.cell !== bed.cell;
+  };
+  const trees = new Map<string, CostTree>();
+  for (const dest of dests) {
+    if (!beds.some((bed) => inRange(bed, dest))) continue;
+    trees.set(
+      dest.id,
+      leastCostTree(surface, dest.cell, { landMult: landMultForGoal(surface, dest.cell), reverse: true }),
+    );
+  }
 
   let built: BuiltRoute[] = [];
   for (const bed of beds) {
-    const candidates = dests
-      .filter((dest) => {
-        const meters = distanceMeters(bed.point, dest.point);
-        return meters >= MIN_PAIR_M && meters <= MAX_PAIR_M && dest.cell !== bed.cell;
-      })
-      .map((dest) => ({ dest, cost: Infinity }));
-    if (candidates.length === 0) continue;
-
-    const tree = leastCostTree(surface, bed.cell);
-    for (const candidate of candidates) candidate.cost = tree.cost[candidate.dest.cell];
-    const reachable = candidates.filter((candidate) => Number.isFinite(candidate.cost));
+    const reachable = dests
+      .filter((dest) => inRange(bed, dest))
+      .map((dest) => ({ dest, cost: trees.get(dest.id)?.cost[bed.cell] ?? Infinity }))
+      .filter((candidate) => Number.isFinite(candidate.cost));
 
     for (const { dest, cost } of pickDestinations(reachable)) {
-      const cells = treePath(tree, bed.cell, dest.cell);
+      const tree = trees.get(dest.id);
+      const cells = tree ? treePath(tree, dest.cell, bed.cell)?.reverse() : null;
       if (!cells || cells.length < 2) continue;
       built.push(buildRoute(surface, bed, dest, cells, cost, cameras));
     }

@@ -305,27 +305,29 @@ export function buildCostSurface(grid: MovementGrid): CostSurface {
 }
 
 /**
- * Waive the open-ground charge on open cells within FOOD_APPROACH_CELLS of a
- * destination — deer step out into a field to feed, they just don't cross it.
+ * A copy of the land-cover multipliers with the open-ground charge waived on
+ * open cells within FOOD_APPROACH_CELLS of one destination — deer step out
+ * into a field to feed there, they just don't cross it. Per destination, so a
+ * route can't use another field's waiver as a shortcut.
  */
-export function waiveOpenNear(surface: CostSurface, cells: number[]): void {
-  if (!surface.hasLandcover) return;
+export function landMultForGoal(surface: CostSurface, goal: number): Float64Array {
+  const landMult = surface.landMult.slice();
+  if (!surface.hasLandcover) return landMult;
   const { rows, cols, grid } = surface;
   const reach = FOOD_APPROACH_CELLS;
-  for (const cell of cells) {
-    const r0 = Math.floor(cell / cols);
-    const c0 = cell % cols;
-    for (let r = r0 - reach; r <= r0 + reach; r += 1) {
-      for (let c = c0 - reach; c <= c0 + reach; c += 1) {
-        if (r < 0 || c < 0 || r >= rows || c >= cols) continue;
-        if (Math.hypot(r - r0, c - c0) > reach + 0.01) continue;
-        const index = r * cols + c;
-        if (isOpenFood(landClassAt(grid, index)) && Number.isFinite(surface.landMult[index])) {
-          surface.landMult[index] = 1;
-        }
+  const r0 = Math.floor(goal / cols);
+  const c0 = goal % cols;
+  for (let r = r0 - reach; r <= r0 + reach; r += 1) {
+    for (let c = c0 - reach; c <= c0 + reach; c += 1) {
+      if (r < 0 || c < 0 || r >= rows || c >= cols) continue;
+      if (Math.hypot(r - r0, c - c0) > reach + 0.01) continue;
+      const index = r * cols + c;
+      if (isOpenFood(landClassAt(grid, index)) && Number.isFinite(landMult[index])) {
+        landMult[index] = 1;
       }
     }
   }
+  return landMult;
 }
 
 export function isPassable(surface: CostSurface, index: number): boolean {
@@ -333,8 +335,14 @@ export function isPassable(surface: CostSurface, index: number): boolean {
 }
 
 /** Cost of one step from cell a to its neighbour b. */
-export function stepCost(surface: CostSurface, a: number, b: number, diagonal: boolean): number {
-  const { landMult, terrainMult, slopeDeg, grid } = surface;
+export function stepCost(
+  surface: CostSurface,
+  a: number,
+  b: number,
+  diagonal: boolean,
+  landMult: Float64Array = surface.landMult,
+): number {
+  const { terrainMult, slopeDeg, grid } = surface;
   const multA = landMult[a] * terrainMult[a];
   const multB = landMult[b] * terrainMult[b];
   if (!Number.isFinite(multA) || !Number.isFinite(multB)) return Infinity;
@@ -411,8 +419,22 @@ export type CostTree = {
   prev: Int32Array;
 };
 
+export type TreeOptions = {
+  /** Land-cover multipliers to use instead of the surface's (see landMultForGoal). */
+  landMult?: Float64Array;
+  /**
+   * Search backwards: cost[x] is the cost of walking x → start (climbing and
+   * descending swap), so one search from a destination prices every bed.
+   */
+  reverse?: boolean;
+};
+
 /** Dijkstra over the 8-neighbour grid from one start cell. */
-export function leastCostTree(surface: CostSurface, start: number): CostTree {
+export function leastCostTree(
+  surface: CostSurface,
+  start: number,
+  { landMult = surface.landMult, reverse = false }: TreeOptions = {},
+): CostTree {
   const { rows, cols } = surface;
   const size = rows * cols;
   const cost = new Float64Array(size).fill(Infinity);
@@ -446,7 +468,9 @@ export function leastCostTree(surface: CostSurface, start: number): CostTree {
       ) {
         continue;
       }
-      const step = stepCost(surface, cell, neighbor, diagonal);
+      const step = reverse
+        ? stepCost(surface, neighbor, cell, diagonal, landMult)
+        : stepCost(surface, cell, neighbor, diagonal, landMult);
       if (!Number.isFinite(step)) continue;
       const total = key + step;
       if (total < cost[neighbor]) {
@@ -460,7 +484,7 @@ export function leastCostTree(surface: CostSurface, start: number): CostTree {
   return { cost, prev };
 }
 
-/** Cells from start to end along the tree, or null when unreachable. */
+/** Cells from start to end along the tree (end → start for a reverse tree), or null when unreachable. */
 export function treePath(tree: CostTree, start: number, end: number): number[] | null {
   if (!Number.isFinite(tree.cost[end])) return null;
   const cells: number[] = [];
