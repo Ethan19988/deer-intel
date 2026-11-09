@@ -593,15 +593,41 @@ function trailsPhrase(count: number): string {
 }
 
 /** Does a hunter at `point` blow scent onto any of `routes` on this wind? */
+/**
+ * The part of a bed → food path that deer travel before reaching `at`
+ * (the path point nearest it): bed → there in the evening, food → there in the
+ * morning.
+ */
+function approachStretch(path: LatLng[], at: LatLng, period: "AM" | "PM"): LatLng[] {
+  if (path.length < 2) return path;
+  let nearest = 0;
+  let best = Infinity;
+  path.forEach((p, index) => {
+    const meters = distanceMeters(p, at);
+    if (meters < best) {
+      best = meters;
+      nearest = index;
+    }
+  });
+  return period === "PM" ? path.slice(0, nearest + 1) : path.slice(nearest);
+}
+
 function windCheckAt(
   point: LatLng,
   routes: BuiltRoute[],
   sitWind: SitWind,
+  /** Where deer reach the hunter (the funnel); defaults to the hunter's spot. */
+  anchor?: LatLng,
 ): { ok: boolean; note: string } {
   const downwind = (((sitWind.fromDeg + 180) % 360) + 360) % 360;
   const samples: LatLng[] = [];
   for (const { route } of routes) {
-    const { path } = route;
+    // Only the stretch deer walk on their way TO you matters: scent drifting
+    // over trail they've already passed doesn't spook them. Paths run bed →
+    // food, so on an evening sit deer come from the bed end; in the morning
+    // from the food end.
+    const path = approachStretch(route.path, anchor ?? point, sitWind.period);
+    if (path.length === 0) continue;
     for (let i = 0; i < path.length - 1; i += 1) samples.push(...sampleLeg(path[i], path[i + 1]));
     samples.push(path[path.length - 1]);
   }
@@ -650,7 +676,7 @@ function funnelSetup(
   for (const turn of order) {
     const bearing = (((downwind + turn) % 360) + 360) % 360;
     const spot = offsetPoint(point, bearing, SETUP_OFFSET_M);
-    if (windCheckAt(spot, routes, sitWind).ok) {
+    if (windCheckAt(spot, routes, sitWind, point).ok) {
       const side = COMPASS_WORD[toEightWind(degreesToCompass(bearing))] ?? degreesToCompass(bearing);
       return {
         ok: true,
