@@ -28,22 +28,71 @@ import {
 // the map to one small spot.
 export const TERRAIN_SETS: TerrainMovementSet[] = [...GENERATED_TERRAIN_SETS];
 
-// How close (km) a property/map center must be to a set's center to count as
-// "this ground". Big-woods tracts are a mile or two across.
-const MATCH_RADIUS_KM = 6;
-
 type Point = { lat: number; lng: number };
 
-/** The terrain set covering `point`, or null if none is near. */
+export type TerrainExtent = {
+  minLat: number;
+  minLng: number;
+  maxLat: number;
+  maxLng: number;
+};
+
+const extentCache = new WeakMap<TerrainMovementSet, TerrainExtent | null>();
+
+/** Bounding box of every coordinate in a set's features (null when empty). */
+export function terrainSetExtent(set: TerrainMovementSet): TerrainExtent | null {
+  if (extentCache.has(set)) return extentCache.get(set) ?? null;
+  let extent: TerrainExtent | null = null;
+  for (const feature of set.features) {
+    for (const [lat, lng] of featureCoords(feature)) {
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      if (!extent) {
+        extent = { minLat: lat, minLng: lng, maxLat: lat, maxLng: lng };
+      } else {
+        extent.minLat = Math.min(extent.minLat, lat);
+        extent.minLng = Math.min(extent.minLng, lng);
+        extent.maxLat = Math.max(extent.maxLat, lat);
+        extent.maxLng = Math.max(extent.maxLng, lng);
+      }
+    }
+  }
+  extentCache.set(set, extent);
+  return extent;
+}
+
+function featureCoords(feature: TerrainMovementFeature): LatLng[] {
+  if (feature.kind === "pinch") return [feature.point];
+  if (feature.kind === "travel") return feature.line;
+  return feature.polygon;
+}
+
+function extentContains(extent: TerrainExtent, point: Point): boolean {
+  return (
+    point.lat >= extent.minLat &&
+    point.lat <= extent.maxLat &&
+    point.lng >= extent.minLng &&
+    point.lng <= extent.maxLng
+  );
+}
+
+/**
+ * The terrain set covering `point`, or null if none does. A set only counts
+ * when the point falls inside its own extent (the bbox of its features): the
+ * old "within 6 km of the set's center" test handed a neighbouring property
+ * another tract's ridges. Among overlapping sets the nearest center wins.
+ */
 export function resolveTerrainSet(
   point: Point | null | undefined,
+  sets: TerrainMovementSet[] = TERRAIN_SETS,
 ): TerrainMovementSet | null {
   if (!point) return null;
 
   let best: { set: TerrainMovementSet; km: number } | null = null;
-  for (const set of TERRAIN_SETS) {
+  for (const set of sets) {
+    const extent = terrainSetExtent(set);
+    if (!extent || !extentContains(extent, point)) continue;
     const km = haversineKm(point, { lat: set.center[0], lng: set.center[1] });
-    if (km <= MATCH_RADIUS_KM && (!best || km < best.km)) best = { set, km };
+    if (!best || km < best.km) best = { set, km };
   }
   return best ? best.set : null;
 }

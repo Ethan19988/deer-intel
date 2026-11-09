@@ -12,6 +12,7 @@ import { PIN_LAYER_LOOKUP } from "@/lib/propertyMap";
 import { buildPipelineManifest, type Coord } from "@/lib/terrainPipeline";
 import type { Camera } from "@/types/camera";
 import type { MapPin } from "@/types/mapPin";
+import { downloadBlob } from "@/lib/downloadFile";
 
 // Settings → Advanced. The LiDAR terrain tools used to sit on the property
 // Overview and the Properties list; they're developer-facing, so they live here
@@ -51,12 +52,7 @@ export default function TerrainToolsManager() {
     const blob = new Blob([JSON.stringify(manifest, null, 2)], {
       type: "application/json",
     });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "properties.json";
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, "properties.json");
     setExportMessage(
       `Exported ${manifest.length} propert${
         manifest.length === 1 ? "y" : "ies"

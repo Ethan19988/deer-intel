@@ -4,7 +4,51 @@ export type AiScoutConditions = {
   temperature: string;
   moonPhase: string;
   notes: string;
+  /** "°F" / "°C" — the unit of `temperature` (and of every logged temperature). */
+  temperatureUnit?: string;
 };
+
+/** The sit AI Scout is planning for: the next one, per lib/todayVerdict. */
+export type AiScoutTargetSit = {
+  /** "morning" / "evening". */
+  period: "morning" | "evening";
+  /** Whether the sit is today or tomorrow. */
+  day: "today" | "tomorrow";
+  /** "This evening", "Tomorrow morning". */
+  label: string;
+  /** Property-local date of the sit, "YYYY-MM-DD". */
+  date?: string;
+  /** Forecast wind averaged over that sit window (compass point), e.g. "NW". */
+  forecastWind?: string;
+  /** Speed with its unit, e.g. "8 mph". */
+  forecastWindSpeed?: string;
+  /** Under the calm threshold: direction isn't dependable. */
+  calmWind?: boolean;
+  /** That day's high / low, with unit, e.g. "44°F". */
+  dayHigh?: string;
+  dayLow?: string;
+  /** Property-clock times for that day, e.g. "6:52 AM". */
+  sunrise?: string;
+  sunset?: string;
+  legalStart?: string;
+  legalEnd?: string;
+};
+
+export type AiScoutSeasonContext = {
+  /** e.g. "Seeking". */
+  rutPhase: string;
+  rutPhaseHint?: string;
+  /** Days to the rut peak; negative once it has passed. */
+  daysToPeak: number;
+  /** True when the peak date is the app's latitude estimate, not the hunter's. */
+  peakIsEstimate: boolean;
+};
+
+/** A camera close to a stand, by straight-line distance. */
+export type AiScoutNearbyCamera = { name: string; yards: number };
+
+/** A predicted terrain spot close to a stand. */
+export type AiScoutNearbyTerrain = { kind: string; title: string; yards: number };
 
 export type AiScoutPropertyContext = {
   name: string;
@@ -23,10 +67,21 @@ export type AiScoutStandContext = {
   notes: string;
   huntCount: number;
   lastHuntDate?: string;
+  /** False when the stand has no map location (no nearby cameras/terrain then). */
+  located?: boolean;
+  /** ≤2 cameras within 800 yd, nearest first (only for located stands). */
+  nearestCameras?: AiScoutNearbyCamera[];
+  /** ≤3 terrain picks within 400 yd, nearest first (only for located stands). */
+  nearbyTerrain?: AiScoutNearbyTerrain[];
 };
 
 export type AiScoutHuntContext = {
   date: string;
+  /** "HH:MM" as logged, when set. */
+  startTime?: string;
+  endTime?: string;
+  /** "morning" / "evening" / "midday", from the start time when there is one. */
+  sit?: string;
   standName: string;
   windDirection: string;
   windSpeed: string;
@@ -52,6 +107,8 @@ export type AiScoutCameraCheckContext = {
 
 export type AiScoutDeerProfileContext = {
   nickname: string;
+  /** Only active bucks are sent; kept for clarity in the payload. */
+  status?: string;
   estimatedAge: string;
   firstSeen: string;
   lastSeen: string;
@@ -75,12 +132,25 @@ export type AiScoutTerrainPickContext = {
   kind: string;
   title: string;
   detail: string;
-  bestWind?: string;
+  /**
+   * Bedding only: the wind deer bed on there (at their back). NOT the hunter's
+   * wind — coming in from above on it blows scent onto the beds.
+   */
+  deerBedOnWind?: string;
+  /** How to play the wind at this spot (non-bedding spots). */
+  windNote?: string;
+  /** Recent camera activity near this spot, e.g. "Ridge Cam 120 yd: 2 bucks, 5 does". */
+  cameraActivityNearby?: string;
 };
 
 /** Compact, trimmed snapshot of one property's saved data sent to the LLM. */
 export type AiScoutRequestContext = {
   property: AiScoutPropertyContext;
+  /** The hunter's local date today, "YYYY-MM-DD (Mon)". */
+  today?: string;
+  /** The sit this plan is for, with its forecast and legal light. */
+  targetSit?: AiScoutTargetSit;
+  season?: AiScoutSeasonContext;
   conditions: AiScoutConditions;
   stands: AiScoutStandContext[];
   recentHunts: AiScoutHuntContext[];

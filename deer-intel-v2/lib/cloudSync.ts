@@ -3,6 +3,11 @@
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { isUntouchedLegacySeedProperty } from "@/lib/deerIntelStore";
 import { sanitizeLandTags, type LandTag, type LandTags } from "@/lib/landTags";
+import {
+  mergeAccountSettings,
+  sanitizeAccountSettings,
+  type AccountSettings,
+} from "@/lib/accountSettings";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 
 // One JSONB row per user holds the whole DeerIntelState (plus the device's land
@@ -11,26 +16,72 @@ import type { DeerIntelState } from "@/types/deerIntelStore";
 const TABLE_NAME = "deer_intel_state";
 
 /**
- * What one cloud row holds: the record state plus parcel land tags. landTags is
- * optional so rows written by older builds (no tags) still load.
+ * Version of the cloud row's shape. A build refuses to push over a row written
+ * by a NEWER shape (it would strip fields it doesn't know) and asks the hunter
+ * to update instead. Rows without it were written by builds before this one.
+ * Bump it whenever the synced shape gains data an older build would drop.
  */
-export type SyncedState = DeerIntelState & { landTags?: LandTags };
+export const SYNC_SCHEMA_VERSION = 2;
 
-/** The record state with this device's land tags attached, ready to sync. */
-export function withLandTags(state: DeerIntelState, landTags: LandTags): SyncedState {
-  return { ...state, landTags };
+/**
+ * What one cloud row holds: the record state plus parcel land tags and
+ * account-level settings. Both are optional so rows written by older builds
+ * still load.
+ */
+export type SyncedState = DeerIntelState & {
+  landTags?: LandTags;
+  accountSettings?: AccountSettings;
+  schemaVersion?: number;
+};
+
+/**
+ * The record state with this device's land tags (and, when known, this
+ * account's settings) attached, ready to sync.
+ */
+export function withLandTags(
+  state: DeerIntelState,
+  landTags: LandTags,
+  accountSettings?: AccountSettings,
+): SyncedState {
+  return {
+    ...state,
+    landTags,
+    ...(accountSettings !== undefined ? { accountSettings } : {}),
+    schemaVersion: SYNC_SCHEMA_VERSION,
+  };
 }
 
-/** Split a synced row back into the record state and its land tags. */
+/** Split a synced row back into the record state, land tags and settings. */
 export function splitLandTags(synced: SyncedState): {
   state: DeerIntelState;
   landTags: LandTags | undefined;
+  accountSettings: AccountSettings | undefined;
 } {
-  const { landTags, ...state } = synced;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { landTags, accountSettings, schemaVersion, ...state } = synced;
   return {
     state: state as DeerIntelState,
     landTags: landTags === undefined ? undefined : sanitizeLandTags(landTags),
+    accountSettings:
+      accountSettings === undefined ? undefined : sanitizeAccountSettings(accountSettings),
   };
+}
+
+/** True when a newer app build wrote this row (this build must not push over it). */
+export function isSchemaTooNew(state: Partial<SyncedState> | null | undefined): boolean {
+  const version = state?.schemaVersion;
+  return typeof version === "number" && version > SYNC_SCHEMA_VERSION;
+}
+
+export const UPDATE_APP_TO_SYNC_MESSAGE =
+  "A newer version of Deer Intel saved your cloud data. Update the app to sync.";
+
+/** Thrown instead of pushing over a row a newer build wrote. */
+export class SyncSchemaTooNewError extends Error {
+  constructor() {
+    super(UPDATE_APP_TO_SYNC_MESSAGE);
+    this.name = "SyncSchemaTooNewError";
+  }
 }
 
 // Local bookkeeping so we can reconcile without silently clobbering data and so
@@ -52,6 +103,9 @@ export type SyncMeta = {
   // Ids in the base but missing locally are this device's deletions since the
   // last sync (tombstones), so a merge never resurrects them.
   base?: SyncBase;
+  // An explicit "Replace everywhere" backup restore: the next save overwrites
+  // the cloud row with this device's data instead of merging with it.
+  replaceRemote?: boolean;
 };
 
 export type RemoteState = {
@@ -114,6 +168,7 @@ export function readSyncMeta(): SyncMeta | null {
       pendingLocalEdits: parsed.pendingLocalEdits === true,
       userId: typeof parsed.userId === "string" ? parsed.userId : undefined,
       base: sanitizeSyncBase(parsed.base),
+      ...(parsed.replaceRemote === true ? { replaceRemote: true } : {}),
     };
   } catch {
     return null;
@@ -230,6 +285,25 @@ export function clearSyncMeta(): void {
  */
 export function syncMetaForMergeRestore(userId: string): SyncMeta {
   return { updatedAt: "", pendingLocalEdits: true, userId };
+}
+
+/**
+ * Sync meta for "restore a backup and replace the cloud with it": the next
+ * save overwrites the cloud row (no merge, so records missing from the backup
+ * are removed everywhere) whether or not this device has a merge base.
+ */
+export function syncMetaForReplaceRestore(
+  userId: string,
+  current: SyncMeta | null,
+): SyncMeta {
+  const ours = current?.userId === userId ? current : null;
+  return {
+    updatedAt: ours?.updatedAt ?? "",
+    pendingLocalEdits: true,
+    userId,
+    base: ours?.base,
+    replaceRemote: true,
+  };
 }
 
 export function serializeState(state: SyncedState): string {
@@ -368,8 +442,11 @@ export function differsFromBase(state: SyncedState, base: SyncBase): boolean {
  *    and this side didn't edit it (an edit beats a delete, so nothing typed is
  *    lost);
  *  - on both sides: if only one changed since the base, that one wins; if both
- *    changed (or there's no base), the newer per-record timestamp wins when
- *    there is one, otherwise local.
+ *    changed, the newer per-record timestamp wins when there is one, otherwise
+ *    local. With no base for the record (first sync, merge restore) the newer
+ *    timestamp wins, otherwise the REMOTE copy: the cloud holds what the
+ *    account's other devices saved, while a base-less local copy is often an
+ *    old backup or a device that was never synced.
  * Local order is kept; remote-only records follow in remote order.
  */
 export function mergeRecordsById<T>(
@@ -415,8 +492,12 @@ export function mergeRecordsById<T>(
 
     const localHash = getHash(record);
     const remoteHash = getHash(other);
-    if (localHash === remoteHash || baseHash === undefined) {
-      merged.push(localHash === remoteHash ? record : (newer(record, other) ?? record));
+    if (localHash === remoteHash) {
+      merged.push(record);
+      continue;
+    }
+    if (baseHash === undefined) {
+      merged.push(newer(record, other) ?? other);
       continue;
     }
     const localChanged = !matchesBase(localHash, baseHash);
@@ -438,6 +519,15 @@ export function mergeRecordsById<T>(
 }
 
 /**
+ * A record's per-edit time (`updatedAt`, stamped by the store whenever the
+ * record changes). NaN when the record predates stamping.
+ */
+export function recordUpdatedTime(record: unknown): number {
+  const value = (record as { updatedAt?: unknown } | null)?.updatedAt;
+  return typeof value === "string" ? Date.parse(value) : Number.NaN;
+}
+
+/**
  * Merge two copies of the synced state record-by-record. `base` is the state
  * both sides last agreed on (null when unknown — then nothing counts as
  * deleted and every record from either side is kept).
@@ -447,7 +537,9 @@ export function mergeSyncedStates(
   remote: SyncedState,
   base: SyncBase | null | undefined,
 ): SyncedState {
-  const merged: SyncedState = { ...local };
+  // Start from the remote row so top-level keys this build doesn't know (added
+  // by a newer build) survive the merge instead of being stripped.
+  const merged: SyncedState = { ...remote, ...local };
 
   for (const key of SYNC_COLLECTIONS) {
     // Each key pairs a list with itself, so the cast only erases the union.
@@ -455,6 +547,15 @@ export function mergeSyncedStates(
       local[key] ?? [],
       remote[key] ?? [],
       base?.[key],
+      { getTime: recordUpdatedTime },
+    );
+  }
+
+  // Account settings: per setting, the newer choice wins.
+  if (local.accountSettings !== undefined || remote.accountSettings !== undefined) {
+    merged.accountSettings = mergeAccountSettings(
+      local.accountSettings === undefined ? undefined : sanitizeAccountSettings(local.accountSettings),
+      remote.accountSettings === undefined ? undefined : sanitizeAccountSettings(remote.accountSettings),
     );
   }
 
@@ -487,28 +588,54 @@ export function mergeSyncedStates(
 
 // --- Cloud reads and writes -------------------------------------------------
 
+/** How long a cloud read may take before sync gives up and retries later. */
+export const PULL_TIMEOUT_MS = 15_000;
+
+export const PULL_TIMEOUT_MESSAGE =
+  "Timed out reaching the cloud. Check your connection; sync will retry.";
+
 /**
- * Fetch this user's cloud state, or null when they have no row yet.
+ * Fetch this user's cloud state, or null when they have no row yet. Gives up
+ * (and aborts the request) after `timeoutMs`, so a dead connection can't leave
+ * sync hanging.
  */
 export async function pullRemoteState(
   userId: string,
+  timeoutMs: number = PULL_TIMEOUT_MS,
 ): Promise<RemoteState | null> {
   const supabase = getSupabaseClient();
   if (!supabase) return null;
 
-  const { data, error } = await supabase
+  const controller = typeof AbortController === "undefined" ? null : new AbortController();
+  let builder = supabase
     .from(TABLE_NAME)
     .select("state, updated_at")
-    .eq("user_id", userId)
-    .maybeSingle();
+    .eq("user_id", userId);
+  if (controller) builder = builder.abortSignal(controller.signal);
 
-  if (error) throw new Error(error.message);
-  if (!data || !data.state) return null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller?.abort();
+      reject(new Error(PULL_TIMEOUT_MESSAGE));
+    }, timeoutMs);
+  });
 
-  return {
-    state: data.state as SyncedState,
-    updatedAt: String(data.updated_at ?? ""),
-  };
+  try {
+    const { data, error } = await Promise.race([builder.maybeSingle(), timeout]);
+
+    if (error) {
+      throw new Error(controller?.signal.aborted ? PULL_TIMEOUT_MESSAGE : error.message);
+    }
+    if (!data || !data.state) return null;
+
+    return {
+      state: data.state as SyncedState,
+      updatedAt: String(data.updated_at ?? ""),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export type ConditionalPushResult =
@@ -638,6 +765,8 @@ export async function saveWithMerge(
     if (result.ok) return { state: candidate, updatedAt: result.updatedAt, merged };
 
     const remote = await api.pull(userId);
+    // A newer build wrote this row: merging would strip what it added.
+    if (remote && isSchemaTooNew(remote.state)) throw new SyncSchemaTooNewError();
     if (!remote) {
       // The row vanished between the conflict and the pull: create it.
       candidate = local;
@@ -665,8 +794,10 @@ export async function saveWithMerge(
  *  - Both have data, and this device knows the last-synced base: push (which
  *    merges) when anything changed locally since; pull when only the cloud
  *    moved on; otherwise in sync.
- *  - Both have data, no base     -> unsaved edits push (merging); otherwise
- *    newest-wins by updatedAt.
+ *  - Both have data, no base     -> push, which merges by record id with
+ *    the cloud copy (a union: nothing on either side is discarded). Never a
+ *    wholesale pull, which would throw away a device's data on first sign-in.
+ *  - An explicit "Replace everywhere" restore -> push (the save overwrites).
  *
  * "push" always goes through saveWithMerge, so it never overwrites a newer
  * cloud copy — it merges with it.
@@ -678,6 +809,10 @@ export function decideReconcile(
 ): ReconcileDecision {
   if (!remote) {
     return { action: "push", reason: "No cloud backup yet — uploading this device's data." };
+  }
+
+  if (localMeta?.replaceRemote) {
+    return { action: "push", reason: "Replaced your cloud data with the restored backup." };
   }
 
   const localHasData = hasMeaningfulData(local);
@@ -713,27 +848,12 @@ export function decideReconcile(
     return { action: "in-sync", reason: "Already up to date." };
   }
 
-  // This device has edits the cloud never received: keep them (the push
-  // merges with the cloud copy rather than replacing it).
+  // Both sides have real data and this device has no merge base (first
+  // sign-in here, or meta from an older build). Push: it merges by record id
+  // with the cloud copy, keeping every record from both sides. A wholesale
+  // pull would discard this device's data.
   if (localMeta?.pendingLocalEdits) {
     return { action: "push", reason: "Uploaded this device's unsaved changes to the cloud." };
   }
-
-  // Both sides have real data: keep whichever was edited most recently.
-  const localTime = Date.parse(localMeta?.updatedAt ?? "") || 0;
-  const remoteTime = Date.parse(remote.updatedAt) || 0;
-
-  if (remoteTime > localTime) {
-    return {
-      action: "pull",
-      state: remote.state,
-      reason: "Loaded newer data from the cloud.",
-    };
-  }
-
-  if (localTime > remoteTime) {
-    return { action: "push", reason: "Uploaded newer local changes to the cloud." };
-  }
-
-  return { action: "in-sync", reason: "Already up to date." };
+  return { action: "push", reason: "Merged this device's data with your cloud data." };
 }

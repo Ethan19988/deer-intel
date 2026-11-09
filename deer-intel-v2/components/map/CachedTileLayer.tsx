@@ -59,6 +59,12 @@ export function createCachedTile(
   // the network so browsing outside a saved area still works when online.
   matchOfflineTile(cacheKey)
     .then((objectUrl) => {
+      // Leaflet already dropped this tile (panned / zoomed past it before the
+      // cache answered): nothing will ever load it, so free the blob now.
+      if (objectUrl && !tile.isConnected) {
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
       if (objectUrl) {
         tile.dataset.offlineObjectUrl = objectUrl;
         tile.src = objectUrl;

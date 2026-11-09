@@ -6,6 +6,7 @@ import {
   streamAiScoutReport,
 } from "@/lib/aiScout";
 import { AI_SCOUT_STREAM_CONTENT_TYPE } from "@/lib/aiScoutStream";
+import { AI_TERRAIN_PICK_LIMIT } from "@/lib/aiScoutSpatial";
 import { guardPaidRoute } from "@/lib/apiGuard";
 import type { AiScoutRequestContext } from "@/types/aiScout";
 
@@ -51,6 +52,12 @@ export async function POST(request: Request) {
       { error: "Request is missing the property context to analyze." },
       { status: 400 },
     );
+  }
+
+  // Older clients sent every terrain feature (~35k tokens); the client now
+  // picks the top few (lib/aiScoutSpatial), so cap here too.
+  if (Array.isArray(context.terrainPicks) && context.terrainPicks.length > AI_TERRAIN_PICK_LIMIT) {
+    context.terrainPicks = context.terrainPicks.slice(0, AI_TERRAIN_PICK_LIMIT);
   }
 
   const wantsStream = (request.headers.get("accept") ?? "").includes(

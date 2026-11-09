@@ -7,7 +7,11 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { countRecords } from "@/lib/backupReminder";
 import { saveDeerIntelStore } from "@/lib/deerIntelStore";
 import { replaceAllLandTags } from "@/lib/landTags";
-import { clearRestoreUndo, useRestoreUndo } from "@/lib/restoreUndo";
+import {
+  clearRestoreUndo,
+  restoreUndoMode,
+  useRestoreUndo,
+} from "@/lib/restoreUndo";
 import { downloadTextFile, useQuarantine } from "@/lib/storeQuarantine";
 import { localDateKey } from "@/lib/standPressure";
 
@@ -36,9 +40,11 @@ export default function DataRecoveryNotices() {
     setConfirmUndo(false);
     if (!undo) return;
 
-    // Undo is another full replace: when signed in, the records the restore
-    // brought in are removed from the cloud again and the earlier ones return.
-    await prepareBackupRestore("replace");
+    // Undo goes back the way the restore went. After a "replace" restore it is
+    // another full replace (the restored records leave the cloud again and the
+    // earlier ones return); after a "merge" restore it merges too, so cloud
+    // records the restore never touched aren't deleted by the undo.
+    await prepareBackupRestore(restoreUndoMode(undo));
     saveDeerIntelStore(undo.state);
     if (undo.landTags !== undefined) replaceAllLandTags(undo.landTags);
     await clearRestoreUndo();
@@ -83,7 +89,11 @@ export default function DataRecoveryNotices() {
         open={confirmUndo && undo !== null}
         title="Undo restore?"
         description={`This puts back the ${undo ? countRecords(undo.state) : 0} records you had before the restore${
-          cloudActive ? ", on this device and in your cloud data" : ""
+          !cloudActive
+            ? ""
+            : undo && restoreUndoMode(undo) === "merge"
+              ? " on this device and merges them back into your cloud data"
+              : ", on this device and in your cloud data"
         }. Changes made since the restore will be lost. Photos stay as they are.`}
         confirmLabel="Undo restore"
         confirmVariant="danger"

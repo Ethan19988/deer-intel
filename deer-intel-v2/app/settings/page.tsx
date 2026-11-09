@@ -27,6 +27,7 @@ import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { downloadBlob } from "@/lib/downloadFile";
+import type { RejectedRecord } from "@/lib/storeQuarantine";
 import { backupLocalImages, usePendingPhotoUploadCount } from "@/lib/imageStore";
 import { saveRestoreUndo } from "@/lib/restoreUndo";
 import {
@@ -253,7 +254,7 @@ export default function SettingsPage() {
     // older or partial backup (missing lists, odd fields) fills in defaults
     // instead of crashing the confirm or saving malformed records.
     const fullBackup = isFullBackup(parsed) ? parsed : null;
-    const rejected: Parameters<typeof normalizeState>[1] = [];
+    const rejected: RejectedRecord[] = [];
     let normalized: DeerIntelState | null = null;
     try {
       normalized = normalizeState(fullBackup ? fullBackup.state : parsed, rejected);
@@ -274,7 +275,7 @@ export default function SettingsPage() {
       images: fullBackup?.images,
       files: fullBackup?.files,
       landTags: fullBackup ? backupLandTags(fullBackup) : undefined,
-      skipped: rejected?.length ?? 0,
+      skipped: rejected.length,
     });
   }
 

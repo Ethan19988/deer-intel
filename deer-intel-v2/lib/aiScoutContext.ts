@@ -8,9 +8,19 @@ import type {
   AiScoutDeerProfileContext,
   AiScoutHuntContext,
   AiScoutRequestContext,
+  AiScoutSeasonContext,
   AiScoutStandContext,
+  AiScoutTargetSit,
+  AiScoutTerrainPickContext,
 } from "@/types/aiScout";
 import type { ScoutPick } from "@/lib/terrainMovementData";
+import type { MapPin } from "@/types/mapPin";
+import {
+  nearbyTerrain,
+  nearestCameras,
+  selectAiTerrainPicks,
+  standPoint,
+} from "@/lib/aiScoutSpatial";
 import type { DeerProfile } from "@/types/deerProfile";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { PhotoRecord } from "@/types/photo";
@@ -59,6 +69,13 @@ type BuildAiScoutContextInput = {
   conditions: AiScoutConditions;
   /** Terrain-predicted spots for this property, if a LiDAR read covers it. */
   scoutPicks?: ScoutPick[];
+  /** This property's map pins, to locate stands (stand pins). */
+  pins?: MapPin[];
+  /** Today's local date, "YYYY-MM-DD (Mon)". */
+  today?: string;
+  /** The sit being planned (next sit), with forecast and legal light. */
+  targetSit?: AiScoutTargetSit;
+  season?: AiScoutSeasonContext;
 };
 
 /**
@@ -76,8 +93,15 @@ export function buildAiScoutRequestContext({
   deerProfiles,
   conditions,
   scoutPicks = [],
+  pins = [],
+  today,
+  targetSit,
+  season,
 }: BuildAiScoutContextInput): AiScoutRequestContext {
   const cameraNameById = new Map(cameras.map((camera) => [camera.id, camera.name]));
+  // Only the strongest few terrain picks go to the model (see
+  // selectAiTerrainPicks); stand proximity is measured against all of them.
+  const terrainPicks = selectAiTerrainPicks(scoutPicks);
 
   // Optional stand details ride along only when set. The route JSON-stringifies
   // the whole context, so these reach the model as-is.
@@ -86,6 +110,16 @@ export function buildAiScoutRequestContext({
     const lastHunt = [...standHunts].sort(
       (left, right) => recordTime(right.date) - recordTime(left.date),
     )[0];
+    // Distances are computed here — the model gets no coordinates, so it can
+    // only reason about "near" from these lists.
+    const point = standPoint(stand, pins);
+    const spatial = point
+      ? {
+          located: true,
+          nearestCameras: nearestCameras(point, cameras),
+          nearbyTerrain: nearbyTerrain(point, scoutPicks),
+        }
+      : { located: false };
 
     return {
       name: stand.name,
@@ -97,6 +131,7 @@ export function buildAiScoutRequestContext({
       notes: truncate(stand.notes),
       huntCount: standHunts.length,
       lastHuntDate: lastHunt?.date,
+      ...spatial,
       ...(stand.bestTime ? { bestTime: STAND_BEST_TIME_LABEL[stand.bestTime] } : {}),
       ...(stand.setup?.length ? { setup: stand.setup } : {}),
       ...(stand.weapon ? { weapon: STAND_WEAPON_LABEL[stand.weapon] } : {}),
@@ -106,10 +141,15 @@ export function buildAiScoutRequestContext({
   });
 
   const recentHunts: AiScoutHuntContext[] = [...hunts]
+    // A blood-trail recovery isn't a sit.
+    .filter((hunt) => hunt.kind !== "blood-trail")
     .sort((left, right) => recordTime(right.date) - recordTime(left.date))
     .slice(0, MAX_RECENT_HUNTS)
     .map((hunt) => ({
       date: hunt.date,
+      ...(hunt.startTime?.trim() ? { startTime: hunt.startTime.trim() } : {}),
+      ...(hunt.endTime?.trim() ? { endTime: hunt.endTime.trim() } : {}),
+      ...(sitOfDay(hunt.startTime) ? { sit: sitOfDay(hunt.startTime) } : {}),
       standName: hunt.standName,
       windDirection: hunt.windDirection,
       windSpeed: hunt.windSpeed,
@@ -136,10 +176,15 @@ export function buildAiScoutRequestContext({
       notes: truncate(check.notes),
     }));
 
+  // Harvested / retired bucks aren't targets; send the active hit list,
+  // most recently seen first.
   const deerProfileContexts: AiScoutDeerProfileContext[] = deerProfiles
+    .filter((profile) => (profile.status ?? "active") === "active")
+    .sort((left, right) => recordTime(right.lastSeen) - recordTime(left.lastSeen))
     .slice(0, MAX_DEER_PROFILES)
     .map((profile) => ({
       nickname: profile.nickname,
+      status: "active",
       estimatedAge: profile.estimatedAge,
       firstSeen: profile.firstSeen,
       lastSeen: profile.lastSeen,
@@ -198,19 +243,72 @@ export function buildAiScoutRequestContext({
       acres: property.acres,
       notes: truncate(property.notes),
     },
+    ...(today ? { today } : {}),
+    ...(targetSit ? { targetSit } : {}),
+    ...(season ? { season } : {}),
     conditions,
     stands: standContexts,
     recentHunts,
     recentCameraChecks,
     deerProfiles: deerProfileContexts,
     recentBuckPhotos,
-    terrainPicks: scoutPicks.map((pick) => ({
+    terrainPicks: terrainPicks.map(terrainPickContext),
+  };
+}
+
+/** Bedding notes read "Deer bed here on a N wind …" (older: "Beds hold a N wind"). */
+const BED_WIND_RE = /(?:bed here on an?|beds hold an?)\s+([NSEW]{1,3})\s+wind/i;
+
+/** The wind deer bed on at a bedding pick, or undefined. */
+export function deerBedOnWind(windNote: string | undefined): string | undefined {
+  const match = windNote ? BED_WIND_RE.exec(windNote) : null;
+  return match ? match[1].toUpperCase() : undefined;
+}
+
+function terrainPickContext(pick: ScoutPick): AiScoutTerrainPickContext {
+  const confirmation = pick.confirmation;
+  const counts = confirmation
+    ? [
+        confirmation.bucks ? `${confirmation.bucks} bucks` : "",
+        confirmation.does ? `${confirmation.does} does` : "",
+        confirmation.fawns ? `${confirmation.fawns} fawns` : "",
+      ]
+        .filter(Boolean)
+        .join(", ")
+    : "";
+  const cameraActivityNearby = confirmation
+    ? `${confirmation.cameraName} ${Math.round(confirmation.distanceM * 1.0936)} yd${counts ? `: ${counts} this/last season` : ""}`
+    : undefined;
+
+  if (pick.kind === "bedding") {
+    const wind = deerBedOnWind(pick.windNote);
+    return {
       kind: pick.kind,
       title: pick.title,
       detail: truncate(pick.reason),
-      bestWind: pick.windNote,
-    })),
+      ...(wind ? { deerBedOnWind: wind } : {}),
+      ...(cameraActivityNearby ? { cameraActivityNearby } : {}),
+    };
+  }
+
+  return {
+    kind: pick.kind,
+    title: pick.title,
+    detail: truncate(pick.reason),
+    ...(pick.windNote ? { windNote: pick.windNote } : {}),
+    ...(cameraActivityNearby ? { cameraActivityNearby } : {}),
   };
+}
+
+/** "morning" / "midday" / "evening" from a logged "HH:MM" start, else "". */
+export function sitOfDay(startTime: string | undefined): string {
+  const match = /^(\d{1,2}):(\d{2})/.exec(startTime?.trim() ?? "");
+  if (!match) return "";
+  const hour = Number(match[1]);
+  if (!Number.isFinite(hour) || hour > 23) return "";
+  if (hour < 11) return "morning";
+  if (hour < 14) return "midday";
+  return "evening";
 }
 
 function truncate(value: string) {

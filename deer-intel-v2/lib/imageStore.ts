@@ -57,6 +57,11 @@ function openDatabase(): Promise<IDBDatabase | null> {
             database.close();
             databasePromise = null;
           };
+          // The browser can close a connection (e.g. iOS backgrounding); open
+          // a fresh one next time instead of failing every later write.
+          database.onclose = () => {
+            databasePromise = null;
+          };
           resolve(database);
         };
         request.onerror = () => {

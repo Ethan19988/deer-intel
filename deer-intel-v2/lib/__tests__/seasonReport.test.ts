@@ -240,4 +240,40 @@ describe("buildSeasonReport", () => {
     expect(empty.advice).toEqual([]);
     expect(empty.bucks).toEqual([]);
   });
+
+  it("counts sits tagged with a buck and includes bucks seen only on sits", () => {
+    const sitOnly: DeerProfile = { ...profile, id: "d2", nickname: "Wide 10" };
+    const tagged = buildSeasonReport(
+      {
+        ...input,
+        hunts: [
+          // Tagged and named in the notes — one sit, counted once.
+          hunt({ date: "2025-10-28", deerProfileIds: ["d1"], notes: "Big 8 at 40 yds" }),
+          // Named only.
+          hunt({ date: "2025-11-12", notes: "big 8 chasing a doe" }),
+          // Wide 10 was only ever tagged on sits.
+          hunt({ date: "2025-11-03", deerProfileIds: ["d2", "d2"] }),
+          hunt({ date: "2025-11-15", deerProfileIds: ["d2", "missing"] }),
+        ],
+        deerProfiles: [profile, sitOnly],
+      },
+      2025,
+      ctx,
+    );
+    const big8 = tagged.bucks.find((b) => b.name === "Big 8")!;
+    expect(big8.sitMentions).toBe(2);
+    expect(big8.photos).toBe(6);
+    // The tagged sit before his first photo widens the seen range.
+    expect(big8.firstSeen).toBe("2025-10-28");
+    expect(big8.lastSeen).toBe("2025-11-06");
+
+    const wide = tagged.bucks.find((b) => b.name === "Wide 10")!;
+    expect(wide.photos).toBe(0);
+    expect(wide.profileId).toBe("d2");
+    expect(wide.sitMentions).toBe(2);
+    expect(wide.firstSeen).toBe("2025-11-03");
+    expect(wide.lastSeen).toBe("2025-11-15");
+    expect(wide.sites).toEqual([]);
+    expect(wide.peakHourLabel).toBeNull();
+  });
 });

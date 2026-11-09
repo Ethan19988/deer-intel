@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   backupReminderStatus,
+  countRecords,
   BACKUP_REMINDER_MIN_RECORDS,
 } from "@/lib/backupReminder";
 
@@ -59,5 +60,29 @@ describe("backupReminderStatus", () => {
     expect(status.shouldRemind).toBe(true);
     expect(status.reason).toBe("many-new");
     expect(status.newRecords).toBe(20);
+  });
+});
+
+describe("countRecords", () => {
+  it("counts walk tracks and documents with the other lists", () => {
+    const one = [{}];
+    expect(
+      countRecords({
+        properties: one,
+        cameras: one,
+        cameraChecks: one,
+        stands: one,
+        pins: one,
+        hunts: one,
+        photoRecords: one,
+        deerProfiles: one,
+        walkTracks: [{}, {}],
+        documents: [{}, {}, {}],
+      } as never),
+    ).toBe(13);
+  });
+
+  it("treats missing lists in an old or partial state as empty", () => {
+    expect(countRecords({ properties: [{}] } as never)).toBe(1);
   });
 });

@@ -48,6 +48,8 @@ const PRECACHE = [
 ];
 // Served for a page that was never saved on this phone while offline.
 const OFFLINE_FALLBACK = "/offline";
+// How long a page load waits on the network before the saved copy is served.
+const NAV_TIMEOUT_MS = 3500;
 // Upper bound on build assets warmed at install, so a surprise can't balloon it.
 const MAX_WARM_ASSETS = 400;
 // Matches "/_next/static/…" in HTML and the bare "static/…" chunk paths
@@ -156,22 +158,47 @@ self.addEventListener("fetch", (event) => {
   // Page loads: network-first (stay fresh online), fall back to the cached copy
   // of that page offline. A page never saved on this phone gets the offline
   // notice, never a different page (the old map fallback opened the Map when
-  // the hunter tapped Log sit).
+  // the hunter tapped Log sit). In the woods "online" is often one bar that
+  // never answers, so the network gets NAV_TIMEOUT_MS before the cached page
+  // is served; the fetch keeps running and still refreshes the cache. Cached
+  // pages match ignoring the query, so /map?pin=… opens the saved /map.
   if (request.mode === "navigate") {
+    const network = fetch(request);
+    // Refresh the saved page whenever the network answers, even after a
+    // timeout already served the cached copy. Cloned in the first handler,
+    // before the page can read the body.
+    event.waitUntil(
+      network
+        .then((response) => {
+          // Never let an error page replace the good cached shell.
+          if (!response.ok) return;
+          const copy = response.clone();
+          return caches.open(CACHE).then((cache) => cache.put(request, copy));
+        })
+        .catch(() => {}),
+    );
     event.respondWith(
       (async () => {
+        const fromCache = async () =>
+          (await caches.match(request)) ||
+          (await caches.match(request, { ignoreSearch: true }));
+
+        let timer;
+        const timedOut = new Promise((resolve) => {
+          timer = setTimeout(() => resolve("timeout"), NAV_TIMEOUT_MS);
+        });
+
         try {
-          const response = await fetch(request);
-          // Never let an error page replace the good cached shell.
-          if (response.ok) {
-            const cache = await caches.open(CACHE);
-            cache.put(request, response.clone());
-          }
-          return response;
+          const first = await Promise.race([network, timedOut]);
+          clearTimeout(timer);
+          if (first !== "timeout") return first;
+          // Slow network: serve the saved page if there is one, else keep waiting.
+          const cached = await fromCache();
+          return cached || (await network);
         } catch {
-          const cached = await caches.match(request);
+          clearTimeout(timer);
           return (
-            cached ||
+            (await fromCache()) ||
             (await caches.match(OFFLINE_FALLBACK)) ||
             Response.error()
           );

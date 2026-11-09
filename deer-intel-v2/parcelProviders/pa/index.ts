@@ -1,5 +1,16 @@
 import type { CountyParcelProvider } from "@/types/parcel";
 
+/**
+ * A county provider plus how its owner fields combine (lib/parcelLookup.ts):
+ * "join" (default) joins every field, as the tile build's joinFields does,
+ * for a name split across fields or a co-owner field; "first" takes the first
+ * non-empty field, for fields that are alternate forms of ONE name (a full
+ * name and its truncated copy), as the build's `a || b` does.
+ */
+export type PaCountyParcelProvider = CountyParcelProvider & {
+  ownerFieldMode?: "join" | "first";
+};
+
 const ADAMS_PARCEL_OWNER_SERVICE_URL =
   "https://mapping.adamscountypa.gov/arcgis/rest/services/AGOL/Parcel_Owners/MapServer";
 
@@ -144,7 +155,7 @@ const PA_COUNTIES: Array<{ countyFips: string; countyName: string }> = [
 const PA_DEP_PARCEL_SERVICE_URL =
   "https://gis.dep.pa.gov/depgisprd/rest/services/Parcels/PA_Parcels/MapServer";
 
-function paDepCounty(countyName: string): Partial<CountyParcelProvider> {
+function paDepCounty(countyName: string): Partial<PaCountyParcelProvider> {
   return {
     acreageFieldNames: ["ACREAGE", "ACRES"],
     // PROPERTY_ADDRESS_1 is a mailing address in some counties.
@@ -172,9 +183,10 @@ function countyArcgis(
     | "notes"
   > & {
     addressFieldGroups?: string[][];
+    ownerFieldMode?: PaCountyParcelProvider["ownerFieldMode"];
     source?: CountyParcelProvider["source"];
   },
-): Partial<CountyParcelProvider> {
+): Partial<PaCountyParcelProvider> {
   return {
     geometrySupport: "polygon",
     source: "County ArcGIS",
@@ -183,7 +195,7 @@ function countyArcgis(
   };
 }
 
-const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
+const COUNTY_OVERRIDES: Record<string, Partial<PaCountyParcelProvider>> = {
   Adams: {
     acreageFieldNames: ["DEEDED_ACRES", "Map_Ac"],
     addressFieldNames: ["COMBINED_SITUS"],
@@ -201,7 +213,8 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     addressFieldNames: ["SITUS_DESC"],
     geometrySupport: "polygon",
     notes: "PASDA Bedford County parcel layer with assessment owner names.",
-    ownerFieldNames: ["OWNER_NAME"],
+    // OWNER_NA_1 continues OWNER_NAME (care-of lines are cut by stripCareOf).
+    ownerFieldNames: ["OWNER_NAME", "OWNER_NA_1"],
     parcelIdFieldNames: ["Name"],
     parcelLayerId: 0,
     parcelServiceUrl: pasdaCountyParcelServiceUrl("Bedford"),
@@ -233,13 +246,17 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     status: "supported",
   },
   Butler: {
+    // Acreage only exists inside Legal1's text (the tile build parses it).
     acreageFieldNames: [],
-    addressFieldNames: ["Paddr1"],
+    // Legal2 is the parcel's own address; Paddr1 is the owner's mailing
+    // address ("P O BOX …"). DPIN is the clean id ("10-S1-A1"), as in the
+    // tile build; PIN is the padded form.
+    addressFieldNames: ["Legal2"],
     geometrySupport: "polygon",
     notes:
       "PASDA Butler County parcel layer with owner names; no acreage field.",
     ownerFieldNames: ["Own1"],
-    parcelIdFieldNames: ["PIN"],
+    parcelIdFieldNames: ["DPIN", "PIN"],
     parcelLayerId: 0,
     parcelServiceUrl: pasdaCountyParcelServiceUrl("Butler"),
     source: "PASDA",
@@ -339,9 +356,10 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     status: "supported",
   },
   Huntingdon: {
-    // No parcel address published; Owner_Addr is the mailing address.
+    // Property_A is the parcel's own address; Owner_Addr is the owner's
+    // mailing line, so it isn't used.
     acreageFieldNames: ["CAMA_ACRES", "MAP_ACRES"],
-    addressFieldNames: [],
+    addressFieldNames: ["Property_A"],
     geometrySupport: "polygon",
     notes: "Huntingdon County ArcGIS Online parcels joined to CAMA.",
     ownerFieldNames: ["Owner_Name"],
@@ -358,6 +376,8 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     addressFieldGroups: [["COMBINED_S"], ["ADDRESS_1", "CITY", "STATE", "ZIP"]],
     geometrySupport: "polygon",
     notes: "PASDA Indiana County parcel layer (5) with assessment owner names.",
+    // SHORT_NAME is a truncated copy of NAME_EXT: the fallback, not a co-owner.
+    ownerFieldMode: "first",
     ownerFieldNames: ["NAME_EXT", "SHORT_NAME"],
     parcelIdFieldNames: ["PARCEL_ID", "PARCEL_NO", "GIS_PIN"],
     parcelLayerId: 5,
@@ -370,7 +390,7 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     addressFieldNames: ["Physical_A"],
     geometrySupport: "polygon",
     notes: "PASDA Juniata County parcel layer with assessment owner names.",
-    ownerFieldNames: ["Owners_Nam"],
+    ownerFieldNames: ["Owners_Nam", "Owners_N_1"],
     parcelIdFieldNames: ["PIN", "UPI_Number"],
     parcelLayerId: 0,
     parcelServiceUrl: pasdaCountyParcelServiceUrl("Juniata"),
@@ -443,7 +463,9 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     addressFieldNames: ["Situs_Complete"],
     geometrySupport: "polygon",
     notes: "Potter County ArcGIS Server tax parcels.",
-    ownerFieldNames: ["Owner_Name_1", "Owner_Name_2"],
+    // Owner_Name_2 is often a "C/O" contact, so (like the tile build) it's
+    // left off.
+    ownerFieldNames: ["Owner_Name_1"],
     parcelIdFieldNames: ["Control_Number"],
     parcelLayerId: 0,
     parcelServiceUrl: POTTER_PARCEL_OWNER_SERVICE_URL,
@@ -457,6 +479,8 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     geometrySupport: "polygon",
     notes:
       "Wayne County ArcGIS Online tax parcels. Owner + acreage only — no situs address published.",
+    // Alternate forms of one name; the tile build uses Name.
+    ownerFieldMode: "first",
     ownerFieldNames: ["Name", "FullName"],
     parcelIdFieldNames: ["ControlNumber", "PARCELNO"],
     parcelLayerId: 0,
@@ -481,6 +505,8 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     addressFieldNames: ["PROPADR"],
     geometrySupport: "polygon",
     notes: "PASDA York County parcel layer with assessment owner names.",
+    // OWN_NAME1 is a shorter form of OWNER_FULL (the build's `a || b`).
+    ownerFieldMode: "first",
     ownerFieldNames: ["OWNER_FULL", "OWN_NAME1"],
     parcelIdFieldNames: ["PIDN"],
     parcelLayerId: 31,
@@ -636,7 +662,8 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
     // Queries return the 10-character stored names, not the long aliases.
     addressFieldGroups: [["legdat_adr", "legdat_a_2", "legdat_a_3", "legdat_a_4"]],
     notes: "PASDA Washington County parcels (Aug 2026); GIS acreage.",
-    ownerFieldNames: ["owndat_own"],
+    // owndat_o_1 is the rest of a name that didn't fit owndat_own.
+    ownerFieldNames: ["owndat_own", "owndat_o_1"],
     parcelIdFieldNames: ["PIN"],
     parcelLayerId: 7,
     parcelServiceUrl: pasdaCountyParcelServiceUrl("Washington"),
@@ -656,7 +683,7 @@ const COUNTY_OVERRIDES: Record<string, Partial<CountyParcelProvider>> = {
   Westmoreland: paDepCounty("Westmoreland"),
 };
 
-export const PA_COUNTY_PARCEL_PROVIDERS: CountyParcelProvider[] =
+export const PA_COUNTY_PARCEL_PROVIDERS: PaCountyParcelProvider[] =
   PA_COUNTIES.map((county) => ({
     acreageFieldNames: [],
     addressFieldNames: [],
@@ -672,7 +699,7 @@ export const PA_COUNTY_PARCEL_PROVIDERS: CountyParcelProvider[] =
 
 export function getPaParcelProviderByCounty(
   countyName: string,
-): CountyParcelProvider | undefined {
+): PaCountyParcelProvider | undefined {
   const normalizedCountyName = normalizeCountyName(countyName);
 
   return PA_COUNTY_PARCEL_PROVIDERS.find(
@@ -682,7 +709,7 @@ export function getPaParcelProviderByCounty(
 
 export function getPaParcelProviderByFips(
   countyFips: string,
-): CountyParcelProvider | undefined {
+): PaCountyParcelProvider | undefined {
   const normalizedFips = countyFips.padStart(3, "0");
 
   return PA_COUNTY_PARCEL_PROVIDERS.find(

@@ -5,12 +5,20 @@ type FieldHudProps = {
   /** "Hunt area edge · 40 yd" / "Outside your hunt area", or null. */
   edgeLabel: string | null;
   edgeOutside: boolean;
-  /** Set while "Guide me" runs; reading is null until the first GPS fix. */
-  guide: { label: string; reading: GuideReading | null } | null;
+  /**
+   * Set while "Guide me" runs; reading is null until the first GPS fix.
+   * `gpsLost` when the last fix is more than 30 s old.
+   */
+  guide: { label: string; reading: GuideReading | null; gpsLost?: boolean } | null;
   onStopGuide: () => void;
   /** A short one-off line ("You're at Truck.", "Saved to the Hunt Log…"). */
   message: string;
   onDismissMessage: () => void;
+  /** A standing problem (location refused) — stays until dismissed. */
+  notice?: string | null;
+  onDismissNotice?: () => void;
+  /** "Resume blood trail from last night?" after a reload or a night away. */
+  resumePrompt?: { text: string; onResume: () => void; onDiscard: () => void } | null;
 };
 
 // Heads-up field readouts over the map: the hunt-area edge warning, the
@@ -23,8 +31,18 @@ export default function FieldHud({
   onStopGuide,
   message,
   onDismissMessage,
+  notice = null,
+  onDismissNotice,
+  resumePrompt = null,
 }: FieldHudProps) {
-  if (!edgeLabel && !guide && !message) return null;
+  if (!edgeLabel && !guide && !message && !notice && !resumePrompt) return null;
+
+  const reading = guide?.reading ?? null;
+  const gpsLost = Boolean(guide?.gpsLost);
+  // Closer than the fix's accuracy, the bearing is noise: say so instead of
+  // spinning the arrow.
+  const showArrow =
+    reading !== null && reading.arrowRotation !== null && !reading.withinAccuracy && !gpsLost;
 
   return (
     <div
@@ -45,31 +63,55 @@ export default function FieldHud({
       {guide ? (
         <section className="di-field-hud-guide" style={guideStyle} aria-label={`Guiding to ${guide.label}`}>
           <p style={guideEyebrowStyle}>Guide · {guide.label}</p>
-          {guide.reading ? (
+          {reading ? (
             <>
-              {guide.reading.arrowRotation !== null ? (
+              {showArrow ? (
                 <span
                   aria-hidden="true"
                   style={{
                     ...arrowStyle,
-                    transform: `rotate(${guide.reading.arrowRotation}deg)`,
+                    transform: `rotate(${reading.arrowRotation}deg)`,
                   }}
                 >
                   ▲
                 </span>
               ) : null}
-              <p style={distanceStyle}>{guide.reading.distanceLabel}</p>
+              <p style={distanceStyle}>{reading.distanceLabel}</p>
               <p style={headStyle} aria-live="polite">
-                {guide.reading.headText}
+                {gpsLost
+                  ? "GPS lost — move to open sky"
+                  : reading.withinAccuracy
+                    ? "Within GPS accuracy — look around"
+                    : reading.headText}
               </p>
             </>
           ) : (
-            <p style={headStyle}>Waiting for a GPS fix…</p>
+            <p style={headStyle}>{gpsLost ? "GPS lost — move to open sky" : "Waiting for a GPS fix…"}</p>
           )}
           <button type="button" style={stopStyle} onClick={onStopGuide}>
             Stop
           </button>
         </section>
+      ) : null}
+
+      {resumePrompt ? (
+        <section style={guideStyle} aria-label="Unfinished blood trail">
+          <p style={{ ...headStyle, color: "#e8e6df" }}>{resumePrompt.text}</p>
+          <div style={promptRowStyle}>
+            <button type="button" style={stopStyle} onClick={resumePrompt.onResume}>
+              Resume
+            </button>
+            <button type="button" style={stopStyle} onClick={resumePrompt.onDiscard}>
+              Discard
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {notice ? (
+        <button type="button" role="alert" style={messageStyle} onClick={onDismissNotice}>
+          {notice}
+        </button>
       ) : null}
 
       {message ? (
@@ -135,7 +177,8 @@ const arrowStyle: CSSProperties = {
   color: "#ff6a1a",
   fontSize: "3.4rem",
   lineHeight: 1,
-  transition: "transform 160ms linear",
+  // Heading updates arrive ~4 times a second; ease across the gap.
+  transition: "transform 240ms linear",
 };
 
 const distanceStyle: CSSProperties = {
@@ -167,6 +210,13 @@ const stopStyle: CSSProperties = {
   letterSpacing: "0.08em",
   textTransform: "uppercase",
   cursor: "pointer",
+};
+
+const promptRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "0.4rem",
+  width: "100%",
 };
 
 const messageStyle: CSSProperties = {

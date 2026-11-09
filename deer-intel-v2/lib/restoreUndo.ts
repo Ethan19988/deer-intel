@@ -28,7 +28,17 @@ export type RestoreUndoSnapshot = {
   at: string;
   // Name of the backup file that replaced it.
   fileName: string;
+  // How the restore treated the cloud copy ("merge" kept cloud-only records).
+  // Undo goes back the same way. Missing on older snapshots → "replace".
+  mode?: "merge" | "replace";
 };
+
+/** The cloud mode to undo a restore with: the same one the restore used. */
+export function restoreUndoMode(
+  snapshot: Pick<RestoreUndoSnapshot, "mode">,
+): "merge" | "replace" {
+  return snapshot.mode === "merge" ? "merge" : "replace";
+}
 
 /** True while the snapshot is still within the undo window. */
 export function isRestoreUndoFresh(

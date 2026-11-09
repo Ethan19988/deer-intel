@@ -14,7 +14,13 @@
 //    climb, and rut cruisers funnel through — two cams on the approaches can put
 //    a daylight buck on your phone in a few nights. Prime stand terrain.
 //  - Benches: deer sidehill at a constant elevation instead of climbing; bucks
-//    cruise them below the ridge to scent-check beds without skylining.
+//    cruise them below the ridge to scent-check beds without skylining. Set up
+//    on the downwind side of the trail on a crosswind, not at an "end".
+//  - Draws: deer climb out of them from below at dawn while falling thermals
+//    pour scent down the draw — sit the upper part/side at first light; rising
+//    mid-afternoon thermals favor the lower end in the evening.
+//  - Water crossings: where travel dips through a drainage; same thermal rule
+//    — at first light stay above or beside the crossing, never below it.
 //  - Bed-to-feed routes: the least-effort path bed<->food — where deer DO move.
 //    Best afternoon stand sits in the transition zone, not tight to the field.
 //  - Refuge: the steep, far-from-road core where the oldest bucks ride out
@@ -55,13 +61,21 @@ export type PlaybookInput = Pick<TerrainMovementFeature, "kind" | "id"> & {
   roadDistM?: number;
 };
 
-type PlaybookKey = "bedding" | "pinch" | "bench" | "route" | "refuge";
+type PlaybookKey =
+  | "bedding"
+  | "pinch"
+  | "crossing"
+  | "bench"
+  | "draw"
+  | "route"
+  | "refuge";
 
-function keyOf(input: PlaybookInput): PlaybookKey {
+/** Pipeline ids are `<name>-draw-<n>` / `<name>-xing-<n>`; live ids `t-draw-…`. */
+export function playbookKeyOf(input: PlaybookInput): PlaybookKey {
   if (isBedToFeedRoute(input)) return "route";
-  if (input.kind === "travel") return "bench";
+  if (input.kind === "travel") return input.id.includes("-draw-") ? "draw" : "bench";
   if (input.kind === "bedding") return "bedding";
-  if (input.kind === "pinch") return "pinch";
+  if (input.kind === "pinch") return input.id.includes("-xing-") ? "crossing" : "pinch";
   return "refuge";
 }
 
@@ -134,7 +148,55 @@ const PLAYBOOK: Record<PlaybookKey, Omit<TerrainPlaybook, "access">> = {
       {
         icon: "🪜",
         label: "Stand",
-        text: "Hunt the downwind end. Deer walk into the wind, so keep the wind off the trail and out of the beds above.",
+        text: "Set up on the downwind side of the bench trail on a crosswind, so your scent blows off the shelf — not along it and not up into the beds above.",
+      },
+    ],
+  },
+  draw: {
+    verdict: "Solid — play the thermals",
+    tone: "confirm",
+    read:
+      "A drainage deer use to move between bedding and feed — and a quiet, low-scent way in. Thermals rule here: cool air pours down the draw at dawn and rises up it by mid-afternoon.",
+    window: "Mornings from the upper end; evenings from the lower end.",
+    moves: [
+      {
+        icon: "👣",
+        label: "Scout",
+        text: "Walk the bottom post-season for the trail, crossings and rubs along the edges; note where side trails climb out toward beds.",
+      },
+      {
+        icon: "📷",
+        label: "Camera",
+        text: "Hang it where a side trail climbs out of the draw, angled across the trail — not looking straight down the bottom.",
+      },
+      {
+        icon: "🪜",
+        label: "Stand",
+        text: "At first light sit the upper part or side of the draw so falling thermals carry scent down and away from deer coming up it. In the evening, mid-afternoon rising thermals favor the lower end.",
+      },
+    ],
+  },
+  crossing: {
+    verdict: "Prime — water crossing",
+    tone: "prime",
+    read:
+      "Where a travel line dips through a drainage: deer funnel through the easy gap to get across, with water right there. Like any low spot, it fills with sinking scent at dawn.",
+    window: "All season; best on warm days and early season.",
+    moves: [
+      {
+        icon: "👣",
+        label: "Scout",
+        text: "Find the worn crossing — cut banks, tracks in the mud — and the trails leading in from each side.",
+      },
+      {
+        icon: "📷",
+        label: "Camera",
+        text: "Set it a few yards off the crossing, angled across it, so it catches deer stepping in and out of the water.",
+      },
+      {
+        icon: "🪜",
+        label: "Stand",
+        text: "Sit the downwind bank on a crosswind. At first light stay above the crossing or off to the side — never below it, where falling thermals carry your scent down the drainage to deer coming up.",
       },
     ],
   },
@@ -202,7 +264,7 @@ function accessNote(roadDistM: number): string {
 
 /** Turn a terrain feature (or Scout Pick) into a scout/camera/stand playbook. */
 export function terrainPlaybook(input: PlaybookInput): TerrainPlaybook {
-  const base = PLAYBOOK[keyOf(input)];
+  const base = PLAYBOOK[playbookKeyOf(input)];
   return typeof input.roadDistM === "number"
     ? { ...base, access: accessNote(input.roadDistM) }
     : base;

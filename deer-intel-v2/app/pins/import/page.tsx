@@ -25,6 +25,8 @@ import {
   parseWaypointFileFromFile,
   type ImportedWaypoint,
 } from "@/lib/pinImport";
+import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import { farFromPropertyMeters, isAlreadyOnMap } from "@/lib/pinImportReview";
 import { formatCoordinate } from "@/lib/propertyMap";
 import type { MapPin, PinType } from "@/types/mapPin";
 
@@ -60,9 +62,18 @@ export default function PinImportPage() {
     activeProperty?.id ?? "",
   );
   const propertyId = selectedPropertyId || activeProperty?.id || "";
-  const propertyName =
-    state.properties.find((property) => property.id === propertyId)?.name ??
-    "No property selected";
+  const targetProperty = state.properties.find(
+    (property) => property.id === propertyId,
+  );
+  const propertyName = targetProperty?.name ?? "No property selected";
+  // The chosen property's pins and center, for the review flags: a waypoint
+  // already on the map (re-imported export) and one far from the property.
+  const propertyPins = state.pins.filter((pin) => pin.propertyId === propertyId);
+  const propertyCenter = resolvePropertyWeatherPoint(
+    targetProperty,
+    state.cameras.filter((camera) => camera.propertyId === propertyId),
+    propertyPins,
+  );
 
   const [drafts, setDrafts] = useState<PinDraft[]>([]);
   const [message, setMessage] = useState("");
@@ -91,6 +102,7 @@ export default function PinImportPage() {
 
     const newDrafts: PinDraft[] = [];
     const problems: string[] = [];
+    let duplicates = 0;
 
     for (const file of files) {
       let result;
@@ -108,14 +120,30 @@ export default function PinImportPage() {
       }
 
       for (const waypoint of result.waypoints) {
-        newDrafts.push(draftFromWaypoint(file.name, waypoint));
+        const draft = draftFromWaypoint(file.name, waypoint);
+        // Already on this property's map: leave it unselected so importing
+        // the same export twice doesn't double every pin.
+        if (isAlreadyOnMap(draft, propertyPins)) {
+          draft.selected = false;
+          duplicates += 1;
+        }
+        newDrafts.push(draft);
       }
     }
 
     if (newDrafts.length > 0) {
+      const far = newDrafts.filter(
+        (draft) => farFromPropertyMeters(draft, propertyCenter) !== null,
+      ).length;
       setDrafts((current) => [...current, ...newDrafts]);
       setMessage(
-        `${newDrafts.length} ${newDrafts.length === 1 ? "pin" : "pins"} read from ${files.length} ${files.length === 1 ? "file" : "files"}. Review below, then import.`,
+        `${newDrafts.length} ${newDrafts.length === 1 ? "pin" : "pins"} read from ${files.length} ${files.length === 1 ? "file" : "files"}. Review below, then import.` +
+          (duplicates > 0
+            ? ` ${duplicates} already on the map — left unselected.`
+            : "") +
+          (far > 0
+            ? ` ${far} ${far === 1 ? "is" : "are"} more than 5 km from ${propertyName} — check ${far === 1 ? "it belongs" : "they belong"} here.`
+            : ""),
       );
     }
 
@@ -335,7 +363,20 @@ export default function PinImportPage() {
                       </span>
                     </span>
                   </label>
-                  <Badge>{draft.type}</Badge>
+                  <span style={draftBadgesStyle}>
+                    {isAlreadyOnMap(draft, propertyPins) ? (
+                      <Badge variant="warning">Already on the map</Badge>
+                    ) : null}
+                    {farFromPropertyMeters(draft, propertyCenter) !== null ? (
+                      <Badge variant="warning">
+                        {formatFarDistance(
+                          farFromPropertyMeters(draft, propertyCenter) ?? 0,
+                        )}{" "}
+                        from property
+                      </Badge>
+                    ) : null}
+                    <Badge>{draft.type}</Badge>
+                  </span>
                 </div>
 
                 <div className="di-form-grid" style={draftFormGridStyle}>
@@ -418,6 +459,11 @@ function draftFromWaypoint(
     description: waypoint.description,
     selected: true,
   };
+}
+
+// "12 km"-style label for the far-from-property badge.
+function formatFarDistance(meters: number): string {
+  return `${Math.round(meters / 1000).toLocaleString()} km`;
 }
 
 // The waypoint's name lives in the pin's name field now, so notes carry just
@@ -546,6 +592,13 @@ const errorTextStyle: CSSProperties = {
 const draftListStyle: CSSProperties = {
   display: "grid",
   gap: "1rem",
+};
+
+const draftBadgesStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+  gap: "0.35rem",
 };
 
 const draftHeaderStyle: CSSProperties = {

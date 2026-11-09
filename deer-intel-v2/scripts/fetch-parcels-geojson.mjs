@@ -4,7 +4,8 @@
 // tippecanoe consumes to build the parcel vector tiles.
 //
 // Each output line is one GeoJSON Feature whose properties are reduced to the
-// shared schema the map renders: { owner, acres, pin, addr, pub }. Every county
+// shared schema the map renders: { owner, acres, pub } (+ `mac`, the mapped
+// geodesic acreage when the county gives none; `rec`, `prev`, `chg`). Every county
 // exposes these differently (split name fields, acreage buried in a legal-text
 // blob, etc.), so each has a small purpose-built extractor below.
 //
@@ -21,15 +22,17 @@
 // snapshot is written to PARCEL_HISTORY_OUT/<county>.json.gz. PARCEL_BUILD_MONTH
 // (YYYY-MM) overrides the build month, for tests.
 
-import { createReadStream, createWriteStream } from "node:fs";
+import { createReadStream, createWriteStream, realpathSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
+import { pathToFileURL } from "node:url";
 import {
   buildMonthOf,
   carrySnapshotFile,
   createOwnerHistory,
   holdingChange,
+  normalizeOwnerForHistory,
   readSnapshotFile,
   writeSnapshotFile,
 } from "./parcel-owner-history.mjs";
@@ -45,21 +48,22 @@ const ADDRESS_LIKE_OWNER =
 const ADDRESS_LIKE_OWNER_MAX_SHARE = 0.2;
 
 // Government / public land — gets a distinct style, same intent as the baked
-// datasets' `pub` flag.
-const PUBLIC_OWNER_PATTERN =
-  /\b(COMMONWEALTH|STATE GAME LAND|GAME COMMISSION|DCNR|BUREAU OF FOREST|STATE FOREST|STATE PARK|UNITED STATES|U ?S ?A\b|FEDERAL|NATIONAL PARK|FOREST SERVICE|FISH (AND|&) BOAT|COUNTY OF|TOWNSHIP OF|BOROUGH OF|MUNICIPAL|SCHOOL DISTRICT|AUTHORITY|DEPARTMENT OF|STATE OF MARYLAND|COMMISSIONERS)/i;
+// datasets' `pub` flag. MUST stay identical to PUBLIC_OWNER_PATTERN in
+// lib/ownerLabel.ts (lib/__tests__/parcelOwnerFields.test.ts checks).
+export const PUBLIC_OWNER_PATTERN =
+  /\b(COMMONWEALTH|STATE GAME LAND|GAME COMMISSION|DCNR|BUREAU OF FOREST|STATE FOREST|STATE PARK|UNITED STATES|U ?S ?A\b|FEDERAL|NATIONAL PARK|FOREST SERVICE|FISH (AND|&) BOAT|COUNTY OF|TOWNSHIP OF|BOROUGH OF|MUNICIPAL|SCHOOL DISTRICT|BOARD OF EDUCATION|AUTHORITY|DEP(ARTMEN)?T\.? OF|STATE OF MARYLAND|COUNTY,? (OF )?MARYLAND\b|COMMISSIONERS|SUPERVISORS|MAYOR (AND|&) (CITY )?COUNCIL)/i;
 
 const PASDA = (name, layer = 0) =>
   `https://mapservices.pasda.psu.edu/server/rest/services/pasda/${name}/MapServer/${layer}`;
 
-function str(v) {
+export function str(v) {
   if (typeof v === "string") return v.trim();
   if (typeof v === "number" && Number.isFinite(v)) return String(v);
   return "";
 }
 
 // Join several fields into one string, skipping blanks, collapsing whitespace.
-function joinFields(props, names) {
+export function joinFields(props, names) {
   return names
     .map((n) => str(props[n]))
     .filter(Boolean)
@@ -68,10 +72,80 @@ function joinFields(props, names) {
     .trim();
 }
 
-function toAcres(v) {
-  if (typeof v === "number" && Number.isFinite(v)) return Math.round(v * 100) / 100;
-  const p = Number.parseFloat(str(v).replace(/[^0-9.]/g, ""));
-  return Number.isFinite(p) ? Math.round(p * 100) / 100 : 0;
+// Drop a care-of contact folded into an owner name ("SMITH TRUST C/O MR & MRS
+// JONES" -> "SMITH TRUST"), plus the "&"/comma it leaves dangling. Applied to
+// every county's owner in fetchCounty. MUST behave like stripCareOf in
+// lib/ownerLabel.ts (the live owner card); tests check both on the same cases.
+export function stripCareOf(owner) {
+  const name = str(owner).replace(/\s+/g, " ");
+  const cut = name.replace(/\s*\bC\/O\b.*$/i, "").replace(/[\s,&]+$/, "").trim();
+  // A name that is nothing but a care-of line keeps the contact, not nothing.
+  return cut || name.replace(/^C\/O\b[\s,]*/i, "").trim();
+}
+
+// Maryland SDAT-style two-line owners ("CARD SCOTT A &" / "CARD GRACE E",
+// "MATTHEWS TAD JEROME" / "MATTHEWS FAITH SPEAR"): the second line is a
+// co-owner, joined with one " & " (a trailing "&" on the first isn't doubled).
+// A second line that is a care-of contact, or that continues a care-of begun on
+// the first line, is dropped.
+export function joinCoOwners(first, second) {
+  const a = stripCareOf(first);
+  const careOf = /^\s*C\/O\b/i.test(str(second)) || /\bC\/O\b/i.test(str(first));
+  const b = careOf ? "" : stripCareOf(second);
+  if (!a || !b) return a || b;
+  // stripCareOf already dropped a trailing "&" from the first line.
+  return `${a} & ${b}`;
+}
+
+// A number of acres from a county field: numbers as-is, strings read as their
+// first number ("12.5 AC", "1,234.5", "12 1/2" -> 12.5). Never concatenates
+// digits from different parts of the text. 0 when there's no positive number.
+export function toAcres(v) {
+  let n = 0;
+  if (typeof v === "number") n = v;
+  else {
+    const s = str(v).replace(/(\d),(?=\d{3}\b)/g, "$1");
+    const m = /(\d*\.\d+|\d+)(?:\s+(\d+)\/(\d+)|\/(\d+))?/.exec(s);
+    if (m) {
+      n = Number(m[1]);
+      if (m[2] && Number(m[3]) > 0) n += Number(m[2]) / Number(m[3]);
+      else if (m[4] && Number(m[4]) > 0) n /= Number(m[4]);
+    }
+  }
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
+}
+
+// Geodesic area (acres) of a WGS84 GeoJSON Polygon/MultiPolygon: the
+// spherical-excess ring formula (as d3/turf), outer ring minus holes. Used
+// only when a county publishes no acreage, and stored as `mac` (mapped acres),
+// never as the county's `acres`.
+const EARTH_RADIUS_M = 6378137;
+const SQ_M_PER_ACRE = 4046.8564224;
+function ringAreaM2(ring) {
+  let total = 0;
+  const n = ring.length;
+  if (n < 4) return 0;
+  for (let i = 0; i < n - 1; i++) {
+    const [lng1, lat1] = ring[i];
+    const [lng2, lat2] = ring[i + 1];
+    total +=
+      ((lng2 - lng1) * Math.PI) / 180 *
+      (2 + Math.sin((lat1 * Math.PI) / 180) + Math.sin((lat2 * Math.PI) / 180));
+  }
+  return Math.abs((total * EARTH_RADIUS_M * EARTH_RADIUS_M) / 2);
+}
+export function geodesicAcres(geom) {
+  if (!geom) return 0;
+  const polys =
+    geom.type === "Polygon" ? [geom.coordinates] : geom.type === "MultiPolygon" ? geom.coordinates : [];
+  let m2 = 0;
+  for (const poly of polys) {
+    if (!Array.isArray(poly) || !poly.length) continue;
+    m2 += ringAreaM2(poly[0]);
+    for (let h = 1; h < poly.length; h++) m2 -= ringAreaM2(poly[h]);
+  }
+  const acres = m2 / SQ_M_PER_ACRE;
+  return acres > 0 ? Math.round(acres * 100) / 100 : 0;
 }
 
 // Pull an acreage out of a free-text legal description, e.g. "1.47 ACS DBL TRLR".
@@ -95,7 +169,9 @@ const PA_DEP_PARCELS =
   "https://gis.dep.pa.gov/depgisprd/rest/services/Parcels/PA_Parcels/MapServer/0";
 
 function depOwner(p) {
-  return str(p.OWNER_NAME).replace(/\s*\*+$/, "").trim();
+  // stripCareOf also runs in fetchCounty; here first so a care-of cut at 50
+  // characters ("…TRUST C/O MR & MRS DONALD *") loses its "*" and contact.
+  return stripCareOf(str(p.OWNER_NAME).replace(/\s*\*+$/, ""));
 }
 
 function depCounty(...countyNames) {
@@ -115,17 +191,24 @@ function depCounty(...countyNames) {
 
 // Maryland SDAT record links share one long prefix; only the query part
 // differs per parcel, so tiles store just that (the map adds the prefix back).
-// A link that doesn't match the prefix is kept whole.
+// Each known prefix has a short code: "a:" for the RealPropertyAdmin view the
+// statewide layer links to now; no code for the older viewdetails page (tiles
+// already published store those bare). A link matching neither is kept whole.
 // Keep in sync with lib/sdatRecord.ts.
-const SDAT_RECORD_PREFIX =
-  "https://sdat.dat.maryland.gov/RealProperty/Pages/viewdetails.aspx?";
+export const SDAT_RECORD_PREFIXES = {
+  "": "https://sdat.dat.maryland.gov/RealProperty/Pages/viewdetails.aspx?",
+  "a:": "https://sdat.dat.maryland.gov/RealPropertyAdmin/Pages/view.aspx?",
+};
 
-function sdatRecordRef(v) {
+export function sdatRecordRef(v) {
   const url = str(v).replace(/^http:\/\//i, "https://");
   if (!/^https:\/\//i.test(url)) return "";
-  return url.toLowerCase().startsWith(SDAT_RECORD_PREFIX.toLowerCase())
-    ? url.slice(SDAT_RECORD_PREFIX.length)
-    : url;
+  for (const [code, prefix] of Object.entries(SDAT_RECORD_PREFIXES)) {
+    if (url.toLowerCase().startsWith(prefix.toLowerCase())) {
+      return `${code}${url.slice(prefix.length)}`;
+    }
+  }
+  return url;
 }
 
 // Dauphin stores the owner as separate name parts (or an org name in last_name
@@ -140,8 +223,41 @@ function dauphinOwner(p) {
   return [`${last}, ${first}`, mi, suf].filter(Boolean).join(" ");
 }
 
+// Washington County MD: SDAT LandArea in its LandUnit (A = acres, S = square
+// feet), falling back to the deeded and then the GIS acreage.
+export function mdWashingtonAcres(p) {
+  const unit = str(p.LandUnit).toUpperCase();
+  const area = toAcres(p.LandArea);
+  const fromLand =
+    unit === "A" ? area : unit === "S" ? Math.round((area / 43560) * 100) / 100 : 0;
+  return fromLand || toAcres(p.Deeded_AC) || toAcres(p.CalcAcre);
+}
+
+// Counties whose owner now joins a continuation field the previous build left
+// off, so last build's name is a cut-short form of this one.
+const OWNER_REJOINED_COUNTIES = new Set(["washington"]);
+
+// Whether `owner` is last build's `before` re-formatted by this build's owner
+// clean-up (care-of cut, trailing "&" dropped, co-owner lines joined with
+// " & ", a cut-off name completed) rather than a new owner — so the owner
+// history doesn't mark thousands of parcels as having changed hands. `before`
+// must be the leading words of `owner`, and only grows where the old name
+// visibly ran on ("&", "C/O", DEP's "*") or the county's join changed.
+export function ownerReformatOf(before, owner, slug = "") {
+  const words = (s) =>
+    normalizeOwnerForHistory(stripCareOf(s))
+      .replace(/\bAND\b/g, " ")
+      .split(/\s+/)
+      .filter(Boolean);
+  const b = words(before);
+  const n = words(owner);
+  if (!b.length || b.length > n.length || !b.every((w, i) => w === n[i])) return false;
+  if (b.length === n.length) return true;
+  return /(&|\*)\s*$|\bC\/O\b/i.test(str(before)) || OWNER_REJOINED_COUNTIES.has(slug);
+}
+
 // One extractor per county. outFields lists exactly what to request.
-const COUNTIES = {
+export const COUNTIES = {
   franklin: {
     // 224 fields per row: full 1000-row pages have come back as a server
     // error page, so pages are smaller here.
@@ -149,7 +265,7 @@ const COUNTIES = {
     layerUrl: PASDA("FranklinCounty"),
     outFields: ["FULL_OWNER", "TOTAL_DEED", "BASE_ACRES", "CONTROL_NU", "FULL_SITUS"],
     owner: (p) => str(p.FULL_OWNER),
-    acres: (p) => toAcres(p.TOTAL_DEED || p.BASE_ACRES),
+    acres: (p) => toAcres(p.TOTAL_DEED) || toAcres(p.BASE_ACRES),
     pin: (p) => str(p.CONTROL_NU),
     addr: (p) => cleanAddr(p.FULL_SITUS),
   },
@@ -158,7 +274,7 @@ const COUNTIES = {
       "https://mapping.adamscountypa.gov/arcgis/rest/services/AGOL/Parcel_Owners/MapServer/0",
     outFields: ["SHORT_NAME", "DEEDED_ACRES", "Map_Ac", "Parcel_ID", "COMBINED_SITUS"],
     owner: (p) => str(p.SHORT_NAME),
-    acres: (p) => toAcres(p.DEEDED_ACRES || p.Map_Ac),
+    acres: (p) => toAcres(p.DEEDED_ACRES) || toAcres(p.Map_Ac),
     pin: (p) => str(p.Parcel_ID),
     addr: (p) => cleanAddr(p.COMBINED_SITUS),
   },
@@ -177,6 +293,9 @@ const COUNTIES = {
       ),
   },
   butler: {
+    // DPIN is the clean parcel number ("10-S1-A1"; PIN is the padded form).
+    // Legal2 is the parcel's own address; Paddr1 is the owner's mailing
+    // address ("P O BOX 1180"). Acreage only exists inside Legal1's text.
     layerUrl: PASDA("ButlerCounty"),
     outFields: ["Own1", "Legal1", "DPIN", "Legal2"],
     owner: (p) => str(p.Own1),
@@ -185,6 +304,8 @@ const COUNTIES = {
     addr: (p) => cleanAddr(p.Legal2),
   },
   bedford: {
+    // OWNER_NA_1 continues OWNER_NAME (or holds a "C/O" line, cut by
+    // stripCareOf).
     layerUrl: PASDA("BedfordCounty"),
     outFields: ["OWNER_NAME", "OWNER_NA_1", "ACRES", "MAP_NO", "SITUS_DESC"],
     owner: (p) => joinFields(p, ["OWNER_NAME", "OWNER_NA_1"]),
@@ -255,7 +376,7 @@ const COUNTIES = {
     orderBy: "OBJECTID_1",
     outFields: ["OWN1", "OWN2", "ACRE_PLAN_", "ACRE_PLA_1", "PIN_COMMON", "LOC_ADDRES"],
     owner: (p) => joinFields(p, ["OWN1", "OWN2"]),
-    acres: (p) => toAcres(p.ACRE_PLAN_ || p.ACRE_PLA_1),
+    acres: (p) => toAcres(p.ACRE_PLAN_) || toAcres(p.ACRE_PLA_1),
     pin: (p) => str(p.PIN_COMMON),
     addr: (p) => cleanAddr(p.LOC_ADDRES),
   },
@@ -281,7 +402,7 @@ const COUNTIES = {
     layerUrl: PASDA("WyomingCounty", 2),
     outFields: ["Owner", "Owner_2", "Deeded_Acr", "CALC_AC", "PARCELNUM", "Situs_Addr"],
     owner: (p) => joinFields(p, ["Owner", "Owner_2"]),
-    acres: (p) => toAcres(p.Deeded_Acr || p.CALC_AC),
+    acres: (p) => toAcres(p.Deeded_Acr) || toAcres(p.CALC_AC),
     pin: (p) => str(p.PARCELNUM),
     addr: (p) => cleanAddr(p.Situs_Addr),
   },
@@ -423,14 +544,15 @@ const COUNTIES = {
   },
   huntingdon: {
     // Huntingdon's ArcGIS Online parcels joined to CAMA. Assessed acreage
-    // first, mapped acreage as the fallback.
+    // first, mapped acreage as the fallback. Property_A is the parcel's own
+    // address (Owner_Addr is the owner's mailing line).
     layerUrl:
       "https://services3.arcgis.com/liWtJPxLI3mlx8pH/arcgis/rest/services/Property_Lines/FeatureServer/1",
-    outFields: ["Owner_Name", "CAMA_ACRES", "MAP_ACRES", "TAXIDNUM"],
+    outFields: ["Owner_Name", "CAMA_ACRES", "MAP_ACRES", "TAXIDNUM", "Property_A"],
     owner: (p) => str(p.Owner_Name),
     acres: (p) => toAcres(p.CAMA_ACRES) || toAcres(p.MAP_ACRES),
     pin: (p) => str(p.TAXIDNUM),
-    addr: () => "",
+    addr: (p) => cleanAddr(p.Property_A),
   },
   cambria: {
     // Layer 8 "Surface Owners". Layer 7 "Tax Parcels" has no owner fields.
@@ -597,7 +719,7 @@ const COUNTIES = {
     // McKean's polygons carry no owner; the owner is in a CAMA table joined on
     // polygon `pin` = table `GISParcelID` (the service's own relationship 1,
     // confirmed by matching values). Table 2 is the Aug 2025 CAMA. Care-of is
-    // folded into OwnerName ("... C/O ...") and is cut off here.
+    // folded into OwnerName ("... C/O ...") and is cut off by stripCareOf.
     layerUrl:
       "https://gis.mckeancountypa.gov/server/rest/services/ParcelViewer/BPV3_Parcels/MapServer/0",
     orderBy: "objectid",
@@ -609,7 +731,7 @@ const COUNTIES = {
       layerKey: "pin",
       outFields: ["GISParcelID", "OwnerName", "Acres", "SitusDescription"],
     },
-    owner: (p) => str(p.OwnerName).replace(/\s+C\/O\b.*$/i, "").trim(),
+    owner: (p) => stripCareOf(p.OwnerName),
     acres: (p) => toAcres(p.Acres) || toAcres(p.calc_acrea),
     pin: (p) => str(p.pin),
     addr: (p) => cleanAddr(p.SitusDescription),
@@ -619,11 +741,15 @@ const COUNTIES = {
     // list shows long names (owndat_own1, parcel_acres…) but queries only
     // accept the 10-character shapefile names it actually stores (owndat_own,
     // parcel_acr, legdat_a_3…); asking for the long ones fails every query.
-    // The second owner (owndat_o_1) was blank in every sample, so it isn't
-    // used. parcel_acr is GIS-computed acres.
+    // owndat_o_1 is the rest of a name that didn't fit owndat_own ("MID MON
+    // VALLEY WATER POLLUTION" + "CONTROL", "HORAN DONNA &" + "JENNIFER JAE";
+    // ~12k rows), so the two are joined. parcel_acr is GIS-computed acres.
     layerUrl: PASDA("WashingtonCounty", 7),
-    outFields: ["owndat_own", "parcel_acr", "PIN", "legdat_adr", "legdat_a_2", "legdat_a_3", "legdat_a_4"],
-    owner: (p) => str(p.owndat_own),
+    outFields: [
+      "owndat_own", "owndat_o_1", "parcel_acr", "PIN",
+      "legdat_adr", "legdat_a_2", "legdat_a_3", "legdat_a_4",
+    ],
+    owner: (p) => stripCareOf(joinFields(p, ["owndat_own", "owndat_o_1"])),
     acres: (p) => toAcres(p.parcel_acr),
     pin: (p) => str(p.PIN),
     // number, direction, street, suffix
@@ -669,16 +795,18 @@ const COUNTIES = {
   // 2026-11-08; owner data 2024 or newer, official county or regional sources).
   "md-washington": {
     // Washington County MD's own ArcGIS Online parcels (2025). OwnName2 is a
-    // co-owner.
+    // co-owner ("CARD SCOTT A &" / "CARD GRACE E"). Acreage: the SDAT land
+    // area, whose LandUnit says acres ("A") or square feet ("S"); else the
+    // deeded figure (a string, "0.102 "), else the GIS one.
     layerUrl:
       "https://services2.arcgis.com/uxxyl33jRTSmjre5/arcgis/rest/services/Washington_County_Public_Parcels/FeatureServer/0",
     orderBy: "OBJECTID_1",
     outFields: [
-      "OwnName1", "OwnName2", "Deeded_AC", "CalcAcre", "TaxAccNo",
+      "OwnName1", "OwnName2", "LandArea", "LandUnit", "Deeded_AC", "CalcAcre", "TaxAccNo",
       "PremNum", "PremDir", "PremName", "PremType",
     ],
-    owner: (p) => joinFields(p, ["OwnName1", "OwnName2"]),
-    acres: (p) => toAcres(p.Deeded_AC) || toAcres(p.CalcAcre),
+    owner: (p) => joinCoOwners(p.OwnName1, p.OwnName2),
+    acres: (p) => mdWashingtonAcres(p),
     pin: (p) => str(p.TaxAccNo),
     addr: (p) => cleanAddr(joinFields(p, ["PremNum", "PremDir", "PremName", "PremType"])),
   },
@@ -688,7 +816,7 @@ const COUNTIES = {
       "https://services6.arcgis.com/RWHujKM5TItecIqp/arcgis/rest/services/Parcel_Viewer_experience_builder/FeatureServer/0",
     orderBy: "ID",
     outFields: ["OWNNAME1", "OWNNAME2", "ACRES", "POLYACRES", "ACCTID", "ADDRESS"],
-    owner: (p) => joinFields(p, ["OWNNAME1", "OWNNAME2"]),
+    owner: (p) => joinCoOwners(p.OWNNAME1, p.OWNNAME2),
     acres: (p) => toAcres(p.ACRES) || toAcres(p.POLYACRES),
     pin: (p) => str(p.ACCTID),
     addr: (p) => cleanAddr(p.ADDRESS),
@@ -700,7 +828,7 @@ const COUNTIES = {
       "https://services1.arcgis.com/X3lKekbdaBmNjCHu/arcgis/rest/services/Talbot_Parcels/FeatureServer/4",
     orderBy: "FID",
     outFields: ["OWNNAME1", "OWNNAME2", "ACRES", "POLYACRES", "ACCTID", "ADDRESS"],
-    owner: (p) => joinFields(p, ["OWNNAME1", "OWNNAME2"]),
+    owner: (p) => joinCoOwners(p.OWNNAME1, p.OWNNAME2),
     acres: (p) => toAcres(p.ACRES) || toAcres(p.POLYACRES),
     pin: (p) => str(p.ACCTID),
     addr: (p) => cleanAddr(p.ADDRESS),
@@ -928,7 +1056,7 @@ function interiorPoint(ring) {
   return best || [cx, cy];
 }
 
-function summarizeParcel(geom, owner, acres, pin) {
+function summarizeParcel(geom, owner, acres, pin, mappedAcres = 0) {
   const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
   let bestRing = null;
   let bestArea = -1;
@@ -960,6 +1088,7 @@ function summarizeParcel(geom, owner, acres, pin) {
     owner,
     pin,
     acres: acres || 0,
+    mappedAcres: acres > 0 ? 0 : mappedAcres || 0,
     lng,
     lat,
     wM: (maxX - minX) * mPerDegLng,
@@ -975,7 +1104,7 @@ function summarizeParcel(geom, owner, acres, pin) {
 // whose main parcel (or most of whose acreage) recently sold carries the
 // newest such month as `chg` (see holdingChange), so its name can be tinted
 // without the map needing the parcel polygons.
-function buildHoldingLabels(summaries, changedOf = () => "") {
+export function buildHoldingLabels(summaries, changedOf = () => "") {
   const byOwner = new Map();
   for (const s of summaries) {
     let list = byOwner.get(s.owner);
@@ -1047,12 +1176,21 @@ function buildHoldingLabels(summaries, changedOf = () => "") {
     for (const group of clusters.values()) {
       let rep = group[0];
       let acres = 0;
+      let mapped = 0;
+      let missing = false;
       for (const s of group) {
-        acres += s.acres || 0;
+        if (s.acres > 0) acres += s.acres;
+        else {
+          missing = true;
+          mapped += s.mappedAcres || 0;
+        }
         if (s.area > rep.area) rep = s;
       }
       const chg = holdingChange(group, rep, changedOf);
-      const acresText = acres > 0;
+      // Some parcel had no county acreage: `acres` is then only a lower bound
+      // (`alb`), and `mac` is the estimate with mapped area filled in.
+      const estimate = Math.round((acres + mapped) * 100) / 100;
+      const acresText = acres > 0 || estimate > 0;
       const mz = labelMinZoom(owner, acresText, rep.wM, rep.hM, rep.lat);
       if (mz > LABEL_MAX_Z) continue; // never legible; skip rather than ship noise
       labels.push({
@@ -1061,6 +1199,8 @@ function buildHoldingLabels(summaries, changedOf = () => "") {
         properties: {
           owner,
           acres: Math.round(acres * 100) / 100,
+          ...(missing ? { alb: 1 } : {}),
+          ...(missing && estimate > 0 ? { mac: estimate } : {}),
           pub: PUBLIC_OWNER_PATTERN.test(owner) ? 1 : 0,
           mz,
           ...(chg ? { chg } : {}),
@@ -1098,7 +1238,11 @@ async function fetchCounty(slug, outPath, labelPath) {
       `${slug}: owner snapshot ${historyInPath} is unreadable; marking no changes and keeping it as is\n`,
     );
   }
-  const history = createOwnerHistory(previous.snapshot, buildMonth);
+  // Last build's owners, copied so names this build merely re-formats (see
+  // ownerReformatOf) can be swapped in before comparing. createOwnerHistory
+  // reads `owners` by reference, so the swap must happen before observe().
+  const previousOwners = { ...previous.snapshot.owners };
+  const history = createOwnerHistory({ ...previous.snapshot, owners: previousOwners }, buildMonth);
 
   // One record per parcel, kept to feed the holding pass once the county has
   // streamed. Deliberately not the geometry — a big county is 300k parcels, so
@@ -1175,11 +1319,23 @@ async function fetchCounty(slug, outPath, labelPath) {
       if (!geom || !/Polygon/.test(geom.type)) continue;
       const own = feature.properties || {};
       const p = joined ? { ...own, ...joined.get(str(own[cfg.join.layerKey])) } : own;
-      const owner = cfg.owner(p);
+      // Care-of contacts are cut from every county's owner here, so a county
+      // added later can't forget to.
+      const owner = stripCareOf(cfg.owner(p));
       if (!owner && !cfg.ownerOptional) continue;
+      // County acreage, or failing that the polygon's own geodesic area,
+      // kept apart as `mac` (mapped acres) so the map can mark it "~… mapped".
+      const acres = cfg.acres(p);
+      const mappedAcres = acres > 0 ? 0 : geodesicAcres(geom);
       const pin = cfg.pin ? cfg.pin(p) : "";
       const record = cfg.record ? cfg.record(p) : "";
       if (ADDRESS_LIKE_OWNER.test(owner)) addressLikeOwners += 1;
+      if (owner && pin) {
+        const before = previousOwners[pin];
+        if (typeof before === "string" && ownerReformatOf(before, owner, slug)) {
+          previousOwners[pin] = owner;
+        }
+      }
       if (owner) history.observe(pin, owner);
       if (owner && pin) namedParcels += 1;
       out.write(
@@ -1191,7 +1347,8 @@ async function fetchCounty(slug, outPath, labelPath) {
             // were dead weight in the tiles (click-to-identify queries the
             // county services live), so they're dropped to shrink the archive.
             owner,
-            acres: cfg.acres(p),
+            acres,
+            ...(mappedAcres ? { mac: mappedAcres } : {}),
             pub: PUBLIC_OWNER_PATTERN.test(owner) ? 1 : 0,
             // Link to the official parcel record (Maryland SDAT), for parcels
             // whose owner name isn't published.
@@ -1203,7 +1360,7 @@ async function fetchCounty(slug, outPath, labelPath) {
       );
       total += 1;
 
-      const summary = owner ? summarizeParcel(geom, owner, cfg.acres(p), pin) : null;
+      const summary = owner ? summarizeParcel(geom, owner, acres, pin, mappedAcres) : null;
       if (summary) parcelSummaries.push(summary);
     }
 
@@ -1345,7 +1502,19 @@ async function main() {
   await fetchCounty(slug, outPath, labelPath);
 }
 
-main().catch((err) => {
-  console.error("FAILED:", err.message);
-  process.exit(1);
-});
+// Run only as a script, so tests can import the extractors and helpers.
+function isMainModule() {
+  if (!process.argv[1]) return false;
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
+  main().catch((err) => {
+    console.error("FAILED:", err.message);
+    process.exit(1);
+  });
+}

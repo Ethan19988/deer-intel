@@ -33,13 +33,16 @@ import { hasPartialContent } from "@/lib/aiScoutStream";
 import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
+import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
+import { TEMPERATURE_UNIT_LABEL, useUnitPreferences } from "@/lib/units";
+import { usePropertyToday } from "@/lib/usePropertyToday";
 import {
-  fetchLiveForecast,
-  resolvePropertyWeatherPoint,
-  type LiveForecast,
-} from "@/lib/liveWeather";
-import { readForecastSnapshot } from "@/lib/forecastSnapshot";
-import { useUnitPreferences } from "@/lib/units";
+  aiScoutToday,
+  buildAiScoutSeason,
+  buildAiScoutTargetSit,
+  withTemperatureUnit,
+} from "@/lib/aiScoutSit";
+import { matchRecommendedStand } from "@/lib/aiScoutSpatial";
 import { clipTerrainSetToArea, getScoutPicks } from "@/lib/terrainMovementData";
 import { aggregateCameraActivity } from "@/lib/terrainLearning";
 import {
@@ -113,6 +116,16 @@ export default function AIPage() {
   // no field of their own) and show in the conditions line.
   const [liveExtras, setLiveExtras] = useState<LiveExtras>({ source: "none", sky: "", pressure: "" });
   const units = useUnitPreferences();
+  const temperatureUnitLabel = TEMPERATURE_UNIT_LABEL[units.temperature];
+  // The same forecast, next-sit call (morning / evening / tomorrow AM), legal
+  // light and rut phase that Today shows for this property.
+  const {
+    forecast,
+    forecastSavedAt,
+    verdict,
+    seasonCtx,
+    now: todayNow,
+  } = usePropertyToday(selectedPropertyId);
   const [aiScoutStatus, setAiScoutStatus] = useState<"idle" | "loading" | "error">("idle");
   const [aiScoutError, setAiScoutError] = useState<string>("");
   const [aiScoutReport, setAiScoutReport] = useState<AiScoutReport | null>(null);
@@ -146,46 +159,37 @@ export default function AIPage() {
     };
   }, []);
 
-  // Fill today's conditions from the live forecast (the same one Today uses,
-  // instantly from this device's snapshot when there is one) so asking is one
-  // tap. Only blank fields are filled — anything the hunter typed stays.
-  const weatherKey = terrainPoint ? `${terrainPoint.lat},${terrainPoint.lng}` : "";
+  // Fill the planned sit's conditions from the shared forecast (instant from
+  // this device's snapshot when there is one) so asking is one tap: the wind
+  // is the forecast for the next sit's window, not whatever is blowing right
+  // now. Only blank fields are filled — anything the hunter typed stays.
+  // Keyed on the forecast's save time + sit, since the rolled-forward forecast
+  // object can be rebuilt every render.
+  const sitWind = verdict.wind;
+  const sitWindSpeed = verdict.windSpeed;
   useEffect(() => {
-    const point = selectedProperty
-      ? resolvePropertyWeatherPoint(selectedProperty, propertyCameras, propertyPins)
-      : null;
-    if (!point) return;
-    const key = `${point.lat},${point.lng}`;
-    let active = true;
-
-    const apply = (forecast: LiveForecast) => {
-      setConditions((current) => ({
-        ...current,
-        windDirection: current.windDirection || forecast.current.windDirection,
-        windSpeed: current.windSpeed || forecast.current.windSpeed,
-        temperature: current.temperature || forecast.current.temperature,
-        moonPhase: current.moonPhase || forecast.current.moonPhase,
-      }));
-      setLiveExtras({
-        source: "live",
-        sky: forecast.current.weather,
-        pressure: forecast.pressure
-          ? `pressure ${forecast.pressure.value} and ${forecast.pressure.trend}`
-          : "",
-      });
-    };
-
-    const snapshot = readForecastSnapshot(`${key}|${units.temperature}|${units.wind}`);
-    if (snapshot) apply(snapshot);
-    fetchLiveForecast(point, units).then((result) => {
-      if (active && result.status === "ok") apply(result.forecast);
+    if (!forecast) return;
+    // Syncing the editable form from the forecast once it lands.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setConditions((current) => ({
+      ...current,
+      windDirection: current.windDirection || sitWind || forecast.current.windDirection,
+      windSpeed:
+        current.windSpeed || (sitWind ? (sitWindSpeed ?? "") : forecast.current.windSpeed),
+      temperature: current.temperature || forecast.current.temperature,
+      moonPhase: current.moonPhase || forecast.current.moonPhase,
+    }));
+    setLiveExtras({
+      source: "live",
+      sky: forecast.current.weather,
+      pressure: forecast.pressure
+        ? `pressure ${forecast.pressure.value} and ${forecast.pressure.trend}`
+        : "",
     });
-    return () => {
-      active = false;
-    };
-    // Re-run per property and unit choice; the point is derived from them.
+    // The forecast object itself is rebuilt per render; its save time, the
+    // sit and the property identify it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPropertyId, weatherKey, units.temperature, units.wind]);
+  }, [selectedPropertyId, forecastSavedAt, verdict.period, sitWind, sitWindSpeed]);
 
   // Today's moon phase (client-computed). Used to auto-fill the AI Scout
   // conditions when the hunter hasn't typed their own, and to show a movement
@@ -243,6 +247,7 @@ export default function AIPage() {
     // has the lunar timing to reason about.
     const usedConditions: AiScoutConditions = {
       ...conditions,
+      temperatureUnit: temperatureUnitLabel,
       moonPhase: conditions.moonPhase || moon?.phase || "",
       notes: [
         conditions.notes.trim(),
@@ -262,6 +267,13 @@ export default function AIPage() {
       deerProfiles: propertyDeerProfiles,
       conditions: usedConditions,
       scoutPicks,
+      pins: propertyPins,
+      today: aiScoutToday(todayNow ?? new Date()),
+      targetSit: forecast
+        ? buildAiScoutTargetSit({ verdict, forecast, temperatureUnitLabel })
+        : undefined,
+      // Before the clock is set the season context is a placeholder date.
+      season: todayNow ? buildAiScoutSeason(seasonCtx) : undefined,
     });
     const contextHash = hashAiScoutContext(context);
     const now = Date.now();
@@ -334,13 +346,11 @@ export default function AIPage() {
   }
 
   const conditionCells = [
-    { label: "Wind", value: conditions.windDirection },
+    { label: "Sit wind", value: conditions.windDirection },
     { label: "Speed", value: conditions.windSpeed },
     {
       label: "Temp",
-      value: /^-?\d+(\.\d+)?$/.test(conditions.temperature.trim())
-        ? `${conditions.temperature.trim()}°`
-        : conditions.temperature,
+      value: withTemperatureUnit(conditions.temperature, temperatureUnitLabel),
     },
     { label: "Moon", value: conditions.moonPhase || moon?.phase || "" },
   ];
@@ -355,11 +365,25 @@ export default function AIPage() {
   const shownSaved = aiScoutReport || shownPartial ? null : savedScout;
   const shownReport: AiScoutPartialReport | null =
     aiScoutReport ?? shownPartial ?? shownSaved?.entry.report ?? null;
+  // Only show the name as a stand when it is one of the hunter's stands; a
+  // finished answer naming anything else reads "Terrain pick: …" or "No stand
+  // matched". (While streaming the name is still arriving, so it shows raw.)
+  const recommended =
+    shownReport?.recommendedStandName && !shownPartial
+      ? matchRecommendedStand(
+          shownReport.recommendedStandName,
+          propertyStands.map((stand) => stand.name),
+          scoutPicks.map((pick) => pick.title),
+        )
+      : null;
   const savedConditionsLine = shownSaved
     ? [
         shownSaved.entry.conditions.windDirection,
         shownSaved.entry.conditions.windSpeed,
-        shownSaved.entry.conditions.temperature,
+        withTemperatureUnit(
+          shownSaved.entry.conditions.temperature,
+          shownSaved.entry.conditions.temperatureUnit ?? "°",
+        ),
       ]
         .map((part) => part.trim())
         .filter(Boolean)
@@ -428,7 +452,7 @@ export default function AIPage() {
                 <div style={conditionFootStyle}>
                   <span style={monoLabelStyle}>
                     {liveExtras.source === "live"
-                      ? `Live weather${extrasLine ? ` · ${extrasLine}` : ""}`
+                      ? `${verdict.periodLabel} · forecast${extrasLine ? ` · ${extrasLine}` : ""}`
                       : conditionsSummary(conditions, liveExtras)
                         ? "Your conditions"
                         : "Loading the forecast…"}
@@ -549,7 +573,11 @@ export default function AIPage() {
                     </p>
                   ) : null}
                   <div style={reportHeadStyle}>
-                    <span style={monoLabelStyle}>Recommended stand</span>
+                    <span style={monoLabelStyle}>
+                      {recommended && recommended.kind !== "stand"
+                        ? "Recommended spot"
+                        : "Recommended stand"}
+                    </span>
                     {shownReport.confidence ? (
                       <span
                         style={{
@@ -564,7 +592,9 @@ export default function AIPage() {
                     ) : null}
                   </div>
                   <h2 style={standNameStyle}>
-                    {shownReport.recommendedStandName || (shownPartial ? "…" : "")}
+                    {recommended
+                      ? recommended.label
+                      : shownReport.recommendedStandName || (shownPartial ? "…" : "")}
                   </h2>
                   {shownReport.headline ? (
                     <p style={headlineStyle}>{shownReport.headline}</p>

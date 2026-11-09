@@ -96,28 +96,75 @@ export async function requestCompassPermission(): Promise<"granted" | "denied" |
   }
 }
 
+// --- Throttling -----------------------------------------------------------------
+
+/** Smallest heading change worth a re-render (degrees). */
+export const HEADING_MIN_CHANGE_DEG = 2;
+/** At most this often (ms) — ~4 updates a second. */
+export const HEADING_MIN_INTERVAL_MS = 250;
+
+/** Smallest angle between two headings, wrap-aware (359° → 1° is 2°). */
+export function headingDelta(a: number, b: number): number {
+  const diff = Math.abs((((a - b) % 360) + 360) % 360);
+  return diff > 180 ? 360 - diff : diff;
+}
+
 /**
- * Subscribe to the compass, throttled to ~12 updates a second. Calls
- * `onHeading` with each new TRUE heading (0 = true north): the magnetic
- * reading plus `getDeclination()`, read on every event so a moving position
- * doesn't need a re-subscribe. Without a getter the central-PA default is used.
+ * Whether a new heading should go out to subscribers. The sensor fires 60+
+ * times a second and every update re-renders the map, so only a turn of 2°+
+ * passes, at most ~4 times a second (MapRotationController and the guide
+ * arrow ease between updates, so the turn still looks smooth). The first
+ * reading always passes.
+ */
+export function shouldEmitHeading(
+  last: { heading: number; at: number } | null,
+  next: number,
+  now: number,
+): boolean {
+  if (!last) return true;
+  if (now - last.at < HEADING_MIN_INTERVAL_MS) return false;
+  return headingDelta(last.heading, next) >= HEADING_MIN_CHANGE_DEG;
+}
+
+/**
+ * How far the screen is turned from the device's natural (portrait) way up,
+ * in degrees clockwise — 90 / 270 in landscape. The sensors report the
+ * device's top edge, so a landscape phone's heading is off by this much.
+ */
+function screenAngle(): number {
+  if (typeof window === "undefined") return 0;
+  const angle =
+    window.screen?.orientation?.angle ??
+    (window as Window & { orientation?: number }).orientation;
+  return typeof angle === "number" && Number.isFinite(angle) ? angle : 0;
+}
+
+/**
+ * Subscribe to the compass. Calls `onHeading` with each new TRUE heading
+ * (0 = true north): the magnetic reading, turned for a landscape screen, plus
+ * `getDeclination()`, read on every event so a moving position doesn't need a
+ * re-subscribe. Without a getter the central-PA default is used. Throttled by
+ * shouldEmitHeading (2° / ~4 Hz).
  */
 export function subscribeHeading(
   onHeading: (heading: number) => void,
   getDeclination: () => number = () => DEFAULT_DECLINATION,
 ): () => void {
-  let lastAt = 0;
+  let last: { heading: number; at: number } | null = null;
 
   function onOrientation(event: DeviceOrientationEvent) {
     const now = Date.now();
-    if (now - lastAt < 80) return;
+    if (last && now - last.at < HEADING_MIN_INTERVAL_MS) return;
     const magnetic = headingFromOrientation(event);
     if (magnetic === null) return;
-    lastAt = now;
     const declination = getDeclination();
-    onHeading(
-      magneticToTrue(magnetic, Number.isFinite(declination) ? declination : DEFAULT_DECLINATION),
+    const heading = magneticToTrue(
+      magnetic + screenAngle(),
+      Number.isFinite(declination) ? declination : DEFAULT_DECLINATION,
     );
+    if (!shouldEmitHeading(last, heading, now)) return;
+    last = { heading, at: now };
+    onHeading(heading);
   }
 
   window.addEventListener("deviceorientationabsolute", onOrientation as EventListener, true);

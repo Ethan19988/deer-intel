@@ -187,9 +187,38 @@ function markNotifiedToday(key: string): void {
 
 type FireOptions = { force?: boolean };
 
+// How long to wait for the service worker to become active before falling
+// back to a page-level notification.
+const SERVICE_WORKER_READY_TIMEOUT_MS = 3000;
+
+// The active service worker registration, or null if none is ready within the
+// timeout (not registered yet, still installing, or unsupported).
+// getRegistration() can return a registration whose worker isn't active yet,
+// and showNotification then rejects — `ready` waits for an active one.
+function readyServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+    return Promise.resolve(null);
+  }
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), SERVICE_WORKER_READY_TIMEOUT_MS);
+    navigator.serviceWorker.ready.then(
+      (registration) => {
+        clearTimeout(timer);
+        resolve(registration);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(null);
+      },
+    );
+  });
+}
+
 // Show a notification if permitted and (unless forced) not already shown today
 // for this key. Prefers the service worker's showNotification (required on many
-// mobile browsers), falling back to the page-level Notification constructor.
+// mobile browsers), falling back to the page-level Notification constructor
+// when no worker is ready or showNotification fails.
 export async function fireNotification(
   key: string,
   title: string,
@@ -202,24 +231,29 @@ export async function fireNotification(
   const notificationOptions: NotificationOptions & { tag?: string } = {
     body,
     icon: "/icons/icon-192.png?v=2",
-    badge: "/icons/icon-192.png?v=2",
+    // Android shows the badge in the status bar as a white-on-transparent
+    // mask, so it's a monochrome glyph, not the full-color app icon.
+    badge: "/icons/badge-96.png",
     tag: key,
   };
 
-  try {
-    if ("serviceWorker" in navigator) {
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (registration) {
-        await registration.showNotification(title, notificationOptions);
-        if (!options.force) markNotifiedToday(key);
-        return true;
-      }
+  const registration = await readyServiceWorker();
+  if (registration) {
+    try {
+      await registration.showNotification(title, notificationOptions);
+      if (!options.force) markNotifiedToday(key);
+      return true;
+    } catch {
+      // Fall through to the page-level notification.
     }
+  }
 
+  try {
     new Notification(title, notificationOptions);
     if (!options.force) markNotifiedToday(key);
     return true;
   } catch {
+    // e.g. Android Chrome, where the constructor throws without a worker.
     return false;
   }
 }
