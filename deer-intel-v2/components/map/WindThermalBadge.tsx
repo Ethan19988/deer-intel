@@ -14,6 +14,8 @@ type WindThermalBadgeProps = {
   goodCount: number;
   avoidCount: number;
   matchedCount: number;
+  /** Map turn in heading-up mode (degrees), taken out of the on-screen arrow. */
+  mapBearing?: number | null;
 };
 
 // A compact card that reads out the live wind driving the scent cones, with an
@@ -28,6 +30,7 @@ export default function WindThermalBadge({
   goodCount,
   avoidCount,
   matchedCount,
+  mapBearing = null,
 }: WindThermalBadgeProps) {
   const fromBearing = compassToBearing(windFromCompass);
   const downwindBearing = fromBearing === null ? null : (fromBearing + 180) % 360;
@@ -46,8 +49,9 @@ export default function WindThermalBadge({
         <p style={noteStyle}>Reading live wind…</p>
       ) : status === "error" ? (
         <p style={noteStyle}>
-          Live wind unavailable. Add a property location or camera/pin to anchor
-          the forecast.
+          {typeof navigator !== "undefined" && navigator.onLine === false
+            ? "No signal — live wind will load when you're back in service."
+            : "Live wind unavailable right now. Try again in a minute."}
         </p>
       ) : (
         <>
@@ -59,7 +63,7 @@ export default function WindThermalBadge({
                 transform:
                   downwindBearing === null
                     ? undefined
-                    : `rotate(${downwindBearing}deg)`,
+                    : `rotate(${downwindBearing - (mapBearing ?? 0)}deg)`,
               }}
             >
               ↑

@@ -14,6 +14,12 @@ type WindFlowOverlayProps = {
   fromCompass: string;
   speedMph: number | null;
   thermal?: ThermalCue | null;
+  /**
+   * How far the map is turned (heading-up mode, degrees clockwise from north;
+   * null or 0 = north-up). The streaks are drawn on the screen, so they're
+   * turned back by this much to keep pointing the true downwind direction.
+   */
+  mapBearing?: number | null;
 };
 
 // Streak tint by thermal phase: warm when thermals lift scent upslope, cool when
@@ -37,8 +43,15 @@ export default function WindFlowOverlay({
   fromCompass,
   speedMph,
   thermal,
+  mapBearing = null,
 }: WindFlowOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Read each frame, so turning the map steers the streaks without restarting
+  // the animation (the compass updates many times a second).
+  const bearingRef = useRef(0);
+  useEffect(() => {
+    bearingRef.current = mapBearing ?? 0;
+  }, [mapBearing]);
   const fromBearing = compassToBearing(fromCompass);
   const phase = thermal?.phase;
 
@@ -48,10 +61,16 @@ export default function WindFlowOverlay({
     const ctx = canvas?.getContext("2d");
     if (!canvas || !parent || !ctx || fromBearing === null) return;
 
-    // Air travels the way the wind blows *to* — 180° off the "from" bearing.
-    const downwind = ((fromBearing + 180) % 360) * (Math.PI / 180);
-    const dirX = Math.sin(downwind);
-    const dirY = -Math.cos(downwind); // screen y grows downward, so north is -y
+    // Air travels the way the wind blows *to* — 180° off the "from" bearing —
+    // measured on screen, so a heading-up map's turn is taken back out.
+    let dirX = 0;
+    let dirY = -1;
+    const aim = () => {
+      const downwind = ((fromBearing + 180 - bearingRef.current) % 360) * (Math.PI / 180);
+      dirX = Math.sin(downwind);
+      dirY = -Math.cos(downwind); // screen y grows downward, so north is -y
+    };
+    aim();
     const speed = Math.max(0.5, Math.min(3.2, 0.6 + (speedMph ?? 4) * 0.16));
     const rgb = flowColor(phase);
 
@@ -99,6 +118,7 @@ export default function WindFlowOverlay({
 
     let raf = 0;
     const frame = () => {
+      aim();
       // Fade prior streaks toward transparent so trails linger and dissolve.
       ctx.globalCompositeOperation = "destination-out";
       ctx.fillStyle = "rgba(0, 0, 0, 0.1)";

@@ -88,7 +88,23 @@ import ParcelTilesLayer, {
   type ParcelTileOwnerPick,
 } from "@/components/map/ParcelTilesLayer";
 import { ownerAcresText, ownersMatch, previousOwnerText } from "@/lib/ownerLabel";
-import { landTagKey, setLandTag, useLandTags, type LandTagKind } from "@/lib/landTags";
+import {
+  landTagKey,
+  setLandTag,
+  useLandTags,
+  type LandTag,
+  type LandTagKind,
+  type LandTags,
+} from "@/lib/landTags";
+import { OWNER_NEAR_KM, distanceKm } from "@/lib/parcelTileMath";
+import {
+  clearActiveBloodTrail,
+  clearActiveWalk,
+  readActiveBloodTrail,
+  readActiveWalk,
+  saveActiveBloodTrail,
+  saveActiveWalk,
+} from "@/lib/activeFieldSession";
 import MapSearchBar from "@/components/map/MapSearchBar";
 import GoldenHourFrame from "@/components/map/GoldenHourFrame";
 import WindFlowOverlay from "@/components/map/WindFlowOverlay";
@@ -430,6 +446,22 @@ const PENDING_PIN_TYPE_OPTIONS = PROPERTY_ASSET_PIN_TYPES.map((type) => {
 // unavailable, never as the owner data being unpublished, since the tile is
 // usually showing an owner name right above this line. A lookup that simply
 // fails adds nothing, leaving the tile's own owner/acres card intact.
+// A land tag follows the owner name, but only means anything near where it was
+// saved: the same name 50 miles away is almost always a different owner. The
+// map layer colors only parcels within OWNER_NEAR_KM of the tag; the owner card
+// applies the same rule so it never says "Permission" on the wrong land.
+function nearLandTag(
+  tags: LandTags,
+  ownerName: string,
+  at: { lat: number; lng: number } | null,
+): LandTag | null {
+  if (!ownerName) return null;
+  const tag = tags[landTagKey(ownerName)];
+  if (!tag) return null;
+  if (!at || !Number.isFinite(tag.lat) || !Number.isFinite(tag.lng)) return tag;
+  return distanceKm(at, tag) <= OWNER_NEAR_KM ? tag : null;
+}
+
 function countyRecordLines(
   state: ParcelOwnerLookupState,
   tileOwnerName?: string,
@@ -696,11 +728,11 @@ function LongPressToPlacePin({
     }
 
     function fireAt(clientX: number, clientY: number) {
-      const rect = container.getBoundingClientRect();
-      const latlng = map.containerPointToLatLng([
-        clientX - rect.left,
-        clientY - rect.top,
-      ]);
+      // Through Leaflet's own conversion, which undoes a heading-up turn, so
+      // the pin lands under the finger whichever way the map faces.
+      const latlng = map.containerPointToLatLng(
+        map.mouseEventToContainerPoint({ clientX, clientY } as MouseEvent),
+      );
       lastFiredAt = Date.now();
       onLongPressRef.current(latlng.lat, latlng.lng);
     }
@@ -829,12 +861,8 @@ function MapPinDropTarget({
       event.preventDefault();
       event.stopPropagation();
 
-      const bounds = container.getBoundingClientRect();
-      const point: [number, number] = [
-        event.clientX - bounds.left,
-        event.clientY - bounds.top,
-      ];
-      const latLng = map.containerPointToLatLng(point);
+      // Leaflet's conversion undoes a heading-up turn of the map.
+      const latLng = map.containerPointToLatLng(map.mouseEventToContainerPoint(event));
 
       onDropPinRef.current(droppedType, latLng.lat, latLng.lng);
     }
@@ -1362,6 +1390,32 @@ export default function HuntingMap() {
   // The timeline window being shown; null = right now.
   const [timelineKey, setTimelineKey] = useState<string | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
+  // A map left open in the stand used to keep the wind, period and thermals it
+  // loaded with. A one-minute clock moves the period along, and the forecast
+  // is re-read every 15 minutes and whenever the app comes back to the front.
+  const [clockMinute, setClockMinute] = useState(0);
+  const [forecastRefresh, setForecastRefresh] = useState(0);
+  useEffect(() => {
+    let lastRefresh = Date.now();
+    const refresh = () => {
+      lastRefresh = Date.now();
+      setForecastRefresh((n) => n + 1);
+    };
+    const timer = window.setInterval(() => {
+      setClockMinute((n) => n + 1);
+      if (Date.now() - lastRefresh >= 15 * 60_000) refresh();
+    }, 60_000);
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      setClockMinute((n) => n + 1);
+      if (Date.now() - lastRefresh >= 5 * 60_000) refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
   const livePeriod = useMemo(
     () =>
       forecastMeta
@@ -1371,7 +1425,9 @@ export default function HuntingMap() {
             forecastMeta.sunsetISO,
           )
         : "midday",
-    [forecastMeta],
+    // clockMinute re-reads the time each minute.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [forecastMeta, clockMinute],
   );
   const timelineSlots = useMemo(
     () =>
@@ -1438,18 +1494,25 @@ export default function HuntingMap() {
   // Heading-up map: turns the map so the way you face is at the top. Only
   // applies while following with the compass on; the compass button flips it.
   const [headingUp, setHeadingUp] = useState(false);
+  // How far the map is turned (heading-up), for on-screen graphics that must
+  // keep pointing a true compass direction. null = north-up.
+  const mapBearing = mapTools.gps && followUser && headingUp ? liveHeading : null;
   // Live walk recording: while `isTracking` is on, each GPS fix is appended to
   // `activeTrackPoints` to draw the trail as the hunter moves. On stop, the
   // finished trail is saved to the property; the id/start-time captured when
   // recording began ride along in refs so a mid-walk property switch can't
   // retag or lose the walk in progress.
-  const [isTracking, setIsTracking] = useState(false);
+  // A walk still recording when the tab was reloaded picks back up from storage.
+  const [resumedWalk] = useState(() => readActiveWalk());
+  const [isTracking, setIsTracking] = useState(() => Boolean(resumedWalk));
   const [activeTrackPoints, setActiveTrackPoints] = useState<WalkTrackPoint[]>(
-    [],
+    () => resumedWalk?.points ?? [],
   );
-  const [trackMessage, setTrackMessage] = useState("");
-  const trackPropertyIdRef = useRef("");
-  const trackStartedAtRef = useRef("");
+  const [trackMessage, setTrackMessage] = useState(() =>
+    resumedWalk ? "Walk recording resumed." : "",
+  );
+  const trackPropertyIdRef = useRef(resumedWalk?.propertyId ?? "");
+  const trackStartedAtRef = useRef(resumedWalk?.startedAt ?? "");
   const [parcelLayerState, setParcelLayerState] =
     useState<ParcelBoundaryLoadState | null>(null);
   // Parcel picked by tapping the Land Owners overlay (owner read straight from
@@ -1567,15 +1630,25 @@ export default function HuntingMap() {
   const [routePoints, setRoutePoints] = useState<HuntAreaPoint[]>([]);
   // Blood-trail / recovery mode: after a shot, mark the hit site (point 0), drop
   // a dot at each blood find as you track, and flag recovery when the deer is
-  // found. Ephemeral — a live tracking aid for the moment, not a saved record.
-  const [isTrackingBlood, setIsTrackingBlood] = useState(false);
-  const [bloodPoints, setBloodPoints] = useState<BloodMark[]>([]);
-  const [bloodRecovered, setBloodRecovered] = useState(false);
+  // found. Kept in storage while it runs (lib/activeFieldSession) so a tab
+  // reload or an accidental close doesn't lose the hit site; cleared on Done.
+  const [resumedBlood] = useState(() => readActiveBloodTrail());
+  const [isTrackingBlood, setIsTrackingBlood] = useState(() => Boolean(resumedBlood));
+  const [bloodPoints, setBloodPoints] = useState<BloodMark[]>(
+    () => resumedBlood?.points ?? [],
+  );
+  const [bloodRecovered, setBloodRecovered] = useState(
+    () => resumedBlood?.recovered ?? false,
+  );
   // The path actually walked while tracking (GPS), so the trail between marks
   // follows the ground you covered rather than a straight line. A ref mirrors it
   // so a mark dropped mid-update records the path length it was dropped at.
-  const [bloodPath, setBloodPath] = useState<HuntAreaPoint[]>([]);
-  const bloodPathRef = useRef<HuntAreaPoint[]>([]);
+  const [bloodPath, setBloodPath] = useState<HuntAreaPoint[]>(
+    () => resumedBlood?.path ?? [],
+  );
+  const bloodPathRef = useRef<HuntAreaPoint[]>(resumedBlood?.path ?? []);
+  const bloodPropertyIdRef = useRef(resumedBlood?.propertyId ?? "");
+  const bloodStartedAtRef = useRef(resumedBlood?.startedAt ?? "");
   const [areaCoordInput, setAreaCoordInput] = useState("");
   const [areaPointMessage, setAreaPointMessage] = useState("");
   const [showCoordEntry, setShowCoordEntry] = useState(false);
@@ -2342,6 +2415,13 @@ export default function HuntingMap() {
     });
   }, [selectedPropertyId, propertyFocus]);
 
+  // Whether a forecast has loaded for this property, so a failed refresh can
+  // keep it instead of blanking the wind.
+  const haveForecastRef = useRef(false);
+  useEffect(() => {
+    haveForecastRef.current = false;
+  }, [selectedPropertyId]);
+
   // Live wind for the wind/thermal overlay. Fetch only while the layer is on
   // (and re-fetch when the property changes) so panning never spams the API —
   // the point comes from refs, and Open-Meteo responses are cached per point.
@@ -2373,12 +2453,15 @@ export default function HuntingMap() {
         if (cancelled) return;
 
         if (result.status !== "ok") {
+          // A failed refresh (no signal in the woods) keeps what's showing.
+          if (haveForecastRef.current) return;
           setWindData(null);
           setForecastDays([]);
           setForecastMeta(null);
           setForecastStatus("error");
           return;
         }
+        haveForecastRef.current = true;
 
         const { current, sunrise, sunset, pressure } = result.forecast;
         setForecastDays(result.forecast.days);
@@ -2400,7 +2483,7 @@ export default function HuntingMap() {
         setForecastStatus("ok");
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!cancelled && !haveForecastRef.current) {
           setWindData(null);
           setForecastMeta(null);
           setForecastStatus("error");
@@ -2418,6 +2501,7 @@ export default function HuntingMap() {
     wantsWindForPlay,
     wantsWindForRoute,
     selectedPropertyId,
+    forecastRefresh,
   ]);
 
   function toggleWind() {
@@ -2465,6 +2549,28 @@ export default function HuntingMap() {
 
     return () => navigator.geolocation.clearWatch(watchId);
   }, [isTracking]);
+
+  // Keep an in-progress walk and blood trail in storage as they grow, so a
+  // reload resumes them instead of losing them.
+  useEffect(() => {
+    if (!isTracking) return;
+    saveActiveWalk({
+      propertyId: trackPropertyIdRef.current,
+      startedAt: trackStartedAtRef.current || new Date().toISOString(),
+      points: activeTrackPoints,
+    });
+  }, [isTracking, activeTrackPoints]);
+
+  useEffect(() => {
+    if (!isTrackingBlood) return;
+    saveActiveBloodTrail({
+      propertyId: bloodPropertyIdRef.current,
+      startedAt: bloodStartedAtRef.current || new Date().toISOString(),
+      points: bloodPoints,
+      path: bloodPath,
+      recovered: bloodRecovered,
+    });
+  }, [isTrackingBlood, bloodPoints, bloodPath, bloodRecovered]);
 
   // Recording a walk or a blood trail keeps the screen on — a locked phone
   // pauses GPS and the trail would jump in a straight line across the gap.
@@ -2537,6 +2643,7 @@ export default function HuntingMap() {
 
     setIsTracking(false);
     setFollowUser(false);
+    clearActiveWalk();
 
     const points = activeTrackPoints;
     const propertyId = trackPropertyIdRef.current;
@@ -2589,10 +2696,10 @@ export default function HuntingMap() {
   }
 
   function selectProperty(propertyId: string) {
+    if (!leaveBloodTrail()) return;
     if (isDrawingArea) cancelAreaDraw();
     setPendingPin(null);
     exitRoutePlan();
-    exitBloodTrail();
 
     updateDeerIntelStore((currentState) => ({
       ...currentState,
@@ -2602,12 +2709,12 @@ export default function HuntingMap() {
 
   function startAreaDraw() {
     if (!selectedPropertyId) return;
+    if (!leaveBloodTrail()) return;
 
     setIsPlacingPin(false);
     setMovingPin(null);
     setPendingPin(null);
     exitRoutePlan();
-    exitBloodTrail();
     setIsDrawingArea(true);
     setDraftAreaPoints(huntArea ? [...huntArea] : []);
     setAreaCoordInput("");
@@ -2619,13 +2726,13 @@ export default function HuntingMap() {
   // map modes so taps go to laying the route.
   function startRoutePlan() {
     if (!selectedPropertyId) return;
+    if (!leaveBloodTrail()) return;
 
     setIsPlacingPin(false);
     setMovingPin(null);
     setPendingPin(null);
     setAimingTarget(null);
     setIsDrawingArea(false);
-    exitBloodTrail();
     setRoutePoints([]);
     setIsPlanningRoute(true);
     setLayersOpen(false);
@@ -2675,6 +2782,8 @@ export default function HuntingMap() {
     setAimingTarget(null);
     setIsDrawingArea(false);
     exitRoutePlan();
+    bloodPropertyIdRef.current = selectedPropertyId;
+    bloodStartedAtRef.current = new Date().toISOString();
     setBloodPoints([]);
     setBloodRecovered(false);
     bloodPathRef.current = [];
@@ -2733,11 +2842,24 @@ export default function HuntingMap() {
   }
 
   function exitBloodTrail() {
+    clearActiveBloodTrail();
     setIsTrackingBlood(false);
     setBloodPoints([]);
     setBloodRecovered(false);
     bloodPathRef.current = [];
     setBloodPath([]);
+  }
+
+  // Other map modes used to end a blood trail silently. A trail with marks on
+  // it now only ends when you say so. Returns false to cancel the other action.
+  function leaveBloodTrail(): boolean {
+    if (isTrackingBlood && bloodPoints.length > 0 && !bloodRecovered) {
+      if (!window.confirm("End the blood trail? Its marks will be cleared.")) {
+        return false;
+      }
+    }
+    exitBloodTrail();
+    return true;
   }
 
   function addAreaPoint(lat: number, lng: number) {
@@ -2978,12 +3100,12 @@ export default function HuntingMap() {
   // so the map is tappable for the drop.
   function placePinType(type: PinType) {
     if (pinBoxDisabled) return;
+    if (!leaveBloodTrail()) return;
 
     setPinType(type);
     setMovingPin(null);
     setPendingPin(null);
     exitRoutePlan();
-    exitBloodTrail();
     setIsPlacingPin(true);
     setPinBoxMessage(`Tap map to place ${type}`);
     setLayersOpen(false);
@@ -3215,10 +3337,19 @@ export default function HuntingMap() {
   function deleteSelectedAsset() {
     if (!selectedAsset) return;
 
-    if (!window.confirm(`Delete ${selectedAsset.label}?`)) return;
-
     if (selectedAsset.source === "camera") {
       const cameraId = selectedAsset.sourceId;
+      // Deleting a camera takes its checks and photos with it — say so.
+      const checkCount = state.cameraChecks.filter((check) => check.cameraId === cameraId).length;
+      const photoCount = state.photoRecords.filter((photo) => photo.cameraSiteId === cameraId).length;
+      const extras = [
+        checkCount ? `${checkCount} check${checkCount === 1 ? "" : "s"}` : "",
+        photoCount ? `${photoCount} photo${photoCount === 1 ? "" : "s"}` : "",
+      ].filter(Boolean);
+      const message = extras.length
+        ? `Delete ${selectedAsset.label} and its ${extras.join(" and ")}? This can't be undone.`
+        : `Delete ${selectedAsset.label}?`;
+      if (!window.confirm(message)) return;
 
       updateDeerIntelStore((currentState) => ({
         ...currentState,
@@ -3236,6 +3367,7 @@ export default function HuntingMap() {
       return;
     }
 
+    if (!window.confirm(`Delete ${selectedAsset.label}?`)) return;
     if (selectedAsset.pinId) deletePin(selectedAsset.pinId);
   }
 
@@ -3293,11 +3425,11 @@ export default function HuntingMap() {
 
   function startPinMove() {
     if (!selectedPin) return;
+    if (!leaveBloodTrail()) return;
 
     setIsPlacingPin(false);
     setPendingPin(null);
     exitRoutePlan();
-    exitBloodTrail();
     setMovingPin({
       id: selectedPin.id,
       label: selectedAsset?.label ?? selectedPin.type,
@@ -3327,6 +3459,7 @@ export default function HuntingMap() {
   }
 
   function startAim() {
+    if (!leaveBloodTrail()) return;
     // Cameras and stands can be pointed; both carry a facingDirection.
     if (
       !selectedAsset ||
@@ -3348,7 +3481,6 @@ export default function HuntingMap() {
     setIsPlacingPin(false);
     setPendingPin(null);
     exitRoutePlan();
-    exitBloodTrail();
     setAimingTarget({
       kind: selectedAsset.source,
       id: selectedAsset.sourceId,
@@ -3933,6 +4065,7 @@ export default function HuntingMap() {
               goodCount={windStatusSummary.good}
               avoidCount={windStatusSummary.avoid}
               matchedCount={windStatusSummary.matched}
+              mapBearing={mapBearing}
             />
           ) : null}
 
@@ -4210,11 +4343,7 @@ export default function HuntingMap() {
               headingUp={headingUp}
               onHeadingUpChange={setHeadingUp}
             />
-            <MapRotationController
-              heading={
-                mapTools.gps && followUser && headingUp ? liveHeading : null
-              }
-            />
+            <MapRotationController heading={mapBearing} />
             <UserLocationMarker
               // Blood trailing shows where you are against the trail.
               enabled={mapTools.gps || isTrackingBlood}
@@ -4527,6 +4656,7 @@ export default function HuntingMap() {
               fromCompass={windData.fromCompass}
               speedMph={windData.speedMph}
               thermal={windData.thermal}
+              mapBearing={mapBearing}
             />
           ) : null}
 
@@ -4726,7 +4856,7 @@ export default function HuntingMap() {
           />
 
           {pendingPin && !isDrawingArea ? (
-            <div className="di-area-pill" style={drawActionBarStyle}>
+            <div className="di-area-pill di-map-mode-bar" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
                 {pendingStep === "aim"
                   ? pendingFacing
@@ -4872,7 +5002,7 @@ export default function HuntingMap() {
           ) : null}
 
           {isPlanningRoute ? (
-            <div className="di-area-pill" style={drawActionBarStyle}>
+            <div className="di-area-pill di-map-mode-bar" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
                 {routePoints.length === 0
                   ? "Tap the map to start your walk-in route"
@@ -4934,7 +5064,7 @@ export default function HuntingMap() {
           ) : null}
 
           {isTrackingBlood ? (
-            <div className="di-area-pill" style={drawActionBarStyle}>
+            <div className="di-area-pill di-map-mode-bar" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
                 {bloodPoints.length === 0
                   ? "Tap the map to mark the hit site"
@@ -5004,7 +5134,16 @@ export default function HuntingMap() {
                 <button
                   type="button"
                   style={drawPrimaryButtonStyle}
-                  onClick={exitBloodTrail}
+                  onClick={() => {
+                    if (
+                      bloodPoints.length > 0 &&
+                      !bloodRecovered &&
+                      !window.confirm("Clear this blood trail? Its marks won't be kept.")
+                    ) {
+                      return;
+                    }
+                    exitBloodTrail();
+                  }}
                 >
                   Done
                 </button>
@@ -5013,7 +5152,7 @@ export default function HuntingMap() {
           ) : null}
 
           {movingPin && !isDrawingArea ? (
-            <div className="di-area-pill" style={drawActionBarStyle}>
+            <div className="di-area-pill di-map-mode-bar" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
                 Tap map to move {movingPin.label}
               </span>
@@ -5030,7 +5169,7 @@ export default function HuntingMap() {
           ) : null}
 
           {aimingTarget && !isDrawingArea ? (
-            <div className="di-area-pill" style={drawActionBarStyle}>
+            <div className="di-area-pill di-map-mode-bar" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
                 {aimingTarget.preview
                   ? `Facing ${aimingTarget.preview} — tap again to adjust`
@@ -5058,7 +5197,7 @@ export default function HuntingMap() {
           ) : null}
 
           {isPlacingPin && !isDrawingArea ? (
-            <div className="di-area-pill" style={drawActionBarStyle}>
+            <div className="di-area-pill di-map-mode-bar" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
                 Tap map to place {pinType}
               </span>
@@ -5075,7 +5214,7 @@ export default function HuntingMap() {
           ) : null}
 
           {isDrawingArea ? (
-            <div className="di-area-pill" style={drawActionBarStyle}>
+            <div className="di-area-pill di-map-mode-bar" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
                 {draftAreaPoints.length < 3
                   ? `Tap the map · ${draftAreaPoints.length}/3`
@@ -5116,7 +5255,7 @@ export default function HuntingMap() {
           ) : null}
 
           {isTracking ? (
-            <div className="di-area-pill" style={drawActionBarStyle}>
+            <div className="di-area-pill di-map-mode-bar" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
                 <span style={walkRecordingDotStyle} />
                 {formatWalkDistance(activeDistanceMeters)} ·{" "}
@@ -5207,7 +5346,7 @@ export default function HuntingMap() {
                   tileOwnerPick.ownerName,
                 ) || null
               }
-              tag={landTags[landTagKey(tileOwnerPick.ownerName)]?.kind ?? null}
+              tag={nearLandTag(landTags, tileOwnerPick.ownerName, tileOwnerAt)?.kind ?? null}
               onTag={
                 tileOwnerAt && tileOwnerPick.ownerName
                   ? (kind) =>

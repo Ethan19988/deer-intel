@@ -4,9 +4,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 
-// Routes that must stay reachable without a session, or the login redirect
-// would loop on itself.
-const PUBLIC_PATHS = new Set(["/login"]);
+// Routes that must stay reachable without a session: the login page (or the
+// redirect would loop on itself), the password reset page (an expired reset
+// link must be able to explain itself instead of bouncing to /login), and the
+// offline notice (with no signal, /login may not be saved on the phone).
+const PUBLIC_PATHS = new Set(["/login", "/reset-password", "/offline"]);
 
 // Requires a signed-in account before showing the app — but only when cloud
 // sync is actually configured. With no Supabase env vars the app stays fully
