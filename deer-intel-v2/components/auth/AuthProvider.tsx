@@ -19,7 +19,11 @@ import {
   skipNextRecordStamp,
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
-import { backupLocalImages, startPhotoUploadQueue } from "@/lib/imageStore";
+import {
+  backupLocalImages,
+  requeuePhotoUpload,
+  startPhotoUploadQueue,
+} from "@/lib/imageStore";
 import { readAllLandTags, replaceAllLandTags, useLandTags } from "@/lib/landTags";
 import {
   readAccountSettings,
@@ -37,6 +41,7 @@ import {
   buildSyncBase,
   decideReconcile,
   detectAccountSwitch,
+  findResurrectedRecords,
   hasMeaningfulData,
   isSchemaTooNew,
   mergeSyncedStates,
@@ -44,6 +49,7 @@ import {
   pullRemoteState,
   readDeviceOwner,
   readSyncMeta,
+  resurrectedPhotoImageIds,
   saveWithMerge,
   serializeState,
   splitLandTags,
@@ -56,8 +62,23 @@ import {
   writeDeviceOwner,
   writeSyncMeta,
   type AccountSwitch,
+  type ResurrectedRecord,
   type SyncedState,
 } from "@/lib/cloudSync";
+
+// A merge kept a photo record that another device deleted (an edit beats a
+// delete), but that delete already removed the cloud image. Re-upload it from
+// this device when the image is here; otherwise the photo shows "Photo
+// unavailable on this device" everywhere (audit L8). Best-effort; call after
+// the merged state is applied so the upload queue sees the record.
+function restoreResurrectedPhotos(
+  resurrected: readonly ResurrectedRecord[] | undefined,
+  merged: SyncedState,
+) {
+  for (const imageId of resurrectedPhotoImageIds(resurrected, merged)) {
+    void requeuePhotoUpload(imageId).catch(() => undefined);
+  }
+}
 
 type AuthStatus = "loading" | "signed-in" | "signed-out";
 type SyncStatus = "idle" | "reconciling" | "syncing" | "synced" | "error";
@@ -278,7 +299,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         recordSynced(applied, userId, serverTime, remote);
         return;
       }
-      applySyncedState(mergeSyncedStates(now, remote, buildSyncBase(decidedOn)), userId);
+      const base = buildSyncBase(decidedOn);
+      const merged = mergeSyncedStates(now, remote, base);
+      applySyncedState(merged, userId);
+      restoreResurrectedPhotos(findResurrectedRecords(base, now, remote, merged), merged);
       // Snapshot = the cloud copy (normalized), so the local edits stay
       // pending and the push effect sends them next.
       recordSynced(normalizedSynced(remote, userId), userId, serverTime, remote);
@@ -318,11 +342,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const now = currentSynced();
         if (serializeState(now) === serializeState(local)) {
           const applied = applySyncedState(outcome.state, userId);
+          restoreResurrectedPhotos(outcome.resurrected, outcome.state);
           recordSynced(applied, userId, outcome.updatedAt, outcome.state);
         } else {
-          applySyncedState(
-            mergeSyncedStates(now, outcome.state, buildSyncBase(local)),
-            userId,
+          const base = buildSyncBase(local);
+          const merged = mergeSyncedStates(now, outcome.state, base);
+          applySyncedState(merged, userId);
+          // Both merges can keep a record: the save's (cloud vs. what we sent)
+          // and this one (cloud vs. edits made while the save was in flight).
+          restoreResurrectedPhotos(
+            [
+              ...(outcome.resurrected ?? []),
+              ...findResurrectedRecords(base, now, outcome.state, merged),
+            ],
+            merged,
           );
           // Snapshot = the cloud copy (in its locally normalized form, so the
           // merge base matches local records), so the newer local edits stay

@@ -518,6 +518,63 @@ export function mergeRecordsById<T>(
   return merged;
 }
 
+/** A record the merge kept even though one side had deleted it (see below). */
+export type ResurrectedRecord = { collection: SyncCollection; id: string };
+
+/**
+ * Records a three-way merge "resurrected": known at the base, deleted on one
+ * side, edited on the other, and kept because an edit beats a delete. Side
+ * effects of the delete (e.g. deletePhotoImage removing the cloud image) have
+ * already happened, so callers use this to undo them where they can (audit
+ * L8). Pure; with no base nothing counts as deleted, so nothing is reported.
+ * Land tags are not covered (deleting one has no side effects).
+ */
+export function findResurrectedRecords(
+  base: SyncBase | null | undefined,
+  local: SyncedState,
+  remote: SyncedState,
+  merged: SyncedState,
+): ResurrectedRecord[] {
+  if (!base) return [];
+  const ids = (records: readonly unknown[] | undefined) =>
+    new Set((records ?? []).map(recordId));
+  const found: ResurrectedRecord[] = [];
+
+  for (const key of SYNC_COLLECTIONS) {
+    const baseIds = base[key];
+    if (!baseIds) continue;
+    const localIds = ids(local[key]);
+    const remoteIds = ids(remote[key]);
+    for (const id of ids(merged[key])) {
+      // On exactly one side means the other side deleted it since the base.
+      if (Object.prototype.hasOwnProperty.call(baseIds, id) && localIds.has(id) !== remoteIds.has(id)) {
+        found.push({ collection: key, id });
+      }
+    }
+  }
+  return found;
+}
+
+/**
+ * Image ids of the resurrected photo records in `merged`. The device that
+ * deleted the record also deleted its cloud image, so a device still holding
+ * the image locally re-uploads these (imageStore.requeuePhotoUpload).
+ */
+export function resurrectedPhotoImageIds(
+  resurrected: readonly ResurrectedRecord[] | undefined,
+  merged: SyncedState,
+): string[] {
+  const ids = new Set(
+    (resurrected ?? []).filter((entry) => entry.collection === "photoRecords").map((entry) => entry.id),
+  );
+  if (ids.size === 0) return [];
+  const imageIds = new Set<string>();
+  for (const photo of merged.photoRecords ?? []) {
+    if (ids.has(photo.id) && photo.imageId) imageIds.add(photo.imageId);
+  }
+  return [...imageIds];
+}
+
 /**
  * A record's per-edit time (`updatedAt`, stamped by the store whenever the
  * record changes). NaN when the record predates stamping.
@@ -724,6 +781,9 @@ export type SaveOutcome = {
   // True when another device's changes were folded in, so the caller must
   // apply `state` locally.
   merged: boolean;
+  // Records the merge kept although one side deleted them (only set when
+  // `merged`; see findResurrectedRecords).
+  resurrected?: ResurrectedRecord[];
 };
 
 export type CloudApi = {
@@ -759,10 +819,15 @@ export async function saveWithMerge(
   let candidate = local;
   let expected = expectedUpdatedAt || null;
   let merged = false;
+  let resurrected: ResurrectedRecord[] = [];
 
   for (let attempt = 0; attempt < MAX_SAVE_ATTEMPTS; attempt += 1) {
     const result = await api.push(userId, candidate, expected);
-    if (result.ok) return { state: candidate, updatedAt: result.updatedAt, merged };
+    if (result.ok) {
+      return merged
+        ? { state: candidate, updatedAt: result.updatedAt, merged, resurrected }
+        : { state: candidate, updatedAt: result.updatedAt, merged };
+    }
 
     const remote = await api.pull(userId);
     // A newer build wrote this row: merging would strip what it added.
@@ -772,10 +837,13 @@ export async function saveWithMerge(
       candidate = local;
       expected = null;
       merged = false;
+      resurrected = [];
       continue;
     }
 
     candidate = mergeSyncedStates(local, remote.state, base);
+    // Only the merge that finally gets pushed counts.
+    resurrected = findResurrectedRecords(base, local, remote.state, candidate);
     expected = remote.updatedAt || null;
     merged = true;
   }
