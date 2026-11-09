@@ -19,6 +19,7 @@ import {
   type RutPhase,
   type SeasonCalendarPrefs,
 } from "@/lib/seasonCalendar";
+import { huntMatchesStand, huntsForStand } from "@/lib/standHunts";
 import { isCalmWind } from "@/lib/standWind";
 import { clockToMinutes } from "@/lib/windViz";
 import type { HuntLogEntry } from "@/types/hunt";
@@ -480,15 +481,16 @@ export function buildStatsFromRecords(
   };
 }
 
-/** Stats for one stand from all hunts (filtered here by standId). */
+/**
+ * Stats for one stand from all hunts (filtered here by lib/standHunts: its id,
+ * or — given its property — older id-less sits under the same name).
+ */
 export function buildStandStats(
-  stand: Pick<Stand, "id" | "name">,
+  stand: Pick<Stand, "id" | "name"> & { propertyId?: string },
   hunts: HuntLogEntry[],
   ctx: StatsContext,
 ): StandStats {
-  const records = hunts
-    .filter((hunt) => hunt.standId === stand.id)
-    .map((hunt) => toSitRecord(hunt, ctx));
+  const records = huntsForStand(stand, hunts).map((hunt) => toSitRecord(hunt, ctx));
   return buildStatsFromRecords(records, stand.id, stand.name);
 }
 
@@ -513,7 +515,12 @@ export function buildPropertyStandStats(
 
   for (const stand of stands) groups.set(stand.id, { name: stand.name, records: [] });
   for (const record of records) {
-    const id = record.hunt.standId || `name:${record.hunt.standName || "Unknown"}`;
+    // An id-less older sit logged under a listed stand's name is that stand's.
+    const owner = record.hunt.standId
+      ? undefined
+      : stands.find((stand) => huntMatchesStand(stand, record.hunt));
+    const id =
+      record.hunt.standId || owner?.id || `name:${record.hunt.standName || "Unknown"}`;
     const group = groups.get(id) ?? {
       name: nameById.get(id) ?? (record.hunt.standName?.trim() || "Unknown stand"),
       records: [],

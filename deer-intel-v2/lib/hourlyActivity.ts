@@ -1,4 +1,10 @@
-import { getPhotoBuckNames, photoRecordTime } from "@/lib/photos";
+import { hasTrustedPhotoTime } from "@/lib/photoDateTime";
+import { isDeerSpecies } from "@/lib/photoOptions";
+import {
+  getPhotoBuckNames,
+  getPhotoDeerProfileIds,
+  photoRecordTime,
+} from "@/lib/photos";
 import type { PhotoRecord } from "@/types/photo";
 
 // When deer actually show up on this property's cameras, by hour of day. Built
@@ -20,16 +26,27 @@ export const ACTIVITY_WINDOW_DAYS = 45;
 // Fewer photos than this and a "peak" is noise, so none is claimed.
 const MIN_PHOTOS_FOR_PEAK = 6;
 
-const NOT_DEER = /\b(bear|turkey|coyote|raccoon|squirrel|fox|bobcat|human|person|vehicle|bird)\b/i;
-
-/** Only records that carry a real capture time (not just a date) count. */
-function hasTimeOfDay(photo: PhotoRecord): boolean {
-  return /T?\d{1,2}:\d{2}/.test(photo.photoDate.slice(10));
+/**
+ * A photo that shows deer: linked to a buck (profile or name), or a species
+ * label that names a deer. An allow-list on purpose — "Other", "No animal",
+ * blank, or a typo never counts as deer (same rule as movementPrediction and
+ * propertyIntelligence).
+ */
+function showsDeer(photo: PhotoRecord): boolean {
+  return (
+    getPhotoBuckNames(photo).length > 0 ||
+    getPhotoDeerProfileIds(photo).length > 0 ||
+    isDeerSpecies(photo.species)
+  );
 }
 
-/** A deer photo with a real capture time: the unit every timing chart counts. */
+/**
+ * A deer photo with a real capture time: the unit every timing chart counts.
+ * A date-only record, or one whose time came from the file's modified date
+ * or a date-only stamp, has no trustworthy hour.
+ */
 export function isTimedDeerPhoto(photo: PhotoRecord): boolean {
-  return hasTimeOfDay(photo) && !NOT_DEER.test(photo.species);
+  return hasTrustedPhotoTime(photo) && showsDeer(photo);
 }
 
 export function isBuckRecord(photo: PhotoRecord): boolean {
@@ -37,14 +54,11 @@ export function isBuckRecord(photo: PhotoRecord): boolean {
 }
 
 /**
- * A deer photo for counting purposes, timed or date-only: a timed deer photo,
- * or (with or without a time) a buck link or a deer species name. The rule
- * the season report and the any-time sighting heat share.
+ * A deer photo for counting purposes, timed or date-only. The rule the season
+ * report and the any-time sighting heat share.
  */
 export function isDeerPhotoRecord(photo: PhotoRecord): boolean {
-  return (
-    isTimedDeerPhoto(photo) || isBuckRecord(photo) || /deer|doe|fawn|buck/i.test(photo.species || "")
-  );
+  return showsDeer(photo);
 }
 
 export function buildHourlyActivity(

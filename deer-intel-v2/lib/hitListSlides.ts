@@ -27,7 +27,6 @@ export type HitListSlide = {
   href: string;
 };
 
-
 function newest(photos: PhotoRecord[]): PhotoRecord | undefined {
   return photos
     .filter((photo) => Boolean(photo.imageId))

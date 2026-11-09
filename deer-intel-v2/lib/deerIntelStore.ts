@@ -20,6 +20,8 @@ import { PIN_TYPES, type MapPin, type PinType } from "@/types/mapPin";
 import type { PhotoRecord } from "@/types/photo";
 import type { HuntAreaPoint, Property } from "@/types/property";
 import { STAND_TYPES, type Stand, type StandType } from "@/types/stand";
+import { readStandDetails } from "@/lib/standDetails";
+import { cleanStandNotes } from "@/lib/standFormValues";
 import type { WalkTrack, WalkTrackPoint } from "@/types/walkTrack";
 
 export { PIN_TYPES, PROPERTY_ASSET_PIN_TYPES } from "@/types/mapPin";
@@ -368,8 +370,13 @@ function normalizeStand(value: unknown): Stand | null {
     avoidWinds: stringValue(value.avoidWinds),
     accessRouteNotes: stringValue(value.accessRouteNotes),
     exitRouteNotes: stringValue(value.exitRouteNotes),
-    notes: stringValue(value.notes, "No notes yet."),
+    // Older builds saved the "No notes yet." placeholder as the note itself;
+    // that's no note, so it isn't shown as one or sent to AI Scout.
+    notes: cleanStandNotes(stringValue(value.notes)),
     ...(sourcePinId ? { sourcePinId } : {}),
+    // Optional details (best time, setup, weapon, shot, height): only the
+    // valid ones, and absent when unset so older records keep their shape.
+    ...readStandDetails(value),
   };
 }
 

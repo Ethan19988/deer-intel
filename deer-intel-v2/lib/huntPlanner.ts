@@ -265,13 +265,38 @@ function buildSits(day: ForecastDay, stands: Stand[]): HuntSitWindow[] {
     });
 }
 
+/**
+ * Sit keys ("YYYY-MM-DD-AM"/"-PM", as usePropertyToday's activeSitKey) that
+ * come before `nextSitKey` over the forecast days: sits already over. Empty
+ * without a key, or when the key isn't in the forecast.
+ */
+function pastSitKeys(days: ForecastDay[], nextSitKey?: string): Set<string> {
+  const keys = days.flatMap((day) => [`${day.date}-AM`, `${day.date}-PM`]);
+  const nextIndex = nextSitKey ? keys.indexOf(nextSitKey) : -1;
+  return new Set(nextIndex > 0 ? keys.slice(0, nextIndex) : []);
+}
+
+/**
+ * The forecast days ranked for when + where to sit. `nextSitKey` (as
+ * buildWindMatrix takes it) drops sits that are already over, so this
+ * morning's sit can't rank first in the afternoon; a day with no sit left is
+ * dropped.
+ */
 export function buildHuntWindows(
   days: ForecastDay[],
   stands: Stand[],
+  nextSitKey?: string,
 ): HuntWindow[] {
+  const past = pastSitKeys(days, nextSitKey);
+
   return days
+    .filter(
+      (day) => !(past.has(`${day.date}-AM`) && past.has(`${day.date}-PM`)),
+    )
     .map((day) => {
-      const sits = buildSits(day, stands);
+      const sits = buildSits(day, stands).filter(
+        (sit) => !past.has(`${day.date}-${sit.period}`),
+      );
 
       // Judge the day by its best sit: the one with the most good stands,
       // ties going to the evening (the sit you plan around). With no hourly
@@ -402,7 +427,7 @@ export function buildWindMatrix(
   return { columns, rows };
 }
 
-// "Best this week": the upcoming sits with the most good-wind stands, from the
+// "Best next 3 days" (the forecast's span): the upcoming sits with the most good-wind stands, from the
 // same stand-by-sit matrix as the Wind by sit grid. Only stands with winds set
 // count, so a property with no wind notes yields nothing (and the line hides).
 export type BestSit = {
@@ -461,7 +486,10 @@ export function bestSitsThisWeek(
     }));
 }
 
-/** "Best this week: Tue PM (3 stands) · Thu AM (2)", or null with no best sit. */
+/**
+ * "Best next 3 days: Tue PM (3 stands) · Thu AM (2)", or null with no best
+ * sit. The span is the live forecast's (forecast_days=3), not a week.
+ */
 export function bestSitsLine(sits: BestSit[]): string | null {
   if (sits.length === 0) return null;
 
@@ -473,5 +501,5 @@ export function bestSitsLine(sits: BestSit[]): string | null {
     return `${sit.dayLabel} ${sit.period} (${count})`;
   });
 
-  return `Best this week: ${parts.join(" · ")}`;
+  return `Best next 3 days: ${parts.join(" · ")}`;
 }

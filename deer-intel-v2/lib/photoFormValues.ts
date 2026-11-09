@@ -1,6 +1,12 @@
+import { toDateInputValue } from "@/lib/photoDateTime";
+import { buckOnlyFields, deerCountFor } from "@/lib/photoOptions";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { DeerProfile } from "@/types/deerProfile";
-import type { PhotoRecord } from "@/types/photo";
+import type {
+  PhotoAgeClass,
+  PhotoCaptureTimeSource,
+  PhotoRecord,
+} from "@/types/photo";
 
 export type PhotoFormValues = {
   cameraCheckId: string;
@@ -8,11 +14,20 @@ export type PhotoFormValues = {
   // buck names (typed in without a saved profile).
   deerProfileIds: string[];
   fileName: string;
+  // "YYYY-MM-DDTHH:mm" when the time is known, else a bare "YYYY-MM-DD".
   photoDate: string;
+  // Where photoDate came from; "" before anything set it.
+  captureTimeSource: PhotoCaptureTimeSource | "";
   species: string;
   buckNames: string[];
   travelDirection: string;
+  // The AI's raw frame read ("Left to right", ...), kept so the heading can
+  // be recomputed if the camera's facing changes.
+  frameDirection: string;
   behavior: string;
+  deerCount?: number;
+  ageClass: PhotoAgeClass | "";
+  antlerPoints?: number;
   notes: string;
   imageId: string;
   imageWidth: number;
@@ -31,10 +46,15 @@ export const EMPTY_PHOTO_FORM_VALUES: PhotoFormValues = {
   deerProfileIds: [],
   fileName: "",
   photoDate: "",
+  captureTimeSource: "",
   species: "",
   buckNames: [],
   travelDirection: "",
+  frameDirection: "",
   behavior: "",
+  deerCount: undefined,
+  ageClass: "",
+  antlerPoints: undefined,
   notes: "",
   imageId: "",
   imageWidth: 0,
@@ -47,12 +67,16 @@ export const EMPTY_PHOTO_FORM_VALUES: PhotoFormValues = {
 };
 
 /**
- * A fresh photo form that starts at the current date and time (adding a photo
- * overrides it with the photo's real capture time). The value is a
- * datetime-local string so the exact 24hr capture time is kept, not just the day.
+ * A fresh photo form that starts on today's date with no time: the clock time
+ * the form happened to be opened at is not a capture time, so it is never
+ * pre-filled. Adding a photo replaces the date with the photo's own reading.
  */
-export function emptyPhotoFormValues(): PhotoFormValues {
-  return { ...EMPTY_PHOTO_FORM_VALUES, photoDate: nowDateTimeInput() };
+export function emptyPhotoFormValues(now: Date = new Date()): PhotoFormValues {
+  return {
+    ...EMPTY_PHOTO_FORM_VALUES,
+    photoDate: toDateInputValue(now),
+    captureTimeSource: "manual",
+  };
 }
 
 /**
@@ -91,17 +115,6 @@ export function resolveBuckLinks(
   }
 
   return { deerProfileIds, buckNames };
-}
-
-function nowDateTimeInput(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const hour = String(now.getHours()).padStart(2, "0");
-  const minute = String(now.getMinutes()).padStart(2, "0");
-
-  return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 
 type CreatePhotoRecordFromValuesInput = {
@@ -154,6 +167,7 @@ export function createPhotoRecordFromValues({
     cameraCheckId,
     fileName,
     photoDate,
+    captureTimeSource: values.captureTimeSource || undefined,
     species,
     // Singular fields stay populated with the primary (first) link so existing
     // reads keep working; the plural fields carry the full set.
@@ -162,7 +176,10 @@ export function createPhotoRecordFromValues({
     deerProfileIds: deerProfileIds.length > 0 ? deerProfileIds : undefined,
     buckNames: buckNames.length > 0 ? buckNames : undefined,
     travelDirection: values.travelDirection.trim() || undefined,
+    frameDirection: values.frameDirection.trim() || undefined,
     behavior: values.behavior.trim() || undefined,
+    deerCount: deerCountFor(species, values.deerCount),
+    ...buckOnlyFields(species, values.ageClass, values.antlerPoints),
     notes: values.notes.trim(),
     createdAt: new Date().toISOString(),
     imageId: imageId || undefined,

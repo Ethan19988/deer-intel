@@ -1,3 +1,4 @@
+import { huntsForStand } from "@/lib/standHunts";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { Stand } from "@/types/stand";
 
@@ -42,8 +43,7 @@ export function getStandPressure(
   today: string,
 ): StandPressure {
   const todayNumber = dayNumber(today);
-  const ages = hunts
-    .filter((hunt) => hunt.standId === stand.id)
+  const ages = huntsForStand(stand, hunts)
     .map((hunt) => {
       const sitDay = dayNumber(hunt.date);
       return todayNumber === null || sitDay === null

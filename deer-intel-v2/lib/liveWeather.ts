@@ -6,6 +6,7 @@ import type { Property } from "@/types/property";
 import { hasPropertyCoordinate } from "@/lib/propertyLocation";
 import { degreesToCompass } from "@/lib/compass";
 import { describeMoonPhase } from "@/lib/moonPhase";
+import { formatWallClock } from "@/lib/forecastTime";
 import {
   DEFAULT_UNITS,
   openMeteoTemperatureUnit,
@@ -64,6 +65,13 @@ export type ForecastDay = {
    */
   morningWind?: string;
   eveningWind?: string;
+  /**
+   * This day's own sunrise / sunset as Open-Meteo local times, so a "tomorrow"
+   * sit uses tomorrow's sun (and clock, across a DST change) rather than
+   * today's + 24 h. Missing on older cached snapshots.
+   */
+  sunriseIso?: string;
+  sunsetIso?: string;
 };
 
 export type PressureTrend = "rising" | "steady" | "falling";
@@ -90,9 +98,18 @@ export type LiveForecast = {
   /**
    * The property's UTC offset (Open-Meteo `utc_offset_seconds`), so the local
    * times above can be turned into real instants even when the phone is set to
-   * another time zone. Missing on older cached snapshots.
+   * another time zone. Missing on older cached snapshots. This is the offset
+   * NOW: for another day (across a DST change) use `timezone`.
    */
   utcOffsetSeconds?: number;
+  /**
+   * The property's IANA time zone (Open-Meteo `timezone` with timezone=auto),
+   * e.g. "America/New_York". Preferred over utcOffsetSeconds for reading and
+   * labeling local times; see lib/forecastTime. Missing on older snapshots.
+   */
+  timezone?: string;
+  /** Where the forecast is for (missing on older cached snapshots). */
+  point?: WeatherPoint;
   days: ForecastDay[];
   pressure?: PressureReading;
 };
@@ -165,6 +182,7 @@ type OpenMeteoDaily = {
 
 type OpenMeteoResponse = {
   utc_offset_seconds?: number;
+  timezone?: string;
   current?: OpenMeteoCurrent;
   hourly?: OpenMeteoHourly;
   daily?: OpenMeteoDaily;
@@ -395,6 +413,10 @@ export async function fetchLiveForecast(
     );
     requestUrl.searchParams.set("timezone", "auto");
     requestUrl.searchParams.set("forecast_days", "3");
+    // Yesterday too, so the pressure trend, 12 h sparkline and cold-front cue
+    // have hours behind "now" before dawn. It also prepends a day to every
+    // daily array, which is dropped below (see dailyFromToday).
+    requestUrl.searchParams.set("past_days", "1");
 
     const response = await fetch(requestUrl.toString(), {
       headers: { Accept: "application/json" },
@@ -422,7 +444,7 @@ export async function fetchLiveForecast(
       return { status: "error", message: "Live weather returned no data." };
     }
 
-    const daily = payload.daily;
+    const daily = dailyFromToday(payload.daily, payload.current.time);
     const dailyTrends = buildDailyPressureTrends(daily.time ?? [], payload.hourly);
     const days: ForecastDay[] = (daily.time ?? []).map((date, index) => ({
       date,
@@ -445,6 +467,8 @@ export async function fetchLiveForecast(
         payload.hourly,
         units,
       ),
+      sunriseIso: daily.sunrise?.[index],
+      sunsetIso: daily.sunset?.[index],
     }));
 
     const result: LiveForecastResult = {
@@ -460,6 +484,11 @@ export async function fetchLiveForecast(
           typeof payload.utc_offset_seconds === "number"
             ? payload.utc_offset_seconds
             : undefined,
+        timezone:
+          typeof payload.timezone === "string" && payload.timezone
+            ? payload.timezone
+            : undefined,
+        point,
         days,
         pressure: buildPressureReading(payload.current, payload.hourly),
       },
@@ -481,7 +510,8 @@ export type WeatherHistoryResult =
   | { status: "ok"; point: WeatherPoint; days: ForecastDay[] }
   | { status: "error"; message: string };
 
-const weatherHistoryCache = new Map<string, WeatherHistoryResult>();
+// Day-keyed like the others: "yesterday" and the label set roll at midnight.
+const weatherHistoryCache = new Map<string, CachedWeather<WeatherHistoryResult>>();
 
 // Recent past conditions — a backward look that complements the 3-day forecast.
 // Deer patterns are read from the days LEADING UP to a hunt (a cold front two
@@ -506,7 +536,7 @@ export async function fetchWeatherHistory(
   // a week keeps day labels unambiguous and the request light.
   const span = Math.max(1, Math.min(Math.round(days), 14));
   const cacheKey = `${point.lat.toFixed(3)},${point.lng.toFixed(3)}|${span}|${units.temperature}|${units.wind}`;
-  const cached = weatherHistoryCache.get(cacheKey);
+  const cached = readWeatherCache(weatherHistoryCache, cacheKey);
 
   if (cached) return cached;
 
@@ -580,7 +610,7 @@ export async function fetchWeatherHistory(
       days: entries.slice(0, -1),
     };
 
-    weatherHistoryCache.set(cacheKey, result);
+    writeWeatherCache(weatherHistoryCache, cacheKey, result);
 
     return result;
   } catch {
@@ -600,7 +630,7 @@ export type HistoricalWeatherFields = Pick<
   humidity: string;
 };
 
-type OpenMeteoWeatherHourly = {
+export type OpenMeteoWeatherHourly = {
   time?: string[];
   temperature_2m?: number[];
   relative_humidity_2m?: number[];
@@ -716,7 +746,7 @@ async function fetchHistoricalDay(
   }
 }
 
-function pickHourFields(
+export function pickHourFields(
   hourly: OpenMeteoWeatherHourly,
   when: Date,
   units: UnitPreferences,
@@ -725,10 +755,14 @@ function pickHourFields(
 
   if (times.length === 0) return null;
 
-  const targetHour = `${toLocalDateKey(when)}T${padTwo(when.getHours())}`;
-  let index = times.findIndex((entry) => entry.slice(0, 13) === targetHour);
+  // The nearest hour, or the hour it's in when rounding up crosses into a
+  // day this fetch doesn't cover (11:40 PM).
+  const floorKey = `${toLocalDateKey(when)}T${padTwo(when.getHours())}`;
+  let index = times.findIndex((entry) => entry.slice(0, 13) === nearestHourKey(when));
+  if (index < 0) index = times.findIndex((entry) => entry.slice(0, 13) === floorKey);
 
-  if (index < 0) index = 0; // fall back to the first sample of the day
+  // No sample for that hour: say nothing rather than reporting midnight's.
+  if (index < 0) return null;
 
   const temperature = numberToText(hourly.temperature_2m?.[index]);
   const windDirection =
@@ -750,6 +784,17 @@ function pickHourFields(
   }
 
   return { temperature, windDirection, windSpeed, weather, humidity };
+}
+
+/**
+ * "YYYY-MM-DDTHH" of the hour nearest `when` (device-local, which the fetch's
+ * date also uses): 6:40 reads the 7:00 sample, not 6:00. Exported for tests.
+ */
+export function nearestHourKey(when: Date): string {
+  const rounded = new Date(when.getTime());
+  if (rounded.getMinutes() >= 30) rounded.setHours(rounded.getHours() + 1);
+  rounded.setMinutes(0, 0, 0);
+  return `${toLocalDateKey(rounded)}T${padTwo(rounded.getHours())}`;
 }
 
 function toLocalDateKey(date: Date): string {
@@ -1049,18 +1094,33 @@ export function sitWindowWinds(
   return result;
 }
 
-function formatClockTime(iso: string | undefined): string {
-  if (!iso) return "";
+/**
+ * The daily block from the property's today on. With past_days the arrays
+ * start with yesterday; every consumer reads index 0 as today, so the leading
+ * days before the current conditions' date are dropped from every array.
+ * Without a current time to anchor on, the one past day requested is dropped
+ * when the response has more days than the 3 asked for.
+ */
+export function dailyFromToday<T extends { time?: string[] }>(
+  daily: T,
+  currentTime: string | undefined,
+): T {
+  const times = daily.time ?? [];
+  const today = currentTime ? currentTime.slice(0, 10) : "";
+  let start = today ? times.findIndex((date) => date >= today) : -1;
+  if (start < 0) start = times.length > 3 ? 1 : 0;
+  if (start === 0) return daily;
 
-  const date = new Date(iso);
-
-  if (Number.isNaN(date.getTime())) return "";
-
-  return date.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const sliced: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(daily)) {
+    sliced[key] = Array.isArray(value) ? value.slice(start) : value;
+  }
+  return sliced as T;
 }
+
+// Sun times are the property's wall clock; show them as written, not shifted
+// into the phone's zone (lib/forecastTime).
+const formatClockTime = formatWallClock;
 
 function weekdayLabel(iso: string, index: number): string {
   if (index === 0) return "Today";

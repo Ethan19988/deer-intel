@@ -15,7 +15,13 @@ import type { DeerProfile } from "@/types/deerProfile";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { PhotoRecord } from "@/types/photo";
 import type { Property } from "@/types/property";
-import type { Stand } from "@/types/stand";
+import { huntsForStand } from "@/lib/standHunts";
+import {
+  STAND_BEST_TIME_LABEL,
+  STAND_WEAPON_LABEL,
+  shotYardsLabel,
+  type Stand,
+} from "@/types/stand";
 
 const MAX_RECENT_HUNTS = 15;
 const MAX_RECENT_CAMERA_CHECKS = 15;
@@ -29,6 +35,17 @@ export const EMPTY_AI_SCOUT_CONDITIONS: AiScoutConditions = {
   temperature: "",
   moonPhase: "",
   notes: "",
+};
+
+type StandContextWithDetails = AiScoutStandContext & {
+  /** "Morning" / "Evening" / "All day". */
+  bestTime?: string;
+  setup?: string[];
+  /** "Bow" / "Gun" / "Bow & gun". */
+  weapon?: string;
+  /** e.g. "40 yd" or "200+ yd". */
+  maxShot?: string;
+  heightFeet?: number;
 };
 
 type BuildAiScoutContextInput = {
@@ -62,8 +79,10 @@ export function buildAiScoutRequestContext({
 }: BuildAiScoutContextInput): AiScoutRequestContext {
   const cameraNameById = new Map(cameras.map((camera) => [camera.id, camera.name]));
 
-  const standContexts: AiScoutStandContext[] = stands.map((stand) => {
-    const standHunts = hunts.filter((hunt) => hunt.standId === stand.id);
+  // Optional stand details ride along only when set. The route JSON-stringifies
+  // the whole context, so these reach the model as-is.
+  const standContexts: StandContextWithDetails[] = stands.map((stand) => {
+    const standHunts = huntsForStand(stand, hunts);
     const lastHunt = [...standHunts].sort(
       (left, right) => recordTime(right.date) - recordTime(left.date),
     )[0];
@@ -78,6 +97,11 @@ export function buildAiScoutRequestContext({
       notes: truncate(stand.notes),
       huntCount: standHunts.length,
       lastHuntDate: lastHunt?.date,
+      ...(stand.bestTime ? { bestTime: STAND_BEST_TIME_LABEL[stand.bestTime] } : {}),
+      ...(stand.setup?.length ? { setup: stand.setup } : {}),
+      ...(stand.weapon ? { weapon: STAND_WEAPON_LABEL[stand.weapon] } : {}),
+      ...(stand.maxShotYards ? { maxShot: shotYardsLabel(stand.maxShotYards) } : {}),
+      ...(stand.heightFeet ? { heightFeet: stand.heightFeet } : {}),
     };
   });
 

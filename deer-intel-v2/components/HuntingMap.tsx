@@ -161,7 +161,12 @@ import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { useWakeLock } from "@/lib/useWakeLock";
-import { requestCompassPermission, subscribeHeading, useDeviceHeading } from "@/lib/deviceHeading";
+import {
+  magneticDeclination,
+  requestCompassPermission,
+  subscribeHeading,
+  useDeviceHeading,
+} from "@/lib/deviceHeading";
 import {
   acceptPathFix,
   bloodTrailLine,
@@ -1005,16 +1010,25 @@ function MapControlButtons({
 
   const mapTurned = compassOn && headingUp && isFollowing;
 
-  // While the compass is on, follow the device's heading (lib/deviceHeading
-  // reads iOS's true-north heading or an absolute-orientation alpha).
+  // While the compass is on, follow the device's heading. lib/deviceHeading
+  // reads the phone's MAGNETIC heading (iOS webkitCompassHeading or an
+  // absolute-orientation alpha) and corrects it to true north with the
+  // declination at the map's center, so the heading-up turn and facing cone
+  // line up with true bearings.
   useEffect(() => {
     if (!compassOn) return;
 
-    return subscribeHeading((next) => {
-      setHeading(next);
-      onHeadingChange(next);
-    });
-  }, [compassOn, onHeadingChange]);
+    return subscribeHeading(
+      (next) => {
+        setHeading(next);
+        onHeadingChange(next);
+      },
+      () => {
+        const center = map.getCenter();
+        return magneticDeclination(center.lat, center.lng);
+      },
+    );
+  }, [compassOn, onHeadingChange, map]);
 
   const facingCardinal =
     heading === null
@@ -2319,6 +2333,10 @@ export default function HuntingMap() {
   const [guideCompass, setGuideCompass] = useState(false);
   const guideOwnHeading = useDeviceHeading(
     Boolean(guideTarget) && guideCompass && liveHeading === null,
+    // True-north correction for where you're standing (or the pin before a fix).
+    liveFix
+      ? magneticDeclination(liveFix.lat, liveFix.lng)
+      : magneticDeclination(guideTarget?.lat ?? NaN, guideTarget?.lng ?? NaN),
   );
   const fieldHeading = liveHeading ?? guideOwnHeading;
   // Follow the pin if it's moved mid-walk; keep the saved spot if it's gone
@@ -2395,6 +2413,7 @@ export default function HuntingMap() {
           propertyToday.forecast.sunriseIso,
           propertyToday.forecast.sunsetIso,
           propertyToday.forecast.utcOffsetSeconds,
+          propertyToday.forecast.timezone,
         )
       : null;
   const draftAreaAcresLabel = formatHuntAreaAcres(draftAreaPoints);

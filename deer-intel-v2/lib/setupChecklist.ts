@@ -72,7 +72,7 @@ export function buildSetupChecklist({
     const more = windless.length - MAX_STAND_WIND_ITEMS;
     items.push({
       id: "winds-more",
-      label: `${more} more stand${more === 1 ? "" : "s"} need winds`,
+      label: `${more} more stand${more === 1 ? " needs" : "s need"} winds`,
       detail: "Tap a stand's wind rose to set them.",
       href: "/stands",
       action: "Open stands",

@@ -202,7 +202,7 @@ describe("bestSitsThisWeek", () => {
       "Tue PM 3",
       "Thu AM 2",
     ]);
-    expect(bestSitsLine(sits)).toBe("Best this week: Tue PM (3 stands) · Thu AM (2)");
+    expect(bestSitsLine(sits)).toBe("Best next 3 days: Tue PM (3 stands) · Thu AM (2)");
   });
 
   it("counts Monday morning when it is still ahead", () => {
@@ -224,6 +224,6 @@ describe("bestSitsThisWeek", () => {
   it("singular stand wording", () => {
     expect(
       bestSitsLine([{ key: "k", dayLabel: "Fri", period: "AM", goodCount: 1, isFront: false }]),
-    ).toBe("Best this week: Fri AM (1 stand)");
+    ).toBe("Best next 3 days: Fri AM (1 stand)");
   });
 });

@@ -36,9 +36,11 @@ export function getConvertibleStandPins(
 }
 
 /**
- * Promote a stand-type map pin into a full stand site. The Stand type has no
- * coordinates, so the pin's location is preserved in the notes; the pin itself
- * stays on the map untouched.
+ * Promote a stand-type map pin into a full stand site. The stand stays linked
+ * to the pin through sourcePinId (that is where its location lives), so the
+ * coordinates aren't copied into the notes. The stand type can't be known from
+ * a pin, so it starts as "Other" and the Stands page prompts the hunter to set
+ * it. The pin itself stays on the map untouched.
  */
 export function createStandFromPin({
   id,
@@ -49,9 +51,6 @@ export function createStandFromPin({
 }): Stand {
   const pinNotes = pin.notes.trim();
   const name = pin.name.trim() || pinNotes || pin.type;
-  const locationLine = `Saved from a ${pin.type} map pin at ${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)}.`;
-  const notes =
-    pinNotes && pinNotes !== name ? `${pinNotes}\n${locationLine}` : locationLine;
 
   return {
     id,
@@ -62,8 +61,32 @@ export function createStandFromPin({
     avoidWinds: "",
     accessRouteNotes: "",
     exitRouteNotes: "",
-    notes,
+    notes: pinNotes && pinNotes !== name ? pinNotes : "",
     sourcePinId: pin.id,
+  };
+}
+
+/** A new "Stand" map pin for a stand saved from the Stands page. */
+export function createStandPin({
+  id,
+  stand,
+  point,
+  createdAt,
+}: {
+  id: string;
+  stand: Pick<Stand, "propertyId" | "name">;
+  point: { lat: number; lng: number };
+  createdAt: string;
+}): MapPin {
+  return {
+    id,
+    propertyId: stand.propertyId,
+    type: "Stand",
+    lat: point.lat,
+    lng: point.lng,
+    createdAt,
+    name: stand.name,
+    notes: "",
   };
 }
 

@@ -11,6 +11,8 @@ import {
   isCalmWind,
 } from "@/lib/standWind";
 import { localDateKey } from "@/lib/standPressure";
+import { forecastClock, parseForecastLocal } from "@/lib/forecastTime";
+import { isLikelyMaryland, isSundayDate, MD_SUNDAY_NOTE } from "@/lib/huntingState";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { MapPin } from "@/types/mapPin";
 import type { Stand } from "@/types/stand";
@@ -82,43 +84,42 @@ export function sitWindLabel(period: SitPeriodKey): string {
 
 const DAY_MS = 24 * 60 * 60_000;
 
-/**
- * Parse an Open-Meteo local "YYYY-MM-DDTHH:MM" (the property's wall clock).
- * With the response's UTC offset it becomes the real instant, so comparisons
- * against `now` hold even when the phone is set to another time zone; without
- * one (older cached snapshots, tests) it falls back to device-local time.
- */
-export function parseForecastLocal(
-  iso: string | undefined,
-  utcOffsetSeconds?: number,
-): Date | null {
-  if (!iso) return null;
-  const [date, time = "00:00"] = iso.split("T");
-  const [year, month, day] = date.split("-").map(Number);
-  const [hours, minutes] = time.split(":").map(Number);
-  if (!year || !month || !day) return null;
-  if (typeof utcOffsetSeconds === "number" && Number.isFinite(utcOffsetSeconds)) {
-    return new Date(
-      Date.UTC(year, month - 1, day, hours || 0, minutes || 0) -
-        utcOffsetSeconds * 1000,
-    );
-  }
-  return new Date(year, month - 1, day, hours || 0, minutes || 0);
+// Open-Meteo local times are read and shown on the property's clock; see
+// lib/forecastTime (IANA zone first, so a day across a DST change is right).
+export { parseForecastLocal };
+
+/** "4:27 PM" on the property's clock. */
+const clock = forecastClock;
+
+/** The property's clock as the forecast reports it. */
+function zoneOf(forecast: LiveForecast | null | undefined): {
+  offset: number | undefined;
+  timeZone: string | undefined;
+} {
+  return { offset: forecast?.utcOffsetSeconds, timeZone: forecast?.timezone };
 }
 
 /**
- * "4:27 PM". With the property's UTC offset the time is shown on the
- * property's clock (shift the instant, then format as UTC); otherwise on the
- * device's.
+ * Tomorrow's sunrise / sunset: the forecast's own times for its second day
+ * when it has them (exact, and on the right side of a DST change), otherwise
+ * today's + 24 h (the sun moves a minute or two a day).
  */
-function clock(date: Date, utcOffsetSeconds?: number): string {
-  if (typeof utcOffsetSeconds === "number" && Number.isFinite(utcOffsetSeconds)) {
-    return new Date(date.getTime() + utcOffsetSeconds * 1000).toLocaleTimeString(
-      "en-US",
-      { hour: "numeric", minute: "2-digit", timeZone: "UTC" },
-    );
-  }
-  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+function tomorrowSun(
+  forecast: LiveForecast | null | undefined,
+): { sunrise: Date; sunset: Date } | null {
+  const { offset, timeZone } = zoneOf(forecast);
+  const next = forecast?.days?.[1];
+  const nextSunrise = parseForecastLocal(next?.sunriseIso, offset, timeZone);
+  const nextSunset = parseForecastLocal(next?.sunsetIso, offset, timeZone);
+  if (nextSunrise && nextSunset) return { sunrise: nextSunrise, sunset: nextSunset };
+
+  const sunrise = parseForecastLocal(forecast?.sunriseIso, offset, timeZone);
+  const sunset = parseForecastLocal(forecast?.sunsetIso, offset, timeZone);
+  if (!sunrise || !sunset) return null;
+  return {
+    sunrise: new Date(sunrise.getTime() + DAY_MS),
+    sunset: new Date(sunset.getTime() + DAY_MS),
+  };
 }
 
 function duration(minutes: number): string {
@@ -143,11 +144,12 @@ export function buildDaylight(
   sunriseIso: string | undefined,
   sunsetIso: string | undefined,
   utcOffsetSeconds?: number,
+  timeZone?: string,
 ): DaylightState | null {
-  const sunrise = parseForecastLocal(sunriseIso, utcOffsetSeconds);
-  const sunset = parseForecastLocal(sunsetIso, utcOffsetSeconds);
+  const sunrise = parseForecastLocal(sunriseIso, utcOffsetSeconds, timeZone);
+  const sunset = parseForecastLocal(sunsetIso, utcOffsetSeconds, timeZone);
   if (!sunrise || !sunset) return null;
-  return daylightBetween(now, sunrise, sunset, utcOffsetSeconds);
+  return daylightBetween(now, sunrise, sunset, utcOffsetSeconds, timeZone);
 }
 
 function daylightBetween(
@@ -155,6 +157,7 @@ function daylightBetween(
   sunrise: Date,
   sunset: Date,
   utcOffsetSeconds?: number,
+  timeZone?: string,
 ): DaylightState {
   const legal = { start: legalStart(sunrise), end: legalEnd(sunset) };
   const span = legal.end.getTime() - legal.start.getTime();
@@ -175,17 +178,18 @@ function daylightBetween(
   return {
     progress,
     label,
-    sunriseLabel: clock(sunrise, utcOffsetSeconds),
-    sunsetLabel: clock(sunset, utcOffsetSeconds),
-    legalStartLabel: clock(legal.start, utcOffsetSeconds),
-    legalEndLabel: clock(legal.end, utcOffsetSeconds),
+    sunriseLabel: clock(sunrise, utcOffsetSeconds, timeZone),
+    sunsetLabel: clock(sunset, utcOffsetSeconds, timeZone),
+    legalStartLabel: clock(legal.start, utcOffsetSeconds, timeZone),
+    legalEndLabel: clock(legal.end, utcOffsetSeconds, timeZone),
     isDark: minutesLeft <= 0 || minutesToLegal > 0,
   };
 }
 
 function pickPeriod(now: Date, forecast: LiveForecast | null): SitPeriodKey {
-  const sunrise = parseForecastLocal(forecast?.sunriseIso, forecast?.utcOffsetSeconds);
-  const sunset = parseForecastLocal(forecast?.sunsetIso, forecast?.utcOffsetSeconds);
+  const { offset, timeZone } = zoneOf(forecast);
+  const sunrise = parseForecastLocal(forecast?.sunriseIso, offset, timeZone);
+  const sunset = parseForecastLocal(forecast?.sunsetIso, offset, timeZone);
 
   if (!sunrise || !sunset) {
     const hour = now.getHours();
@@ -242,22 +246,25 @@ export function entryAdvice(
   wind: string | undefined,
 ): string {
   const windPart = wind ? `${wind} wind` : "Wind unknown";
-  const offset = forecast?.utcOffsetSeconds;
-  const sunrise = parseForecastLocal(forecast?.sunriseIso, offset);
-  const sunset = parseForecastLocal(forecast?.sunsetIso, offset);
+  const { offset, timeZone } = zoneOf(forecast);
+  const sunset = parseForecastLocal(forecast?.sunsetIso, offset, timeZone);
+  // Tomorrow's sit runs off tomorrow's own sunrise (and clock, across DST).
+  const sunrise =
+    period === "tomorrow"
+      ? (tomorrowSun(forecast)?.sunrise ?? null)
+      : parseForecastLocal(forecast?.sunriseIso, offset, timeZone);
 
   if (period === "evening" && sunset) {
     const settleBy = new Date(sunset.getTime() - EVENING_SETTLE_MINUTES * 60_000);
     return now.getTime() < settleBy.getTime()
-      ? `${windPart}. Head in by ${clock(settleBy, offset)} to be settled.`
-      : `${windPart}. Head in now; legal light ends ${clock(legalEnd(sunset), offset)}.`;
+      ? `${windPart}. Head in by ${clock(settleBy, offset, timeZone)} to be settled.`
+      : `${windPart}. Head in now; legal light ends ${clock(legalEnd(sunset), offset, timeZone)}.`;
   }
 
   if (sunrise) {
-    // Tomorrow's sunrise is within a minute or two of today's.
     const arriveBy = new Date(sunrise.getTime() - MORNING_ARRIVE_MINUTES * 60_000);
     if (period === "tomorrow" || now.getTime() < arriveBy.getTime()) {
-      return `${windPart}. Be in the stand by ${clock(arriveBy, offset)}; legal light ${clock(legalStart(sunrise), offset)}.`;
+      return `${windPart}. Be in the stand by ${clock(arriveBy, offset, timeZone)}; legal light ${clock(legalStart(sunrise), offset, timeZone)}.`;
     }
     return `${windPart}. Still good for a late-morning sit.`;
   }
@@ -320,6 +327,15 @@ export function buildTodayVerdict(input: {
     chips.push({ label: `Front moving in${drop}`, tone: "info" });
   }
   if (rutActive && rutLabel) chips.push({ label: rutLabel, tone: "info" });
+  // Legal light is the same in Maryland, but Sunday deer hours are set by
+  // county (often ending mid-morning), so flag a Sunday sit there.
+  if (
+    forecast &&
+    isLikelyMaryland(forecast.point) &&
+    isSundayDate(sitDateKey(period, forecast, now))
+  ) {
+    chips.push({ label: MD_SUNDAY_NOTE, tone: "warn" });
+  }
 
   let headline: string;
   let detail: string;
@@ -335,7 +351,7 @@ export function buildTodayVerdict(input: {
     detail = entryAdvice(period, now, forecast, wind);
   } else if (calm) {
     headline = "Light & variable wind";
-    detail = `Under ${CALM_WIND_MPH} mph ${periodLabel.toLowerCase()}, scent drifts with the thermals instead of one way. Pick a stand you can slip into clean, or glass.`;
+    detail = `Under ${calmThresholdLabel(windSpeed)} ${periodLabel.toLowerCase()}, scent drifts with the thermals instead of one way. Pick a stand you can slip into clean, or glass.`;
   } else {
     headline = "Give the stands a rest";
     detail = wind
@@ -357,35 +373,43 @@ export function buildTodayVerdict(input: {
   };
 }
 
+const KMH_PER_MPH = 1.609344;
+
+/**
+ * "3 mph" (or "5 km/h" when the sit wind came in km/h): the calm threshold in
+ * the unit the forecast was fetched in, which follows the Settings preference.
+ */
+export function calmThresholdLabel(windSpeed: string | undefined): string {
+  if (windSpeed && /km\/?h|kph|kmh/i.test(windSpeed)) {
+    return `${Math.round(CALM_WIND_MPH * KMH_PER_MPH)} km/h`;
+  }
+  return `${CALM_WIND_MPH} mph`;
+}
+
 /**
  * The daylight bar for the planned sit. Once today's light is gone and the
  * call is tomorrow morning, it counts down to tomorrow's legal light instead of
- * repeating "Light's gone for today". Tomorrow's sun times are taken as
- * today's + 24 h (within a minute or two), as sitStartTime and entryAdvice do.
+ * repeating "Light's gone for today", using tomorrow's own sun times (see
+ * tomorrowSun) and the property's clock for that date.
  */
 function periodDaylight(
   period: SitPeriodKey,
   now: Date,
   forecast: LiveForecast | null,
 ): DaylightState | null {
-  const offset = forecast?.utcOffsetSeconds;
+  const { offset, timeZone } = zoneOf(forecast);
   if (period !== "tomorrow") {
-    return buildDaylight(now, forecast?.sunriseIso, forecast?.sunsetIso, offset);
+    return buildDaylight(now, forecast?.sunriseIso, forecast?.sunsetIso, offset, timeZone);
   }
-  const sunrise = parseForecastLocal(forecast?.sunriseIso, offset);
-  const sunset = parseForecastLocal(forecast?.sunsetIso, offset);
-  if (!sunrise || !sunset) return null;
-  const nextSunrise = new Date(sunrise.getTime() + DAY_MS);
+  const sunrise = parseForecastLocal(forecast?.sunriseIso, offset, timeZone);
+  const sunset = parseForecastLocal(forecast?.sunsetIso, offset, timeZone);
+  const next = tomorrowSun(forecast);
+  if (!sunrise || !sunset || !next) return null;
   // Only shift when the forecast's day is behind us (the usual after-dark case).
-  if (legalStart(nextSunrise).getTime() <= now.getTime()) {
-    return daylightBetween(now, sunrise, sunset, offset);
+  if (legalStart(next.sunrise).getTime() <= now.getTime()) {
+    return daylightBetween(now, sunrise, sunset, offset, timeZone);
   }
-  return daylightBetween(
-    now,
-    nextSunrise,
-    new Date(sunset.getTime() + DAY_MS),
-    offset,
-  );
+  return daylightBetween(now, next.sunrise, next.sunset, offset, timeZone);
 }
 
 // --- Good-wind alert ---------------------------------------------------------
@@ -398,29 +422,30 @@ const GOOD_WIND_ALERT_GRACE_MINUTES = 60;
 const EVENING_SIT_LEAD_MINUTES = 3 * 60;
 
 /**
- * When the planned sit starts: legal light for a morning sit (tomorrow's is
- * taken as today's + 24 h, within a minute or two), 3 h before sunset for an
- * evening sit. Null without sun times.
+ * When the planned sit starts: legal light for a morning sit (tomorrow's from
+ * tomorrow's own sunrise, see tomorrowSun), 3 h before sunset for an evening
+ * sit. Null without sun times.
  */
 export function sitStartTime(
   period: SitPeriodKey,
   forecast: LiveForecast | null,
 ): Date | null {
-  const offset = forecast?.utcOffsetSeconds;
+  const { offset, timeZone } = zoneOf(forecast);
 
   if (period === "evening") {
-    const sunset = parseForecastLocal(forecast?.sunsetIso, offset);
+    const sunset = parseForecastLocal(forecast?.sunsetIso, offset, timeZone);
     return sunset
       ? new Date(sunset.getTime() - EVENING_SIT_LEAD_MINUTES * 60_000)
       : null;
   }
 
-  const sunrise = parseForecastLocal(forecast?.sunriseIso, offset);
-  if (!sunrise) return null;
-  const start = legalStart(sunrise);
-  return period === "tomorrow"
-    ? new Date(start.getTime() + 24 * 60 * 60_000)
-    : start;
+  if (period === "tomorrow") {
+    const next = tomorrowSun(forecast);
+    return next ? legalStart(next.sunrise) : null;
+  }
+
+  const sunrise = parseForecastLocal(forecast?.sunriseIso, offset, timeZone);
+  return sunrise ? legalStart(sunrise) : null;
 }
 
 export type GoodWindAlert = {
