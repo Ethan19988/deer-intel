@@ -11,7 +11,9 @@ import {
   writeSharingChoice,
   type SharingChoice,
 } from "@/lib/sharedSightings";
+import { clearRestoreUndo } from "@/lib/restoreUndo";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { CORRUPT_STATE_KEY_PREFIX } from "@/lib/storeQuarantine";
 
 // localStorage keys that hold the hunter's saved records. Kept in sync with
 // lib/deerIntelStore (state + legacy properties) and lib/cloudSync (sync meta,
@@ -23,6 +25,10 @@ const RECORD_STORAGE_KEYS = [
   "deer-intel:properties",
   "deer-intel:sync-meta",
   "deer-intel:device-owner",
+  // Set-aside copies kept by lib/storeQuarantine and lib/restoreUndo.
+  "deer-intel:quarantine",
+  "deer-intel:corrupt-state-index",
+  "deer-intel:restore-undo",
 ];
 
 type DataPrivacyManagerProps = {
@@ -54,15 +60,21 @@ export default function DataPrivacyManager({
     if (!on && client) await withdrawSightings(client, user.id).catch(() => undefined);
   }
 
-  function handleClearAll() {
+  async function handleClearAll() {
     try {
       for (const key of RECORD_STORAGE_KEYS) {
         window.localStorage.removeItem(key);
+      }
+      // Damaged-save copies are stored under timestamped keys.
+      for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
+        const key = window.localStorage.key(i);
+        if (key?.startsWith(CORRUPT_STATE_KEY_PREFIX)) window.localStorage.removeItem(key);
       }
     } catch {
       // Ignore storage failures; the reload below still lands on whatever the
       // store can read back.
     }
+    await clearRestoreUndo().catch(() => undefined);
     // Full reload to a fresh, empty store rather than reconstructing state here.
     window.location.href = "/";
   }
