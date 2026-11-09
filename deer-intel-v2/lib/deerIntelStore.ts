@@ -502,9 +502,20 @@ function normalizePhotoRecord(value: unknown): PhotoRecord | null {
     : undefined;
   // Newer optional photo fields: kept only when they hold a known value, and
   // added only when present so older records keep their exact shape.
-  const captureTimeSource = (
-    ["stamp", "exif", "stampDate", "filename", "file", "manual"] as const
-  ).find((source) => source === value.captureTimeSource);
+  // Imports saved before captureTimeSource existed left their source in the
+  // notes: a file-modified time, or a date-only stamp padded to T12:00. Tag
+  // those so their made-up clock times stay out of time-of-day stats.
+  const legacyNotes = stringValue(value.notes);
+  const legacyTimeSource = legacyNotes.includes("Metadata: Date read from file metadata.")
+    ? "file"
+    : legacyNotes.includes("Metadata: Date read from photo stamp.") &&
+        photoDate.endsWith("T12:00")
+      ? "stampDate"
+      : undefined;
+  const captureTimeSource =
+    (["stamp", "exif", "stampDate", "filename", "file", "manual"] as const).find(
+      (source) => source === value.captureTimeSource,
+    ) ?? (value.captureTimeSource === undefined ? legacyTimeSource : undefined);
   const ageClass = (["1.5", "2.5", "3.5", "4.5+"] as const).find(
     (option) => option === value.ageClass,
   );
