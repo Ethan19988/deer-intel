@@ -2165,8 +2165,9 @@ export default function HuntingMap() {
   const pendingIsDirectional =
     pendingLayerId !== null && DIRECTIONAL_LAYERS.has(pendingLayerId);
   const pendingWantsWind = pendingIsDirectional;
-  // "Today's play" lives in the layers drawer and needs the live wind to rank —
-  // load it whenever the drawer is open on a property that has stands.
+  // "Today's play" lives in the layers drawer. It ranks on the Today verdict
+  // (its own forecast), but a picked timeline window ranks on the map's
+  // forecast — load it whenever the drawer is open on a property with stands.
   const wantsWindForPlay = layersOpen && propertyStands.length > 0;
   // Route planning needs the live wind to flag scent-into-bedding legs.
   const wantsWindForRoute = isPlanningRoute;
