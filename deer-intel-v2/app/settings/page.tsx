@@ -15,13 +15,15 @@ import Section from "@/components/ui/Section";
 import Tabs from "@/components/ui/Tabs";
 import AccountPanel from "@/components/auth/AccountPanel";
 import DataPrivacyManager from "@/components/settings/DataPrivacyManager";
+import DataRecoveryNotices from "@/components/settings/DataRecoveryNotices";
 import NotificationsManager from "@/components/settings/NotificationsManager";
 import OfflineMapsManager from "@/components/settings/OfflineMapsManager";
 import TerrainToolsManager from "@/components/settings/TerrainToolsManager";
 import { ICON_CREDITS } from "@/lib/pinGlyphs";
-import { useAuth } from "@/components/auth/AuthProvider";
+import { useAuth, type BackupRestoreMode } from "@/components/auth/AuthProvider";
 import { saveDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import { backupLocalImages, usePendingPhotoUploadCount } from "@/lib/imageStore";
+import { saveRestoreUndo } from "@/lib/restoreUndo";
 import {
   readAllLandTags,
   replaceAllLandTags,
@@ -82,7 +84,7 @@ export default function SettingsPage() {
   const showSampleTerrain = useShowSampleTerrain();
   const seasonCalendar = useSeasonCalendar();
   const aiScoutEnabled = useAiScoutEnabled();
-  const { configured, status } = useAuth();
+  const { configured, status, prepareBackupRestore } = useAuth();
   const lastBackup = useLastBackup();
   const cloudActive = configured && status === "signed-in";
   const totalRecords = recordCount(state);
@@ -103,6 +105,8 @@ export default function SettingsPage() {
     // Undefined for records-only exports and older full backups.
     landTags?: LandTags;
   } | null>(null);
+  // When signed in: does the restore replace the cloud copy too, or merge?
+  const [restoreMode, setRestoreMode] = useState<BackupRestoreMode>("merge");
   const [isBackingUpPhotos, setIsBackingUpPhotos] = useState(false);
   const [photoBackupStatus, setPhotoBackupStatus] = useState<string | null>(
     null,
@@ -224,6 +228,8 @@ export default function SettingsPage() {
 
     setImportError(null);
     setImportMessage(null);
+    // Default to the choice that can't delete anything from the cloud.
+    setRestoreMode("merge");
 
     // Read the file once and parse it; the text goes out of scope right after,
     // so only the parsed backup stays in memory (restore then frees each
@@ -276,33 +282,60 @@ export default function SettingsPage() {
 
     const { state: importState, fileName, images, files, landTags } =
       pendingImport;
+    const mode: BackupRestoreMode = cloudActive ? restoreMode : "replace";
 
     setPendingImport(null);
-    saveDeerIntelStore(importState);
-    if (landTags !== undefined) replaceAllLandTags(landTags);
+
+    // Keep what's here now so the restore can be undone for 24 hours. Records
+    // only: photo/document bytes are restored by id and never removed.
+    const undoSaved = await saveRestoreUndo({
+      state,
+      landTags: readAllLandTags(),
+      at: new Date().toISOString(),
+      fileName,
+    });
+    const undoNote = undoSaved
+      ? " You can undo this for 24 hours."
+      : " (An undo copy couldn't be kept on this device.)";
 
     const imageCount = images?.length ?? 0;
     const fileCount = files?.length ?? 0;
 
-    if (imageCount === 0 && fileCount === 0) {
+    if (imageCount > 0 || fileCount > 0) {
       setImportMessage(
-        `Import complete. Replaced local data with the backup from "${fileName}".`,
+        `Restoring ${imageCount} photo${imageCount === 1 ? "" : "s"}${
+          fileCount > 0
+            ? ` and ${fileCount} document${fileCount === 1 ? "" : "s"}`
+            : ""
+        }…`,
       );
-      return;
     }
 
-    setImportMessage(
-      `Restoring ${imageCount} photo${imageCount === 1 ? "" : "s"}${
-        fileCount > 0
-          ? ` and ${fileCount} document${fileCount === 1 ? "" : "s"}`
-          : ""
-      }…`,
-    );
-
+    // Photos and documents first, so records never point at missing pictures
+    // (and nothing syncs before they're in place).
     const photos = images?.length
       ? await restoreFullBackupImages(images)
       : null;
     const documents = files?.length ? await restoreFullBackupFiles(files) : null;
+
+    // Signed in: set up how the next cloud save treats the restore (merge,
+    // or replace everywhere), then switch the local records.
+    await prepareBackupRestore(mode);
+    saveDeerIntelStore(importState);
+    if (landTags !== undefined) replaceAllLandTags(landTags);
+
+    const scope = !cloudActive
+      ? ""
+      : mode === "merge"
+        ? " Records in your cloud data that aren't in the backup are kept."
+        : " Your cloud data will be replaced to match.";
+
+    if (!photos && !documents) {
+      setImportMessage(
+        `Import complete. Replaced local data with the backup from "${fileName}".${scope}${undoNote}`,
+      );
+      return;
+    }
 
     const parts = [`Import complete. Replaced local data with "${fileName}"`];
 
@@ -321,7 +354,7 @@ export default function SettingsPage() {
       );
     }
 
-    const summary = `${parts.join(", ")}.`;
+    const summary = `${parts.join(", ")}.${scope}${undoNote}`;
     setImportMessage(summary);
 
     // Restored photos only live on this device until uploaded; when signed in,
@@ -612,6 +645,8 @@ export default function SettingsPage() {
         {lastBackup ? formatBackupDate(lastBackup.at) : "never"}
       </p>
 
+      <DataRecoveryNotices />
+
       <Section eyebrow="Backup" title="Export & Import Data">
         <Card as="div" variant="subtle">
           <p style={mutedTextStyle}>
@@ -821,22 +856,69 @@ export default function SettingsPage() {
                       pendingImport.images.length === 1 ? "" : "s"
                     }`
                   : ""
-              }. Importing it will permanently replace the ${totalRecords} records currently saved in this browser${
+              }. Importing it will replace the ${totalRecords} records currently saved in this browser${
                 (pendingImport.images?.length ?? 0) > 0 ||
                 (pendingImport.files?.length ?? 0) > 0
                   ? " and restore its photos and documents to this device"
                   : ""
-              }. This can't be undone unless you have another backup.`
+              }. You can undo it from Settings → Data for 24 hours.`
             : ""
         }
         confirmLabel="Replace Data"
         confirmVariant="danger"
-        onConfirm={handleConfirmImport}
+        onConfirm={() => void handleConfirmImport()}
         onCancel={handleCancelImport}
-      />
+      >
+        {cloudActive ? (
+          <fieldset style={restoreModeFieldsetStyle}>
+            <legend style={restoreModeLegendStyle}>
+              Replace your cloud data too?
+            </legend>
+            <div style={optionGridStyle}>
+              {RESTORE_MODE_OPTIONS.map((option) => {
+                const active = restoreMode === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setRestoreMode(option.value)}
+                    style={{
+                      ...optionButtonStyle,
+                      ...(active ? optionButtonActiveStyle : null),
+                    }}
+                  >
+                    <span style={optionLabelStyle}>{option.label}</span>
+                    <span style={optionDescStyle}>{option.description}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+        ) : null}
+      </ConfirmDialog>
     </PageShell>
   );
 }
+
+const RESTORE_MODE_OPTIONS: {
+  value: BackupRestoreMode;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "merge",
+    label: "Merge",
+    description:
+      "Keep cloud records the backup doesn't have. Nothing is deleted from your other devices.",
+  },
+  {
+    value: "replace",
+    label: "Replace everywhere",
+    description:
+      "Make the backup your data on every device. Records not in it are deleted from the cloud.",
+  },
+];
 
 function formatBackupDate(iso: string): string {
   const date = new Date(iso);
@@ -1073,6 +1155,20 @@ const backupActionsStyle: CSSProperties = {
   flexWrap: "wrap",
   gap: "0.75rem",
   marginTop: "1rem",
+};
+
+const restoreModeFieldsetStyle: CSSProperties = {
+  margin: 0,
+  padding: 0,
+  border: "none",
+  minWidth: 0,
+};
+
+const restoreModeLegendStyle: CSSProperties = {
+  marginBottom: "0.5rem",
+  padding: 0,
+  color: "var(--text)",
+  fontWeight: 700,
 };
 
 const hiddenInputStyle: CSSProperties = {

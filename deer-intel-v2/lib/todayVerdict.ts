@@ -88,7 +88,7 @@ const DAY_MS = 24 * 60 * 60_000;
  * against `now` hold even when the phone is set to another time zone; without
  * one (older cached snapshots, tests) it falls back to device-local time.
  */
-function parseLocal(
+export function parseForecastLocal(
   iso: string | undefined,
   utcOffsetSeconds?: number,
 ): Date | null {
@@ -144,8 +144,8 @@ export function buildDaylight(
   sunsetIso: string | undefined,
   utcOffsetSeconds?: number,
 ): DaylightState | null {
-  const sunrise = parseLocal(sunriseIso, utcOffsetSeconds);
-  const sunset = parseLocal(sunsetIso, utcOffsetSeconds);
+  const sunrise = parseForecastLocal(sunriseIso, utcOffsetSeconds);
+  const sunset = parseForecastLocal(sunsetIso, utcOffsetSeconds);
   if (!sunrise || !sunset) return null;
   return daylightBetween(now, sunrise, sunset, utcOffsetSeconds);
 }
@@ -184,8 +184,8 @@ function daylightBetween(
 }
 
 function pickPeriod(now: Date, forecast: LiveForecast | null): SitPeriodKey {
-  const sunrise = parseLocal(forecast?.sunriseIso, forecast?.utcOffsetSeconds);
-  const sunset = parseLocal(forecast?.sunsetIso, forecast?.utcOffsetSeconds);
+  const sunrise = parseForecastLocal(forecast?.sunriseIso, forecast?.utcOffsetSeconds);
+  const sunset = parseForecastLocal(forecast?.sunsetIso, forecast?.utcOffsetSeconds);
 
   if (!sunrise || !sunset) {
     const hour = now.getHours();
@@ -243,8 +243,8 @@ export function entryAdvice(
 ): string {
   const windPart = wind ? `${wind} wind` : "Wind unknown";
   const offset = forecast?.utcOffsetSeconds;
-  const sunrise = parseLocal(forecast?.sunriseIso, offset);
-  const sunset = parseLocal(forecast?.sunsetIso, offset);
+  const sunrise = parseForecastLocal(forecast?.sunriseIso, offset);
+  const sunset = parseForecastLocal(forecast?.sunsetIso, offset);
 
   if (period === "evening" && sunset) {
     const settleBy = new Date(sunset.getTime() - EVENING_SETTLE_MINUTES * 60_000);
@@ -372,8 +372,8 @@ function periodDaylight(
   if (period !== "tomorrow") {
     return buildDaylight(now, forecast?.sunriseIso, forecast?.sunsetIso, offset);
   }
-  const sunrise = parseLocal(forecast?.sunriseIso, offset);
-  const sunset = parseLocal(forecast?.sunsetIso, offset);
+  const sunrise = parseForecastLocal(forecast?.sunriseIso, offset);
+  const sunset = parseForecastLocal(forecast?.sunsetIso, offset);
   if (!sunrise || !sunset) return null;
   const nextSunrise = new Date(sunrise.getTime() + DAY_MS);
   // Only shift when the forecast's day is behind us (the usual after-dark case).
@@ -409,13 +409,13 @@ export function sitStartTime(
   const offset = forecast?.utcOffsetSeconds;
 
   if (period === "evening") {
-    const sunset = parseLocal(forecast?.sunsetIso, offset);
+    const sunset = parseForecastLocal(forecast?.sunsetIso, offset);
     return sunset
       ? new Date(sunset.getTime() - EVENING_SIT_LEAD_MINUTES * 60_000)
       : null;
   }
 
-  const sunrise = parseLocal(forecast?.sunriseIso, offset);
+  const sunrise = parseForecastLocal(forecast?.sunriseIso, offset);
   if (!sunrise) return null;
   const start = legalStart(sunrise);
   return period === "tomorrow"

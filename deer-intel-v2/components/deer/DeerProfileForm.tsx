@@ -7,12 +7,21 @@ type DeerProfileFormProps = {
   values: DeerProfileFormValues;
   onChange: (values: DeerProfileFormValues) => void;
   onSubmit: () => void;
+  /** Save button text; "Add Deer Profile" by default, e.g. "Save changes" when editing. */
+  submitLabel?: string;
+  /** When given (editing), shows a Cancel button beside Save. */
+  onCancel?: () => void;
+  /** Open every section, e.g. when editing so saved notes are visible. */
+  expanded?: boolean;
 };
 
 export default function DeerProfileForm({
   values,
   onChange,
   onSubmit,
+  submitLabel = "Add Deer Profile",
+  onCancel,
+  expanded = false,
 }: DeerProfileFormProps) {
   function updateField<Field extends keyof DeerProfileFormValues>(
     field: Field,
@@ -57,7 +66,7 @@ export default function DeerProfileForm({
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Sightings">
+      <CollapsibleSection title="Sightings" defaultOpen={expanded}>
         <div className="di-form-grid" style={formGridStyle}>
           <label style={fieldStyle}>
             <span style={labelStyle}>First Seen</span>
@@ -81,7 +90,7 @@ export default function DeerProfileForm({
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Notes">
+      <CollapsibleSection title="Notes" defaultOpen={expanded}>
         <label style={fieldStyle}>
           <span style={labelStyle}>Notes</span>
           <textarea
@@ -93,9 +102,16 @@ export default function DeerProfileForm({
         </label>
       </CollapsibleSection>
 
-      <Button type="submit" disabled={!values.nickname.trim()}>
-        Add Deer Profile
-      </Button>
+      <div style={actionsStyle}>
+        {onCancel ? (
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            Cancel
+          </Button>
+        ) : null}
+        <Button type="submit" disabled={!values.nickname.trim()}>
+          {submitLabel}
+        </Button>
+      </div>
     </form>
   );
 }
@@ -103,6 +119,13 @@ export default function DeerProfileForm({
 const formStyle: CSSProperties = {
   display: "grid",
   gap: "1rem",
+};
+
+const actionsStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: "0.75rem",
+  flexWrap: "wrap",
 };
 
 const formGridStyle: CSSProperties = {

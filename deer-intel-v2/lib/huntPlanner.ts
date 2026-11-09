@@ -401,3 +401,77 @@ export function buildWindMatrix(
 
   return { columns, rows };
 }
+
+// "Best this week": the upcoming sits with the most good-wind stands, from the
+// same stand-by-sit matrix as the Wind by sit grid. Only stands with winds set
+// count, so a property with no wind notes yields nothing (and the line hides).
+export type BestSit = {
+  key: string;
+  dayLabel: string;
+  period: SitPeriod;
+  goodCount: number;
+  isFront: boolean;
+};
+
+export function hasStandWinds(stand: Stand): boolean {
+  return Boolean(stand.bestWinds.trim() || stand.avoidWinds.trim());
+}
+
+/**
+ * Up to `limit` upcoming sits (past ones skipped, see buildWindMatrix's
+ * `nextSitKey`) ranked by how many stands the wind favors; ties go to a front
+ * day, then the sooner sit. Empty when no stand has winds set or no sit has a
+ * good stand.
+ */
+export function bestSitsThisWeek(
+  days: ForecastDay[],
+  stands: Stand[],
+  nextSitKey?: string,
+  limit = 2,
+): BestSit[] {
+  const windStands = stands.filter(hasStandWinds);
+  if (windStands.length === 0) return [];
+
+  const { columns, rows } = buildWindMatrix(days, windStands, nextSitKey);
+
+  return columns
+    .map((column, index) => ({
+      key: column.key,
+      dayLabel: column.dayLabel,
+      period: column.period,
+      isFront: column.isFront,
+      isPast: column.isPast,
+      order: index,
+      goodCount: rows.filter((row) => row.cells[index] === "good").length,
+    }))
+    .filter((sit) => !sit.isPast && sit.goodCount > 0)
+    .sort(
+      (a, b) =>
+        b.goodCount - a.goodCount ||
+        Number(b.isFront) - Number(a.isFront) ||
+        a.order - b.order,
+    )
+    .slice(0, limit)
+    .map(({ key, dayLabel, period, goodCount, isFront }) => ({
+      key,
+      dayLabel,
+      period,
+      goodCount,
+      isFront,
+    }));
+}
+
+/** "Best this week: Tue PM (3 stands) · Thu AM (2)", or null with no best sit. */
+export function bestSitsLine(sits: BestSit[]): string | null {
+  if (sits.length === 0) return null;
+
+  const parts = sits.map((sit, index) => {
+    const count =
+      index === 0
+        ? `${sit.goodCount} stand${sit.goodCount === 1 ? "" : "s"}`
+        : String(sit.goodCount);
+    return `${sit.dayLabel} ${sit.period} (${count})`;
+  });
+
+  return `Best this week: ${parts.join(" · ")}`;
+}

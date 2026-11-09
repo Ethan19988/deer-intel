@@ -38,6 +38,11 @@ import { resolvePropertyWeatherPoint } from "@/lib/liveWeather";
 import { describeMoonPhase } from "@/lib/moonPhase";
 import { dateInputTime } from "@/lib/photos";
 import { buildPhotoWeatherSnapshot } from "@/lib/photoWeather";
+import {
+  importDuplicateKey,
+  importedPhotoKeys,
+  isAlreadyImported,
+} from "@/lib/photoImportDuplicates";
 import { pickCaptureDateTime } from "@/lib/photoCaptureTime";
 import { readPhotoDateTimeInput } from "@/lib/photoExif";
 import { requestPhotoStamp } from "@/lib/photoStampClient";
@@ -86,6 +91,11 @@ type DateConfidence = "capture" | "filename" | "file" | "none";
 type ImportDraft = {
   id: string;
   fileName: string;
+  // The file's own name, kept when the label above is edited: with the capture
+  // time it's how a repeat import of the same photo is recognized.
+  originalFileName: string;
+  // The same photo was already staged in this inbox when this one was picked.
+  inboxDuplicate: boolean;
   photoDate: string;
   extractedTime: string;
   metadataSource: string;
@@ -172,6 +182,17 @@ export default function CameraImportPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const units = useUnitPreferences();
   const selectedDrafts = drafts.filter((draft) => draft.selected);
+  // Photos already saved on this camera site, to flag a batch picked twice.
+  const importedKeys = useMemo(
+    () => importedPhotoKeys(state.photoRecords, cameraId),
+    [state.photoRecords, cameraId],
+  );
+  const draftAlreadyImported = (draft: ImportDraft) =>
+    isAlreadyImported(
+      { fileName: draft.originalFileName, photoDate: draft.photoDate },
+      cameraId,
+      importedKeys,
+    );
   const missingRequirements: string[] = [];
   if (!propertyId) missingRequirements.push("a property");
   if (!cameraId) missingRequirements.push("a camera site");
@@ -290,9 +311,30 @@ export default function CameraImportPage() {
       }),
     );
 
-    setDrafts((currentDrafts) => [...currentDrafts, ...nextDrafts]);
+    // A photo already saved on this camera, or already staged here, is left
+    // unselected with a note, so picking the same batch twice can't double it.
+    const stagedKeys = new Set(
+      drafts.map((draft) =>
+        importDuplicateKey("inbox", draft.originalFileName, draft.photoDate),
+      ),
+    );
+    let repeatCount = 0;
+    const flaggedDrafts = nextDrafts.map((draft) => {
+      const inboxKey = importDuplicateKey("inbox", draft.originalFileName, draft.photoDate);
+      const inboxDuplicate = Boolean(inboxKey) && stagedKeys.has(inboxKey);
+      if (inboxKey) stagedKeys.add(inboxKey);
+      const repeat = inboxDuplicate || draftAlreadyImported(draft);
+      if (repeat) repeatCount += 1;
+
+      return repeat ? { ...draft, inboxDuplicate, selected: false } : draft;
+    });
+
+    setDrafts((currentDrafts) => [...currentDrafts, ...flaggedDrafts]);
     setMessage(
-      `${files.length} ${files.length === 1 ? "photo" : "photos"} ready below — check them and press Save Photos.`,
+      `${files.length} ${files.length === 1 ? "photo" : "photos"} ready below — check them and press Save Photos.` +
+        (repeatCount > 0
+          ? ` ${repeatCount} already imported (or already staged) — left unselected.`
+          : ""),
     );
   }
 
@@ -707,6 +749,11 @@ export default function CameraImportPage() {
                     </span>
                   </label>
                   <div style={draftBadgeRowStyle}>
+                    {draftAlreadyImported(draft) ? (
+                      <Badge variant="warning">Already imported</Badge>
+                    ) : draft.inboxDuplicate ? (
+                      <Badge variant="warning">Already in the inbox</Badge>
+                    ) : null}
                     {draft.aiSpecies ? (
                       <Badge variant="success">
                         AI saw: {draft.aiSpecies}
@@ -994,6 +1041,8 @@ function createImportDraft({
   return {
     id: createDeerIntelId("import-photo"),
     fileName: file.name,
+    originalFileName: file.name,
+    inboxDuplicate: false,
     photoDate: metadata.photoDate,
     extractedTime: metadata.extractedTime,
     metadataSource: metadata.metadataSource,

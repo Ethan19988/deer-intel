@@ -119,8 +119,36 @@ import OfflineMapsPanel, {
 import CameraFacingCone from "@/components/map/CameraFacingCone";
 import PropertyMapAssetMarker from "@/components/map/PropertyMapAssetMarker";
 import TodaysPlayPanel from "@/components/map/TodaysPlayPanel";
+import FieldHud from "@/components/map/FieldHud";
+import LegalLightChip from "@/components/map/LegalLightChip";
+import {
+  forecastSlotLabel,
+  playsForWind,
+  playsFromCheckRows,
+  sitPlayLabel,
+  standAssetIds,
+  standsByPinId,
+} from "@/lib/mapPlay";
+import {
+  downwindBearing,
+  routeLegScent,
+  SCENT_CONE_HALF_ANGLE,
+  scentHitAt,
+} from "@/lib/accessScent";
+import { usePropertyToday } from "@/lib/usePropertyToday";
+import {
+  edgeAlertLabel,
+  guideReading,
+  nextEdgeAlert,
+  type EdgeAlertState,
+} from "@/lib/fieldGuide";
+import { distanceToPolygonEdgeMeters, pointInPolygon } from "@/lib/geofence";
+import { legalLightChip } from "@/lib/legalLight";
+import { buildBloodTrailHunt } from "@/lib/bloodTrailHunt";
 import { pinMarkerSvg } from "@/lib/mapPinIcon";
-import UserLocationMarker from "@/components/map/UserLocationMarker";
+import UserLocationMarker, {
+  type LiveLocation,
+} from "@/components/map/UserLocationMarker";
 import MapRotationController from "@/components/map/MapRotationController";
 import PartyMembersLayer from "@/components/map/PartyMembersLayer";
 import PartyPinsLayer from "@/components/map/PartyPinsLayer";
@@ -133,6 +161,7 @@ import {
   useDeerIntelStore,
 } from "@/lib/deerIntelStore";
 import { useWakeLock } from "@/lib/useWakeLock";
+import { requestCompassPermission, subscribeHeading, useDeviceHeading } from "@/lib/deviceHeading";
 import {
   acceptPathFix,
   bloodTrailLine,
@@ -404,12 +433,6 @@ function buzz(pattern: number | number[]) {
   ) {
     navigator.vibrate(pattern);
   }
-}
-
-// Smallest angle between two compass bearings (0–180°).
-function angularDiff(a: number, b: number): number {
-  const diff = Math.abs(a - b) % 360;
-  return diff > 180 ? 360 - diff : diff;
 }
 
 // Directional assets: a stand you sit and a camera you aim both point a way and
@@ -901,7 +924,6 @@ function MapControlButtons({
   const map = useMap();
   const [heading, setHeading] = useState<number | null>(null);
   const [compassOn, setCompassOn] = useState(false);
-  const lastHeadingAtRef = useRef(0);
 
   function startFollow() {
     if (!navigator.geolocation) {
@@ -957,26 +979,14 @@ function MapControlButtons({
   async function enableCompass() {
     // iOS 13+ only delivers compass data after an explicit grant, and the
     // request has to come straight from this tap gesture.
-    const orientationApi = window.DeviceOrientationEvent as
-      | (typeof DeviceOrientationEvent & {
-          requestPermission?: () => Promise<"granted" | "denied" | "default">;
-        })
-      | undefined;
-
-    if (
-      orientationApi &&
-      typeof orientationApi.requestPermission === "function"
-    ) {
-      try {
-        const permission = await orientationApi.requestPermission();
-        if (permission !== "granted") {
-          alert("Compass permission was declined.");
-          return;
-        }
-      } catch {
-        alert("The compass isn't available on this device.");
-        return;
-      }
+    const permission = await requestCompassPermission();
+    if (permission === "denied") {
+      alert("Compass permission was declined.");
+      return;
+    }
+    if (permission === "unavailable") {
+      alert("The compass isn't available on this device.");
+      return;
     }
 
     setCompassOn(true);
@@ -995,48 +1005,15 @@ function MapControlButtons({
 
   const mapTurned = compassOn && headingUp && isFollowing;
 
-  // While the compass is on, follow the device's heading. Prefer iOS's
-  // true-north webkitCompassHeading; otherwise use an absolute-orientation
-  // event's alpha (relative deviceorientation isn't tied to north, so skip it).
+  // While the compass is on, follow the device's heading (lib/deviceHeading
+  // reads iOS's true-north heading or an absolute-orientation alpha).
   useEffect(() => {
     if (!compassOn) return;
 
-    function onOrientation(event: DeviceOrientationEvent) {
-      const now = Date.now();
-      if (now - lastHeadingAtRef.current < 80) return;
-
-      const iosHeading = (
-        event as DeviceOrientationEvent & { webkitCompassHeading?: number }
-      ).webkitCompassHeading;
-
-      let next: number | null = null;
-      if (typeof iosHeading === "number" && !Number.isNaN(iosHeading)) {
-        next = iosHeading;
-      } else if (event.absolute && typeof event.alpha === "number") {
-        next = 360 - event.alpha;
-      }
-
-      if (next === null) return;
-      lastHeadingAtRef.current = now;
-      const rounded = Math.round(((next % 360) + 360) % 360);
-      setHeading(rounded);
-      onHeadingChange(rounded);
-    }
-
-    window.addEventListener(
-      "deviceorientationabsolute",
-      onOrientation as EventListener,
-      true,
-    );
-    window.addEventListener("deviceorientation", onOrientation, true);
-    return () => {
-      window.removeEventListener(
-        "deviceorientationabsolute",
-        onOrientation as EventListener,
-        true,
-      );
-      window.removeEventListener("deviceorientation", onOrientation, true);
-    };
+    return subscribeHeading((next) => {
+      setHeading(next);
+      onHeadingChange(next);
+    });
   }, [compassOn, onHeadingChange]);
 
   const facingCardinal =
@@ -1483,6 +1460,7 @@ export default function HuntingMap() {
     gps: true,
     compass: true,
     scaleBar: true,
+    edgeWarning: true,
   });
   // Whether the map is locked onto the live GPS location and recenters as the
   // hunter moves. Off by default so scouting a property from home doesn't yank
@@ -1648,6 +1626,10 @@ export default function HuntingMap() {
   );
   const bloodPathRef = useRef<HuntAreaPoint[]>(resumedBlood?.path ?? []);
   const bloodPropertyIdRef = useRef(resumedBlood?.propertyId ?? "");
+  // Finishing a trail with marks offers "Save to Hunt Log" before clearing.
+  const [bloodFinishing, setBloodFinishing] = useState(false);
+  const [bloodSaved, setBloodSaved] = useState(false);
+  const [bloodNote, setBloodNote] = useState("");
   const bloodStartedAtRef = useRef(resumedBlood?.startedAt ?? "");
   const [areaCoordInput, setAreaCoordInput] = useState("");
   const [areaPointMessage, setAreaPointMessage] = useState("");
@@ -1847,19 +1829,21 @@ export default function HuntingMap() {
     [state.stands, selectedPropertyId],
   );
   // A stand *pin* carries a location; a saved Stand carries best/avoid winds.
-  // There's no hard link, so bridge them by matching the pin's label to a
-  // stand's name (case-insensitive). Matched cones get a good/avoid/marginal
-  // color from today's wind; unmatched ones stay neutral.
+  // They're linked through the stand's sourcePinId (else a name match) by
+  // lib/accessScent.findStandLocation, so a rename never drops the link.
+  // Matched cones get a good/avoid/marginal color from the map's wind;
+  // unmatched ones stay neutral.
+  const standByPinId = useMemo(
+    () => standsByPinId(propertyStands, pins),
+    [propertyStands, pins],
+  );
   const windStandPoints = useMemo<WindStandPoint[]>(() => {
     const currentWind = windData?.fromCompass;
-    const standByName = new Map(
-      propertyStands.map((stand) => [stand.name.trim().toLowerCase(), stand]),
-    );
 
     return visibleAssets
       .filter((asset) => asset.layerId === "stands")
       .map((asset) => {
-        const match = standByName.get(asset.label.trim().toLowerCase());
+        const match = asset.pinId ? standByPinId.get(asset.pinId) : undefined;
         const status = match
           ? getStandWindCheck(match, currentWind).status
           : "unknown";
@@ -1872,7 +1856,7 @@ export default function HuntingMap() {
           status,
         };
       });
-  }, [visibleAssets, propertyStands, windData?.fromCompass]);
+  }, [visibleAssets, standByPinId, windData?.fromCompass]);
   const windStatusSummary = useMemo(() => {
     let good = 0;
     let avoid = 0;
@@ -1888,43 +1872,50 @@ export default function HuntingMap() {
     return { good, avoid, matched };
   }, [windStandPoints]);
 
-  // "Today's play": rank the property's stands for the wind right now — good
-  // wind first, wrong wind last — so the answer to "where do I sit?" is one
-  // glance. Each stand is matched to its map pin (by name, like windStandPoints)
-  // so tapping a row flies there.
+  // "Today's play": the Today verdict's own ranking for the next sit (same
+  // forecast wind, pick and order as Today and Stands, via usePropertyToday).
+  // With a future timeline window picked, it ranks on that window's forecast
+  // wind instead — the same wind object labels and ranks it. Each stand links
+  // to its map pin through findStandLocation so tapping a row flies there.
+  const propertyToday = usePropertyToday(selectedPropertyId);
+  const standAssetIdMap = useMemo(
+    () => standAssetIds(propertyStands, pins, visibleAssets),
+    [propertyStands, pins, visibleAssets],
+  );
   const todaysPlay = useMemo(() => {
-    const currentWind = windData?.fromCompass;
-    const standAssetByName = new Map(
-      visibleAssets
-        .filter((asset) => asset.layerId === "stands")
-        .map((asset) => [asset.label.trim().toLowerCase(), asset]),
-    );
-    const order: Record<string, number> = {
-      good: 0,
-      marginal: 1,
-      unknown: 2,
-      avoid: 3,
-    };
+    if (showingFuture && selectedSlot) {
+      const slotWind = windData?.fromCompass || undefined;
+      return {
+        contextLabel: `${forecastSlotLabel(
+          selectedSlot,
+          forecastMeta?.sunriseISO,
+          forecastMeta?.sunsetISO,
+        )} · ${slotWind ?? "wind pending"}`,
+        plays: playsForWind(propertyStands, slotWind, standAssetIdMap),
+      };
+    }
 
-    return propertyStands
-      .map((stand) => {
-        const check = getStandWindCheck(stand, currentWind);
-        const asset = standAssetByName.get(stand.name.trim().toLowerCase());
-        return {
-          id: stand.id,
-          name: stand.name || "Unnamed stand",
-          standType: stand.standType,
-          status: check.status,
-          label: check.label,
-          accessNote: stand.accessRouteNotes.trim(),
-          assetId: asset?.id ?? null,
-        };
-      })
-      .sort(
-        (a, b) =>
-          order[a.status] - order[b.status] || a.name.localeCompare(b.name),
-      );
-  }, [propertyStands, visibleAssets, windData?.fromCompass]);
+    const { verdict, forecast } = propertyToday;
+    return {
+      contextLabel: forecast
+        ? sitPlayLabel(verdict.period, verdict.wind, verdict.calm)
+        : "",
+      plays: playsFromCheckRows(
+        verdict.check.rows,
+        verdict.check.pick?.stand.id ?? null,
+        standAssetIdMap,
+      ),
+    };
+  }, [
+    showingFuture,
+    selectedSlot,
+    windData?.fromCompass,
+    forecastMeta?.sunriseISO,
+    forecastMeta?.sunsetISO,
+    propertyStands,
+    standAssetIdMap,
+    propertyToday,
+  ]);
 
   // Movement prediction: corridors are bedding→food/water links from the
   // property's own pins; direction and the outlook rating come from the shared
@@ -2174,8 +2165,9 @@ export default function HuntingMap() {
   const pendingIsDirectional =
     pendingLayerId !== null && DIRECTIONAL_LAYERS.has(pendingLayerId);
   const pendingWantsWind = pendingIsDirectional;
-  // "Today's play" lives in the layers drawer and needs the live wind to rank —
-  // load it whenever the drawer is open on a property that has stands.
+  // "Today's play" lives in the layers drawer. It ranks on the Today verdict
+  // (its own forecast), but a picked timeline window ranks on the map's
+  // forecast — load it whenever the drawer is open on a property with stands.
   const wantsWindForPlay = layersOpen && propertyStands.length > 0;
   // Route planning needs the live wind to flag scent-into-bedding legs.
   const wantsWindForRoute = isPlanningRoute;
@@ -2185,36 +2177,17 @@ export default function HuntingMap() {
       : "#7ec2ff";
   // Where your scent drifts from a pending stand/camera (downwind = opposite of
   // the wind's source), and whether that plume points at known bedding — the
-  // real question when picking a stand. Half-angle/range match the drawn cone.
-  const SCENT_CONE_HALF_ANGLE = 34;
-  const SCENT_RANGE_METERS = 400;
+  // real question when picking a stand. Cone and reach are lib/accessScent's,
+  // the same ones the stand pages grade with (no bump rule at the stand).
   const pendingScent = useMemo(() => {
     if (!pendingPin || !pendingWantsWind || !liveWind?.fromCompass) return null;
 
-    const fromDeg = compassToDegrees(liveWind.fromCompass);
-    if (fromDeg === null) return null;
+    const downwindDeg = downwindBearing(liveWind.fromCompass);
+    if (downwindDeg === null) return null;
 
-    const downwindDeg = (fromDeg + 180) % 360;
     const drift = degreesToCompass(downwindDeg);
-
-    const towardBedding = beddingPoints.some((bed) => {
-      const bearing = bearingBetween(
-        pendingPin.lat,
-        pendingPin.lng,
-        bed.lat,
-        bed.lng,
-      );
-      // Reuse the canonical distance helper (its point type carries an unused
-      // timestamp, so pass an empty one).
-      const meters = distanceBetweenMeters(
-        { lat: pendingPin.lat, lng: pendingPin.lng, at: "" },
-        { lat: bed.lat, lng: bed.lng, at: "" },
-      );
-      return (
-        meters <= SCENT_RANGE_METERS &&
-        angularDiff(bearing, downwindDeg) <= SCENT_CONE_HALF_ANGLE
-      );
-    });
+    const towardBedding =
+      scentHitAt(pendingPin, beddingPoints, downwindDeg, { bump: false }) !== null;
 
     const verdict =
       beddingPoints.length === 0
@@ -2241,40 +2214,40 @@ export default function HuntingMap() {
     }
     return best;
   }, [pendingPin, visibleAssets]);
-  // Per-point scent safety for a planned access route: a point is flagged when
-  // your scent there blows into bedding (bedding downwind within range) — the
-  // same test the pin's scent cone uses, applied along the walk-in.
+  // Scent safety for a planned access route, from lib/accessScent's sampler:
+  // each leg is checked every ~40 m (30° plume, 365 m reach, 60 m bump rule),
+  // exactly like a stand's walk in on the Stands pages. A leg is flagged when
+  // any point on it blows into (or walks onto) bedding; a tapped point is
+  // tinted when the problem is right there.
   const routeWindFrom = liveWind?.fromCompass;
   const routeSafety = useMemo(() => {
-    const fromDeg = routeWindFrom ? compassToDegrees(routeWindFrom) : null;
+    const scent =
+      beddingPoints.length > 0
+        ? routeLegScent(routePoints, beddingPoints, routeWindFrom)
+        : null;
 
-    if (fromDeg === null || beddingPoints.length === 0) {
+    if (!scent) {
       return {
         compromised: routePoints.map(() => false),
+        legUnsafe: routePoints.slice(0, -1).map(() => false),
         flagged: 0,
-        windKnown: fromDeg !== null,
+        windKnown: downwindBearing(routeWindFrom) !== null,
         hasBedding: beddingPoints.length > 0,
       };
     }
 
-    const downwindDeg = (fromDeg + 180) % 360;
-    const compromised = routePoints.map((point) =>
-      beddingPoints.some((bed) => {
-        const bearing = bearingBetween(point.lat, point.lng, bed.lat, bed.lng);
-        const meters = distanceBetweenMeters(
-          { lat: point.lat, lng: point.lng, at: "" },
-          { lat: bed.lat, lng: bed.lng, at: "" },
-        );
-        return (
-          meters <= SCENT_RANGE_METERS &&
-          angularDiff(bearing, downwindDeg) <= SCENT_CONE_HALF_ANGLE
-        );
-      }),
-    );
+    const legUnsafe = scent.legs.map((hit) => hit !== null);
+    const compromised = scent.vertices.map((hit) => hit !== null);
+    // A single tapped point has no legs yet; count it on its own.
+    const flagged =
+      routePoints.length === 1
+        ? compromised.filter(Boolean).length
+        : legUnsafe.filter(Boolean).length;
 
     return {
       compromised,
-      flagged: compromised.filter(Boolean).length,
+      legUnsafe,
+      flagged,
       windKnown: true,
       hasBedding: true,
     };
@@ -2323,6 +2296,107 @@ export default function HuntingMap() {
   );
   const huntArea = selectedProperty?.huntArea;
   const hasHuntArea = huntAreaIsValid(huntArea);
+
+  // Live GPS fix from the location dot, for Guide me and the edge warning.
+  const [liveFix, setLiveFix] = useState<LiveLocation | null>(null);
+  // A short one-off line in the field HUD (guide arrival, trail saved, …).
+  const [fieldMessage, setFieldMessage] = useState("");
+  useEffect(() => {
+    if (!fieldMessage) return;
+    const timer = window.setTimeout(() => setFieldMessage(""), 6000);
+    return () => window.clearTimeout(timer);
+  }, [fieldMessage]);
+
+  // Guide me: walk to a pin with a heading-relative arrow. The map's compass
+  // heading is used when it's on; otherwise Guide me reads the compass itself
+  // (permission asked from the Guide me tap).
+  const [guideTarget, setGuideTarget] = useState<{
+    id: string;
+    label: string;
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [guideCompass, setGuideCompass] = useState(false);
+  const guideOwnHeading = useDeviceHeading(
+    Boolean(guideTarget) && guideCompass && liveHeading === null,
+  );
+  const fieldHeading = liveHeading ?? guideOwnHeading;
+  // Follow the pin if it's moved mid-walk; keep the saved spot if it's gone
+  // (e.g. after switching property).
+  const guidePoint = guideTarget
+    ? (mapAssets.find((asset) => asset.id === guideTarget.id) ?? guideTarget)
+    : null;
+  const activeGuide =
+    guidePoint && liveFix ? guideReading(liveFix, guidePoint, fieldHeading) : null;
+  const selectedFromYou =
+    selectedAsset && liveFix ? guideReading(liveFix, selectedAsset, fieldHeading) : null;
+
+  function stopGuide() {
+    setGuideTarget(null);
+    setGuideCompass(false);
+  }
+
+  function toggleGuide(asset: MapAsset) {
+    if (guideTarget?.id === asset.id) {
+      stopGuide();
+      return;
+    }
+    setGuideTarget({ id: asset.id, label: asset.label, lat: asset.lat, lng: asset.lng });
+    setFieldMessage("");
+    // Straight from the tap so iOS will show its compass prompt.
+    if (liveHeading === null) {
+      void requestCompassPermission().then((permission) => {
+        if (permission === "granted") setGuideCompass(true);
+      });
+    }
+  }
+
+  // Within GUIDE_ARRIVE_YARDS of the target: buzz and end the guide.
+  const guideArrived = Boolean(guideTarget && activeGuide?.arrived);
+  useEffect(() => {
+    if (!guideArrived || !guideTarget) return;
+    buzz([80, 60, 80]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFieldMessage(`You're at ${guideTarget.label}.`);
+    setGuideTarget(null);
+    setGuideCompass(false);
+  }, [guideArrived, guideTarget]);
+
+  // Hunt-area edge warning: only while following GPS on a property with a
+  // drawn hunt area (and the Layers toggle on). Hysteresis in nextEdgeAlert
+  // keeps it to one buzz per approach.
+  const edgeWarningOn =
+    mapTools.edgeWarning && mapTools.gps && followUser && hasHuntArea;
+  const edgeReading = useMemo(() => {
+    if (!edgeWarningOn || !liveFix || !huntArea) return null;
+    const edgeMeters = distanceToPolygonEdgeMeters(liveFix.lat, liveFix.lng, huntArea);
+    if (edgeMeters === null) return null;
+    return {
+      inside: pointInPolygon(liveFix.lat, liveFix.lng, huntArea),
+      edgeMeters,
+    };
+  }, [edgeWarningOn, liveFix, huntArea]);
+  const [edgeState, setEdgeState] = useState<EdgeAlertState>("off");
+  const edgeStateRef = useRef<EdgeAlertState>("off");
+  useEffect(() => {
+    const next = nextEdgeAlert(edgeStateRef.current, edgeReading);
+    edgeStateRef.current = next.state;
+    if (next.buzz) buzz([200, 100, 200]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEdgeState(next.state);
+  }, [edgeReading]);
+  const edgeLabel = edgeAlertLabel(edgeState, edgeReading?.edgeMeters ?? null);
+
+  // Legal shooting light from the same forecast the Today verdict uses.
+  const legalChip =
+    propertyToday.forecast && propertyToday.now
+      ? legalLightChip(
+          propertyToday.now,
+          propertyToday.forecast.sunriseIso,
+          propertyToday.forecast.sunsetIso,
+          propertyToday.forecast.utcOffsetSeconds,
+        )
+      : null;
   const draftAreaAcresLabel = formatHuntAreaAcres(draftAreaPoints);
   const savedAreaAcresLabel = formatHuntAreaAcres(huntArea);
   const currentPinBoxMessage = pinBoxDisabled
@@ -2788,6 +2862,9 @@ export default function HuntingMap() {
     setBloodRecovered(false);
     bloodPathRef.current = [];
     setBloodPath([]);
+    setBloodFinishing(false);
+    setBloodSaved(false);
+    setBloodNote("");
     setIsTrackingBlood(true);
     setLayersOpen(false);
   }
@@ -2848,6 +2925,63 @@ export default function HuntingMap() {
     setBloodRecovered(false);
     bloodPathRef.current = [];
     setBloodPath([]);
+    setBloodFinishing(false);
+    setBloodSaved(false);
+    setBloodNote("");
+  }
+
+  // Save the trail as a Hunt Log entry for its property, filed under the stand
+  // nearest the hit site (lib/bloodTrailHunt). Returns whether it saved.
+  function saveBloodTrailToLog(): boolean {
+    const propertyId = bloodPropertyIdRef.current || selectedPropertyId;
+    const started = new Date(bloodStartedAtRef.current);
+    const result = buildBloodTrailHunt({
+      id: createDeerIntelId("hunt"),
+      propertyId,
+      stands: state.stands,
+      pins: state.pins,
+      summary: {
+        marks: bloodPoints,
+        trailMeters: lineLengthMeters(bloodTrailPath),
+        recovered: bloodRecovered,
+      },
+      startedAt: Number.isNaN(started.getTime()) ? new Date() : started,
+      endedAt: new Date(),
+      windDirection:
+        liveWind?.fromCompass || propertyToday.forecast?.current.windDirection || "",
+      windSpeed: liveWind?.speedLabel || propertyToday.forecast?.current.windSpeed || "",
+    });
+
+    if (!result.ok) {
+      setBloodNote(result.reason);
+      return false;
+    }
+
+    const hunt = result.hunt;
+    updateDeerIntelStore((currentState) => ({
+      ...currentState,
+      hunts: [...currentState.hunts, hunt],
+    }));
+    buzz(14);
+    setBloodSaved(true);
+    setBloodNote(`Saved to the Hunt Log under ${result.standName}.`);
+    return true;
+  }
+
+  // Done on a trail with unsaved marks asks first: save it, or discard it.
+  function finishBloodTrail() {
+    if (bloodPoints.length > 0 && !bloodSaved) {
+      setBloodFinishing(true);
+      setBloodNote("");
+      return;
+    }
+    exitBloodTrail();
+  }
+
+  function saveAndExitBloodTrail() {
+    if (!saveBloodTrailToLog()) return;
+    exitBloodTrail();
+    setFieldMessage("Blood trail saved to the Hunt Log.");
   }
 
   // Other map modes used to end a blood trail silently. A trail with marks on
@@ -4346,10 +4480,12 @@ export default function HuntingMap() {
             <MapRotationController heading={mapBearing} />
             <UserLocationMarker
               // Blood trailing shows where you are against the trail.
-              enabled={mapTools.gps || isTrackingBlood}
+              // Guide me needs the live fix too.
+              enabled={mapTools.gps || isTrackingBlood || Boolean(guideTarget)}
               follow={mapTools.gps && followUser}
               heading={liveHeading}
               onUserPan={() => setFollowUser(false)}
+              onLocation={setLiveFix}
             />
             <PartyMembersLayer
               areas={
@@ -4436,9 +4572,7 @@ export default function HuntingMap() {
             {isPlanningRoute
               ? routePoints.slice(0, -1).map((point, index) => {
                   const next = routePoints[index + 1];
-                  const unsafe =
-                    routeSafety.compromised[index] ||
-                    routeSafety.compromised[index + 1];
+                  const unsafe = routeSafety.legUnsafe[index] ?? false;
 
                   return (
                     <Polyline
@@ -4660,26 +4794,44 @@ export default function HuntingMap() {
             />
           ) : null}
 
-          {forecastStatus === "ok" && timelineViews.length > 0 && !scoutPanelYields ? (
+          {!scoutPanelYields &&
+          ((forecastStatus === "ok" && timelineViews.length > 0) ||
+            (legalChip && !timelineOpen)) ? (
             <div
               className={
-                timelineOpen
+                timelineOpen && forecastStatus === "ok"
                   ? "di-movement-timeline-wrap di-movement-timeline-wrap--open"
-                  : "di-movement-timeline-wrap"
+                  : "di-movement-timeline-wrap di-movement-timeline-wrap--stack"
               }
             >
-              <MovementTimeline
-                open={timelineOpen}
-                onOpenChange={(open) => {
-                  setTimelineOpen(open);
-                  if (!open) setTimelineKey(null);
-                }}
-                slots={timelineViews}
-                selectedKey={timelineKey}
-                onSelect={setTimelineKey}
-              />
+              {legalChip && !timelineOpen ? <LegalLightChip chip={legalChip} /> : null}
+              {forecastStatus === "ok" && timelineViews.length > 0 ? (
+                <MovementTimeline
+                  open={timelineOpen}
+                  onOpenChange={(open) => {
+                    setTimelineOpen(open);
+                    if (!open) setTimelineKey(null);
+                  }}
+                  slots={timelineViews}
+                  selectedKey={timelineKey}
+                  onSelect={setTimelineKey}
+                />
+              ) : null}
             </div>
           ) : null}
+
+          <FieldHud
+            edgeLabel={edgeLabel}
+            edgeOutside={edgeState === "outside"}
+            guide={
+              guideTarget
+                ? { label: guideTarget.label, reading: activeGuide }
+                : null
+            }
+            onStopGuide={stopGuide}
+            message={fieldMessage}
+            onDismissMessage={() => setFieldMessage("")}
+          />
 
           {/* All three bottom-right cards share one column so they stack instead
               of piling on top of each other. On mobile the wrapper is display:
@@ -4788,8 +4940,8 @@ export default function HuntingMap() {
             playSection={
               selectedPropertyId ? (
                 <TodaysPlayPanel
-                  windFromCompass={liveWind?.fromCompass ?? ""}
-                  plays={todaysPlay}
+                  contextLabel={todaysPlay.contextLabel}
+                  plays={todaysPlay.plays}
                   onSelect={(assetId) => {
                     const asset = visibleAssets.find(
                       (candidate) => candidate.id === assetId,
@@ -5026,9 +5178,11 @@ export default function HuntingMap() {
                     : !routeSafety.hasBedding
                       ? "Add bedding pins to check scent"
                       : routeSafety.flagged > 0
-                        ? `⚠ ${routeSafety.flagged} spot${
-                            routeSafety.flagged === 1 ? "" : "s"
-                          } blow into bedding`
+                        ? routePoints.length === 1
+                          ? "⚠ This spot blows into bedding"
+                          : `⚠ ${routeSafety.flagged} leg${
+                              routeSafety.flagged === 1 ? "" : "s"
+                            } blow into bedding`
                         : "Scent-safe — clear of bedding"}
                 </span>
               ) : null}
@@ -5066,13 +5220,15 @@ export default function HuntingMap() {
           {isTrackingBlood ? (
             <div className="di-area-pill di-map-mode-bar" style={drawActionBarStyle}>
               <span style={drawActionStatusStyle}>
-                {bloodPoints.length === 0
-                  ? "Tap the map to mark the hit site"
-                  : bloodRecovered
-                    ? "Recovered 🦌"
-                    : `Blood trail · ${bloodPoints.length} mark${
-                        bloodPoints.length === 1 ? "" : "s"
-                      }`}
+                {bloodFinishing
+                  ? "Save this trail to the Hunt Log?"
+                  : bloodPoints.length === 0
+                    ? "Tap the map to mark the hit site"
+                    : bloodRecovered
+                      ? "Recovered 🦌"
+                      : `Blood trail · ${bloodPoints.length} mark${
+                          bloodPoints.length === 1 ? "" : "s"
+                        }`}
               </span>
               {bloodTrailStats && bloodPoints.length >= 2 ? (
                 <span style={pendingWindNoteStyle}>
@@ -5083,6 +5239,50 @@ export default function HuntingMap() {
                   from hit
                 </span>
               ) : null}
+              {bloodNote ? (
+                <span
+                  style={{
+                    ...pendingWindNoteStyle,
+                    ...(bloodSaved ? pendingWindGoodStyle : pendingWindWarnStyle),
+                  }}
+                >
+                  {bloodNote}
+                </span>
+              ) : null}
+              {bloodFinishing ? (
+                <div
+                  style={{
+                    ...drawActionButtonRowStyle,
+                    flexWrap: "wrap",
+                    justifyContent: "center",
+                  }}
+                >
+                  <button
+                    type="button"
+                    style={drawPrimaryButtonStyle}
+                    onClick={saveAndExitBloodTrail}
+                  >
+                    Save to Hunt Log
+                  </button>
+                  <button
+                    type="button"
+                    style={drawSecondaryButtonStyle}
+                    onClick={exitBloodTrail}
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    style={drawSecondaryButtonStyle}
+                    onClick={() => {
+                      setBloodFinishing(false);
+                      setBloodNote("");
+                    }}
+                  >
+                    Back
+                  </button>
+                </div>
+              ) : (
               <div
                 style={{
                   ...drawActionButtonRowStyle,
@@ -5130,24 +5330,26 @@ export default function HuntingMap() {
                   >
                     Found!
                   </button>
+                ) : !bloodSaved ? (
+                  <button
+                    type="button"
+                    style={drawSecondaryButtonStyle}
+                    onClick={() => {
+                      saveBloodTrailToLog();
+                    }}
+                  >
+                    Save to Hunt Log
+                  </button>
                 ) : null}
                 <button
                   type="button"
                   style={drawPrimaryButtonStyle}
-                  onClick={() => {
-                    if (
-                      bloodPoints.length > 0 &&
-                      !bloodRecovered &&
-                      !window.confirm("Clear this blood trail? Its marks won't be kept.")
-                    ) {
-                      return;
-                    }
-                    exitBloodTrail();
-                  }}
+                  onClick={finishBloodTrail}
                 >
                   Done
                 </button>
               </div>
+              )}
             </div>
           ) : null}
 
@@ -5324,6 +5526,9 @@ export default function HuntingMap() {
                   ? startAim
                   : undefined
               }
+              fromYou={selectedFromYou}
+              guiding={guideTarget?.id === selectedAsset.id}
+              onToggleGuide={() => toggleGuide(selectedAsset)}
             />
           ) : null}
 

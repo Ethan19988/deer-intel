@@ -56,8 +56,15 @@ export function parseSitDraft(
   const values = { ...EMPTY_HUNT_FORM_VALUES };
   for (const field of Object.keys(values) as (keyof HuntFormValues)[]) {
     if (typeof stored[field] === "string") {
-      (values as Record<string, string>)[field] = stored[field] as string;
+      (values as unknown as Record<string, string>)[field] = stored[field] as string;
     }
+  }
+  // Bucks tagged while the sit was running.
+  if (Array.isArray(stored.deerProfileIds)) {
+    const ids = stored.deerProfileIds.filter(
+      (id): id is string => typeof id === "string" && id !== "",
+    );
+    if (ids.length > 0) values.deerProfileIds = ids;
   }
   if (values.shotOpportunity !== "Yes") values.shotOpportunity = "No";
   if (values.harvest !== "Yes") values.harvest = "No";

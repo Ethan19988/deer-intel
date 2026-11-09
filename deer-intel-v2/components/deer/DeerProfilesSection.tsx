@@ -1,15 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import DeerProfileActions from "@/components/deer/DeerProfileActions";
 import DeerProfileCard from "@/components/deer/DeerProfileCard";
 import Link from "next/link";
 import PhotoImage from "@/components/photos/PhotoImage";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import EmptyState from "@/components/ui/EmptyState";
 import { DeerIcon } from "@/components/ui/FieldIcons";
 import { buildHitListSlides } from "@/lib/hitListSlides";
 import { getDeerConditionInsights } from "@/lib/deerConditionInsights";
 import { getDeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
-import type { DeerProfileSummary } from "@/lib/deerProfiles";
+import {
+  deerProfileStatusLabel,
+  partitionDeerProfileSummaries,
+  type DeerProfileSummary,
+} from "@/lib/deerProfiles";
+import { getDeerProfileTimeline } from "@/lib/deerProfileTimeline";
 import { getDeerTravelIntelligence } from "@/lib/deerTravelIntelligence";
 import { photoLinksProfile } from "@/lib/photos";
 import type { Camera } from "@/types/camera";
@@ -106,72 +113,100 @@ export default function DeerProfilesSection({
     );
   }
 
+  const { active, inactive } = partitionDeerProfileSummaries(summaries);
+  const linkedInactive = inactive.some(
+    (summary) => summary.profile.id === initialProfileId,
+  );
+
+  function renderBuck(summary: DeerProfileSummary) {
+    const id = summary.profile.id;
+    const card = cards.get(id);
+    const open = id === selectedProfileId;
+    const statusLabel = deerProfileStatusLabel(summary.profile);
+    const meta = [
+      statusLabel,
+      card?.lastSeen
+        ? `Last seen ${card.lastSeen}`
+        : summary.lastSeen
+          ? `Last seen ${shortDay(summary.lastSeen)}`
+          : "Not seen yet",
+      `${summary.photoCount} ${summary.photoCount === 1 ? "photo" : "photos"}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    return (
+      <li key={id} id={`buck-${id}`} style={itemStyle}>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setSelectedProfileId(open ? "" : id)}
+          style={{ ...cardStyle, ...(open ? cardOpenStyle : null) }}
+        >
+          {card?.imageId ? (
+            <PhotoImage
+              imageId={card.imageId}
+              alt={`${summary.profile.nickname} on camera`}
+              aspectRatio={16 / 9}
+              style={statusLabel ? { ...photoStyle, ...inactivePhotoStyle } : photoStyle}
+            />
+          ) : (
+            <span style={noPhotoStyle} aria-hidden="true">
+              <DeerIcon size={34} />
+            </span>
+          )}
+          <span style={captionStyle}>
+            <span style={captionTextStyle}>
+              <span style={nameStyle}>
+                {summary.profile.nickname || "Unnamed buck"}
+              </span>
+              <span style={metaStyle}>{meta}</span>
+            </span>
+            {card?.usualTime && !statusLabel ? (
+              <span style={timeTagStyle}>{card.usualTime}</span>
+            ) : null}
+          </span>
+        </button>
+        {open ? (
+          <div style={detailStyle}>
+            <SelectedBuck
+              summary={summary}
+              propertyName={propertyName}
+              cameras={cameras}
+              photoRecords={photoRecords}
+              cameraChecks={cameraChecks}
+              hunts={hunts}
+              pins={pins}
+              deerProfiles={deerProfiles}
+              onMerged={setSelectedProfileId}
+            />
+          </div>
+        ) : null}
+      </li>
+    );
+  }
+
   return (
     <section id="deer-profiles" aria-label="Hit list">
-      <ul style={listStyle}>
-        {summaries.map((summary) => {
-          const id = summary.profile.id;
-          const card = cards.get(id);
-          const open = id === selectedProfileId;
-          const meta = [
-            card?.lastSeen
-              ? `Last seen ${card.lastSeen}`
-              : summary.lastSeen
-                ? `Last seen ${shortDay(summary.lastSeen)}`
-                : "Not seen yet",
-            `${summary.photoCount} ${summary.photoCount === 1 ? "photo" : "photos"}`,
-          ].join(" · ");
+      {active.length > 0 ? (
+        <ul style={listStyle}>{active.map(renderBuck)}</ul>
+      ) : (
+        <p style={allDoneStyle}>
+          Every buck on this property is harvested or retired. Tag a new buck on
+          a trail-cam photo to start a fresh hit list.
+        </p>
+      )}
 
-          return (
-            <li key={id} id={`buck-${id}`} style={itemStyle}>
-              <button
-                type="button"
-                aria-expanded={open}
-                onClick={() => setSelectedProfileId(open ? "" : id)}
-                style={{ ...cardStyle, ...(open ? cardOpenStyle : null) }}
-              >
-                {card?.imageId ? (
-                  <PhotoImage
-                    imageId={card.imageId}
-                    alt={`${summary.profile.nickname} on camera`}
-                    aspectRatio={16 / 9}
-                    style={photoStyle}
-                  />
-                ) : (
-                  <span style={noPhotoStyle} aria-hidden="true">
-                    <DeerIcon size={34} />
-                  </span>
-                )}
-                <span style={captionStyle}>
-                  <span style={captionTextStyle}>
-                    <span style={nameStyle}>
-                      {summary.profile.nickname || "Unnamed buck"}
-                    </span>
-                    <span style={metaStyle}>{meta}</span>
-                  </span>
-                  {card?.usualTime ? (
-                    <span style={timeTagStyle}>{card.usualTime}</span>
-                  ) : null}
-                </span>
-              </button>
-              {open ? (
-                <div style={detailStyle}>
-                  <SelectedBuck
-                    summary={summary}
-                    propertyName={propertyName}
-                    cameras={cameras}
-                    photoRecords={photoRecords}
-                    cameraChecks={cameraChecks}
-                    hunts={hunts}
-                    pins={pins}
-                    deerProfiles={deerProfiles}
-                  />
-                </div>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
+      {inactive.length > 0 ? (
+        <CollapsibleSection
+          title={`Harvested / retired (${inactive.length})`}
+          description="Off the hit list — history kept"
+          defaultOpen={linkedInactive}
+          style={inactiveGroupStyle}
+        >
+          <ul style={listStyle}>{inactive.map(renderBuck)}</ul>
+        </CollapsibleSection>
+      ) : null}
     </section>
   );
 }
@@ -185,6 +220,7 @@ function SelectedBuck({
   hunts,
   pins,
   deerProfiles,
+  onMerged,
 }: {
   summary: DeerProfileSummary;
   propertyName: string;
@@ -194,6 +230,7 @@ function SelectedBuck({
   hunts: HuntLogEntry[];
   pins: MapPin[];
   deerProfiles: DeerProfile[];
+  onMerged: (targetId: string) => void;
 }) {
   const intelligence = getDeerProfileIntelligence({
     profile: summary.profile,
@@ -216,6 +253,12 @@ function SelectedBuck({
   const buckPhotos = photoRecords.filter((photo) =>
     photoLinksProfile(photo, summary.profile.id),
   );
+  const timeline = getDeerProfileTimeline({
+    profile: summary.profile,
+    photoRecords,
+    hunts,
+    cameras,
+  });
 
   return (
     <DeerProfileCard
@@ -225,6 +268,16 @@ function SelectedBuck({
       conditions={conditions}
       photos={buckPhotos}
       deerProfiles={deerProfiles}
+      timeline={timeline}
+      actions={
+        <DeerProfileActions
+          profile={summary.profile}
+          otherProfiles={deerProfiles.filter(
+            (profile) => profile.id !== summary.profile.id,
+          )}
+          onMerged={onMerged}
+        />
+      }
     />
   );
 }
@@ -243,6 +296,25 @@ const listStyle: CSSProperties = {
   margin: 0,
   padding: 0,
   listStyle: "none",
+};
+
+const allDoneStyle: CSSProperties = {
+  margin: 0,
+  padding: "1rem",
+  border: "1px dashed var(--border-strong)",
+  borderRadius: "var(--radius)",
+  color: "var(--text-muted)",
+  lineHeight: 1.5,
+};
+
+const inactiveGroupStyle: CSSProperties = {
+  marginTop: "1rem",
+};
+
+// Harvested / retired bucks read as history, not targets.
+const inactivePhotoStyle: CSSProperties = {
+  filter: "grayscale(1)",
+  opacity: 0.75,
 };
 
 const itemStyle: CSSProperties = {

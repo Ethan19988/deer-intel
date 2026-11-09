@@ -23,6 +23,11 @@ export type HuntFormValues = {
   shotOpportunity: YesNoValue;
   harvest: YesNoValue;
   notes: string;
+  /**
+   * Tracked bucks seen on this sit (deer profile ids). Optional so older
+   * callers and stored drafts without it still type-check; unset reads as none.
+   */
+  deerProfileIds?: string[];
 };
 
 export const EMPTY_HUNT_FORM_VALUES: HuntFormValues = {
@@ -163,7 +168,34 @@ export function createHuntFromValues({
     shotOpportunity: values.shotOpportunity === "Yes",
     harvest: values.harvest === "Yes",
     notes: values.notes.trim(),
+    ...withDeerProfileIds(values.deerProfileIds),
   };
+}
+
+/** Trimmed, deduped buck ids, empties dropped. */
+export function cleanDeerProfileIds(ids: readonly string[] | undefined): string[] {
+  return [...new Set((ids ?? []).map((id) => id.trim()).filter(Boolean))];
+}
+
+// Only sits that tag a buck carry the field, so an untagged sit saves exactly
+// as it did before buck tagging existed.
+function withDeerProfileIds(
+  ids: readonly string[] | undefined,
+): Pick<HuntLogEntry, "deerProfileIds"> {
+  const clean = cleanDeerProfileIds(ids);
+
+  return clean.length > 0 ? { deerProfileIds: clean } : {};
+}
+
+/**
+ * A saved sit's tagged bucks back onto edit-form values. Pairs with
+ * huntFormValuesFromHunt, which predates buck tagging and doesn't copy them.
+ */
+export function withHuntDeerProfileIds(
+  values: HuntFormValues,
+  hunt: Pick<HuntLogEntry, "deerProfileIds">,
+): HuntFormValues {
+  return { ...values, deerProfileIds: cleanDeerProfileIds(hunt.deerProfileIds) };
 }
 
 function countFromString(value: string) {

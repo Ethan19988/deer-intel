@@ -1,4 +1,5 @@
 import { getDeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
+import { isActiveDeerProfile } from "@/lib/deerProfiles";
 import { getPhotoBuckNames, getPhotoDeerProfileIds, photoRecordTime } from "@/lib/photos";
 import type { Camera } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
@@ -50,8 +51,10 @@ export function buildHitListSlides(input: {
   const cameraName = (id: string) => cameras.find((camera) => camera.id === id)?.name;
   const propertyPhotos = photos.filter((photo) => photo.propertyId === propertyId);
 
-  const slides: HitListSlide[] = profiles
-    .filter((profile) => profile.propertyId === propertyId)
+  const propertyProfiles = profiles.filter((profile) => profile.propertyId === propertyId);
+  const slides: HitListSlide[] = propertyProfiles
+    // Harvested or retired bucks are off the hit list.
+    .filter(isActiveDeerProfile)
     .map((profile) => {
       const intel = getDeerProfileIntelligence({
         profile,
@@ -88,7 +91,14 @@ export function buildHitListSlides(input: {
     });
 
   // Bucks named on photos but never given a profile still belong on the list.
-  const covered = new Set(slides.map((slide) => slide.name.toLowerCase()));
+  // Inactive bucks still count as covered, so their photo tags don't come back
+  // as name-only slides.
+  const covered = new Set(
+    propertyProfiles
+      .map((profile) => profile.nickname.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  for (const slide of slides) covered.add(slide.name.toLowerCase());
   const byName = new Map<string, PhotoRecord[]>();
   for (const photo of propertyPhotos) {
     for (const name of getPhotoBuckNames(photo)) {

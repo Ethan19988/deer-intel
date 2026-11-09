@@ -33,6 +33,14 @@ type MapAssetInfoCardProps = {
   onStartAim?: () => void;
   /** Label for the aim action, e.g. "Point Camera" or "Point Stand". */
   aimLabel?: string;
+  /**
+   * Live distance/bearing from your GPS fix ("240 yd", "Head NNE (23°)"), or
+   * null while there's no fix yet. Omit to hide the line and Guide me.
+   */
+  fromYou?: { distanceLabel: string; headText: string } | null;
+  /** True while "Guide me" is walking you to this asset. */
+  guiding?: boolean;
+  onToggleGuide?: () => void;
 };
 
 export default function MapAssetInfoCard({
@@ -49,6 +57,9 @@ export default function MapAssetInfoCard({
   onStartMove,
   onStartAim,
   aimLabel = "Point Camera",
+  fromYou,
+  guiding = false,
+  onToggleGuide,
 }: MapAssetInfoCardProps) {
   const [actionMessage, setActionMessage] = useState("");
   const [isEditingPin, setIsEditingPin] = useState(false);
@@ -214,6 +225,27 @@ export default function MapAssetInfoCard({
         </div>
       ) : (
         <>
+          {onToggleGuide ? (
+            <div style={guideRowStyle}>
+              <div style={{ minWidth: 0 }}>
+                <p style={infoLabelStyle}>From you</p>
+                <p style={guideValueStyle}>
+                  {fromYou
+                    ? `${fromYou.distanceLabel} · ${fromYou.headText}`
+                    : "Waiting for a GPS fix…"}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-pressed={guiding}
+                style={guiding ? guideButtonActiveStyle : guideButtonStyle}
+                onClick={onToggleGuide}
+              >
+                {guiding ? "Stop guide" : "Guide me"}
+              </button>
+            </div>
+          ) : null}
+
           <div style={detailsStyle}>
             <InfoLine label="Property" value={propertyName} />
             <InfoLine label="Notes" value={asset.description || "No notes yet."} />
@@ -413,6 +445,47 @@ const closeButtonStyle: CSSProperties = {
   fontSize: "1rem",
   fontWeight: 900,
   lineHeight: 1,
+};
+
+const guideRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.6rem",
+  padding: "0.55rem 0.6rem",
+  border: "1px solid rgba(255, 255, 255, 0.18)",
+  borderRadius: "var(--radius-sm)",
+  background: "rgba(255, 255, 255, 0.05)",
+};
+
+const guideValueStyle: CSSProperties = {
+  margin: "0.2rem 0 0",
+  color: "#f1f5ef",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.86rem",
+  lineHeight: 1.3,
+};
+
+const guideButtonStyle: CSSProperties = {
+  flex: "0 0 auto",
+  minWidth: "104px",
+  minHeight: "44px",
+  padding: "0 0.8rem",
+  border: "1px solid #ff6a1a",
+  borderRadius: "var(--radius-sm)",
+  background: "#ff6a1a",
+  color: "#140a04",
+  fontFamily: "var(--font-display), \"Arial Narrow\", sans-serif",
+  fontSize: "1.05rem",
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  cursor: "pointer",
+};
+
+const guideButtonActiveStyle: CSSProperties = {
+  ...guideButtonStyle,
+  background: "transparent",
+  color: "#ffb27f",
 };
 
 const detailsStyle: CSSProperties = {

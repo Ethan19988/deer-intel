@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildHuntWindows, buildWindMatrix, parseWindCompass } from "@/lib/huntPlanner";
+import {
+  bestSitsLine,
+  bestSitsThisWeek,
+  buildHuntWindows,
+  buildWindMatrix,
+  parseWindCompass,
+} from "@/lib/huntPlanner";
 import type { ForecastDay } from "@/lib/liveWeather";
 import type { Stand } from "@/types/stand";
 
@@ -172,5 +178,52 @@ describe("calm sit winds", () => {
     );
 
     expect(window.goodStandNames).toEqual([]);
+  });
+});
+
+describe("bestSitsThisWeek", () => {
+  const days: ForecastDay[] = [
+    { ...day("Mon", "S 6 mph"), morningWind: "NW 8 mph", eveningWind: "S 6 mph" },
+    { ...day("Tue", "NW 8 mph"), morningWind: "S 6 mph", eveningWind: "NW 9 mph" },
+    { ...day("Thu", "N 8 mph"), morningWind: "W 7 mph", eveningWind: "S 6 mph" },
+  ];
+  const stands = [
+    stand("Oak Ridge", "NW"),
+    stand("Creek Bottom", "NW, W"),
+    stand("Pine Saddle", "N, NW"),
+    stand("West Edge", "W"),
+    stand("No Notes", ""),
+  ];
+
+  it("ranks upcoming sits by good-wind stands and skips past sits", () => {
+    const sits = bestSitsThisWeek(days, stands, "Mon-PM");
+
+    expect(sits.map((s) => `${s.dayLabel} ${s.period} ${s.goodCount}`)).toEqual([
+      "Tue PM 3",
+      "Thu AM 2",
+    ]);
+    expect(bestSitsLine(sits)).toBe("Best this week: Tue PM (3 stands) · Thu AM (2)");
+  });
+
+  it("counts Monday morning when it is still ahead", () => {
+    // Ties on count go to the sooner sit.
+    expect(bestSitsThisWeek(days, stands, undefined, 3).map((s) => s.key)).toEqual([
+      "Mon-AM",
+      "Tue-PM",
+      "Thu-AM",
+    ]);
+  });
+
+  it("is empty (no line) when no stand has winds set", () => {
+    const sits = bestSitsThisWeek(days, [stand("No Notes", "")]);
+
+    expect(sits).toEqual([]);
+    expect(bestSitsLine(sits)).toBeNull();
+  });
+
+  it("singular stand wording", () => {
+    expect(
+      bestSitsLine([{ key: "k", dayLabel: "Fri", period: "AM", goodCount: 1, isFront: false }]),
+    ).toBe("Best this week: Fri AM (1 stand)");
   });
 });

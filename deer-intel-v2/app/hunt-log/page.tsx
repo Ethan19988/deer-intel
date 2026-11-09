@@ -31,6 +31,7 @@ import {
   createHuntFromValues,
   EMPTY_HUNT_FORM_VALUES,
   newHuntFormValues,
+  withHuntDeerProfileIds,
   type HuntFormValues,
 } from "@/lib/huntFormValues";
 import { recentStandIds } from "@/lib/hunts";
@@ -243,7 +244,7 @@ export default function HuntLogPage() {
     : null;
 
   function startEditingHunt(hunt: HuntLogEntry) {
-    setEditValues(huntFormValuesFromHunt(hunt));
+    setEditValues(withHuntDeerProfileIds(huntFormValuesFromHunt(hunt), hunt));
     setEditingHuntId(hunt.id);
   }
 
@@ -368,6 +369,7 @@ export default function HuntLogPage() {
             values={draft.values}
             properties={state.properties}
             stands={state.stands}
+            deerProfiles={state.deerProfiles}
             weatherLocation={draftWeatherLocation}
             getPropertyName={getPropertyName}
             getRecentStandIds={lastStandIds}
@@ -383,6 +385,7 @@ export default function HuntLogPage() {
           values={huntValues}
           properties={state.properties}
           stands={state.stands}
+          deerProfiles={state.deerProfiles}
           standPins={standPins}
           weatherLocation={weatherLocation}
           getPropertyName={getPropertyName}
@@ -446,6 +449,7 @@ export default function HuntLogPage() {
             values={editValues}
             properties={state.properties}
             stands={state.stands}
+            deerProfiles={state.deerProfiles}
             weatherLocation={editWeatherLocation}
             getPropertyName={getPropertyName}
             onChange={setEditValues}

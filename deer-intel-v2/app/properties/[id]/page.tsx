@@ -271,7 +271,7 @@ export default function PropertyWorkspacePage() {
             count: propertyCameras.length,
           },
           { href: "/stands", label: "Stands", count: standCount },
-          { href: "/hit-list", label: "Bucks", count: deerProfileCount },
+          { href: "/hit-list", label: "Hit List", count: deerProfileCount },
           { href: "/hunt-log", label: "Sits logged", count: propertyHunts.length },
           { href: "/map", label: "Map pins", count: propertyPins.length },
         ].map((item) => (
@@ -519,7 +519,7 @@ const anchorOffsetStyle: CSSProperties = {
   scrollMarginTop: "1rem",
 };
 
-// Counts that jump to the full Cameras / Stands / Bucks / Hunt Log pages
+// Counts that jump to the full Cameras / Stands / Hit List / Hunt Log pages
 // (this property stays selected), instead of duplicating them here.
 const shortcutGridStyle: CSSProperties = {
   display: "grid",

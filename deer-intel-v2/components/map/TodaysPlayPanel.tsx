@@ -1,36 +1,33 @@
 import type { CSSProperties } from "react";
+import type { StandPlay } from "@/lib/mapPlay";
 import type { StandWindStatus } from "@/lib/standWind";
 
-export type StandPlay = {
-  id: string;
-  name: string;
-  standType: string;
-  status: StandWindStatus;
-  label: string;
-  accessNote: string;
-  assetId: string | null;
-};
+export type { StandPlay } from "@/lib/mapPlay";
 
 type TodaysPlayPanelProps = {
-  windFromCompass: string;
+  /**
+   * What the list is graded on, e.g. "Tomorrow AM · WNW" (the Today verdict's
+   * next sit) or "Forecast · 5 PM" (a timeline window). Empty while loading.
+   */
+  contextLabel: string;
   plays: StandPlay[];
   onSelect: (assetId: string) => void;
 };
 
-// A ranked "where do I sit right now?" list: each stand scored against the live
-// wind (good wind first, wrong wind last). Tapping a stand that has a map pin
-// flies to it. Purely a read on data the app already has (stands + live wind);
-// it never claims a stand is safe on access — that's the route check's job.
+// A ranked "where do I sit?" list. With no timeline window picked it is the
+// Today verdict's own ranking for the next sit (same wind, pick and order as
+// Today and Stands); a picked forecast window ranks on that window's wind.
+// Tapping a stand that has a map pin flies to it.
 export default function TodaysPlayPanel({
-  windFromCompass,
+  contextLabel,
   plays,
   onSelect,
 }: TodaysPlayPanelProps) {
   if (plays.length === 0) {
     return (
       <p style={emptyStyle}>
-        Add stands with best/avoid winds to see today&rsquo;s play ranked by the
-        live wind.
+        Add stands with best/avoid winds to see today&rsquo;s play ranked for
+        your next sit.
       </p>
     );
   }
@@ -38,9 +35,7 @@ export default function TodaysPlayPanel({
   return (
     <div style={listStyle}>
       <p style={eyebrowStyle}>
-        {windFromCompass
-          ? `Ranked for the ${windFromCompass} wind`
-          : "Ranked once the live wind loads"}
+        {contextLabel ? `Ranked for ${contextLabel}` : "Ranked once the forecast loads"}
       </p>
 
       {plays.map((play) => {
@@ -54,6 +49,7 @@ export default function TodaysPlayPanel({
             disabled={!tappable}
             style={{
               ...rowStyle,
+              ...(play.isPick ? rowPickStyle : null),
               ...(tappable ? null : rowStaticStyle),
             }}
             onClick={() => play.assetId && onSelect(play.assetId)}
@@ -64,7 +60,10 @@ export default function TodaysPlayPanel({
             <span style={{ ...dotStyle, background: tone.dot }} />
             <span style={textColStyle}>
               <span style={nameRowStyle}>
-                <span style={nameStyle}>{play.name}</span>
+                <span style={nameStyle}>
+                  {play.isPick ? <span style={pickTagStyle}>Pick</span> : null}
+                  {play.name}
+                </span>
                 <span style={{ ...statusChipStyle, color: tone.text }}>
                   {tone.word}
                 </span>
@@ -75,6 +74,9 @@ export default function TodaysPlayPanel({
                 {play.label}
                 {play.accessNote ? ` · in: ${play.accessNote}` : ""}
               </span>
+              {play.caution ? (
+                <span style={cautionStyle}>{play.caution}</span>
+              ) : null}
             </span>
           </button>
         );
@@ -112,12 +114,39 @@ const rowStyle: CSSProperties = {
   alignItems: "center",
   gap: "0.6rem",
   width: "100%",
+  minHeight: "44px",
   padding: "0.5rem 0.55rem",
   border: "1px solid var(--border)",
   borderRadius: "var(--radius-sm)",
   background: "var(--surface)",
   textAlign: "left",
   cursor: "pointer",
+};
+
+const rowPickStyle: CSSProperties = {
+  borderColor: "var(--accent)",
+};
+
+const pickTagStyle: CSSProperties = {
+  marginRight: "0.4rem",
+  padding: "0.05rem 0.3rem",
+  border: "1px solid var(--accent)",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--success-text)",
+  fontSize: "0.66rem",
+  fontWeight: 800,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+  verticalAlign: "middle",
+};
+
+const cautionStyle: CSSProperties = {
+  overflow: "hidden",
+  color: "var(--warning-text)",
+  fontSize: "0.72rem",
+  fontWeight: 700,
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };
 
 const rowStaticStyle: CSSProperties = {

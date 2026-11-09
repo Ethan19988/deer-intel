@@ -36,6 +36,7 @@ import {
   saveWithMerge,
   serializeState,
   splitLandTags,
+  syncMetaForMergeRestore,
   syncMetaForUser,
   withLandTags,
   writeDeviceOwner,
@@ -60,6 +61,11 @@ export type PendingAccountSwitch = AccountSwitch & {
 
 export type AccountSwitchChoice = "load-account" | "move-device-data";
 
+// How a restored backup reaches the cloud while signed in: "replace" makes the
+// backup the truth everywhere (records missing from it are deleted from the
+// cloud and other devices); "merge" keeps cloud records the backup lacks.
+export type BackupRestoreMode = "replace" | "merge";
+
 type AuthContextValue = {
   configured: boolean;
   authRequired: boolean;
@@ -78,6 +84,8 @@ type AuthContextValue = {
   syncNow: () => Promise<void>;
   accountSwitch: PendingAccountSwitch | null;
   resolveAccountSwitch: (choice: AccountSwitchChoice) => Promise<void>;
+  // Call (and await) right before a backup restore replaces local data.
+  prepareBackupRestore: (mode: BackupRestoreMode) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -718,6 +726,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [user, accountSwitch, applySyncedState, recordSynced, currentSynced],
   );
 
+  // Get sync ready for a backup restore. Runs in the save queue so a cloud
+  // save already in flight can't write its merge base back over ours, and
+  // drops a pending debounced push (the restore is the next change to send).
+  const prepareBackupRestore = useCallback(
+    async (mode: BackupRestoreMode) => {
+      if (!user) return;
+      const userId = user.id;
+
+      if (pushTimerRef.current) {
+        clearTimeout(pushTimerRef.current);
+        pushTimerRef.current = null;
+      }
+
+      await runExclusive(async () => {
+        // "replace" keeps today's behavior: the next push compares with the
+        // merge base, so anything missing from the backup is a deletion.
+        if (mode !== "merge") return;
+        // While another account's data is on this device nothing syncs, and
+        // this account's meta must not be written over it.
+        if (accountSwitch) return;
+        // No merge base and no known cloud version: the next save conflicts,
+        // pulls the cloud copy and merges by id instead of deleting.
+        writeSyncMeta(syncMetaForMergeRestore(userId));
+      });
+    },
+    [user, accountSwitch, runExclusive],
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       configured,
@@ -737,6 +773,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       syncNow,
       accountSwitch,
       resolveAccountSwitch,
+      prepareBackupRestore,
     }),
     [
       configured,
@@ -756,6 +793,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       syncNow,
       accountSwitch,
       resolveAccountSwitch,
+      prepareBackupRestore,
     ],
   );
 

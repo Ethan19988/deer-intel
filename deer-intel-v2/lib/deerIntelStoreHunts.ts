@@ -54,5 +54,6 @@ export function huntFormValuesFromHunt(hunt: HuntLogEntry): HuntFormValues {
     shotOpportunity: hunt.shotOpportunity ? "Yes" : "No",
     harvest: hunt.harvest ? "Yes" : "No",
     notes: hunt.notes,
+    ...(hunt.deerProfileIds?.length ? { deerProfileIds: [...hunt.deerProfileIds] } : {}),
   };
 }

@@ -97,3 +97,43 @@ export function findContainingArea(
   }
   return null;
 }
+
+const EARTH_RADIUS_M = 6_371_000;
+
+/**
+ * Shortest distance in meters from (lat, lng) to the polygon's outline (any
+ * edge, including the closing one), whether the point is inside or outside.
+ * Uses a local flat projection around the point, which is well within GPS
+ * accuracy over a hunt area. Null for an invalid polygon.
+ */
+export function distanceToPolygonEdgeMeters(
+  lat: number,
+  lng: number,
+  polygon: HuntAreaPoint[] | undefined,
+): number | null {
+  if (!polygon || !isValidArea(polygon)) return null;
+
+  const metersPerDegLat = (Math.PI / 180) * EARTH_RADIUS_M;
+  const metersPerDegLng = metersPerDegLat * Math.cos((lat * Math.PI) / 180);
+  const project = (p: HuntAreaPoint) => ({
+    x: (p.lng - lng) * metersPerDegLng,
+    y: (p.lat - lat) * metersPerDegLat,
+  });
+
+  let best = Infinity;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = project(polygon[j]);
+    const b = project(polygon[i]);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lengthSq = dx * dx + dy * dy;
+    // Closest point on segment a→b to the origin (the user).
+    const t =
+      lengthSq === 0 ? 0 : Math.max(0, Math.min(1, -(a.x * dx + a.y * dy) / lengthSq));
+    const cx = a.x + dx * t;
+    const cy = a.y + dy * t;
+    best = Math.min(best, Math.hypot(cx, cy));
+  }
+
+  return Number.isFinite(best) ? best : null;
+}

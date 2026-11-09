@@ -6,7 +6,7 @@ import { Circle, Marker, useMapEvents } from "react-leaflet";
 
 import { NO_COUNTER_ROTATE_CLASS } from "@/lib/leafletRotation";
 
-type LiveLocation = {
+export type LiveLocation = {
   lat: number;
   lng: number;
   accuracy: number;
@@ -24,6 +24,7 @@ export default function UserLocationMarker({
   follow,
   heading,
   onUserPan,
+  onLocation,
 }: {
   enabled: boolean;
   follow: boolean;
@@ -31,6 +32,9 @@ export default function UserLocationMarker({
   // set, a translucent blue cone fans out from the dot in the facing direction.
   heading: number | null;
   onUserPan: () => void;
+  /** Every accepted fix (and null when the dot turns off), for map features
+   * that need the live position — Guide me, the hunt-area edge warning. */
+  onLocation?: (location: LiveLocation | null) => void;
 }) {
   const [location, setLocation] = useState<LiveLocation | null>(null);
   // While a zoom gesture is running, hold off on recentering. On iOS Safari a
@@ -41,8 +45,13 @@ export default function UserLocationMarker({
   const isZoomingRef = useRef(false);
   // Newest fix, read by the zoomend handler without re-subscribing the events.
   const latestLocationRef = useRef<LiveLocation | null>(null);
+  const onLocationRef = useRef(onLocation);
+  useEffect(() => {
+    onLocationRef.current = onLocation;
+  }, [onLocation]);
   useEffect(() => {
     latestLocationRef.current = location;
+    onLocationRef.current?.(location);
   }, [location]);
   // A hand-pan (mouse or touch drag) releases follow so the user can look
   // around freely; our own setView recenters don't fire dragstart, so they're

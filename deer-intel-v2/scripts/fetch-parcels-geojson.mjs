@@ -1071,6 +1071,11 @@ function buildHoldingLabels(summaries, changedOf = () => "") {
   return labels;
 }
 
+// The owner snapshot is only replaced when a county returns at least this
+// share of last build's named parcels (ignored for tiny previous snapshots).
+const SHRINK_GUARD_MIN_SHARE = 0.5;
+const SHRINK_GUARD_MIN_PARCELS = 500;
+
 async function fetchCounty(slug, outPath, labelPath) {
   const cfg = COUNTIES[slug];
   if (!cfg) throw new Error(`unknown county: ${slug}`);
@@ -1105,6 +1110,7 @@ async function fetchCounty(slug, outPath, labelPath) {
   if (layerUrl !== cfg.layerUrl) process.stderr.write(`${slug}: using ${layerUrl}\n`);
 
   let total = 0;
+  let namedParcels = 0;
   let addressLikeOwners = 0;
   const pageSize = cfg.pageSize || PAGE_SIZE;
   const skipped = { count: 0 };
@@ -1175,6 +1181,7 @@ async function fetchCounty(slug, outPath, labelPath) {
       const record = cfg.record ? cfg.record(p) : "";
       if (ADDRESS_LIKE_OWNER.test(owner)) addressLikeOwners += 1;
       if (owner) history.observe(pin, owner);
+      if (owner && pin) namedParcels += 1;
       out.write(
         `${JSON.stringify({
           type: "Feature",
@@ -1222,6 +1229,32 @@ async function fetchCounty(slug, outPath, labelPath) {
 
   await new Promise((resolve) => out.end(resolve));
 
+  // A county that came back empty is a broken fetch, not a county with no
+  // land: fail it so the build keeps last month's snapshot and says so.
+  if (total === 0) {
+    await rm(rawPath, { force: true });
+    throw new Error(`${slug}: the service returned no parcels`);
+  }
+
+  // A county that came back with far fewer named parcels than last month most
+  // likely stopped partway (a server cutting off paging). Its parcels still go
+  // on the map, but last month's owner snapshot is kept rather than replaced by
+  // a partial one, so next month's owner-change marks aren't thrown off.
+  const previousNamed = Object.keys(previous.snapshot.owners).length;
+  const shrank =
+    previousNamed >= SHRINK_GUARD_MIN_PARCELS &&
+    namedParcels < previousNamed * SHRINK_GUARD_MIN_SHARE;
+  if (shrank) {
+    process.stderr.write(
+      `${slug}: only ${namedParcels} named parcels vs ${previousNamed} last build; keeping the previous owner snapshot\n`,
+    );
+    if (process.env.GITHUB_ACTIONS) {
+      process.stdout.write(
+        `::warning title=Parcel county shrank::${slug} returned ${namedParcels} named parcels vs ${previousNamed} last build; previous owner snapshot kept\n`,
+      );
+    }
+  }
+
   // A source whose "owner" column is really street addresses (PA DEP's
   // Susquehanna rows were) would put wrong names on the map. Refuse it.
   if (total > 0 && addressLikeOwners / total > ADDRESS_LIKE_OWNER_MAX_SHARE) {
@@ -1241,7 +1274,7 @@ async function fetchCounty(slug, outPath, labelPath) {
   );
   if (historyOut) {
     const historyOutPath = join(historyOut, `${slug}.json.gz`);
-    if (previous.unreadable) carrySnapshotFile(historyInPath, historyOutPath);
+    if (previous.unreadable || shrank) carrySnapshotFile(historyInPath, historyOutPath);
     else writeSnapshotFile(historyOutPath, history.finish());
   }
 
