@@ -86,6 +86,15 @@ describe("stampRecordEdits", () => {
     );
   });
 
+  it("skips records passed back as the very same object", () => {
+    const before = state([{ id: "s1", name: "Oak" }, { id: "s2", name: "Pine" }]);
+    const incoming = { ...before, stands: [before.stands[0], { ...before.stands[1], name: "Big Pine" }] };
+    const after = normalizeState(incoming)!;
+    const result = stampRecordEdits(before, after, NOW, incoming);
+    expect("updatedAt" in result.stands[0]).toBe(false);
+    expect(stands(result)[1].updatedAt).toBe(NOW);
+  });
+
   it("leaves new records unstamped", () => {
     const before = state([{ id: "s1", name: "Oak" }]);
     const after = state([{ id: "s1", name: "Oak" }, { id: "s2", name: "New" }]);
