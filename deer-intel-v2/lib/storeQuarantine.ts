@@ -19,7 +19,7 @@ import { readStorageValue, writeStorageValue } from "@/lib/storage";
 export const QUARANTINE_STORAGE_KEY = "deer-intel:quarantine";
 export const QUARANTINE_LIMIT = 200;
 export const CORRUPT_STATE_KEY_PREFIX = "deer-intel:state.corrupt-";
-const CORRUPT_INDEX_KEY = "deer-intel:state.corrupt-index";
+const CORRUPT_INDEX_KEY = "deer-intel:corrupt-state-index";
 
 export type QuarantineEntry = {
   // Which list in the store the record came from (e.g. "pins").
