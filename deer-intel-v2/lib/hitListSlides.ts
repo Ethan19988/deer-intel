@@ -4,7 +4,7 @@ import { isActiveDeerProfile } from "@/lib/deerProfiles";
 import {
   describeDeerTimeWindow,
   getDeerProfileTimeline,
-  MIN_TIMED_FOR_PATTERN,
+  isClearTimeWindow,
 } from "@/lib/deerProfileTimeline";
 import { getPhotoBuckNames, getPhotoDeerProfileIds, photoRecordTime } from "@/lib/photos";
 import type { Camera } from "@/types/camera";
@@ -73,8 +73,11 @@ export function buildHitListSlides(input: {
       hunts: input.hunts,
       cameras: input.cameras,
     });
-    if (!timeWindow || timeWindow.sampleSize < MIN_TIMED_FOR_PATTERN) return null;
-    return describeDeerTimeWindow(timeWindow)?.title ?? null;
+    if (!timeWindow || !isClearTimeWindow(timeWindow)) return null;
+    // The card's title reads "Usually morning (5–10 AM)"; the slide phrases it
+    // itself ("Usually moves in the morning …"), so keep just the window.
+    const title = describeDeerTimeWindow(timeWindow)?.title ?? null;
+    return title ? title.replace(/^usually\s+/i, "") : null;
   };
   const propertyStands = (input.stands ?? []).filter((stand) => stand.propertyId === propertyId);
   const bestSitOf = (profile: DeerProfile): string | null => {

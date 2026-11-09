@@ -27,7 +27,21 @@ export type DeerTimeWindow = {
   count: number;
   /** Sightings that had a clock time (photos with a time, sits with an In). */
   sampleSize: number;
+  /** The next busiest window, for "no single time" wording. */
+  runnerUpLabel?: string;
+  runnerUpCount?: number;
+  /**
+   * True when one window clearly leads: at least 40% of timed sightings and
+   * ahead of the next window by more than one sighting. Otherwise the buck
+   * isn't "usually" anything yet.
+   */
+  clear?: boolean;
 };
+
+/** A window that clearly leads (see DeerTimeWindow.clear). */
+export function isClearTimeWindow(window: DeerTimeWindow | null): boolean {
+  return Boolean(window && window.clear !== false && window.sampleSize >= MIN_TIMED_FOR_PATTERN);
+}
 
 export type DeerProfileTimeline = {
   /** Formatted dates; "" when there's nothing to go on. */
@@ -118,6 +132,16 @@ export function describeDeerTimeWindow(
     };
   }
 
+  if (window.clear === false) {
+    const other = (window.runnerUpLabel ?? "").toLowerCase();
+    const both = other ? `${window.label.toLowerCase()} and ${other}` : window.label.toLowerCase();
+    return {
+      line: `No single time yet · ${both} (${window.count} and ${window.runnerUpCount ?? 0} of ${window.sampleSize} timed)`,
+      title: "No single time yet",
+      detail: `Seen in the ${both} about equally (${window.count} and ${window.runnerUpCount ?? 0} of ${window.sampleSize} timed sightings).`,
+    };
+  }
+
   return {
     line: `Usually ${when} · ${window.count} of ${window.sampleSize} timed`,
     title: `Usually ${when}`,
@@ -191,12 +215,20 @@ function commonTimeWindow(hours: (number | null)[]): DeerTimeWindow | null {
 
   // Ties go to the earlier window in the day's order.
   const top = counts.reduce((best, slot) => (slot.count > best.count ? slot : best));
+  const runnerUp = counts
+    .filter((slot) => slot !== top)
+    .reduce((best, slot) => (slot.count > best.count ? slot : best));
+  const clear =
+    top.count >= 0.4 * timed.length && top.count - runnerUp.count > 1;
 
   return {
     label: top.window.label,
     hours: top.window.hours,
     count: top.count,
     sampleSize: timed.length,
+    runnerUpLabel: runnerUp.window.label,
+    runnerUpCount: runnerUp.count,
+    clear,
   };
 }
 

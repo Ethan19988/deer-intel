@@ -402,6 +402,8 @@ function favoredWindOf(conditions: DeerConditionInsights): { wind: string; note:
 }
 
 function timePeriod(timeWindow: DeerTimeWindow | null): SitPeriod | null {
+  // No clear time of day: don't favor mornings or evenings.
+  if (timeWindow?.clear === false) return null;
   if (timeWindow?.label === "Morning") return "AM";
   if (timeWindow?.label === "Evening") return "PM";
   return null;

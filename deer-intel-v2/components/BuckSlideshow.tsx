@@ -11,8 +11,11 @@ const ADVANCE_MS = 5000;
 
 // "Evening" -> "in the evening", "Midday" -> "at midday".
 function movesPhrase(label: string): string {
-  const lower = label.toLowerCase();
-  return lower === "midday" || lower === "night" ? `at ${lower}` : `in the ${lower}`;
+  // Lower-case only the leading word, so "Morning (5–10 AM)" keeps its "AM".
+  const [first = "", ...rest] = label.split(" ");
+  const word = first.toLowerCase();
+  const tail = rest.length ? ` ${rest.join(" ")}` : "";
+  return word === "midday" || word === "night" ? `at ${word}${tail}` : `in the ${word}${tail}`;
 }
 
 // After a swipe or tap, give the hunter time to look before moving on.
