@@ -1,5 +1,7 @@
 "use client";
 
+import { readObservedRut } from "@/lib/observedRut";
+import { createStatsContext } from "@/lib/standStats";
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import Button from "@/components/ui/Button";
@@ -38,6 +40,7 @@ import { TEMPERATURE_UNIT_LABEL, useUnitPreferences } from "@/lib/units";
 import { usePropertyToday } from "@/lib/usePropertyToday";
 import {
   aiScoutToday,
+  buildAiScoutObservedRut,
   buildAiScoutSeason,
   buildAiScoutTargetSit,
   withTemperatureUnit,
@@ -285,6 +288,24 @@ export default function AIPage() {
         : undefined,
       // Before the clock is set the season context is a placeholder date.
       season: todayNow ? buildAiScoutSeason(seasonCtx) : undefined,
+      // What the hunter's own cameras and sits say about the rut (a hint next
+      // to the calendar phase; omitted when there isn't enough recent data).
+      observedRut: todayNow
+        ? buildAiScoutObservedRut(
+            readObservedRut({
+              now: todayNow,
+              photos: propertyPhotoRecords,
+              cameraChecks: propertyCameraChecks,
+              hunts: propertyHunts,
+              pins: propertyPins,
+              sunFor: createStatsContext({
+                lat: weatherPoint?.lat ?? selectedProperty.latitude,
+                lng: weatherPoint?.lng ?? selectedProperty.longitude,
+              }).sunFor,
+              calendarPhase: seasonCtx.phase,
+            }),
+          )
+        : undefined,
     });
     const contextHash = hashAiScoutContext(context);
     const now = Date.now();

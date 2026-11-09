@@ -3,6 +3,7 @@ import {
   describeDeerTimeWindow,
   formatDeerAge,
   getDeerProfileTimeline,
+  isClearTimeWindow,
 } from "@/lib/deerProfileTimeline";
 import { createHuntFromValues, newHuntFormValues, withHuntDeerProfileIds } from "@/lib/huntFormValues";
 import type { Camera } from "@/types/camera";
@@ -79,7 +80,7 @@ describe("getDeerProfileTimeline", () => {
 
   it("finds his most common time window from timed sightings", () => {
     // Evenings: two photos + the sit's 15:30 start; one morning; one date-only.
-    expect(timeline.timeWindow).toEqual({ label: "Evening", hours: "3–8 PM", count: 3, sampleSize: 4 });
+    expect(timeline.timeWindow).toMatchObject({ label: "Evening", hours: "3–8 PM", count: 3, sampleSize: 4, clear: true });
   });
 
   it("is empty for a buck with nothing linked", () => {
@@ -146,5 +147,22 @@ describe("formatDeerAge", () => {
     expect(formatDeerAge("4.5 years")).toBe("4.5 years");
     expect(formatDeerAge("Mature")).toBe("Mature");
     expect(formatDeerAge("")).toBe("");
+  });
+});
+
+describe("describeDeerTimeWindow without a clear leader", () => {
+  it("doesn't say 'usually' when two windows are about even", () => {
+    const text = describeDeerTimeWindow({
+      label: "Morning",
+      hours: "5–10 AM",
+      count: 4,
+      sampleSize: 12,
+      runnerUpLabel: "Evening",
+      runnerUpCount: 4,
+      clear: false,
+    });
+    expect(text?.title).toBe("No single time yet");
+    expect(text?.line).not.toMatch(/Usually/);
+    expect(isClearTimeWindow({ label: "Morning", hours: "", count: 4, sampleSize: 12, clear: false })).toBe(false);
   });
 });

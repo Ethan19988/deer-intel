@@ -8,11 +8,13 @@ import PhotoImage from "@/components/photos/PhotoImage";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import EmptyState from "@/components/ui/EmptyState";
 import { DeerIcon } from "@/components/ui/FieldIcons";
+import { buildBuckSitPlan } from "@/lib/buckSitPlan";
 import { buildHitListSlides } from "@/lib/hitListSlides";
 import { getDeerConditionInsights } from "@/lib/deerConditionInsights";
 import { getDeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
 import {
   deerProfileStatusLabel,
+  isActiveDeerProfile,
   partitionDeerProfileSummaries,
   type DeerProfileSummary,
 } from "@/lib/deerProfiles";
@@ -25,6 +27,8 @@ import type { DeerProfile } from "@/types/deerProfile";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { MapPin } from "@/types/mapPin";
 import type { PhotoRecord } from "@/types/photo";
+import type { Stand } from "@/types/stand";
+import type { ForecastDay } from "@/lib/liveWeather";
 
 type DeerProfilesSectionProps = {
   summaries: DeerProfileSummary[];
@@ -34,6 +38,11 @@ type DeerProfilesSectionProps = {
   cameraChecks: CameraCheck[];
   hunts: HuntLogEntry[];
   pins: MapPin[];
+  /** Stands and the live forecast for "Best sits for <name>"; optional. */
+  stands?: Stand[];
+  forecastDays?: ForecastDay[];
+  /** usePropertyToday's activeSitKey: sits before it are over. */
+  nextSitKey?: string;
   /** Buck to select first, e.g. from a Today hit-list link. */
   initialProfileId?: string;
 };
@@ -46,6 +55,9 @@ export default function DeerProfilesSection({
   cameraChecks,
   hunts,
   pins,
+  stands = [],
+  forecastDays = [],
+  nextSitKey,
   initialProfileId,
 }: DeerProfilesSectionProps) {
   // The hit list opens collapsed; a link that names a buck (?buck=) opens his.
@@ -177,6 +189,9 @@ export default function DeerProfilesSection({
               cameraChecks={cameraChecks}
               hunts={hunts}
               pins={pins}
+              stands={stands}
+              forecastDays={forecastDays}
+              nextSitKey={nextSitKey}
               deerProfiles={deerProfiles}
               onMerged={setSelectedProfileId}
             />
@@ -219,6 +234,9 @@ function SelectedBuck({
   cameraChecks,
   hunts,
   pins,
+  stands,
+  forecastDays,
+  nextSitKey,
   deerProfiles,
   onMerged,
 }: {
@@ -229,6 +247,9 @@ function SelectedBuck({
   cameraChecks: CameraCheck[];
   hunts: HuntLogEntry[];
   pins: MapPin[];
+  stands: Stand[];
+  forecastDays: ForecastDay[];
+  nextSitKey?: string;
   deerProfiles: DeerProfile[];
   onMerged: (targetId: string) => void;
 }) {
@@ -259,6 +280,20 @@ function SelectedBuck({
     hunts,
     cameras,
   });
+  // Only bucks still on the hit list get sit picks.
+  const sitPlan = isActiveDeerProfile(summary.profile)
+    ? buildBuckSitPlan({
+        profile: summary.profile,
+        photoRecords,
+        hunts,
+        cameras,
+        stands,
+        pins,
+        forecastDays,
+        nextSitKey,
+        conditions,
+      })
+    : undefined;
 
   return (
     <DeerProfileCard
@@ -269,6 +304,7 @@ function SelectedBuck({
       photos={buckPhotos}
       deerProfiles={deerProfiles}
       timeline={timeline}
+      sitPlan={sitPlan}
       actions={
         <DeerProfileActions
           profile={summary.profile}

@@ -4,6 +4,7 @@
 // him — the same explicit links the travel learning uses.
 
 import { formatDeerProfileDate } from "@/lib/deerProfiles";
+import { trustedPhotoDate } from "@/lib/photoDateTime";
 import { dateInputTime, photoLinksProfile } from "@/lib/photos";
 import type { Camera } from "@/types/camera";
 import type { DeerProfile } from "@/types/deerProfile";
@@ -26,7 +27,21 @@ export type DeerTimeWindow = {
   count: number;
   /** Sightings that had a clock time (photos with a time, sits with an In). */
   sampleSize: number;
+  /** The next busiest window, for "no single time" wording. */
+  runnerUpLabel?: string;
+  runnerUpCount?: number;
+  /**
+   * True when one window clearly leads: at least 40% of timed sightings and
+   * ahead of the next window by more than one sighting. Otherwise the buck
+   * isn't "usually" anything yet.
+   */
+  clear?: boolean;
 };
+
+/** A window that clearly leads (see DeerTimeWindow.clear). */
+export function isClearTimeWindow(window: DeerTimeWindow | null): boolean {
+  return Boolean(window && window.clear !== false && window.sampleSize >= MIN_TIMED_FOR_PATTERN);
+}
 
 export type DeerProfileTimeline = {
   /** Formatted dates; "" when there's nothing to go on. */
@@ -78,7 +93,8 @@ export function getDeerProfileTimeline({
     sitSightings: sits.length,
     cameras: cameraCounts(photos, cameras),
     timeWindow: commonTimeWindow([
-      ...photos.map((photo) => clockHour(photo.photoDate)),
+      // Only trusted capture times (not file-copy or date-only stamps).
+      ...photos.map((photo) => clockHour(trustedPhotoDate(photo))),
       ...sits.map((hunt) => clockHour(hunt.startTime)),
     ]),
   };
@@ -113,6 +129,16 @@ export function describeDeerTimeWindow(
       line: `${window.sampleSize} timed sighting so far: ${when}`,
       title: "No time pattern yet",
       detail: `Only ${window.sampleSize} timed sighting so far (${when}); a pattern needs at least ${MIN_TIMED_FOR_PATTERN}.`,
+    };
+  }
+
+  if (window.clear === false) {
+    const other = (window.runnerUpLabel ?? "").toLowerCase();
+    const both = other ? `${window.label.toLowerCase()} and ${other}` : window.label.toLowerCase();
+    return {
+      line: `No single time yet · ${both} (${window.count} and ${window.runnerUpCount ?? 0} of ${window.sampleSize} timed)`,
+      title: "No single time yet",
+      detail: `Seen in the ${both} about equally (${window.count} and ${window.runnerUpCount ?? 0} of ${window.sampleSize} timed sightings).`,
     };
   }
 
@@ -189,12 +215,20 @@ function commonTimeWindow(hours: (number | null)[]): DeerTimeWindow | null {
 
   // Ties go to the earlier window in the day's order.
   const top = counts.reduce((best, slot) => (slot.count > best.count ? slot : best));
+  const runnerUp = counts
+    .filter((slot) => slot !== top)
+    .reduce((best, slot) => (slot.count > best.count ? slot : best));
+  const clear =
+    top.count >= 0.4 * timed.length && top.count - runnerUp.count > 1;
 
   return {
     label: top.window.label,
     hours: top.window.hours,
     count: top.count,
     sampleSize: timed.length,
+    runnerUpLabel: runnerUp.window.label,
+    runnerUpCount: runnerUp.count,
+    clear,
   };
 }
 

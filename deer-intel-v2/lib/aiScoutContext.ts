@@ -7,6 +7,7 @@ import type {
   AiScoutConditions,
   AiScoutDeerProfileContext,
   AiScoutHuntContext,
+  AiScoutObservedRut,
   AiScoutRequestContext,
   AiScoutSeasonContext,
   AiScoutStandContext,
@@ -76,6 +77,8 @@ type BuildAiScoutContextInput = {
   /** The sit being planned (next sit), with forecast and legal light. */
   targetSit?: AiScoutTargetSit;
   season?: AiScoutSeasonContext;
+  /** The rut as read from the hunter's own recent data (buildAiScoutObservedRut). */
+  observedRut?: AiScoutObservedRut;
 };
 
 /**
@@ -97,6 +100,7 @@ export function buildAiScoutRequestContext({
   today,
   targetSit,
   season,
+  observedRut,
 }: BuildAiScoutContextInput): AiScoutRequestContext {
   const cameraNameById = new Map(cameras.map((camera) => [camera.id, camera.name]));
   // Only the strongest few terrain picks go to the model (see
@@ -246,6 +250,7 @@ export function buildAiScoutRequestContext({
     ...(today ? { today } : {}),
     ...(targetSit ? { targetSit } : {}),
     ...(season ? { season } : {}),
+    ...(observedRut ? { observedRut } : {}),
     conditions,
     stands: standContexts,
     recentHunts,

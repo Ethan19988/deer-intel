@@ -11,6 +11,8 @@ import { useSyncExternalStore } from "react";
 export type NotificationPrefs = {
   coldFront: boolean;
   goodWind: boolean;
+  /** Opt-in: the day before a state deer-season opener (lib/seasonDates). */
+  seasonOpener: boolean;
 };
 
 export type NotificationPermissionState =
@@ -25,6 +27,7 @@ const DEDUPE_STORAGE_KEY = "deer-intel:notified";
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   coldFront: true,
   goodWind: true,
+  seasonOpener: false,
 };
 
 // --- Capability + permission -----------------------------------------------
@@ -62,6 +65,10 @@ function parsePrefs(raw: string | null): NotificationPrefs {
         typeof parsed.goodWind === "boolean"
           ? parsed.goodWind
           : DEFAULT_NOTIFICATION_PREFS.goodWind,
+      seasonOpener:
+        typeof parsed.seasonOpener === "boolean"
+          ? parsed.seasonOpener
+          : DEFAULT_NOTIFICATION_PREFS.seasonOpener,
     };
   } catch {
     return DEFAULT_NOTIFICATION_PREFS;

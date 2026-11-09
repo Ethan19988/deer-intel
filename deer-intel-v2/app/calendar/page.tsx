@@ -11,6 +11,7 @@ import CalendarDayList from "@/components/calendar/CalendarDayList";
 import { updateDeerIntelStore, useDeerIntelStore } from "@/lib/deerIntelStore";
 import {
   buildCalendarEvents,
+  buildSeasonCalendarEvents,
   CALENDAR_KINDS,
   CALENDAR_KIND_META,
   dateToDayKey,
@@ -18,6 +19,27 @@ import {
   type CalendarEventKind,
 } from "@/lib/calendarEvents";
 import { addMonths, buildMonthGrid, monthLabel } from "@/lib/calendarGrid";
+import { seasonStateForPoint, type SeasonStateCode } from "@/lib/seasonDates";
+import { hasPropertyCoordinate } from "@/lib/propertyLocation";
+import type { Property } from "@/types/property";
+
+// The state(s) whose deer-season dates to mark: the picked property's state,
+// or every state among the properties when showing all (PA by default).
+function seasonStatesFor(
+  properties: Property[],
+  propertyId: string | "all",
+): SeasonStateCode[] {
+  const inView =
+    propertyId === "all"
+      ? properties
+      : properties.filter((property) => property.id === propertyId);
+  const states = inView.map((property) =>
+    hasPropertyCoordinate(property)
+      ? seasonStateForPoint({ lat: property.latitude, lng: property.longitude })
+      : "PA",
+  );
+  return states.length > 0 ? [...new Set(states)] : ["PA"];
+}
 
 export default function CalendarPage() {
   const state = useDeerIntelStore();
@@ -64,9 +86,15 @@ export default function CalendarPage() {
     setNow(new Date());
   }, []);
 
+  const seasonStatesKey = seasonStatesFor(state.properties, propertyId).join(",");
   const events = useMemo(
-    () => buildCalendarEvents(state, propertyId),
-    [state, propertyId],
+    () => [
+      ...buildCalendarEvents(state, propertyId),
+      ...buildSeasonCalendarEvents(
+        seasonStatesKey.split(",") as SeasonStateCode[],
+      ),
+    ],
+    [state, propertyId, seasonStatesKey],
   );
   const eventsByDay = useMemo(() => groupEventsByDay(events), [events]);
 
@@ -86,6 +114,7 @@ export default function CalendarPage() {
       sighting: 0,
       pin: 0,
       walk: 0,
+      season: 0,
     };
     if (!view) return counts;
 
@@ -136,7 +165,7 @@ export default function CalendarPage() {
         eyebrow="Season record"
         title="Calendar"
         icon={<CalendarIcon size={22} />}
-        description="Everything you've marked, by the day — sits, camera checks, sightings, map marks, and walks. It builds the story of your ground season over season."
+        description="Everything you've marked, by the day — sits, camera checks, sightings, map marks, and walks, plus the state's deer-season openers and closers. It builds the story of your ground season over season."
         action={
           <select
             aria-label="Property"

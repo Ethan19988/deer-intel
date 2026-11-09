@@ -34,6 +34,8 @@ export const PERSONAL_DATA_KEYS: readonly string[] = [
   "deer-intel:notified",
   // Account-level settings cache (lib/accountSettings).
   "deer-intel:account-settings",
+  // Last offline field pack (property name, save time) — lib/fieldPack.
+  "deer-intel:field-pack",
 ];
 
 /** Key prefixes for per-property / per-account personal entries. */

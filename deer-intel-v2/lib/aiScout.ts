@@ -41,7 +41,9 @@ Rules:
   hunts: weigh each stand's bestTime and the morning/evening "sit" tag on past hunts.
 - Weigh the sit's wind against each stand's noted best/avoid winds and recent activity when
   picking a recommendation. Use season.rutPhase and daysToPeak for what deer are doing now
-  (peakIsEstimate means the peak date is an estimate).
+  (peakIsEstimate means the peak date is an estimate). When observedRut is present it is what the
+  hunter's own cameras and sits suggest on this ground; treat it as a hint alongside the
+  calendar phase (say "your cameras suggest…"), never as certain.
 - Location facts are precomputed: each stand lists nearestCameras (within 800 yd) and
   nearbyTerrain (predicted spots within 400 yd), with yards. Only call a camera or terrain spot
   "near" a stand when it appears in that stand's lists. Stands with located=false have no map

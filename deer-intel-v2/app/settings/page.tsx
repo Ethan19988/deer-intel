@@ -17,6 +17,7 @@ import AccountPanel from "@/components/auth/AccountPanel";
 import DataPrivacyManager from "@/components/settings/DataPrivacyManager";
 import DataRecoveryNotices from "@/components/settings/DataRecoveryNotices";
 import NotificationsManager from "@/components/settings/NotificationsManager";
+import { setNotificationPref, useNotificationPrefs } from "@/lib/notifications";
 import OfflineMapsManager from "@/components/settings/OfflineMapsManager";
 import TerrainToolsManager from "@/components/settings/TerrainToolsManager";
 import { ICON_CREDITS } from "@/lib/pinGlyphs";
@@ -646,6 +647,7 @@ export default function SettingsPage() {
     <Section eyebrow="Notifications" title="Field Alerts">
       <Card as="div" variant="subtle">
         <NotificationsManager />
+        <SeasonOpenerToggle />
       </Card>
     </Section>
   );
@@ -1206,4 +1208,81 @@ const successTextStyle: CSSProperties = {
   margin: "0.85rem 0 0",
   color: "var(--success-text)",
   lineHeight: 1.5,
+};
+
+// Opt-in alert the day before a PA / MD deer-season opener (fired from the
+// Today season card). Kept here rather than in NotificationsManager; it only
+// fires once notifications are allowed above.
+function SeasonOpenerToggle() {
+  const prefs = useNotificationPrefs();
+  const on = prefs.seasonOpener;
+
+  return (
+    <div style={seasonToggleRowStyle}>
+      <div style={{ minWidth: 0 }}>
+        <p style={seasonToggleLabelStyle}>Season opener reminder</p>
+        <p style={seasonToggleDescStyle}>
+          The day before a deer season opens (archery, muzzleloader, rifle,
+          flintlock). Needs notifications allowed above.
+        </p>
+      </div>
+      <button
+        type="button"
+        aria-pressed={on}
+        onClick={() => setNotificationPref("seasonOpener", !on)}
+        style={{
+          ...seasonToggleButtonStyle,
+          ...(on ? seasonToggleOnStyle : null),
+        }}
+      >
+        {on ? "On" : "Off"}
+      </button>
+    </div>
+  );
+}
+
+const seasonToggleRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  marginTop: "0.6rem",
+  padding: "0.65rem 0.75rem",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--surface)",
+};
+
+const seasonToggleLabelStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "0.92rem",
+  fontWeight: 800,
+};
+
+const seasonToggleDescStyle: CSSProperties = {
+  margin: "0.15rem 0 0",
+  color: "var(--text-muted)",
+  fontSize: "0.8rem",
+  lineHeight: 1.4,
+};
+
+const seasonToggleButtonStyle: CSSProperties = {
+  flex: "0 0 auto",
+  minWidth: "64px",
+  minHeight: "44px",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "var(--radius-sm)",
+  background: "transparent",
+  color: "var(--text-muted)",
+  fontFamily: "var(--font-display), \"Arial Narrow\", sans-serif",
+  fontSize: "1.05rem",
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  cursor: "pointer",
+};
+
+const seasonToggleOnStyle: CSSProperties = {
+  borderColor: "var(--accent)",
+  background: "var(--accent)",
+  color: "var(--accent-fg)",
 };

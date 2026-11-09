@@ -11,8 +11,11 @@ const ADVANCE_MS = 5000;
 
 // "Evening" -> "in the evening", "Midday" -> "at midday".
 function movesPhrase(label: string): string {
-  const lower = label.toLowerCase();
-  return lower === "midday" || lower === "night" ? `at ${lower}` : `in the ${lower}`;
+  // Lower-case only the leading word, so "Morning (5–10 AM)" keeps its "AM".
+  const [first = "", ...rest] = label.split(" ");
+  const word = first.toLowerCase();
+  const tail = rest.length ? ` ${rest.join(" ")}` : "";
+  return word === "midday" || word === "night" ? `at ${word}${tail}` : `in the ${word}${tail}`;
 }
 
 // After a swipe or tap, give the hunter time to look before moving on.
@@ -106,6 +109,7 @@ export default function BuckSlideshow({
                 {slide.lastSeen ? <span>Last seen {slide.lastSeen}</span> : <span>No photos yet</span>}
                 {slide.usualTime ? <span>Usually moves {movesPhrase(slide.usualTime)}</span> : null}
               </span>
+              {slide.bestSit ? <span style={bestSitStyle}>{slide.bestSit}</span> : null}
             </span>
           </Link>
         ))}
@@ -247,6 +251,22 @@ const factsStyle: CSSProperties = {
   color: "rgba(246, 240, 220, 0.86)",
   fontSize: "0.88rem",
   fontWeight: 600,
+};
+
+// The best-sit call from lib/buckSitPlan: one mono line, blaze-marked as the
+// thing on the slide worth acting on.
+const bestSitStyle: CSSProperties = {
+  justifySelf: "start",
+  marginTop: "0.25rem",
+  padding: "0.2rem 0.5rem",
+  borderLeft: "3px solid var(--accent-2)",
+  background: "rgba(10, 14, 10, 0.55)",
+  color: "#f6f0dc",
+  fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+  fontSize: "0.74rem",
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  overflowWrap: "anywhere",
 };
 
 const dotsStyle: CSSProperties = {

@@ -86,9 +86,14 @@ async function warmBuildAssets(cache) {
     seen.add(asset);
 
     try {
-      const response = await fetch(asset);
-      if (!response.ok) continue;
-      await cache.put(asset, response.clone());
+      // Already saved (a re-warm from the field pack): read it from the cache
+      // for the chunks it loads instead of downloading it again.
+      let response = await cache.match(asset);
+      if (!response) {
+        response = await fetch(asset);
+        if (!response.ok) continue;
+        await cache.put(asset, response.clone());
+      }
       if (asset.endsWith(".js")) {
         for (const next of assetPaths(await response.text())) {
           if (!seen.has(next)) queue.push(next);
@@ -122,6 +127,33 @@ self.addEventListener("install", (event) => {
 // over; the page reloads on the resulting controllerchange.
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
+  // "Get ready for the field" (lib/fieldPack): refresh the saved copy of every
+  // precached page plus their chunks now, while there's signal, and answer on
+  // the message port with which pages are saved.
+  if (event.data && event.data.type === "WARM_PAGES") {
+    const port = event.ports && event.ports[0];
+    event.waitUntil(
+      (async () => {
+        const cache = await caches.open(CACHE);
+        const saved = {};
+        for (const path of PRECACHE) {
+          try {
+            const response = await fetch(path, { cache: "no-store" });
+            if (response.ok) {
+              await cache.put(path, response);
+              saved[path] = true;
+              continue;
+            }
+          } catch {
+            // No signal: fall through to whatever copy is already saved.
+          }
+          saved[path] = Boolean(await cache.match(path));
+        }
+        await warmBuildAssets(cache).catch(() => undefined);
+        if (port) port.postMessage({ type: "WARM_PAGES_DONE", saved: saved });
+      })(),
+    );
+  }
 });
 
 self.addEventListener("activate", (event) => {

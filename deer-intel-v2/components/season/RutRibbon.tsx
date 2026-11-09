@@ -1,15 +1,19 @@
 import type { CSSProperties } from "react";
 import type { RutPhase } from "@/lib/seasonCalendar";
+import ObservedRutLine from "@/components/season/ObservedRutLine";
 
 // A season timeline for the whitetail rut: nine phases left→right, with the
 // current one lit in blaze, the phases already behind you tinted green, and a
 // countdown to peak. Fed straight from getSeasonContext so it never disagrees
-// with the app's other rut cues.
+// with the app's other rut cues. Under it, "On your ground" reads the rut from
+// the hunter's own recent photos and sits (ObservedRutLine).
 
 type RutRibbonProps = {
   phase: RutPhase;
   phaseLabel: string;
   daysToPeak: number;
+  /** Property whose photos/sits feed "On your ground"; defaults to the selected one. */
+  propertyId?: string;
 };
 
 const PHASES: Array<{ key: RutPhase; short: string }> = [
@@ -38,6 +42,7 @@ export default function RutRibbon({
   phase,
   phaseLabel,
   daysToPeak,
+  propertyId,
 }: RutRibbonProps) {
   const activeIndex = PHASES.findIndex((entry) => entry.key === phase);
 
@@ -79,6 +84,8 @@ export default function RutRibbon({
           );
         })}
       </div>
+
+      <ObservedRutLine propertyId={propertyId} calendarPhase={phase} />
     </section>
   );
 }

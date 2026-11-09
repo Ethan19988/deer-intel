@@ -14,6 +14,7 @@ import { useDeerIntelStore } from "@/lib/deerIntelStore";
 import { usePartyBucks, usePartyBuckPhotos, usePartyRoster } from "@/lib/useParty";
 import DeerProfilesSection from "@/components/deer/DeerProfilesSection";
 import { getDeerProfileSummaries, isActiveDeerProfile } from "@/lib/deerProfiles";
+import { usePropertyToday } from "@/lib/usePropertyToday";
 import type { PartyBuck } from "@/types/party";
 
 type Stat = { label: string; value: string };
@@ -41,6 +42,8 @@ export default function HitListPage() {
     state.properties.find((item) => item.id === state.selectedPropertyId) ??
     state.properties[0];
   const propertyId = property?.id ?? "";
+  // Same forecast and next-sit key as Today, for each buck's "Best sits".
+  const { forecast, activeSitKey } = usePropertyToday(propertyId);
   const propertyPhotos = state.photoRecords.filter((photo) => photo.propertyId === propertyId);
   const summaries = getDeerProfileSummaries({
     profiles: state.deerProfiles.filter((profile) => profile.propertyId === propertyId),
@@ -84,6 +87,9 @@ export default function HitListPage() {
             cameraChecks={state.cameraChecks.filter((check) => check.propertyId === propertyId)}
             hunts={state.hunts.filter((hunt) => hunt.propertyId === propertyId)}
             pins={state.pins.filter((pin) => pin.propertyId === propertyId)}
+            stands={state.stands.filter((stand) => stand.propertyId === propertyId)}
+            forecastDays={forecast?.days ?? []}
+            nextSitKey={activeSitKey || undefined}
           />
         </ErrorBoundary>
       ) : null}

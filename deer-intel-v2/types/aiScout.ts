@@ -44,6 +44,24 @@ export type AiScoutSeasonContext = {
   peakIsEstimate: boolean;
 };
 
+/**
+ * The rut as read from the hunter's own recent photos, sits and sign on this
+ * property (lib/observedRut) — a hint, not a fact; "unclear" when thin.
+ */
+export type AiScoutObservedRut = {
+  /** "Chasing", "Lockdown", … or "Unclear". */
+  phase: string;
+  confidence: "low" | "medium" | "high";
+  /** Deer photos + sightings in the window. */
+  sampleSize: number;
+  windowDays: number;
+  /** e.g. "3 chasing photos in 10 days". */
+  evidence: string[];
+  /** "ahead of the calendar" / "behind the calendar" when it differs. */
+  vsCalendar?: string;
+  summary: string;
+};
+
 /** A camera close to a stand, by straight-line distance. */
 export type AiScoutNearbyCamera = { name: string; yards: number };
 
@@ -151,6 +169,8 @@ export type AiScoutRequestContext = {
   /** The sit this plan is for, with its forecast and legal light. */
   targetSit?: AiScoutTargetSit;
   season?: AiScoutSeasonContext;
+  /** The rut as the hunter's own cameras/sits read it (see AiScoutObservedRut). */
+  observedRut?: AiScoutObservedRut;
   conditions: AiScoutConditions;
   stands: AiScoutStandContext[];
   recentHunts: AiScoutHuntContext[];

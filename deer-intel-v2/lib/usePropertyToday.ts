@@ -187,6 +187,9 @@ export function usePropertyToday(propertyId: string) {
         cameraChecks: state.cameraChecks,
         hunts: state.hunts,
         pins: state.pins,
+        stands: state.stands,
+        forecastDays,
+        nextSitKey: activeSitKey || undefined,
       })
     : [];
 

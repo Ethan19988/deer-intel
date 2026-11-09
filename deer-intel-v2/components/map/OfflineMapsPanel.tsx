@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { formatOfflineSize, type OfflineMapPack } from "@/lib/offlineMaps";
 import OfflineDownloadStatus, {
   type OfflineStatus,
@@ -17,6 +17,8 @@ type OfflineMapsPanelProps = {
   onConfirm: () => void;
   onCancel: () => void;
   onDelete: (id: string) => void;
+  /** The "Get ready for the field" card (FieldPackCard), shown first. */
+  fieldPackSection?: ReactNode;
 };
 
 export default function OfflineMapsPanel({
@@ -28,6 +30,7 @@ export default function OfflineMapsPanel({
   onConfirm,
   onCancel,
   onDelete,
+  fieldPackSection,
 }: OfflineMapsPanelProps) {
   if (!supported) {
     return (
@@ -43,6 +46,8 @@ export default function OfflineMapsPanel({
 
   return (
     <div style={wrapStyle}>
+      {fieldPackSection}
+
       <p style={helpStyle}>
         Save the <strong>{layerLabel}</strong> map for a spot so it still loads
         with no signal in the field.
@@ -65,9 +70,9 @@ export default function OfflineMapsPanel({
       </p>
 
       <p style={hintStyle}>
-        <strong>iPhone:</strong> maps saved in Safari aren&apos;t shared with the
-        Home Screen app (or the other way round). Download them from the one
-        you&apos;ll open in the field.
+        <strong>iPhone:</strong> maps and the field pack saved in Safari
+        aren&apos;t shared with the Home Screen app (or the other way round).
+        Save them from the one you&apos;ll open in the field.
       </p>
 
       <OfflineDownloadStatus

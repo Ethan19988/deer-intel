@@ -37,11 +37,14 @@ export async function GET(request: Request) {
   const bbox = parseBbox(searchParams);
   const geom = resolveGrid(lat, lng, bbox);
 
+  // Keyed by the ground only: the cached read is shared by everyone asking for
+  // this spot, so the caller's own `name` is re-applied per request (below)
+  // rather than the first requester's property name leaking to the next.
   const key = bbox
     ? `${geom.centerLat.toFixed(4)},${geom.centerLng.toFixed(4)}@${Math.round(geom.spacingM)}`
     : `${lat.toFixed(4)},${lng.toFixed(4)}`;
   if (cache.has(key)) {
-    return json(cache.get(key) ?? null);
+    return json(withAreaName(cache.get(key) ?? null, areaName));
   }
 
   // Each uncached read makes several calls to free elevation services.
@@ -116,6 +119,14 @@ function resolveGrid(lat: number, lng: number, bbox: Bbox | null) {
   // Floor the spacing so a tiny outline can't collapse below the data grain.
   const spacingM = Math.max(sideM / (GRID_N - 1), 30);
   return { centerLat, centerLng, spacingM };
+}
+
+/** The shared cached read, labeled with this request's property name. */
+function withAreaName(
+  set: TerrainMovementSet | null,
+  areaName: string,
+): TerrainMovementSet | null {
+  return set ? { ...set, areaName } : null;
 }
 
 function json(set: TerrainMovementSet | null) {

@@ -19,6 +19,18 @@ type Stored = { key: string; savedAt: number; day?: string; forecast: LiveForeca
 
 export type ForecastSnapshot = { forecast: LiveForecast; savedAt: number };
 
+/**
+ * The snapshot key for a spot and the units its numbers are in — the same
+ * `lat,lng|temp|wind` shape usePropertyToday reads, so a forecast saved by the
+ * field pack is the one Today and the map pick up offline.
+ */
+export function forecastSnapshotKey(
+  point: { lat: number; lng: number },
+  units: { temperature: string; wind: string },
+): string {
+  return `${point.lat},${point.lng}|${units.temperature}|${units.wind}`;
+}
+
 function localDateKey(ms: number): string {
   const date = new Date(ms);
   const month = String(date.getMonth() + 1).padStart(2, "0");
