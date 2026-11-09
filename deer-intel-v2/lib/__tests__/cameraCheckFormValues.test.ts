@@ -11,6 +11,7 @@ import {
 import {
   addCameraCheckToState,
   deleteCameraCheckFromState,
+  lastCheckedLabel,
   latestCheckForCamera,
   updateCameraCheckInState,
 } from "@/lib/cameraChecks";
@@ -183,5 +184,23 @@ describe("camera check state transforms", () => {
 
     expect(latestCheckForCamera([check, older, otherCamera], "cam1")?.id).toBe("c1");
     expect(latestCheckForCamera([otherCamera], "cam1")).toBeNull();
+  });
+});
+
+describe("lastCheckedLabel", () => {
+  const now = new Date(2026, 10, 8, 9, 30);
+
+  it("says today / yesterday for recent checks", () => {
+    expect(lastCheckedLabel({ ...check, date: "2026-11-08" }, now)).toBe(
+      "Checked today",
+    );
+    expect(lastCheckedLabel({ ...check, date: "2026-11-07" }, now)).toBe(
+      "Checked yesterday",
+    );
+  });
+
+  it("formats older checks and handles none", () => {
+    expect(lastCheckedLabel(check, now)).toBe("Checked Nov 2, 2026");
+    expect(lastCheckedLabel(null, now)).toBe("Never checked");
   });
 });

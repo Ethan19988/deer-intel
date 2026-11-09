@@ -137,6 +137,28 @@ export function formatCameraCheckDate(date: string | undefined) {
   }).format(time);
 }
 
+/**
+ * Short "last checked" text for a camera row: "Checked today",
+ * "Checked yesterday", "Checked Nov 2, 2026", or "Never checked".
+ */
+export function lastCheckedLabel(
+  check: CameraCheck | null | undefined,
+  now: Date = new Date(),
+) {
+  if (!check?.date) return "Never checked";
+
+  const time = dateInputTime(check.date);
+  if (Number.isNaN(time)) return `Checked ${check.date}`;
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((today.getTime() - time) / 86_400_000);
+
+  if (days === 0) return "Checked today";
+  if (days === 1) return "Checked yesterday";
+
+  return `Checked ${formatCameraCheckDate(check.date)}`;
+}
+
 function checkTime(check: CameraCheck) {
   // "YYYY-MM-DD" is local midnight, not UTC (a day early in the US).
   const time = dateInputTime(check.date);
