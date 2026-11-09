@@ -4,6 +4,7 @@
 // him — the same explicit links the travel learning uses.
 
 import { formatDeerProfileDate } from "@/lib/deerProfiles";
+import { trustedPhotoDate } from "@/lib/photoDateTime";
 import { dateInputTime, photoLinksProfile } from "@/lib/photos";
 import type { Camera } from "@/types/camera";
 import type { DeerProfile } from "@/types/deerProfile";
@@ -78,7 +79,8 @@ export function getDeerProfileTimeline({
     sitSightings: sits.length,
     cameras: cameraCounts(photos, cameras),
     timeWindow: commonTimeWindow([
-      ...photos.map((photo) => clockHour(photo.photoDate)),
+      // Only trusted capture times (not file-copy or date-only stamps).
+      ...photos.map((photo) => clockHour(trustedPhotoDate(photo))),
       ...sits.map((hunt) => clockHour(hunt.startTime)),
     ]),
   };
