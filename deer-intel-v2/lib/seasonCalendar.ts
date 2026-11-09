@@ -359,3 +359,29 @@ function getServerSnapshot(): SeasonCalendarPrefs {
 export function useSeasonCalendar(): SeasonCalendarPrefs {
   return useSyncExternalStore(subscribe, readSeasonCalendar, getServerSnapshot);
 }
+
+// --- phase order ---------------------------------------------------------------
+
+/** The in-season phases in calendar order (off-season sits outside the line). */
+const RUT_TIMELINE: readonly RutPhase[] = [
+  "early",
+  "pre-rut",
+  "seeking",
+  "chasing",
+  "peak",
+  "lockdown",
+  "post-rut",
+  "late",
+];
+
+/**
+ * How many phases `observed` sits after `calendar` on the season timeline:
+ * positive = ahead of the calendar, negative = behind, 0 = same. Null when
+ * either is off-season (no meaningful order to compare).
+ */
+export function rutPhaseSteps(calendar: RutPhase, observed: RutPhase): number | null {
+  const from = RUT_TIMELINE.indexOf(calendar);
+  const to = RUT_TIMELINE.indexOf(observed);
+  if (from < 0 || to < 0) return null;
+  return to - from;
+}

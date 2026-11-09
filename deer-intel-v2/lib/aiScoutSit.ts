@@ -3,10 +3,15 @@
 // and where the rut stands. Pure so it can be unit-tested.
 
 import type { LiveForecast } from "@/lib/liveWeather";
+import type { ObservedRutRead } from "@/lib/observedRut";
 import type { SeasonContext } from "@/lib/seasonCalendar";
 import { localDateKey } from "@/lib/standPressure";
 import type { TodayVerdict } from "@/lib/todayVerdict";
-import type { AiScoutSeasonContext, AiScoutTargetSit } from "@/types/aiScout";
+import type {
+  AiScoutObservedRut,
+  AiScoutSeasonContext,
+  AiScoutTargetSit,
+} from "@/types/aiScout";
 
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -65,5 +70,35 @@ export function buildAiScoutSeason(
     ...(season.phaseHint ? { rutPhaseHint: season.phaseHint } : {}),
     daysToPeak: season.daysToPeak,
     peakIsEstimate: !season.peakIsCustom,
+  };
+}
+
+/**
+ * The rut as the hunter's own cameras read it, for the scout. Omitted (undefined)
+ * when there wasn't enough recent data to read, so the model leans on the
+ * calendar instead of an empty guess.
+ */
+export function buildAiScoutObservedRut(
+  read: Pick<
+    ObservedRutRead,
+    | "enoughData"
+    | "phaseLabel"
+    | "confidence"
+    | "sampleSize"
+    | "windowDays"
+    | "evidence"
+    | "calendarNote"
+    | "summary"
+  > | null | undefined,
+): AiScoutObservedRut | undefined {
+  if (!read || !read.enoughData) return undefined;
+  return {
+    phase: read.phaseLabel,
+    confidence: read.confidence,
+    sampleSize: read.sampleSize,
+    windowDays: read.windowDays,
+    evidence: read.evidence.slice(0, 5),
+    ...(read.calendarNote ? { vsCalendar: read.calendarNote } : {}),
+    summary: read.summary,
   };
 }
