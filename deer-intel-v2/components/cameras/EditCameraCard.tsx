@@ -8,6 +8,7 @@ import {
   createCameraFromValues,
 } from "@/lib/cameraFormValues";
 import { updateDeerIntelStore } from "@/lib/deerIntelStore";
+import { retargetCameraPhotoHeadings } from "@/lib/photoHeading";
 import type { Camera } from "@/types/camera";
 
 // Edit a camera site in place on the Cameras page (this used to live in the
@@ -32,6 +33,14 @@ export default function EditCameraCard({
     updateDeerIntelStore((current) => ({
       ...current,
       cameras: current.cameras.map((item) => (item.id === camera.id ? updated : item)),
+      // Re-pointing the camera changes every AI-derived compass heading on its
+      // photos; headings the hunter set by hand are kept.
+      photoRecords: retargetCameraPhotoHeadings(
+        current.photoRecords,
+        camera.id,
+        current.cameras.find((item) => item.id === camera.id)?.facingDirection,
+        updated.facingDirection,
+      ),
     }));
     onDone();
   }

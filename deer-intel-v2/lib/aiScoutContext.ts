@@ -146,7 +146,17 @@ export function buildAiScoutRequestContext({
       notes: truncate(profile.notes),
     }));
 
-  const recentBuckPhotos: AiScoutBuckPhotoContext[] = [...photoRecords]
+  // What each buck photo tells the scout beyond the date: behavior, travel
+  // heading, how many deer, and the judged age / points. (Extra keys ride
+  // along in the JSON the scout reads.)
+  type ScoutBuckPhoto = AiScoutBuckPhotoContext & {
+    behavior?: string;
+    travelDirection?: string;
+    deerCount?: number;
+    ageClass?: string;
+    antlerPoints?: number;
+  };
+  const recentBuckPhotos: ScoutBuckPhoto[] = [...photoRecords]
     .filter(
       (photo) =>
         photo.species.trim().toLowerCase().includes("buck") ||
@@ -154,19 +164,32 @@ export function buildAiScoutRequestContext({
     )
     .sort((left, right) => recordTime(right.photoDate) - recordTime(left.photoDate))
     .slice(0, MAX_RECENT_BUCK_PHOTOS)
-    .map((photo) => ({
-      date: photo.photoDate,
-      cameraName: cameraNameById.get(photo.cameraSiteId) ?? "Camera site",
-      species: photo.species,
-      buckName: photo.buckName,
-      // The conditions this photo was taken in — captured at import from the
-      // photo's stamp or weather history — so the scout can pattern movement
-      // against temperature, wind, and moon.
-      temperature: photo.weatherSnapshot?.temperature || undefined,
-      windDirection: photo.weatherSnapshot?.windDirection || undefined,
-      moonPhase: photo.weatherSnapshot?.moonPhase || undefined,
-      notes: truncate(photo.notes),
-    }));
+    .map((photo) => {
+      // A time from the file's modified date or a date-only stamp isn't the
+      // shutter time, so the scout only gets the day for those.
+      const timeTrusted =
+        photo.captureTimeSource !== "file" &&
+        photo.captureTimeSource !== "stampDate";
+
+      return {
+        date: timeTrusted ? photo.photoDate : photo.photoDate.slice(0, 10),
+        cameraName: cameraNameById.get(photo.cameraSiteId) ?? "Camera site",
+        species: photo.species,
+        buckName: photo.buckName,
+        behavior: photo.behavior || undefined,
+        travelDirection: photo.travelDirection || undefined,
+        deerCount: photo.deerCount,
+        ageClass: photo.ageClass,
+        antlerPoints: photo.antlerPoints,
+        // The conditions this photo was taken in — captured at import from the
+        // photo's stamp or weather history — so the scout can pattern movement
+        // against temperature, wind, and moon.
+        temperature: photo.weatherSnapshot?.temperature || undefined,
+        windDirection: photo.weatherSnapshot?.windDirection || undefined,
+        moonPhase: photo.weatherSnapshot?.moonPhase || undefined,
+        notes: truncate(photo.notes),
+      };
+    });
 
   return {
     property: {
