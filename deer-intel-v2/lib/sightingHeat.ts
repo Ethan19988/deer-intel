@@ -1,9 +1,13 @@
 // Sighting heat — where deer have ACTUALLY shown up on a property, from the
 // hunter's own records (not the predictive Deer Heat surface in lib/deerHeat):
-//  - hunt sits, placed at the stand's map pin, weighted by deer seen;
-//  - trail-camera photos, placed at the camera site, one hit per deer photo;
+//  - hunt sits, placed at the stand's map pin, weighted by deer seen PER SIT
+//    (so a stand sat 20 times doesn't outshine a better one sat twice);
+//  - trail-camera photos, placed at the camera site, one hit per deer VISIT
+//    (a burst of photos within 10 minutes on one camera is one visit);
 //  - camera checks (card-swap tallies) for cameras that have no individual
 //    photos logged, so the same deer are never counted twice.
+// Stands and cameras measure different things (deer per sit vs. visits on a
+// card), so each kind's intensity is scaled against its own hottest spot.
 // Filterable by time of day and rut phase. Timed photos can be split morning /
 // evening / night; date-only photos and checks (swap date only) count under
 // "any time" and are left out whenever a time-of-day filter is on.
@@ -57,9 +61,12 @@ export type HeatSpot = {
   bucks: number;
   /** Sits (stand) or photo hits / checks (camera) behind this spot. */
   observations: number;
-  /** Raw weight under the chosen weighting (deer or bucks). */
+  /**
+   * Raw weight under the chosen weighting (deer or bucks): per sit for a
+   * stand, per visit/tally for a camera.
+   */
   weight: number;
-  /** weight relative to the hottest spot, 0-1. */
+  /** weight relative to the hottest spot of the same kind, 0-1. */
   intensity: number;
 };
 
@@ -71,6 +78,9 @@ export type HeatInput = {
   cameraChecks: CameraCheck[];
   photos: PhotoRecord[];
 };
+
+/** Photos on one camera closer together than this are a single visit. */
+export const PHOTO_BURST_MS = 10 * 60_000;
 
 export const STAND_HEAT_RADIUS_M = 90;
 export const CAMERA_HEAT_RADIUS_M = 110;
@@ -145,7 +155,8 @@ export function buildSightingHeat(
       deer,
       bucks,
       observations: sits,
-      weight: weightOf(deer, bucks),
+      // Per sit: effort-normalized, so more sits alone don't make a hot stand.
+      weight: weightOf(deer, bucks) / sits,
       intensity: 0,
     });
   }
@@ -167,7 +178,11 @@ export function buildSightingHeat(
     let observations = 0;
 
     if (photos.length > 0) {
-      for (const photo of photos) {
+      // Timed photos in time order, so a burst can be folded into one visit.
+      const ordered = [...photos].sort((a, b) => photoRecordTime(a) - photoRecordTime(b));
+      let lastTimedVisit = -Infinity;
+      let lastVisitWasBuck = false;
+      for (const photo of ordered) {
         // A time-of-day filter needs a real capture time; "any time" also
         // counts date-only deer photos (the season report's rule).
         if (filters.time !== "all" ? !isTimedDeerPhoto(photo) : !isDeerPhotoRecord(photo)) continue;
@@ -182,8 +197,22 @@ export function buildSightingHeat(
           const date = new Date(time);
           if (lightPeriod(date.getHours() * 60 + date.getMinutes(), sun) !== filters.time) continue;
         }
+        const isBuck = isBuckRecord(photo);
+        if (isTimedDeerPhoto(photo)) {
+          if (time - lastTimedVisit <= PHOTO_BURST_MS) {
+            // Same visit: a buck in any frame makes it a buck visit.
+            if (isBuck && !lastVisitWasBuck) {
+              bucks += 1;
+              deer -= 1;
+              lastVisitWasBuck = true;
+            }
+            continue;
+          }
+          lastTimedVisit = time;
+          lastVisitWasBuck = isBuck;
+        }
         observations += 1;
-        if (isBuckRecord(photo)) bucks += 1;
+        if (isBuck) bucks += 1;
         else deer += 1;
       }
     } else if (filters.time === "all") {
@@ -214,11 +243,17 @@ export function buildSightingHeat(
     });
   }
 
-  const max = Math.max(0, ...spots.map((spot) => spot.weight));
+  const maxByKind: Record<HeatSpotKind, number> = { stand: 0, camera: 0 };
+  for (const spot of spots) {
+    maxByKind[spot.kind] = Math.max(maxByKind[spot.kind], spot.weight);
+  }
   return spots
     .filter((spot) => spot.weight > 0)
-    .map((spot) => ({ ...spot, intensity: max > 0 ? spot.weight / max : 0 }))
-    .sort((a, b) => b.weight - a.weight);
+    .map((spot) => {
+      const max = maxByKind[spot.kind];
+      return { ...spot, intensity: max > 0 ? spot.weight / max : 0 };
+    })
+    .sort((a, b) => b.intensity - a.intensity || b.weight - a.weight);
 }
 
 /** Short line for a spot's popup: "6 sits · 14 deer (3 bucks)". */

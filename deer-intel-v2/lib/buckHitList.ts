@@ -1,12 +1,14 @@
 import { getDeerProfileIntelligence } from "@/lib/deerProfileIntelligence";
 import type { PartyBuckInput } from "@/lib/partyClient";
+import { clampPartyText, PARTY_TEXT_LIMITS } from "@/lib/partyLimits";
 import type { DeerIntelState } from "@/types/deerIntelStore";
 import type { DeerProfile } from "@/types/deerProfile";
 
 // Turn a local deer profile into a shareable hit-list snapshot: the profile
 // basics plus its computed movement pattern (from getDeerProfileIntelligence).
 // This is what gets pushed to the party so the whole crew sees the same card
-// and stats without needing each other's photos.
+// and stats without needing each other's photos. The hunter's private notes
+// on the deer are never shared (`notable` stays empty).
 export function buildBuckSnapshot(
   profile: DeerProfile,
   state: DeerIntelState,
@@ -26,7 +28,8 @@ export function buildBuckSnapshot(
 
   return {
     sourceId: profile.id,
-    nickname: profile.nickname.trim() || "Unnamed buck",
+    nickname:
+      clampPartyText(profile.nickname, PARTY_TEXT_LIMITS.buckNickname) || "Unnamed buck",
     estimatedAge: profile.estimatedAge.trim(),
     status: intel.maturityStatus.title,
     propertyName,
@@ -35,6 +38,6 @@ export function buildBuckSnapshot(
     mostRecent: intel.mostRecentSighting.title,
     commonTime: intel.commonTimeOfDay.title,
     commonArea: intel.commonArea.title,
-    notable: profile.notes.trim().slice(0, 400),
+    notable: "",
   };
 }

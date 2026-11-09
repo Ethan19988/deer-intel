@@ -11,6 +11,15 @@ import {
 } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
+  ACCOUNT_SETTING,
+  booleanSetting,
+  stringSetting,
+  useAccountSettings,
+  writeAccountSetting,
+} from "@/lib/accountSettings";
+import { useDeerIntelStore } from "@/lib/deerIntelStore";
+import { writeShareApplied } from "@/lib/partySharing";
+import {
   createParty as apiCreateParty,
   joinParty as apiJoinParty,
   leaveParty as apiLeaveParty,
@@ -18,12 +27,17 @@ import {
 } from "@/lib/partyClient";
 import type { Party } from "@/types/party";
 
-// Which party the map is currently showing, and whether live sharing is on.
-// Persisted so the choice survives reloads (matches the "deer-intel:*" keys).
+// Which party the map is currently showing, and whether live location sharing
+// is on: per device (live GPS is about this phone). Persisted so the choice
+// survives reloads (matches the "deer-intel:*" keys).
 const ACTIVE_PARTY_KEY = "deer-intel:active-party";
 const SHARING_KEY = "deer-intel:party-sharing";
-const PIN_SHARING_KEY = "deer-intel:party-pin-sharing";
-const BUCK_SHARING_KEY = "deer-intel:party-buck-sharing";
+// Pin / buck sharing are account-level settings (lib/accountSettings), synced
+// across the account's devices so two devices never fight over the shares.
+// These per-device keys from older builds are only a fallback until the
+// account setting is first chosen.
+const LEGACY_PIN_SHARING_KEY = "deer-intel:party-pin-sharing";
+const LEGACY_BUCK_SHARING_KEY = "deer-intel:party-buck-sharing";
 
 type PartyContextValue = {
   // True when Supabase is configured and the user is signed in — parties need
@@ -36,12 +50,19 @@ type PartyContextValue = {
   // Live location sharing master switch (per device).
   sharingEnabled: boolean;
   setSharingEnabled: (on: boolean) => void;
-  // Auto-share dropped map pins with the active party (per device).
+  // Auto-share one property's map pins with the active party (account-level).
   pinSharingEnabled: boolean;
   setPinSharingEnabled: (on: boolean) => void;
-  // Auto-share the tracked-buck hit list with the active party (per device).
+  // The property whose pins are shared (account-level), or null.
+  pinSharePropertyId: string | null;
+  setPinSharePropertyId: (propertyId: string) => void;
+  // Auto-share the tracked-buck hit list with the active party (account-level).
   buckSharingEnabled: boolean;
   setBuckSharingEnabled: (on: boolean) => void;
+  // True once cloud sync has settled for the signed-in account (and no
+  // account switch is pending): only then may this device add or remove
+  // shared rows.
+  sharingReady: boolean;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -72,14 +93,18 @@ function writeStored(key: string, value: string | null): void {
 }
 
 export function PartyProvider({ children }: { children: ReactNode }) {
-  const { configured, user } = useAuth();
+  const { configured, user, reconciled, accountSwitch } = useAuth();
   const available = configured && !!user;
+  const userId = user?.id ?? null;
+  const sharingReady = available && reconciled && accountSwitch === null;
+  const accountSettings = useAccountSettings(userId);
+  const store = useDeerIntelStore();
 
   const [parties, setParties] = useState<Party[]>([]);
   const [activePartyId, setActivePartyIdState] = useState<string | null>(null);
   const [sharingEnabled, setSharingEnabledState] = useState(false);
-  const [pinSharingEnabled, setPinSharingEnabledState] = useState(false);
-  const [buckSharingEnabled, setBuckSharingEnabledState] = useState(false);
+  const [legacyPinSharing, setLegacyPinSharing] = useState(false);
+  const [legacyBuckSharing, setLegacyBuckSharing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,9 +112,27 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setActivePartyIdState(readStored(ACTIVE_PARTY_KEY));
     setSharingEnabledState(readStored(SHARING_KEY) === "true");
-    setPinSharingEnabledState(readStored(PIN_SHARING_KEY) === "true");
-    setBuckSharingEnabledState(readStored(BUCK_SHARING_KEY) === "true");
+    setLegacyPinSharing(readStored(LEGACY_PIN_SHARING_KEY) === "true");
+    setLegacyBuckSharing(readStored(LEGACY_BUCK_SHARING_KEY) === "true");
   }, []);
+
+  const pinSharingEnabled = booleanSetting(
+    accountSettings,
+    ACCOUNT_SETTING.partyPinSharing,
+    legacyPinSharing,
+  );
+  const buckSharingEnabled = booleanSetting(
+    accountSettings,
+    ACCOUNT_SETTING.partyBuckSharing,
+    legacyBuckSharing,
+  );
+
+  // The shared property must still exist; otherwise fall back to the one
+  // selected on this device (until one is chosen, which then syncs).
+  const chosenPinProperty = stringSetting(accountSettings, ACCOUNT_SETTING.partyPinPropertyId);
+  const pinSharePropertyId = store.properties.some((p) => p.id === chosenPinProperty)
+    ? (chosenPinProperty ?? null)
+    : store.selectedPropertyId || null;
 
   const setActivePartyId = useCallback((id: string | null) => {
     setActivePartyIdState(id);
@@ -101,15 +144,52 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     writeStored(SHARING_KEY, on ? "true" : "false");
   }, []);
 
-  const setPinSharingEnabled = useCallback((on: boolean) => {
-    setPinSharingEnabledState(on);
-    writeStored(PIN_SHARING_KEY, on ? "true" : "false");
-  }, []);
+  const setPinSharingEnabled = useCallback(
+    (on: boolean) => {
+      setLegacyPinSharing(on);
+      writeStored(LEGACY_PIN_SHARING_KEY, on ? "true" : "false");
+      if (!userId) return;
+      // Turned off here: withdraw from the active party even if this device
+      // never had it on itself.
+      if (!on && activePartyId) writeShareApplied("pins", userId, activePartyId, true);
+      if (on && pinSharePropertyId && !chosenPinProperty) {
+        writeAccountSetting(userId, ACCOUNT_SETTING.partyPinPropertyId, pinSharePropertyId);
+      }
+      writeAccountSetting(userId, ACCOUNT_SETTING.partyPinSharing, on);
+    },
+    [userId, activePartyId, pinSharePropertyId, chosenPinProperty],
+  );
 
-  const setBuckSharingEnabled = useCallback((on: boolean) => {
-    setBuckSharingEnabledState(on);
-    writeStored(BUCK_SHARING_KEY, on ? "true" : "false");
-  }, []);
+  // Pin sharing turned on before the shared property was an account setting
+  // (or before this device synced it): pin the property this device shares,
+  // so every device of the account converges on the same one.
+  useEffect(() => {
+    if (!sharingReady || !userId || !pinSharingEnabled) return;
+    if (chosenPinProperty || !pinSharePropertyId) return;
+    writeAccountSetting(userId, ACCOUNT_SETTING.partyPinPropertyId, pinSharePropertyId);
+  }, [sharingReady, userId, pinSharingEnabled, chosenPinProperty, pinSharePropertyId]);
+
+  const setPinSharePropertyId = useCallback(
+    (propertyId: string) => {
+      if (!userId || !propertyId) return;
+      writeAccountSetting(userId, ACCOUNT_SETTING.partyPinPropertyId, propertyId);
+    },
+    [userId],
+  );
+
+  const setBuckSharingEnabled = useCallback(
+    (on: boolean) => {
+      setLegacyBuckSharing(on);
+      writeStored(LEGACY_BUCK_SHARING_KEY, on ? "true" : "false");
+      if (!userId) return;
+      if (!on && activePartyId) {
+        writeShareApplied("bucks", userId, activePartyId, true);
+        writeShareApplied("buckPhotos", userId, activePartyId, true);
+      }
+      writeAccountSetting(userId, ACCOUNT_SETTING.partyBuckSharing, on);
+    },
+    [userId, activePartyId],
+  );
 
   const refresh = useCallback(async () => {
     if (!available) {
@@ -184,8 +264,11 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       setSharingEnabled,
       pinSharingEnabled,
       setPinSharingEnabled,
+      pinSharePropertyId,
+      setPinSharePropertyId,
       buckSharingEnabled,
       setBuckSharingEnabled,
+      sharingReady,
       loading,
       error,
       refresh,
@@ -203,8 +286,11 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       setSharingEnabled,
       pinSharingEnabled,
       setPinSharingEnabled,
+      pinSharePropertyId,
+      setPinSharePropertyId,
       buckSharingEnabled,
       setBuckSharingEnabled,
+      sharingReady,
       loading,
       error,
       refresh,

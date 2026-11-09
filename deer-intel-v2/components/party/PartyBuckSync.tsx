@@ -6,14 +6,16 @@ import { useActiveParty } from "@/components/party/PartyProvider";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
 import { usePartyBucks } from "@/lib/useParty";
 import { buildBuckSnapshot } from "@/lib/buckHitList";
-import { deletePartyBuck, upsertPartyBuck } from "@/lib/partyClient";
+import { deleteAllMySharedRows, deletePartyBuck, upsertPartyBuck } from "@/lib/partyClient";
+import { readShareApplied, shareAction, writeShareApplied } from "@/lib/partySharing";
 
 // Headless: keeps the current user's shared hit list (party_bucks) in step with
-// their local deer profiles while buck sharing is on, and clears it when off.
-// Mounted once in the app layout so sharing works from any page, not only the
-// Hit List screen. No-ops entirely unless signed in, in a party, and sharing.
+// their local deer profiles while buck sharing is on, and withdraws it once
+// when sharing is turned off. Mounted once in the app layout so sharing works
+// from any page, not only the Hit List screen. No-ops entirely unless signed
+// in, synced, in a party, and sharing (or just turned it off).
 export default function PartyBuckSync() {
-  const { activeParty, buckSharingEnabled } = useActiveParty();
+  const { activeParty, buckSharingEnabled, sharingReady } = useActiveParty();
   const { user } = useAuth();
   const state = useDeerIntelStore();
   const partyBucks = usePartyBucks(activeParty);
@@ -27,17 +29,29 @@ export default function PartyBuckSync() {
   );
 
   useEffect(() => {
-    if (!partyId || !userId) return;
+    // Until cloud sync has settled, local data may be stale or another
+    // account's: don't add or remove anything.
+    if (!partyId || !userId || !sharingReady) return;
 
-    const mine = partyBucks.filter((b) => b.created_by === userId);
+    const action = shareAction(
+      buckSharingEnabled,
+      readShareApplied("bucks", userId, partyId),
+    );
 
-    if (!buckSharingEnabled) {
-      for (const b of mine) {
-        void deletePartyBuck(partyId, b.source_id).catch(() => {});
-      }
+    if (action === "idle") return;
+
+    if (action === "withdraw") {
+      // Turned off (on this device or another of this account's): withdraw
+      // once. Steady "off" leaves the party's rows alone.
+      void deleteAllMySharedRows("party_bucks", partyId)
+        .then(() => writeShareApplied("bucks", userId, partyId, false))
+        .catch(() => {});
       return;
     }
 
+    writeShareApplied("bucks", userId, partyId, true);
+
+    const mine = partyBucks.filter((b) => b.created_by === userId);
     const bySource = new Map(mine.map((b) => [b.source_id, b]));
 
     for (const snap of snapshots) {
@@ -60,13 +74,14 @@ export default function PartyBuckSync() {
       }
     }
 
+    // Drop shared bucks whose local profile is gone (deleted on this account).
     const localIds = new Set(snapshots.map((s) => s.sourceId));
     for (const b of mine) {
       if (!localIds.has(b.source_id)) {
         void deletePartyBuck(partyId, b.source_id).catch(() => {});
       }
     }
-  }, [partyId, userId, buckSharingEnabled, snapshots, partyBucks]);
+  }, [partyId, userId, sharingReady, buckSharingEnabled, snapshots, partyBucks]);
 
   return null;
 }

@@ -512,7 +512,7 @@ export function resolveSeasonalPhotos<T extends PhotoLike>(
     (photo) => photoPhase(photo.photoDate, shift) === phase,
   );
   const usable = inPhase.filter(
-    (photo) => isDeerTiming(photo) && photoLocalMinutes(trustedPhotoDate(photo)) !== null,
+    (photo) => isDeerTiming(photo) && photoLocalTime(trustedPhotoDate(photo)) !== null,
   ).length;
 
   if (usable >= minPhaseSamples) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { clampPartyText, PARTY_TEXT_LIMITS as LIMITS } from "@/lib/partyLimits";
 import type {
   MemberLocation,
   Party,
@@ -31,8 +32,8 @@ export async function createParty(
   if (!supabase) throw new Error("Cloud sync is not configured.");
 
   const { data, error } = await supabase.rpc("create_party", {
-    p_name: name,
-    p_display_name: displayName,
+    p_name: clampPartyText(name, LIMITS.partyName),
+    p_display_name: clampPartyText(displayName, LIMITS.displayName),
   });
 
   if (error) throw new Error(error.message);
@@ -48,12 +49,16 @@ export async function joinParty(
   if (!supabase) throw new Error("Cloud sync is not configured.");
 
   const { data, error } = await supabase.rpc("join_party", {
-    p_invite_code: inviteCode,
-    p_display_name: displayName,
+    p_invite_code: clampPartyText(inviteCode, LIMITS.inviteCode).toUpperCase(),
+    p_display_name: clampPartyText(displayName, LIMITS.displayName),
   });
 
   if (error) throw new Error(error.message);
-  if (!data) throw new Error("No party found for that invite code.");
+  // join_party returns no party (rather than an error, so the failed attempt
+  // still counts toward the rate limit) when the code matches nothing.
+  if (!data || !(data as Partial<Party>).id) {
+    throw new Error("No party found for that invite code.");
+  }
   return data as Party;
 }
 
@@ -163,6 +168,17 @@ export async function clearMyLocation(partyId: string): Promise<void> {
     .eq("user_id", userId);
 }
 
+/**
+ * Remove this account's live dot from every party. Called right before
+ * sign-out, while the session can still delete it.
+ */
+export async function clearAllMyLocations(userId: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !userId) return;
+
+  await supabase.from("member_locations").delete().eq("user_id", userId);
+}
+
 /** One-shot fetch of every live dot currently in a party. */
 export async function fetchLocations(
   partyId: string,
@@ -241,8 +257,8 @@ export async function upsertPartyPin(
       type: pin.type,
       lat: pin.lat,
       lng: pin.lng,
-      name: pin.name,
-      notes: pin.notes,
+      name: clampPartyText(pin.name, LIMITS.pinName),
+      notes: clampPartyText(pin.notes, LIMITS.notes),
       updated_at: new Date().toISOString(),
     },
     { onConflict: "party_id,source_id" },
@@ -268,6 +284,30 @@ export async function deletePartyPin(
     .eq("party_id", partyId)
     .eq("source_id", sourceId)
     .eq("created_by", userId);
+}
+
+/**
+ * Withdraw every pin / buck / thumbnail the caller shared with a party (one
+ * request, so it doesn't depend on a possibly stale list). Throws on failure
+ * so the caller can retry.
+ */
+export async function deleteAllMySharedRows(
+  table: "party_pins" | "party_bucks" | "party_buck_photos",
+  partyId: string,
+): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+
+  const userId = await currentUserId();
+  if (!userId) return;
+
+  const { error } = await supabase
+    .from(table)
+    .delete()
+    .eq("party_id", partyId)
+    .eq("created_by", userId);
+
+  if (error) throw new Error(error.message);
 }
 
 /** Every shared pin in a party (all members). */
@@ -343,7 +383,7 @@ export async function upsertPartyBuck(
       party_id: partyId,
       source_id: buck.sourceId,
       created_by: userId,
-      nickname: buck.nickname,
+      nickname: clampPartyText(buck.nickname, LIMITS.buckNickname),
       estimated_age: buck.estimatedAge,
       status: buck.status,
       property_name: buck.propertyName,
@@ -352,7 +392,7 @@ export async function upsertPartyBuck(
       most_recent: buck.mostRecent,
       common_time: buck.commonTime,
       common_area: buck.commonArea,
-      notable: buck.notable,
+      notable: clampPartyText(buck.notable, LIMITS.notes),
       updated_at: new Date().toISOString(),
     },
     { onConflict: "party_id,source_id" },
@@ -450,11 +490,36 @@ export async function upsertPartyBuckPhoto(
       created_by: userId,
       data_url: photo.dataUrl,
       photo_date: photo.photoDate,
-      caption: photo.caption,
+      caption: clampPartyText(photo.caption, LIMITS.caption),
       updated_at: new Date().toISOString(),
     },
     { onConflict: "party_id,photo_id" },
   );
+
+  if (error) throw new Error(error.message);
+}
+
+/** Change the caption of one of the caller's shared buck photos. */
+export async function updatePartyBuckPhotoCaption(
+  partyId: string,
+  photoId: string,
+  caption: string,
+): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+
+  const userId = await currentUserId();
+  if (!userId) return;
+
+  const { error } = await supabase
+    .from("party_buck_photos")
+    .update({
+      caption: clampPartyText(caption, LIMITS.caption),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("party_id", partyId)
+    .eq("photo_id", photoId)
+    .eq("created_by", userId);
 
   if (error) throw new Error(error.message);
 }

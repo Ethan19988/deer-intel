@@ -621,11 +621,17 @@ export function cameraToMapAsset(camera: Camera): MapAsset | null {
 }
 
 export function pinToMapAsset(pin: MapPin): MapAsset {
-  const layerId = PIN_LAYER_LOOKUP[pin.type];
+  // Defensive: a pin from outside this build (a shared party pin, an import)
+  // can carry a type it doesn't know. Draw it in the "other" layer instead of
+  // crashing on a missing lookup.
+  const layerId: AssetLayerId | "other" =
+    (Object.prototype.hasOwnProperty.call(PIN_LAYER_LOOKUP, pin.type)
+      ? PIN_LAYER_LOOKUP[pin.type]
+      : undefined) ?? "other";
   const layer =
-    layerId === "other" ? OTHER_ASSET_STYLE : ASSET_LAYER_LOOKUP[layerId];
-  const name = pin.name.trim();
-  const notes = pin.notes.trim();
+    (layerId === "other" ? undefined : ASSET_LAYER_LOOKUP[layerId]) ?? OTHER_ASSET_STYLE;
+  const name = (pin.name ?? "").trim();
+  const notes = (pin.notes ?? "").trim();
 
   return {
     id: `pin-${pin.id}`,

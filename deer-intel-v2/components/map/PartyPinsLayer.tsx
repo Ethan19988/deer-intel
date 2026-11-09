@@ -6,11 +6,19 @@ import { Marker, Popup } from "react-leaflet";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useActiveParty } from "@/components/party/PartyProvider";
 import { usePartyPins, usePartyRoster } from "@/lib/useParty";
-import { deletePartyPin, upsertPartyPin } from "@/lib/partyClient";
+import { deleteAllMySharedRows, deletePartyPin, upsertPartyPin } from "@/lib/partyClient";
+import { clampPartyText, PARTY_TEXT_LIMITS } from "@/lib/partyLimits";
+import {
+  isKnownPinType,
+  pinsToShare,
+  readShareApplied,
+  shareAction,
+  writeShareApplied,
+} from "@/lib/partySharing";
 import { pinMarkerSvg, type GlyphKey } from "@/lib/mapPinIcon";
 import { pinToMapAsset } from "@/lib/propertyMap";
 import type { MapAsset } from "@/lib/propertyMap";
-import type { MapPin, PinType } from "@/types/mapPin";
+import type { MapPin } from "@/types/mapPin";
 import type { PartyPin } from "@/types/party";
 
 // The "other" bucket covers sightings/vegetation, so pick a truer glyph there
@@ -31,27 +39,30 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function partyPinToAsset(pin: PartyPin): MapAsset {
+// Only rows of a known type reach here (see otherPins).
+function partyPinToAsset(pin: PartyPin & { type: MapPin["type"] }): MapAsset {
   return pinToMapAsset({
     id: pin.source_id,
     propertyId: "",
-    type: pin.type as PinType,
+    type: pin.type,
     lat: pin.lat,
     lng: pin.lng,
     createdAt: pin.created_at,
-    name: pin.name,
-    notes: pin.notes,
+    name: pin.name ?? "",
+    notes: pin.notes ?? "",
   });
 }
 
 /**
  * Shared map pins for the active party. Renders every *other* member's shared
  * pins live on the map, and — while "share my pins" is on — keeps the current
- * user's shared pins in sync with their local pins (`allPins`). Mount inside the
- * Leaflet MapContainer alongside the other party layers.
+ * user's shared pins in sync with the shared property's local pins (from
+ * `allPins`; notes are never shared). Mount inside the Leaflet MapContainer
+ * alongside the other party layers.
  */
 export default function PartyPinsLayer({ allPins }: { allPins: MapPin[] }) {
-  const { activeParty, pinSharingEnabled } = useActiveParty();
+  const { activeParty, pinSharingEnabled, pinSharePropertyId, sharingReady } =
+    useActiveParty();
   const { user } = useAuth();
   const partyPins = usePartyPins(activeParty);
   const { nameById } = usePartyRoster(activeParty);
@@ -63,37 +74,62 @@ export default function PartyPinsLayer({ allPins }: { allPins: MapPin[] }) {
     () => (userId ? partyPins.filter((p) => p.created_by === userId) : []),
     [partyPins, userId],
   );
+  // Rows with a type this build doesn't know (a newer build, or a bad write)
+  // are skipped rather than crashing the map.
   const otherPins = useMemo(
-    () => partyPins.filter((p) => p.created_by !== userId),
+    () =>
+      partyPins.filter(
+        (p): p is PartyPin & { type: MapPin["type"] } =>
+          p.created_by !== userId &&
+          isKnownPinType(p.type) &&
+          Number.isFinite(p.lat) &&
+          Number.isFinite(p.lng),
+      ),
     [partyPins, userId],
   );
 
-  // Keep my shared pins in step with my local pins while sharing is on; clear
-  // them all when it's off. Upserts are idempotent, so the realtime echo of our
-  // own writes settles without looping.
-  useEffect(() => {
-    if (!partyId || !userId) return;
+  // One property's pins (the account's chosen shared property), never notes.
+  const sharedPins = useMemo(
+    () => pinsToShare(allPins, pinSharePropertyId),
+    [allPins, pinSharePropertyId],
+  );
 
-    if (!pinSharingEnabled) {
-      for (const sp of myShared) {
-        void deletePartyPin(partyId, sp.source_id).catch(() => {});
-      }
+  // Keep my shared pins in step with the shared property's local pins while
+  // sharing is on; withdraw them once when it's turned off. Steady "off" on
+  // this device leaves the rows alone (another of this account's devices may
+  // be sharing). Upserts are idempotent, so the realtime echo of our own
+  // writes settles without looping.
+  useEffect(() => {
+    // Until cloud sync has settled, local data may be stale or another
+    // account's: don't add or remove anything.
+    if (!partyId || !userId || !sharingReady) return;
+
+    const action = shareAction(pinSharingEnabled, readShareApplied("pins", userId, partyId));
+
+    if (action === "idle") return;
+
+    if (action === "withdraw") {
+      void deleteAllMySharedRows("party_pins", partyId)
+        .then(() => writeShareApplied("pins", userId, partyId, false))
+        .catch(() => {});
       return;
     }
 
+    writeShareApplied("pins", userId, partyId, true);
+
     const sharedBySource = new Map(myShared.map((p) => [p.source_id, p]));
 
-    for (const pin of allPins) {
+    for (const pin of sharedPins) {
       const shared = sharedBySource.get(pin.id);
-      const name = pin.name ?? "";
-      const notes = pin.notes ?? "";
+      const name = clampPartyText(pin.name, PARTY_TEXT_LIMITS.pinName);
       const changed =
         !shared ||
         shared.type !== pin.type ||
         shared.lat !== pin.lat ||
         shared.lng !== pin.lng ||
         shared.name !== name ||
-        shared.notes !== notes;
+        // Older builds shared notes; clear them.
+        (shared.notes ?? "") !== "";
 
       if (changed) {
         void upsertPartyPin(partyId, {
@@ -102,19 +138,20 @@ export default function PartyPinsLayer({ allPins }: { allPins: MapPin[] }) {
           lat: pin.lat,
           lng: pin.lng,
           name,
-          notes,
+          notes: "",
         }).catch(() => {});
       }
     }
 
-    // Drop shared pins whose local original is gone.
-    const localIds = new Set(allPins.map((p) => p.id));
+    // Drop shared pins that are no longer part of the share: deleted locally,
+    // or on another property than the shared one.
+    const sharedIds = new Set(sharedPins.map((p) => p.id));
     for (const sp of myShared) {
-      if (!localIds.has(sp.source_id)) {
+      if (!sharedIds.has(sp.source_id)) {
         void deletePartyPin(partyId, sp.source_id).catch(() => {});
       }
     }
-  }, [partyId, userId, pinSharingEnabled, allPins, myShared]);
+  }, [partyId, userId, sharingReady, pinSharingEnabled, sharedPins, myShared]);
 
   const markers = useMemo(
     () =>

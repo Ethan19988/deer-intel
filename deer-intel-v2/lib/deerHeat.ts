@@ -196,12 +196,14 @@ export function buildDeerHeatSources(input: DeerHeatInput): HeatSource[] {
 
 /**
  * Global brightness for the whole surface from the day's movement outlook
- * score (roughly -3..+8): a Prime cold-front day glows at full strength, a
- * dead day mutes everything rather than pretending deer are on their feet.
+ * rating (MovementForecast.score, 1-5: Low … Prime): a Prime cold-front day
+ * glows at full strength, a dead day mutes everything rather than pretending
+ * deer are on their feet. 1 → 0.55, an ordinary 3 → ~0.78, 5 → 1.
  */
 export function outlookIntensity(score: number | null): number {
-  if (score === null) return 0.85;
-  return Math.min(1, Math.max(0.55, 0.6 + 0.05 * score));
+  if (score === null || !Number.isFinite(score)) return 0.85;
+  const rating = Math.min(5, Math.max(1, score));
+  return 0.55 + ((rating - 1) / 4) * 0.45;
 }
 
 /**

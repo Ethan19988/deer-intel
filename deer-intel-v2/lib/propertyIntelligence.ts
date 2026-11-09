@@ -1,9 +1,13 @@
+import { collapseVisits } from "@/lib/deerConditionInsights";
 import type { Camera } from "@/types/camera";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { MapPin } from "@/types/mapPin";
 import type { PhotoRecord } from "@/types/photo";
 import type { Stand } from "@/types/stand";
+
+/** A stand needs this many sits before it can be called the best. */
+export const MIN_SITS_TO_RANK = 2;
 
 export type PropertyIntelligenceCard = {
   title: string;
@@ -59,40 +63,51 @@ function getBestStandCard({
     );
   }
 
+  // Ranked per sit, not by totals: sitting one stand twice as often shouldn't
+  // make it "best". Bucks count extra; shots and harvests are the payoff.
   const rankedStands = stands
     .map((stand) => {
       const standHunts = hunts.filter(
         (hunt) =>
-          hunt.standId === stand.id ||
-          hunt.standName.trim().toLowerCase() === stand.name.trim().toLowerCase(),
+          hunt.kind !== "blood-trail" &&
+          (hunt.standId === stand.id ||
+            (!hunt.standId &&
+              hunt.standName.trim().toLowerCase() === stand.name.trim().toLowerCase())),
       );
+      const sits = standHunts.length;
       const deerSeen = standHunts.reduce((total, hunt) => total + deerCount(hunt), 0);
+      const bucksSeen = standHunts.reduce((total, hunt) => total + (hunt.bucks || 0), 0);
       const shots = standHunts.filter((hunt) => hunt.shotOpportunity).length;
       const harvests = standHunts.filter((hunt) => hunt.harvest).length;
 
       return {
         deerSeen,
         harvests,
-        score: standHunts.length * 2 + deerSeen + shots * 2 + harvests * 4,
+        perSit: sits > 0 ? deerSeen / sits : 0,
+        score: sits > 0 ? (deerSeen + bucksSeen + shots * 2 + harvests * 4) / sits : 0,
         stand,
         standHunts,
       };
     })
-    .sort((left, right) => right.score - left.score);
+    .filter((entry) => entry.standHunts.length >= MIN_SITS_TO_RANK)
+    .sort(
+      (left, right) =>
+        right.score - left.score || right.standHunts.length - left.standHunts.length,
+    );
   const topStand = rankedStands[0];
 
-  if (!topStand || topStand.standHunts.length === 0) {
+  if (!topStand) {
     return card(
       "Best Stands",
-      stands[0].name,
-      `${stands[0].name} has not been hunted recently. Log a hunt to start ranking stands.`,
+      "Not enough sits",
+      `Log at least ${MIN_SITS_TO_RANK} sits on a stand to start ranking stands by deer seen per sit.`,
     );
   }
 
   return card(
     "Best Stands",
     topStand.stand.name,
-    `${topStand.standHunts.length} hunts, ${topStand.deerSeen} deer seen, and ${topStand.harvests} harvests recorded here.`,
+    `${topStand.perSit.toFixed(1)} deer per sit over ${topStand.standHunts.length} sits (${topStand.deerSeen} deer, ${topStand.harvests} harvests).`,
   );
 }
 
@@ -109,10 +124,18 @@ function getActiveCameraCard({
     );
   }
 
+  // Ranked by deer counted, not by how often the card was pulled: deer photo
+  // visits (bursts collapsed) when the site has photos, else check tallies —
+  // never both, so the same deer aren't counted twice.
   const rankedCameras = cameras
     .map((camera) => {
       const checks = cameraChecks.filter((check) => check.cameraId === camera.id);
       const photos = photoRecords.filter((photo) => photo.cameraSiteId === camera.id);
+      const deerVisits = collapseVisits(photos.filter((photo) => isDeerSpecies(photo.species)));
+      const deer =
+        deerVisits.length > 0
+          ? deerVisits.length
+          : checks.reduce((total, check) => total + deerCount(check), 0);
       const latestActivityTime = Math.max(
         ...checks.map((check) => dateTime(check.date)),
         ...photos.map((photo) => dateTime(photo.photoDate)),
@@ -122,26 +145,32 @@ function getActiveCameraCard({
       return {
         camera,
         checks,
+        deer,
+        fromPhotos: deerVisits.length > 0,
         latestActivityTime,
         photos,
-        score: checks.length * 2 + photos.length + latestActivityTime / 1000000000000,
       };
     })
-    .sort((left, right) => right.score - left.score);
+    .sort(
+      (left, right) =>
+        right.deer - left.deer || right.latestActivityTime - left.latestActivityTime,
+    );
   const topCamera = rankedCameras[0];
 
-  if (!topCamera || (topCamera.checks.length === 0 && topCamera.photos.length === 0)) {
+  if (!topCamera || topCamera.deer === 0) {
     return card(
       "Most Active Camera Sites",
-      cameras[0].name,
-      "No camera checks or photo records have been saved yet.",
+      "No deer logged yet",
+      "No deer have been counted on a camera check or photo yet.",
     );
   }
 
   return card(
     "Most Active Camera Sites",
     topCamera.camera.name,
-    `${topCamera.camera.name} has ${topCamera.checks.length} checks and ${topCamera.photos.length} photo records saved.`,
+    topCamera.fromPhotos
+      ? `${topCamera.deer} deer visits on photos at ${topCamera.camera.name}.`
+      : `${topCamera.deer} deer counted across ${topCamera.checks.length} checks at ${topCamera.camera.name}.`,
   );
 }
 

@@ -6,7 +6,18 @@ import { useActiveParty } from "@/components/party/PartyProvider";
 import { useDeerIntelStore } from "@/lib/deerIntelStore";
 import { getPhotoDeerProfileIds } from "@/lib/photos";
 import { usePartyBuckPhotos } from "@/lib/useParty";
-import { deletePartyBuckPhoto, upsertPartyBuckPhoto } from "@/lib/partyClient";
+import {
+  deleteAllMySharedRows,
+  deletePartyBuckPhoto,
+  updatePartyBuckPhotoCaption,
+  upsertPartyBuckPhoto,
+} from "@/lib/partyClient";
+import {
+  buckPhotoCaption,
+  readShareApplied,
+  shareAction,
+  writeShareApplied,
+} from "@/lib/partySharing";
 import { getPhotoImage } from "@/lib/imageStore";
 import { imageBlobToThumbnailDataUrl } from "@/lib/imageProcessing";
 
@@ -25,10 +36,11 @@ type PhotoTarget = {
 // Headless: while buck sharing is on, publishes small thumbnails of each shared
 // buck's linked photos so other members can see them. Generates a thumbnail from
 // the local image only for photos not already shared (dedup), and prunes ones
-// whose local original is gone or that fell out of the per-buck cap. Mounted in
-// the layout beside PartyBuckSync.
+// whose local original is gone or that fell out of the per-buck cap. Withdraws
+// them all once when sharing is turned off. Mounted in the layout beside
+// PartyBuckSync.
 export default function PartyBuckPhotoSync() {
-  const { activeParty, buckSharingEnabled } = useActiveParty();
+  const { activeParty, buckSharingEnabled, sharingReady } = useActiveParty();
   const { user } = useAuth();
   const state = useDeerIntelStore();
   // Keys only — we never need every peer's data URL just to dedup our own.
@@ -44,6 +56,9 @@ export default function PartyBuckPhotoSync() {
   // The set of local photos that should be shared: up to N most-recent linked,
   // image-backed photos per tracked buck.
   const targets = useMemo<PhotoTarget[]>(() => {
+    const nicknameById = new Map(
+      state.deerProfiles.map((profile) => [profile.id, profile.nickname]),
+    );
     const byProfile = new Map<string, PhotoTarget[]>();
 
     for (const photo of state.photoRecords) {
@@ -57,7 +72,7 @@ export default function PartyBuckPhotoSync() {
         sourceId: primaryProfileId,
         imageId: photo.imageId,
         photoDate: photo.photoDate,
-        caption: photo.fileName || photo.notes || "",
+        caption: buckPhotoCaption(nicknameById.get(primaryProfileId) ?? "", photo.photoDate),
       });
       byProfile.set(primaryProfileId, list);
     }
@@ -68,25 +83,44 @@ export default function PartyBuckPhotoSync() {
       result.push(...list.slice(0, MAX_PHOTOS_PER_BUCK));
     }
     return result;
-  }, [state.photoRecords]);
+  }, [state.photoRecords, state.deerProfiles]);
 
   useEffect(() => {
-    if (!partyId || !userId) return;
+    // Until cloud sync has settled, local data may be stale or another
+    // account's: don't add or remove anything.
+    if (!partyId || !userId || !sharingReady) return;
 
-    const mine = sharedPhotos.filter((p) => p.created_by === userId);
+    const action = shareAction(
+      buckSharingEnabled,
+      readShareApplied("buckPhotos", userId, partyId),
+    );
 
-    if (!buckSharingEnabled) {
-      for (const p of mine) {
-        void deletePartyBuckPhoto(partyId, p.photo_id).catch(() => {});
-      }
+    if (action === "idle") return;
+
+    if (action === "withdraw") {
+      void deleteAllMySharedRows("party_buck_photos", partyId)
+        .then(() => writeShareApplied("buckPhotos", userId, partyId, false))
+        .catch(() => {});
       return;
     }
 
-    const alreadyShared = new Set(mine.map((p) => p.photo_id));
+    writeShareApplied("buckPhotos", userId, partyId, true);
+
+    const mine = sharedPhotos.filter((p) => p.created_by === userId);
+    const sharedById = new Map(mine.map((p) => [p.photo_id, p]));
 
     // Share any target we haven't shared yet (and aren't mid-generating).
     for (const target of targets) {
-      if (alreadyShared.has(target.photoId)) continue;
+      const shared = sharedById.get(target.photoId);
+      if (shared) {
+        // Older builds captioned with the file name or notes: replace it.
+        if (shared.caption !== target.caption && !inFlight.current.has(target.photoId)) {
+          void updatePartyBuckPhotoCaption(partyId, target.photoId, target.caption).catch(
+            () => {},
+          );
+        }
+        continue;
+      }
       if (inFlight.current.has(target.photoId)) continue;
 
       inFlight.current.add(target.photoId);
@@ -118,7 +152,7 @@ export default function PartyBuckPhotoSync() {
         void deletePartyBuckPhoto(partyId, p.photo_id).catch(() => {});
       }
     }
-  }, [partyId, userId, buckSharingEnabled, targets, sharedPhotos]);
+  }, [partyId, userId, sharingReady, buckSharingEnabled, targets, sharedPhotos]);
 
   return null;
 }
