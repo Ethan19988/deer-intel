@@ -7,6 +7,7 @@
 // when you swapped the card, not when deer moved, so it's no signal for
 // conditions. Buck sightings weigh double (mature-buck focus). Pure local data.
 
+import { toWind8 } from "@/lib/standStats";
 import type { HuntLogEntry } from "@/types/hunt";
 import type { CameraCheck } from "@/types/cameraCheck";
 import type { Camera } from "@/types/camera";
@@ -63,6 +64,11 @@ const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
 
 /** Normalize a wind field (abbrev, name, or degrees) to an 8-point compass. */
 function normWind(raw: string | undefined): string | null {
+  // Compass points and degrees go through the shared 8-wind rounding, so
+  // "NNE" lands on its nearest point the same way it does on the stand pages
+  // (it used to read as plain "N").
+  const shared = toWind8(raw);
+  if (shared) return shared;
   const s = (raw ?? "").trim().toUpperCase();
   if (!s) return null;
   const deg = Number(s.replace(/[^\d.-]/g, ""));

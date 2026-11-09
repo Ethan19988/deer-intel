@@ -1,4 +1,4 @@
-import { legalEnd, legalStart } from "@/lib/todayVerdict";
+import { legalEnd, legalStart, parseForecastLocal } from "@/lib/todayVerdict";
 
 // The map's legal-light chip: "Legal light in 9h 40m", "Legal end in 32m" or
 // "Legal now · ends 5:32 PM", from the forecast's sunrise/sunset and the PA
@@ -13,27 +13,8 @@ export type LegalLightChip = {
   tone: "dark" | "legal" | "ending";
 };
 
-/**
- * An Open-Meteo local "YYYY-MM-DDTHH:MM" as a real instant: with the
- * property's UTC offset when known, else device-local time. (Same reading as
- * lib/todayVerdict's internal parser.)
- */
-export function parseForecastLocal(
-  iso: string | undefined,
-  utcOffsetSeconds?: number,
-): Date | null {
-  if (!iso) return null;
-  const [date, time = "00:00"] = iso.split("T");
-  const [year, month, day] = date.split("-").map(Number);
-  const [hours, minutes] = time.split(":").map(Number);
-  if (!year || !month || !day) return null;
-  if (typeof utcOffsetSeconds === "number" && Number.isFinite(utcOffsetSeconds)) {
-    return new Date(
-      Date.UTC(year, month - 1, day, hours || 0, minutes || 0) - utcOffsetSeconds * 1000,
-    );
-  }
-  return new Date(year, month - 1, day, hours || 0, minutes || 0);
-}
+// The forecast's local times are read the same way Today reads them.
+export { parseForecastLocal };
 
 function clockLabel(date: Date, utcOffsetSeconds?: number): string {
   if (typeof utcOffsetSeconds === "number" && Number.isFinite(utcOffsetSeconds)) {
