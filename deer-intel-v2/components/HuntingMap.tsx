@@ -1956,8 +1956,11 @@ export default function HuntingMap() {
     [mapAssets, visibleAssetLayers, pinNameFilter],
   );
   const assetClusters = useMemo(
-    () => clusterPoints(visibleAssets, mapZoom, { keepSingle: selectedAssetId }),
-    [visibleAssets, mapZoom, selectedAssetId],
+    () =>
+      pinNameFilter
+        ? { singles: visibleAssets, clusters: [] }
+        : clusterPoints(visibleAssets, mapZoom, { keepSingle: selectedAssetId }),
+    [visibleAssets, mapZoom, selectedAssetId, pinNameFilter],
   );
   const propertyStands = useMemo(
     () =>
@@ -5304,6 +5307,20 @@ export default function HuntingMap() {
             {assetClusters.clusters.map((cluster) => (
               <AssetClusterMarker key={cluster.id} cluster={cluster} />
             ))}
+            {pinNameFilter
+              ? visibleAssets.map((asset) => (
+                  <Marker
+                    key={`label-${asset.id}`}
+                    position={[asset.lat, asset.lng]}
+                    interactive={false}
+                    icon={divIcon({
+                      className: "",
+                      iconSize: [0, 0],
+                      html: `<div style="transform:translate(18px,-34px);white-space:nowrap;background:rgba(10,12,9,.82);color:#fff;border:1px solid #ff6a1a;padding:3px 7px;border-radius:3px;font:600 13px system-ui,sans-serif">${asset.label.replace(/[<>&]/g, "")}</div>`,
+                    })}
+                  />
+                ))
+              : null}
 
             {/* Scent plume for a pending stand/camera while positioning it: a
                 wide cone blowing downwind (where your scent carries), colored by
